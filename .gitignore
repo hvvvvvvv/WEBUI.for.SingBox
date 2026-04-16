@@ -2,5 +2,11 @@ build/bin
 frontend/dist
 gui.for.singbox.server
 gui-for-singbox-container.tar
+data/.cache/
+data/secret.key
+data/sing-box/cache.db
+data/sing-box/pid.txt
+data/sing-box/sing-box
+data/sing-box/sing-box.bak
 
 .DS_Store
