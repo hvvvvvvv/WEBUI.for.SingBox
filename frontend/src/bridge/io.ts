@@ -1,4 +1,4 @@
-import * as App from '@wails/go/bridge/App'
+import { apiCall } from './http'
 
 interface IOOptions {
   Mode?: 'Binary' | 'Text'
@@ -6,7 +6,7 @@ interface IOOptions {
 }
 
 export const WriteFile = async (path: string, content: string, options: IOOptions = {}) => {
-  const { flag, data } = await App.WriteFile(path, content, { Mode: 'Text', Range: '', ...options })
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/write', path, content, { Mode: 'Text', Range: '', ...options })
   if (!flag) {
     throw data
   }
@@ -14,7 +14,7 @@ export const WriteFile = async (path: string, content: string, options: IOOption
 }
 
 export const ReadFile = async (path: string, options: IOOptions = {}) => {
-  const { flag, data } = await App.ReadFile(path, { Mode: 'Text', Range: '', ...options })
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/read', path, { Mode: 'Text', Range: '', ...options })
   if (!flag) {
     throw data
   }
@@ -22,7 +22,7 @@ export const ReadFile = async (path: string, options: IOOptions = {}) => {
 }
 
 export const MoveFile = async (source: string, target: string) => {
-  const { flag, data } = await App.MoveFile(source, target)
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/move', source, target)
   if (!flag) {
     throw data
   }
@@ -30,7 +30,7 @@ export const MoveFile = async (source: string, target: string) => {
 }
 
 export const RemoveFile = async (path: string) => {
-  const { flag, data } = await App.RemoveFile(path)
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/remove', path)
   if (!flag) {
     throw data
   }
@@ -38,7 +38,7 @@ export const RemoveFile = async (path: string) => {
 }
 
 export const CopyFile = async (source: string, target: string) => {
-  const { flag, data } = await App.CopyFile(source, target)
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/copy', source, target)
   if (!flag) {
     throw data
   }
@@ -46,7 +46,7 @@ export const CopyFile = async (source: string, target: string) => {
 }
 
 export const FileExists = async (path: string) => {
-  const { flag, data } = await App.FileExists(path)
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/exists', path)
   if (!flag) {
     throw data
   }
@@ -54,7 +54,7 @@ export const FileExists = async (path: string) => {
 }
 
 export const AbsolutePath = async (path: string) => {
-  const { flag, data } = await App.AbsolutePath(path)
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/absolutePath', path)
   if (!flag) {
     throw data
   }
@@ -62,7 +62,7 @@ export const AbsolutePath = async (path: string) => {
 }
 
 export const MakeDir = async (path: string) => {
-  const { flag, data } = await App.MakeDir(path)
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/makeDir', path)
   if (!flag) {
     throw data
   }
@@ -70,7 +70,7 @@ export const MakeDir = async (path: string) => {
 }
 
 export const ReadDir = async (path: string) => {
-  const { flag, data } = await App.ReadDir(path)
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/readDir', path)
   if (!flag) {
     throw data
   }
@@ -84,7 +84,7 @@ export const ReadDir = async (path: string) => {
 }
 
 export const OpenDir = async (path: string) => {
-  const { flag, data } = await App.OpenDir(path)
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/openDir', path)
   if (!flag) {
     throw data
   }
@@ -92,7 +92,7 @@ export const OpenDir = async (path: string) => {
 }
 
 export const OpenURI = async (uri: string) => {
-  const { flag, data } = await App.OpenURI(uri)
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/openURI', uri)
   if (!flag) {
     throw data
   }
@@ -100,7 +100,7 @@ export const OpenURI = async (uri: string) => {
 }
 
 export const UnzipZIPFile = async (path: string, output: string) => {
-  const { flag, data } = await App.UnzipZIPFile(path, output)
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/unzipZIP', path, output)
   if (!flag) {
     throw data
   }
@@ -108,7 +108,7 @@ export const UnzipZIPFile = async (path: string, output: string) => {
 }
 
 export const UnzipGZFile = async (path: string, output: string) => {
-  const { flag, data } = await App.UnzipGZFile(path, output)
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/unzipGZ', path, output)
   if (!flag) {
     throw data
   }
@@ -116,7 +116,7 @@ export const UnzipGZFile = async (path: string, output: string) => {
 }
 
 export const UnzipTarGZFile = async (path: string, output: string) => {
-  const { flag, data } = await App.UnzipTarGZFile(path, output)
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/unzipTarGZ', path, output)
   if (!flag) {
     throw data
   }

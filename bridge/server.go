@@ -16,8 +16,6 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 var requestCounter uint64
@@ -135,7 +133,7 @@ func (a *App) ListServer() FlagResult {
 	return FlagResult{true, strings.Join(servers, "|")}
 }
 
-func handleHttpRequest(a *App, serverID string) http.HandlerFunc {
+func handleHttpRequest(_ *App, serverID string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		r.Body = http.MaxBytesReader(w, r.Body, 20*1024*1024) // 20MB
 		body, err := io.ReadAll(r.Body)
@@ -148,16 +146,16 @@ func handleHttpRequest(a *App, serverID string) http.HandlerFunc {
 		requestID := serverID + strconv.FormatUint(count, 10)
 		respChan := make(chan ResponseData, 1)
 
-		ctx, cancel := context.WithTimeout(a.Ctx, 60*time.Second) // 60s
+		ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second) // 60s
 		defer cancel()
 
-		runtime.EventsOn(ctx, requestID, func(data ...any) {
-			defer runtime.EventsOff(ctx, requestID)
+		Hub.On(requestID, requestID, func(data ...any) {
+			defer Hub.Off(requestID, requestID)
 			resp := buildResponse(data)
 			respChan <- resp
 		})
 
-		runtime.EventsEmit(a.Ctx, serverID, requestID, r.Method, r.URL.RequestURI(), r.Header, body)
+		Hub.Emit(serverID, requestID, r.Method, r.URL.RequestURI(), r.Header, body)
 
 		select {
 		case res := <-respChan:
@@ -167,6 +165,7 @@ func handleHttpRequest(a *App, serverID string) http.HandlerFunc {
 			w.WriteHeader(res.Status)
 			w.Write([]byte(res.Body))
 		case <-ctx.Done():
+			Hub.Off(requestID, requestID)
 			http.Error(w, "Request timed out", http.StatusGatewayTimeout)
 		}
 	}

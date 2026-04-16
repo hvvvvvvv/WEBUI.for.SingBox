@@ -18,48 +18,21 @@ export const getCompletions = (pluginScope: any = undefined) => {
      * Plugin Triggers
      */
     snippetCompletion(
-      `/* ${t('plugin.trigger') + ' ' + t('plugin.on::enabled')} */\n` +
-        `const ${PluginTriggerEvent.OnEnabled} = async () => {\n\t\${}\n}`,
-      {
-        label: PluginTriggerEvent.OnEnabled,
-        type: 'keyword',
-        detail: t('plugin.trigger') + ' ' + t('plugin.on::enabled'),
-      },
-    ),
-    snippetCompletion(
-      `/* ${t('plugin.trigger') + ' ' + t('plugin.on::disabled')} */\n` +
-        `const ${PluginTriggerEvent.OnDisabled} = async () => {\n\t\${}\n}`,
-      {
-        label: PluginTriggerEvent.OnDisabled,
-        type: 'keyword',
-        detail: t('plugin.trigger') + ' ' + t('plugin.on::disabled'),
-      },
-    ),
-    snippetCompletion(
-      `/* ${t('plugin.trigger') + ' ' + t('plugin.on::dispose')} */\n` +
-        `const ${PluginTriggerEvent.OnDispose} = async () => {\n\t\${}\n}`,
-      {
-        label: PluginTriggerEvent.OnDispose,
-        type: 'keyword',
-        detail: t('plugin.trigger') + ' ' + t('plugin.on::dispose'),
-      },
-    ),
-    snippetCompletion(
-      `/* ${t('plugin.trigger') + ' ' + t('plugin.on::install')} */\n` +
-        `const ${PluginTriggerEvent.OnInstall} = async () => {\n\t\${}\n}`,
+      `/* ${t('plugin.trigger') + ' ' + t('common.install')} */\n` +
+        `const ${PluginTriggerEvent.OnInstall} = async () => {\n\t\${}\n\treturn 0\n}`,
       {
         label: PluginTriggerEvent.OnInstall,
         type: 'keyword',
-        detail: t('plugin.trigger') + ' ' + t('plugin.on::install'),
+        detail: t('plugin.trigger') + ' ' + t('common.install'),
       },
     ),
     snippetCompletion(
-      `/* ${t('plugin.trigger') + ' ' + t('plugin.on::uninstall')} */\n` +
-        `const ${PluginTriggerEvent.OnUninstall} = async () => {\n\t\${}\n}`,
+      `/* ${t('plugin.trigger') + ' ' + t('common.uninstall')} */\n` +
+        `const ${PluginTriggerEvent.OnUninstall} = async () => {\n\t\${}\n\treturn 0\n}`,
       {
         label: PluginTriggerEvent.OnUninstall,
         type: 'keyword',
-        detail: t('plugin.trigger') + ' ' + t('plugin.on::uninstall'),
+        detail: t('plugin.trigger') + ' ' + t('common.uninstall'),
       },
     ),
     snippetCompletion(

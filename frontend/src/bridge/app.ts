@@ -1,34 +1,30 @@
 import type { AppEnv } from '@/types/app'
-import {
-  IsNotificationAvailable,
-  RequestNotificationAuthorization,
-  SendNotification,
-} from '@wails/runtime/runtime'
-import * as App from '@wails/go/bridge/App'
+import { apiCall } from './http'
 import { sampleID } from '@/utils'
 
-export const RestartApp = App.RestartApp
+export const RestartApp = () => apiCall('/app/restart')
 
-export const ExitApp = App.ExitApp
+export const ExitApp = () => apiCall('/app/exit')
 
-export const ShowMainWindow = App.ShowMainWindow
+export const ShowMainWindow = () => apiCall('/app/showMainWindow')
 
-export const UpdateTray = App.UpdateTray
+export const UpdateTray = (tray: any) => apiCall('/tray/update', tray)
 
-export const UpdateTrayMenus = App.UpdateTrayMenus
+export const UpdateTrayMenus = (menus: any[]) => apiCall('/tray/updateMenus', menus)
 
-export const UpdateTrayAndMenus = App.UpdateTrayAndMenus
+export const UpdateTrayAndMenus = (tray: any, menus: any[]) =>
+  apiCall('/tray/updateTrayAndMenus', tray, menus)
 
 export const GetEnv = <T extends string | undefined = undefined>(
   key?: T,
 ): Promise<T extends string ? string : AppEnv> => {
-  return App.GetEnv(key || '')
+  return apiCall('/app/env', key || '')
 }
 
-export const IsStartup = App.IsStartup
+export const IsStartup = () => apiCall<boolean>('/app/isStartup')
 
 export const GetInterfaces = async () => {
-  const { flag, data } = await App.GetInterfaces()
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/app/interfaces')
   if (!flag) {
     throw data
   }
@@ -36,9 +32,14 @@ export const GetInterfaces = async () => {
 }
 
 export const Notify = async (title: string, body: string) => {
-  if (!(await IsNotificationAvailable())) {
-    throw new Error('Notifications not available on this platform')
+  if (!('Notification' in window)) {
+    throw new Error('Notifications not available in this browser')
   }
-  await RequestNotificationAuthorization()
-  await SendNotification({ id: sampleID(), title, body })
+  if (Notification.permission !== 'granted') {
+    const perm = await Notification.requestPermission()
+    if (perm !== 'granted') {
+      throw new Error('Notification permission denied')
+    }
+  }
+  new Notification(title, { body })
 }

@@ -26,8 +26,14 @@ watch(
     }
     nextTick(() => {
       if (domRef.value) {
-        x = x - domRef.value.offsetWidth / 2
-        y -= domRef.value.offsetHeight * 2
+        const w = domRef.value.offsetWidth
+        const h = domRef.value.offsetHeight
+        x = x - w / 2
+        y -= h * 2
+        // Keep within viewport
+        if (y < 0) y = props.position.y + h / 2
+        if (x < 0) x = 0
+        if (x + w > window.innerWidth) x = window.innerWidth - w
         fixedPosition.value = { x, y }
       }
     })

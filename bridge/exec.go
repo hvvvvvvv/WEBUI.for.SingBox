@@ -8,14 +8,11 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"path/filepath"
-	sysruntime "runtime"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/shirou/gopsutil/v3/process"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 func (a *App) Exec(path string, args []string, options ExecOptions) FlagResult {
@@ -115,7 +112,7 @@ func (a *App) ExecBackground(path string, args []string, outEvent string, endEve
 				}
 
 				if !stopOutput {
-					runtime.EventsEmit(a.Ctx, outEvent, text)
+					Hub.Emit(outEvent, text)
 
 					if options.StopOutputKeyword != "" && strings.Contains(text, options.StopOutputKeyword) {
 						stopOutput = true
@@ -133,7 +130,7 @@ func (a *App) ExecBackground(path string, args []string, outEvent string, endEve
 			if pidPath != "" {
 				_ = os.Remove(pidPath)
 			}
-			runtime.EventsEmit(a.Ctx, endEvent)
+			Hub.Emit(endEvent)
 		}()
 	}
 
@@ -149,36 +146,11 @@ func (a *App) ProcessInfo(pid int32) FlagResult {
 	}
 
 	name, err := proc.Name()
-	if err == nil && name != "" {
-		return FlagResult{true, name}
-	}
-
-	exePath, exeErr := proc.Exe()
-	if exeErr == nil && exePath != "" {
-		return FlagResult{true, filepath.Base(exePath)}
-	}
-
-	cmdline, cmdlineErr := proc.CmdlineSlice()
-	if cmdlineErr == nil && len(cmdline) > 0 && cmdline[0] != "" {
-		return FlagResult{true, filepath.Base(cmdline[0])}
-	}
-
-	errs := []string{}
 	if err != nil {
-		errs = append(errs, "name: "+err.Error())
-	}
-	if exeErr != nil {
-		errs = append(errs, "exe: "+exeErr.Error())
-	}
-	if cmdlineErr != nil {
-		errs = append(errs, "cmdline: "+cmdlineErr.Error())
+		return FlagResult{false, err.Error()}
 	}
 
-	if len(errs) == 0 {
-		return FlagResult{false, "failed to resolve process info"}
-	}
-
-	return FlagResult{false, strings.Join(errs, "; ")}
+	return FlagResult{true, name}
 }
 
 func (a *App) ProcessMemory(pid int32) FlagResult {
@@ -190,19 +162,11 @@ func (a *App) ProcessMemory(pid int32) FlagResult {
 	}
 
 	memInfo, err := proc.MemoryInfo()
-	if err == nil && memInfo != nil {
-		return FlagResult{true, strconv.FormatUint(memInfo.RSS, 10)}
+	if err != nil {
+		return FlagResult{false, err.Error()}
 	}
 
-	if sysruntime.GOOS == "darwin" {
-		rss, fallbackErr := getDarwinProcessRSS(pid)
-		if fallbackErr == nil {
-			return FlagResult{true, strconv.FormatUint(rss, 10)}
-		}
-		return FlagResult{false, fmt.Sprintf("memory info: %v; ps fallback: %v", err, fallbackErr)}
-	}
-
-	return FlagResult{false, err.Error()}
+	return FlagResult{true, strconv.FormatUint(memInfo.RSS, 10)}
 }
 
 func (a *App) KillProcess(pid int, timeout int) FlagResult {
@@ -252,27 +216,4 @@ func waitForProcessExitWithTimeout(process *os.Process, timeoutSeconds int) erro
 			interval = min(time.Duration(interval*2), maxInterval)
 		}
 	}
-}
-
-func getDarwinProcessRSS(pid int32) (uint64, error) {
-	out, err := exec.Command("ps", "-o", "rss=", "-p", strconv.Itoa(int(pid))).CombinedOutput()
-	if err != nil {
-		output := strings.TrimSpace(string(out))
-		if output == "" {
-			return 0, err
-		}
-		return 0, fmt.Errorf("%v: %s", err, output)
-	}
-
-	rssKB := strings.TrimSpace(string(out))
-	if rssKB == "" {
-		return 0, fmt.Errorf("empty rss output")
-	}
-
-	rss, err := strconv.ParseUint(rssKB, 10, 64)
-	if err != nil {
-		return 0, err
-	}
-
-	return rss * 1024, nil
 }

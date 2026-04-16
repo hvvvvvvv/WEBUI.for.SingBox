@@ -1,5 +1,5 @@
-import * as App from '@wails/go/bridge/App'
-import { EventsOn, EventsOff, EventsEmit } from '@wails/runtime/runtime'
+import { apiCall } from './http'
+import { EventsOn, EventsOff, EventsEmit } from './ws'
 
 import { RequestMethod } from '@/enums/app'
 import { sampleID, getUserAgent } from '@/utils'
@@ -112,12 +112,16 @@ const requestWithProgress = (fnName: 'Download' | 'Upload') => {
       EventsOn(progressEvent, progress!)
     }
 
+    const apiEndpoint = fnName === 'Download' ? '/net/download' : '/net/upload'
+
     const {
       flag,
       status,
       headers: respHeaders,
       body: respBody,
-    } = await App[fnName](method, url, path, _headers, progressEvent, _options)
+    } = await apiCall<{ flag: boolean; status: number; headers: Record<string, string[]>; body: string }>(
+      apiEndpoint, method, url, path, _headers, progressEvent, _options,
+    )
 
     if (progressEvent) {
       EventsOff(progressEvent)
@@ -143,7 +147,9 @@ const requestWithBody = (method: RequestMethod.Put | RequestMethod.Post | Reques
       status,
       headers: respHeaders,
       body: respBody,
-    } = await App.Requests(method, url, _headers, _body, _options)
+    } = await apiCall<{ flag: boolean; status: number; headers: Record<string, string[]>; body: string }>(
+      '/net/requests', method, url, _headers, _body, _options,
+    )
 
     if (!flag) throw respBody
 
@@ -166,7 +172,9 @@ const requestWithoutBody = (
       status,
       headers: respHeaders,
       body,
-    } = await App.Requests(methd, url, _headers, '', _options)
+    } = await apiCall<{ flag: boolean; status: number; headers: Record<string, string[]>; body: string }>(
+      '/net/requests', methd, url, _headers, '', _options,
+    )
 
     if (!flag) throw body
 
@@ -188,7 +196,9 @@ export const Requests = async <T = any>(options: RequestWithAutoTransform) => {
     status,
     headers: respHeaders,
     body: respBody,
-  } = await App.Requests(method.toUpperCase(), url, reqHeaders, reqBody, finalReqOpts)
+  } = await apiCall<{ flag: boolean; status: number; headers: Record<string, string[]>; body: string }>(
+    '/net/requests', method.toUpperCase(), url, reqHeaders, reqBody, finalReqOpts,
+  )
 
   if (!flag) throw respBody
 

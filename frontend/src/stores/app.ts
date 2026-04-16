@@ -19,6 +19,7 @@ import {
   APP_VERSION,
   APP_VERSION_API,
   getGitHubApiAuthorization,
+  ignoredError,
   message,
   sampleID,
   sleep,
@@ -132,27 +133,29 @@ export const useAppStore = defineStore('app', () => {
         },
       ).finally(destroy)
 
-      const { appName, os, appPath } = envStore.env
+      const { appName, os, basePath } = envStore.env
 
       if (os === OS.Darwin) {
-        const cur_pkg_bak = appPath + '.bak'
-        await UnzipZIPFile(downloadCacheFile, 'data/.cache')
-        await RemoveFile(downloadCacheFile)
-        await MoveFile(appPath, cur_pkg_bak)
-        await MoveFile(`${cur_pkg_bak}/Contents/MacOS/data/.cache/${APP_TITLE}.app`, appPath)
-        await Exec('xattr', ['-rd', 'com.apple.quarantine', appPath])
-        await RemoveFile(`${cur_pkg_bak}/Contents/MacOS/${RollingReleaseDirectory}`)
+        const cur_pkg = basePath.replace('/Contents/MacOS', '')
+        const tmp_dir = cur_pkg + '_tmp'
+        const cur_pkg_bak = cur_pkg + '.bak'
+        await UnzipZIPFile(downloadCacheFile, tmp_dir)
+        await Exec('xattr', ['-rd', 'com.apple.quarantine', tmp_dir])
+        await MoveFile(cur_pkg, cur_pkg_bak)
+        await MoveFile(`${tmp_dir}/${APP_TITLE}.app`, cur_pkg)
+        await RemoveFile(tmp_dir)
         await RemoveFile(cur_pkg_bak)
       } else {
         const suffix = { [OS.Windows]: '.exe', [OS.Linux]: '' }[os]
         await MoveFile(appName, appName + '.bak')
         await UnzipZIPFile(downloadCacheFile, '.')
         await MoveFile(APP_TITLE + suffix, appName)
-        await RemoveFile(downloadCacheFile)
-        await RemoveFile(RollingReleaseDirectory)
       }
       message.success('about.updateSuccessfulRestart')
       restartable.value = true
+
+      await RemoveFile(downloadCacheFile)
+      await ignoredError(RemoveFile, RollingReleaseDirectory)
     } catch (error: any) {
       console.log(error)
       message.error(error.message || error, 5_000)

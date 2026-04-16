@@ -25,6 +25,13 @@ import {
 } from '@/stores'
 import { ignoredError, message, confirm, APP_TITLE, getAutoStartConfiguration } from '@/utils'
 
+export const getZoomLevel = () => {
+  const el = document.querySelector('.app-zoomed') as HTMLElement | null
+  if (!el) return 1
+  const style = getComputedStyle(el)
+  return parseFloat(style.zoom) || 1
+}
+
 // Permissions Helper
 export const SwitchPermissions = async (enable: boolean) => {
   const { appPath } = useEnvStore().env
@@ -814,9 +821,10 @@ export const getKernelFileName = (isAlpha = false) => {
 
 export const getKernelAssetFileName = (version: string) => {
   const envStore = useEnvStore()
-  const { os, arch } = envStore.env
+  const { os, arch, libc } = envStore.env
   const suffix = { windows: '.zip', linux: '.tar.gz', darwin: '.tar.gz' }[os]
-  return `sing-box-${version}-${os}-${arch}${suffix}`
+  const libcSuffix = os === 'linux' && libc ? `-${libc}` : ''
+  return `sing-box-${version}-${os}-${arch}${libcSuffix}${suffix}`
 }
 
 export const processMagicVariables = (str: string) => {

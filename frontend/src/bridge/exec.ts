@@ -1,5 +1,5 @@
-import * as App from '@wails/go/bridge/App'
-import { EventsOn, EventsOff } from '@wails/runtime/runtime'
+import { apiCall } from './http'
+import { EventsOn, EventsOff } from './ws'
 
 import { sampleID } from '@/utils'
 
@@ -26,7 +26,7 @@ const mergeExecOptions = (options: ExecOptions) => {
 }
 
 export const Exec = async (path: string, args: string[], options: ExecOptions = {}) => {
-  const { flag, data } = await App.Exec(path, args, mergeExecOptions(options))
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/exec/run', path, args, mergeExecOptions(options))
   if (!flag) {
     throw data
   }
@@ -43,7 +43,8 @@ export const ExecBackground = async (
   const outEvent = (onOut && sampleID()) || ''
   const endEvent = (onEnd && sampleID()) || (outEvent && sampleID()) || ''
 
-  const { flag, data } = await App.ExecBackground(
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>(
+    '/exec/background',
     path,
     args,
     outEvent,
@@ -70,7 +71,7 @@ export const ExecBackground = async (
 }
 
 export const ProcessInfo = async (pid: number) => {
-  const { flag, data } = await App.ProcessInfo(pid)
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/exec/processInfo', pid)
   if (!flag) {
     throw data
   }
@@ -78,7 +79,7 @@ export const ProcessInfo = async (pid: number) => {
 }
 
 export const ProcessMemory = async (pid: number) => {
-  const { flag, data } = await App.ProcessMemory(pid)
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/exec/processMemory', pid)
   if (!flag) {
     throw data
   }
@@ -86,7 +87,7 @@ export const ProcessMemory = async (pid: number) => {
 }
 
 export const KillProcess = async (pid: number, timeout = 10) => {
-  const { flag, data } = await App.KillProcess(pid, timeout)
+  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/exec/killProcess', pid, timeout)
   if (!flag) {
     throw data
   }

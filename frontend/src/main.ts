@@ -10,15 +10,24 @@ import components from './components'
 import directives from './directives'
 import i18n from './lang'
 import router from './router'
+import { loadAuthToken, initWebSocket } from './bridge'
 
-const app = createApp(App)
+const bootstrap = async () => {
+  await loadAuthToken()
 
-window.appInstance = app
+  initWebSocket()
 
-app.use(createPinia())
-app.use(router)
-app.use(i18n)
-app.use(components)
-app.use(directives)
+  const app = createApp(App)
 
-app.mount('#app')
+  window.appInstance = app
+
+  app.use(createPinia())
+  app.use(router)
+  app.use(i18n)
+  app.use(components)
+  app.use(directives)
+
+  app.mount('#app')
+}
+
+bootstrap()

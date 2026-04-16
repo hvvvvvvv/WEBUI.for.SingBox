@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted, ref, watch, nextTick, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
+import { getZoomLevel } from '@/utils'
 import type { Menu } from '@/types/app'
 
 interface Props {
@@ -32,7 +33,9 @@ const fixMenuPos = (x: number, y: number) => {
   let left = x
   let top = y
 
-  const { offsetWidth: clientWidth, offsetHeight: clientHeight } = document.body
+  const zoom = getZoomLevel()
+  const clientWidth = window.innerWidth / zoom
+  const clientHeight = window.innerHeight / zoom
   const { offsetWidth: menuWidth, offsetHeight: menuHeight } = menuRef.value!
 
   if (x + menuWidth > clientWidth) left -= x + menuWidth - clientWidth + 8
@@ -48,7 +51,9 @@ const fixSecondaryMenuPos = () => {
   let left = menuWidth
   let top = menuHeight
 
-  const { offsetWidth: clientWidth, offsetHeight: clientHeight } = document.body
+  const zoom = getZoomLevel()
+  const clientWidth = window.innerWidth / zoom
+  const clientHeight = window.innerHeight / zoom
   const { offsetWidth: sMenuWidth, offsetHeight: sMenuHeight } = secondaryMenuRef.value!
 
   if (left + sMenuWidth + x > clientWidth) left -= x + menuWidth + sMenuWidth - clientWidth + 8

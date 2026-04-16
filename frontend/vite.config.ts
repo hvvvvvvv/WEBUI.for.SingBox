@@ -11,8 +11,19 @@ export default defineConfig({
     extensions: ['.ts', '.js'],
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),
-      '@wails': fileURLToPath(new URL('./src/bridge/wailsjs', import.meta.url)),
       vue: 'vue/dist/vue.esm-bundler.js',
+    },
+  },
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:9090',
+        changeOrigin: true,
+      },
+      '/ws': {
+        target: 'ws://localhost:9090',
+        ws: true,
+      },
     },
   },
   build: {

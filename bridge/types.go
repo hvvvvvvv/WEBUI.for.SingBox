@@ -1,16 +1,13 @@
 package bridge
 
 import (
-	"context"
 	"net/http"
-
-	"github.com/wailsapp/wails/v2/pkg/menu"
 )
+
+var AppInstance *App
 
 // App struct
 type App struct {
-	Ctx     context.Context
-	AppMenu *menu.Menu
 }
 
 type EnvResult struct {
@@ -23,6 +20,7 @@ type EnvResult struct {
 	BasePath     string `json:"basePath"`
 	OS           string `json:"os"`
 	ARCH         string `json:"arch"`
+	Libc         string `json:"libc"`
 	IsPrivileged bool   `json:"isPrivileged"`
 }
 
@@ -78,14 +76,14 @@ type HTTPResult struct {
 }
 
 type AppConfig struct {
-	WindowStartState  int  `yaml:"windowStartState"`
-	WebviewGpuPolicy  int  `yaml:"webviewGpuPolicy"`
-	ContentProtection bool `yaml:"contentProtection"`
-	Width             int  `yaml:"width"`
-	Height            int  `yaml:"height"`
-	MultipleInstance  bool `yaml:"multipleInstance"`
-	RollingRelease    bool `yaml:"rollingRelease" default:"true"`
-	StartHidden       bool
+	WindowStartState int    `yaml:"windowStartState"`
+	WebviewGpuPolicy int    `yaml:"webviewGpuPolicy"`
+	Width            int    `yaml:"width"`
+	Height           int    `yaml:"height"`
+	MultipleInstance bool   `yaml:"multipleInstance"`
+	RollingRelease   bool   `yaml:"rollingRelease" default:"true"`
+	AuthSecret       string `yaml:"authSecret,omitempty"`
+	StartHidden      bool
 }
 
 type TrayContent struct {
@@ -100,7 +98,6 @@ type WriteTracker struct {
 	LastEmitted    int64
 	EmitThreshold  int64
 	ProgressChange string
-	App            *App
 }
 
 type MenuItem struct {

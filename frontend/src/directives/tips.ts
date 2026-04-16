@@ -1,7 +1,7 @@
 import { type Directive, type DirectiveBinding } from 'vue'
 
 import { useAppStore } from '@/stores'
-import { debounce } from '@/utils'
+import { debounce, getZoomLevel } from '@/utils'
 
 export default {
   mounted(el: HTMLElement, binding: DirectiveBinding) {
@@ -11,7 +11,8 @@ export default {
 
     const show = debounce((x: number, y: number) => {
       if (el.dataset.showTips === 'true') {
-        appStore.tipsPosition = { x, y }
+        const zoom = getZoomLevel()
+        appStore.tipsPosition = { x: x / zoom, y: y / zoom }
         appStore.tipsMessage = binding.value
         appStore.tipsShow = true
       }

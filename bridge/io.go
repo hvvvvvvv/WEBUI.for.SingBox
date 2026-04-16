@@ -11,8 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/pkg/browser"
 )
 
 const (
@@ -218,26 +216,12 @@ func (a *App) ReadDir(path string) FlagResult {
 }
 
 func (a *App) OpenDir(path string) FlagResult {
-	log.Printf("OpenDir: %s", path)
-
-	fullPath := GetPath(path)
-
-	err := browser.OpenURL(fullPath)
-	if err != nil {
-		return FlagResult{false, err.Error()}
-	}
-
+	log.Printf("OpenDir: no-op in server mode: %s", path)
 	return FlagResult{true, "Success"}
 }
 
 func (a *App) OpenURI(uri string) FlagResult {
-	log.Printf("OpenURI: %s", uri)
-
-	err := browser.OpenURL(uri)
-	if err != nil {
-		return FlagResult{false, err.Error()}
-	}
-
+	log.Printf("OpenURI: no-op in server mode: %s", uri)
 	return FlagResult{true, "Success"}
 }
 

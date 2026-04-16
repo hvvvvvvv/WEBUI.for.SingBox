@@ -11,8 +11,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 func (a *App) Requests(method string, url string, headers map[string]string, body string, options RequestOptions) HTTPResult {
@@ -28,11 +26,11 @@ func (a *App) Requests(method string, url string, headers map[string]string, bod
 	req.Header = GetHeader(headers)
 
 	if options.CancelId != "" {
-		runtime.EventsOn(a.Ctx, options.CancelId, func(data ...any) {
+		Hub.On(options.CancelId, options.CancelId, func(data ...any) {
 			log.Printf("Requests Canceled: %v %v", method, url)
 			cancel()
 		})
-		defer runtime.EventsOff(a.Ctx, options.CancelId)
+		defer Hub.Off(options.CancelId, options.CancelId)
 	}
 
 	resp, err := client.Do(req)
@@ -62,11 +60,11 @@ func (a *App) Download(method string, url string, path string, headers map[strin
 	req.Header = GetHeader(headers)
 
 	if options.CancelId != "" {
-		runtime.EventsOn(a.Ctx, options.CancelId, func(data ...any) {
+		Hub.On(options.CancelId, options.CancelId, func(data ...any) {
 			log.Printf("Download Canceled: %v %v", url, path)
 			cancel()
 		})
-		defer runtime.EventsOff(a.Ctx, options.CancelId)
+		defer Hub.Off(options.CancelId, options.CancelId)
 	}
 
 	resp, err := client.Do(req)
@@ -137,11 +135,11 @@ func (a *App) Upload(method string, url string, path string, headers map[string]
 	client, ctx, cancel := withRequestOptionsClient(options)
 
 	if options.CancelId != "" {
-		runtime.EventsOn(a.Ctx, options.CancelId, func(data ...any) {
+		Hub.On(options.CancelId, options.CancelId, func(data ...any) {
 			log.Printf("Upload Canceled: %v %v", url, path)
 			cancel()
 		})
-		defer runtime.EventsOff(a.Ctx, options.CancelId)
+		defer Hub.Off(options.CancelId, options.CancelId)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, url, body)
@@ -172,14 +170,14 @@ func (wt *WriteTracker) Write(p []byte) (n int, err error) {
 
 	shouldEmit := wt.Total <= 0 || wt.Progress-wt.LastEmitted >= wt.EmitThreshold || wt.Progress == wt.Total
 	if shouldEmit {
-		runtime.EventsEmit(wt.App.Ctx, wt.ProgressChange, wt.Progress, wt.Total)
+		Hub.Emit(wt.ProgressChange, wt.Progress, wt.Total)
 		wt.LastEmitted = wt.Progress
 	}
 
 	return n, nil
 }
 
-func wrapWithProgress(r io.Reader, size int64, event string, a *App) io.Reader {
+func wrapWithProgress(r io.Reader, size int64, event string, _ *App) io.Reader {
 	if event == "" {
 		return r
 	}
@@ -187,7 +185,6 @@ func wrapWithProgress(r io.Reader, size int64, event string, a *App) io.Reader {
 		Total:          size,
 		EmitThreshold:  128 * 1024,
 		ProgressChange: event,
-		App:            a,
 	})
 }
 

@@ -9,6 +9,7 @@ type Options = { url: string; cb: (data: any) => void; params?: Record<string, a
 export class WebSockets {
   public base: string
   public bearer: string
+  public customParams: Record<string, string> = {}
   public beforeConnect: () => void
 
   constructor(options: WebSocketsOptions) {
@@ -20,7 +21,7 @@ export class WebSockets {
   public createWS(options: Options) {
     this.beforeConnect()
 
-    const params = { ...options.params, token: this.bearer }
+    const params = { ...options.params, ...this.customParams, token: this.bearer }
     const query = new URLSearchParams(params).toString()
     const url = query ? `${options.url}?${query}` : options.url
 

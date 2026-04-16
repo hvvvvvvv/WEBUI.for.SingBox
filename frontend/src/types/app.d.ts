@@ -22,6 +22,7 @@ export interface AppEnv {
   appPath: string
   os: OS
   arch: string
+  libc: string
   isPrivileged: boolean
 }
 
@@ -62,7 +63,6 @@ export interface AppSettings {
   scheduledtasksView: View
   windowStartState: WindowStartState
   webviewGpuPolicy: WebviewGpuPolicy
-  contentProtection: true
   width: number
   height: number
   exitOnClose: boolean
@@ -155,6 +155,8 @@ export interface Plugin {
   }
   configuration: PluginConfiguration[]
   disabled: boolean
+  install: boolean
+  installed: boolean
   status: number // 0: Normal 1: Running 2: Stopped
   // Not Config
   updating?: boolean

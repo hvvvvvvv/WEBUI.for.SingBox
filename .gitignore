@@ -1,4 +1,6 @@
 build/bin
 frontend/dist
+gui.for.singbox.server
+gui-for-singbox-container.tar
 
 .DS_Store

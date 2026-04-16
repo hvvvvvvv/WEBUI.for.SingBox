@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 
-import { EventsOn, WindowHide, IsStartup } from '@/bridge'
+import { AUTH_REQUIRED_EVENT, EventsOn, WindowHide, IsStartup, getAuthToken } from '@/bridge'
 import { NavigationBar, TitleBar, SplashView, AboutView, CommandView } from '@/components'
+import LoginView from '@/views/LoginView.vue'
 import * as Stores from '@/stores'
 import { exitApp, sampleID, sleep, message } from '@/utils'
+
+const needsLogin = ref(!getAuthToken())
+const appInitialized = ref(false)
 
 const loading = ref(true)
 const percent = ref(0)
@@ -67,97 +71,142 @@ window.addEventListener('keydown', (e) => {
   }
 })
 
-envStore.setupEnv().then(async () => {
+const initApp = async () => {
+  if (appInitialized.value) {
+    return
+  }
+
   const showError = (err: string) => {
     hasError.value = true
     message.error(err)
   }
 
-  await Promise.all([
-    appSettings.setupAppSettings(),
-    profilesStore.setupProfiles(),
-    subscribesStore.setupSubscribes(),
-    rulesetsStore.setupRulesets(),
-    pluginsStore.setupPlugins(),
-    scheduledTasksStore.setupScheduledTasks(),
-  ])
+  try {
+    await envStore.setupEnv()
 
-  const startTime = performance.now()
-  percent.value = 20
-  if (await IsStartup()) {
-    await pluginsStore.onStartupTrigger().catch(showError)
+    await Promise.all([
+      appSettings.setupAppSettings(),
+      profilesStore.setupProfiles(),
+      subscribesStore.setupSubscribes(),
+      rulesetsStore.setupRulesets(),
+      pluginsStore.setupPlugins(),
+      scheduledTasksStore.setupScheduledTasks(),
+    ])
+
+    const startTime = performance.now()
+    percent.value = 20
+    if (await IsStartup()) {
+      await pluginsStore.onStartupTrigger().catch(showError)
+    }
+
+    percent.value = 40
+    await pluginsStore.onReadyTrigger().catch(showError)
+
+    const duration = performance.now() - startTime
+    percent.value = duration < 500 ? 80 : 100
+
+    await sleep(Math.max(0, 1000 - duration))
+  } catch (e: any) {
+    showError(e.message || e)
+  } finally {
+    appInitialized.value = true
+    loading.value = false
+    kernelApiStore.initCoreState()
   }
+}
 
-  percent.value = 40
-  await pluginsStore.onReadyTrigger().catch(showError)
+const handleAuthRequired = () => {
+  needsLogin.value = true
+}
 
-  const duration = performance.now() - startTime
-  percent.value = duration < 500 ? 80 : 100
+const handleAuthenticated = () => {
+  needsLogin.value = false
+  if (appInitialized.value) {
+    location.reload()
+    return
+  }
+  initApp()
+}
 
-  await sleep(Math.max(0, 1000 - duration))
+onMounted(() => window.addEventListener(AUTH_REQUIRED_EVENT, handleAuthRequired))
+onUnmounted(() => window.removeEventListener(AUTH_REQUIRED_EVENT, handleAuthRequired))
 
-  loading.value = false
-  kernelApiStore.initCoreState()
-})
+if (!needsLogin.value) {
+  initApp()
+}
 </script>
 
 <template>
-  <SplashView v-if="loading">
-    <Progress
-      :percent="percent"
-      :status="hasError ? 'danger' : 'primary'"
-      :radius="10"
-      type="circle"
-    />
-  </SplashView>
-  <template v-else>
-    <TitleBar />
-    <div class="flex-1 overflow-y-auto flex flex-col p-8">
-      <NavigationBar />
-      <div class="flex flex-col overflow-y-auto mt-8 px-8 h-full">
-        <RouterView #="{ Component }">
-          <KeepAlive>
-            <component :is="Component" />
-          </KeepAlive>
-        </RouterView>
+  <LoginView v-if="needsLogin" @authenticated="handleAuthenticated" />
+  <div v-else class="app-zoomed">
+    <SplashView v-if="loading">
+      <Progress
+        :percent="percent"
+        :status="hasError ? 'danger' : 'primary'"
+        :radius="10"
+        type="circle"
+      />
+    </SplashView>
+    <template v-else>
+      <TitleBar />
+      <div class="flex-1 overflow-y-auto flex flex-col p-8">
+        <NavigationBar />
+        <div class="flex flex-col overflow-y-auto mt-8 px-8 h-full">
+          <RouterView #="{ Component }">
+            <KeepAlive>
+              <component :is="Component" />
+            </KeepAlive>
+          </RouterView>
+        </div>
       </div>
-    </div>
-  </template>
+    </template>
 
-  <Modal
-    v-model:open="appStore.showAbout"
-    :cancel="false"
-    :submit="false"
-    mask-closable
-    min-width="50"
-  >
-    <AboutView />
-  </Modal>
+    <Modal
+      v-model:open="appStore.showAbout"
+      :cancel="false"
+      :submit="false"
+      mask-closable
+      min-width="50"
+    >
+      <AboutView />
+    </Modal>
 
-  <Menu
-    v-model="appStore.menuShow"
-    :position="appStore.menuPosition"
-    :menu-list="appStore.menuList"
-  />
-
-  <Tips
-    v-model="appStore.tipsShow"
-    :position="appStore.tipsPosition"
-    :message="appStore.tipsMessage"
-  />
-
-  <CommandView v-if="!loading" />
-
-  <div
-    v-if="kernelApiStore.needRestart || kernelApiStore.restarting"
-    class="fixed right-32 bottom-32"
-  >
-    <Button
-      v-tips="'home.overview.restart'"
-      :loading="kernelApiStore.restarting"
-      icon="restart"
-      class="rounded-full w-42 h-42 shadow"
-      @click="handleRestartCore"
+    <Menu
+      v-model="appStore.menuShow"
+      :position="appStore.menuPosition"
+      :menu-list="appStore.menuList"
     />
+
+    <Tips
+      v-model="appStore.tipsShow"
+      :position="appStore.tipsPosition"
+      :message="appStore.tipsMessage"
+    />
+
+    <CommandView v-if="!loading" />
+
+    <div
+      v-if="kernelApiStore.needRestart || kernelApiStore.restarting"
+      class="fixed right-32 bottom-32"
+    >
+      <Button
+        v-tips="'home.overview.restart'"
+        :loading="kernelApiStore.restarting"
+        icon="restart"
+        class="rounded-full w-42 h-42 shadow"
+        @click="handleRestartCore"
+      />
+    </div>
   </div>
 </template>
+
+<style scoped>
+.app-zoomed {
+  zoom: 1.25;
+  width: 80vw;
+  height: 80vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+</style>

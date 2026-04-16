@@ -1,6 +1,7 @@
 import { Request } from '@/api/request'
 import { WebSockets } from '@/api/websocket'
 import { useProfilesStore } from '@/stores'
+import { getAuthToken } from '@/bridge/http'
 
 import type {
   CoreApiConfig,
@@ -29,26 +30,36 @@ export enum Api {
   Logs = '/logs',
 }
 
+
 const setupCoreApi = (protocol: 'http' | 'ws') => {
   const { currentProfile: profile } = useProfilesStore()
 
-  let base = `${protocol}://127.0.0.1:20123`
-  let bearer = ''
+  let kernelAddress = '127.0.0.1:20123'
+  let kernelBearer = ''
 
   if (profile) {
     const controller = profile.experimental.clash_api.external_controller || '127.0.0.1:20123'
     const [, port = 20123] = controller.split(':')
-    base = `${protocol}://127.0.0.1:${port}`
-    bearer = profile.experimental.clash_api.secret
+    kernelAddress = `127.0.0.1:${port}`
+    kernelBearer = profile.experimental.clash_api.secret || ''
   }
 
   if (protocol === 'http') {
-    request.base = base
-    request.bearer = bearer
-  } else {
-    websocket.base = base
-    websocket.bearer = bearer
-  }
+      request.base = '/api/kernel'
+      request.bearer = getAuthToken()
+      request.customHeaders = {
+        'X-Kernel-Target': kernelAddress,
+        'X-Kernel-Bearer': kernelBearer,
+      }
+    } else {
+      const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+      websocket.base = `${wsProto}//${location.host}/ws/kernel`
+      websocket.bearer = kernelBearer
+      websocket.customParams = {
+        target: kernelAddress,
+        auth: getAuthToken(),
+      }
+    }
 }
 
 const request = new Request({ beforeRequest: () => setupCoreApi('http'), timeout: 60 * 1000 })

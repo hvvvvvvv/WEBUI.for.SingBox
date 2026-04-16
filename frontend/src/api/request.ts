@@ -1,4 +1,5 @@
 import { parse } from 'yaml'
+import { handleUnauthorizedResponse } from '@/bridge/http'
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
@@ -22,6 +23,7 @@ export class Request {
   public timeout: number
   public responseType: string
   public beforeRequest: () => void
+  public customHeaders: Record<string, string> = {}
 
   constructor(options: RequestOptions = {}) {
     this.base = options.base || ''
@@ -51,6 +53,11 @@ export class Request {
       Object.assign(init.headers, { Authorization: `Bearer ${this.bearer}` })
     }
 
+    if (Object.keys(this.customHeaders).length > 0) {
+      if (!init.headers) init.headers = {}
+      Object.assign(init.headers, this.customHeaders)
+    }
+
     if (['GET'].includes(options.method)) {
       const query = new URLSearchParams(options.body || {}).toString()
       query && (url += '?' + query)
@@ -64,6 +71,11 @@ export class Request {
 
     if (res.status === 204) {
       return null as T
+    }
+
+    if (res.status === 401) {
+      const pending = handleUnauthorizedResponse(res.status)
+      if (pending) return pending
     }
 
     if ([504, 401, 503].includes(res.status)) {

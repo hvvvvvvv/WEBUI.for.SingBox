@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch, nextTick, useTemplateRef } from 'vue'
 
-import { debounce } from '@/utils'
+import { debounce, getZoomLevel } from '@/utils'
 
 type TriggerType = 'click' | 'hover'
 
@@ -26,7 +26,14 @@ const transformOrigin = ref(props.placement === 'top' ? 'bottom' : 'top')
 const updatePosition = () => {
   if (!domRef.value || !overlayRef.value || !show.value) return
 
-  const triggerRect = domRef.value.getBoundingClientRect()
+  const zoom = getZoomLevel()
+  const rawRect = domRef.value.getBoundingClientRect()
+  const triggerRect = {
+    top: rawRect.top / zoom,
+    bottom: rawRect.bottom / zoom,
+    left: rawRect.left / zoom,
+    width: rawRect.width / zoom,
+  }
   const overlayEl = overlayRef.value
 
   overlayEl.style.minWidth = `${triggerRect.width}px`
@@ -36,7 +43,10 @@ const updatePosition = () => {
 
   const screenEdgeMargin = 8
 
-  const totalSpaceBelow = window.innerHeight - triggerRect.bottom
+  const viewHeight = window.innerHeight / zoom
+  const viewWidth = window.innerWidth / zoom
+
+  const totalSpaceBelow = viewHeight - triggerRect.bottom
   const totalSpaceAbove = triggerRect.top
 
   let finalPlacement: 'top' | 'bottom'
@@ -70,7 +80,7 @@ const updatePosition = () => {
     const availableHeight = totalSpaceBelow - screenEdgeMargin
     overlayStyle.value.maxHeight = `${Math.max(0, availableHeight)}px`
   } else {
-    overlayStyle.value.bottom = `${window.innerHeight - triggerRect.top}px`
+    overlayStyle.value.bottom = `${viewHeight - triggerRect.top}px`
     overlayStyle.value.top = 'auto'
     const availableHeight = totalSpaceAbove - screenEdgeMargin
     overlayStyle.value.maxHeight = `${Math.max(0, availableHeight)}px`
@@ -78,8 +88,8 @@ const updatePosition = () => {
 
   let left = triggerRect.left + triggerRect.width / 2 - overlayWidth / 2
 
-  if (left + overlayWidth > window.innerWidth - screenEdgeMargin) {
-    left = window.innerWidth - overlayWidth - screenEdgeMargin
+  if (left + overlayWidth > viewWidth - screenEdgeMargin) {
+    left = viewWidth - overlayWidth - screenEdgeMargin
   }
   if (left < screenEdgeMargin) {
     left = screenEdgeMargin

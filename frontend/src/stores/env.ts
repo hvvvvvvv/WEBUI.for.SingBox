@@ -18,6 +18,7 @@ export const useEnvStore = defineStore('env', () => {
     appPath: '',
     os: '' as OS,
     arch: '',
+    libc: '',
     isPrivileged: false,
   })
 

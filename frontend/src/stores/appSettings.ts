@@ -47,6 +47,7 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
   const envStore = useEnvStore()
 
   let latestUserSettings: string
+  let extraFields: Record<string, any> = {}
 
   const app = ref<AppSettings>({
     lang: Lang.EN,
@@ -62,7 +63,6 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     scheduledtasksView: View.Grid,
     windowStartState: WindowStartState.Normal,
     webviewGpuPolicy: WebviewGpuPolicy.OnDemand,
-    contentProtection: true,
     width: 0,
     height: 0,
     exitOnClose: true,
@@ -105,29 +105,51 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
   })
 
   const saveAppSettings = debounce((config: string) => {
+    // Merge back any extra fields not managed by the frontend (e.g. authSecret)
+    if (Object.keys(extraFields).length > 0) {
+      const obj = parse(config) || {}
+      Object.assign(obj, extraFields)
+      config = stringify(obj)
+    }
     WriteFile(UserFilePath, config)
   }, 500)
 
   const setupAppSettings = async () => {
     const data = await ignoredError(ReadFile, UserFilePath)
+    const defaults = deepClone(app.value)
     let settings: AppSettings
     if (data) {
-      settings = parse(data)
+      const raw = parse(data) || {}
+      // Preserve fields that the frontend doesn't manage (e.g. authSecret)
+      const knownKeys = new Set(Object.keys(defaults))
+      extraFields = {}
+      for (const key of Object.keys(raw)) {
+        if (!knownKeys.has(key)) {
+          extraFields[key] = raw[key]
+        }
+      }
+      // Merge file values onto defaults so missing fields are filled in
+      settings = { ...defaults, ...raw } as AppSettings
+      // Deep-merge nested objects that must not be fully replaced by a partial value
+      if (raw.kernel) {
+        settings.kernel = { ...defaults.kernel, ...raw.kernel }
+      }
+      if (raw.connections) {
+        settings.connections = { ...defaults.connections, ...raw.connections }
+      }
     } else {
-      settings = deepClone(app.value)
+      settings = defaults
     }
 
     await appStore.loadLocales(false, false)
 
-    if (!settings.kernel.main) {
+    if (!settings.kernel?.main) {
+      if (!settings.kernel) settings.kernel = {} as any
       settings.kernel.main = DefaultCoreConfig()
       settings.kernel.alpha = DefaultCoreConfig()
     }
     if (!settings.proxyBypassList) {
       settings.proxyBypassList = await GetSystemProxyBypass()
-    }
-    if (typeof settings.contentProtection === 'undefined') {
-      settings.contentProtection = true
     }
 
     app.value = settings
@@ -248,5 +270,13 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
   }, 3000)
   watch(() => app.value.proxyBypassList, setSystemProxyBypass)
 
-  return { setupAppSettings, app, themeMode }
+  const setExtraField = (key: string, value: any) => {
+    if (value === undefined || value === null || value === '') {
+      delete extraFields[key]
+    } else {
+      extraFields[key] = value
+    }
+  }
+
+  return { setupAppSettings, app, themeMode, setExtraField }
 })

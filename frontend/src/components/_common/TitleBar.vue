@@ -10,7 +10,10 @@ import {
   WindowToggleMaximise,
   WindowIsMaximised,
   RestartApp,
+  clearAuthToken,
+  getAuthToken,
 } from '@/bridge'
+import { apiCall } from '@/bridge/http'
 import { useAppSettingsStore, useKernelApiStore, useEnvStore, useAppStore } from '@/stores'
 import { APP_TITLE, APP_VERSION, debounce, exitApp, reloadApp } from '@/utils'
 
@@ -26,6 +29,17 @@ const envStore = useEnvStore()
 const appStore = useAppStore()
 
 const isDarwin = envStore.env.os === OS.Darwin
+const isBrowser = !(window as any).WailsInvoke
+const showLogout = !!(window as any).__AUTH_REQUIRED__
+
+const handleLogout = async () => {
+  const token = getAuthToken()
+  if (token) {
+    await apiCall('/auth/logout', token).catch(() => {})
+  }
+  clearAuthToken()
+  location.reload()
+}
 
 const pinWindow = () => {
   isPinned.value = !isPinned.value
@@ -90,7 +104,15 @@ onUnmounted(() => window.removeEventListener('resize', onResize))
     </div>
 
     <div
-      v-if="!isDarwin"
+      v-if="showLogout"
+      class="flex items-center"
+      style="--wails-draggable: disabled"
+    >
+      <Button v-tips="'auth.logout'" type="text" icon="logout" size="small" @click.stop="handleLogout" />
+    </div>
+
+    <div
+      v-if="!isDarwin && !isBrowser"
       class="ml-auto flex items-center gap-4"
       style="--wails-draggable: disabled"
     >

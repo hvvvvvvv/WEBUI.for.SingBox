@@ -6,21 +6,35 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
 	"slices"
 	"strings"
 
 	sysruntime "runtime"
 
-	"github.com/wailsapp/wails/v2/pkg/menu"
-	"github.com/wailsapp/wails/v2/pkg/menu/keys"
-	"github.com/wailsapp/wails/v2/pkg/options"
-	"github.com/wailsapp/wails/v2/pkg/runtime"
 	"gopkg.in/yaml.v3"
 )
 
+func detectLibc() string {
+	if sysruntime.GOOS != "linux" {
+		return ""
+	}
+	// Check for musl by looking for musl dynamic linker
+	matches, _ := filepath.Glob("/lib/ld-musl-*")
+	if len(matches) > 0 {
+		return "musl"
+	}
+	// Also check for musl via ldd output
+	out, err := exec.Command("ldd", "--version").CombinedOutput()
+	if err == nil && strings.Contains(strings.ToLower(string(out)), "musl") {
+		return "musl"
+	}
+	return "glibc"
+}
+
 var Config = &AppConfig{}
+
+var ServerAddr string
 
 var Env = &EnvResult{
 	IsStartup:    true,
@@ -28,18 +42,17 @@ var Env = &EnvResult{
 	FromTaskSch:  false,
 	WebviewPath:  "",
 	AppName:      "",
-	AppVersion:   "v1.23.2",
+	AppVersion:   "v1.22.0",
 	BasePath:     "",
 	OS:           sysruntime.GOOS,
 	ARCH:         sysruntime.GOARCH,
+	Libc:         detectLibc(),
 	IsPrivileged: false,
 }
 
 // NewApp creates a new App application struct
 func NewApp() *App {
-	return &App{
-		AppMenu: menu.NewMenu(),
-	}
+	return &App{}
 }
 
 func CreateApp(fs embed.FS) *App {
@@ -60,15 +73,7 @@ func CreateApp(fs embed.FS) *App {
 	}
 
 	app := NewApp()
-
-	if Env.OS == "darwin" {
-		createMacOSSymlink()
-		createMacOSMenus(app)
-	}
-
-	if Env.OS == "windows" {
-		processFixedWebView2Runtime()
-	}
+	AppInstance = app
 
 	extractEmbeddedFiles(fs)
 
@@ -88,7 +93,7 @@ func (a *App) IsStartup() bool {
 func (a *App) ExitApp() {
 	log.Printf("ExitApp")
 	Env.PreventExit = false
-	runtime.Quit(a.Ctx)
+	os.Exit(0)
 }
 
 func (a *App) RestartApp() FlagResult {
@@ -118,6 +123,7 @@ func (a *App) GetEnv(key string) any {
 		BasePath:     Env.BasePath,
 		OS:           Env.OS,
 		ARCH:         Env.ARCH,
+		Libc:         Env.Libc,
 		IsPrivileged: Env.IsPrivileged,
 	}
 }
@@ -140,93 +146,7 @@ func (a *App) GetInterfaces() FlagResult {
 }
 
 func (a *App) ShowMainWindow() {
-	log.Printf("ShowMainWindow")
-	runtime.WindowShow(a.Ctx)
-}
-
-func createMacOSSymlink() {
-	user, _ := user.Current()
-	linkPath := Env.BasePath + "/data"
-	appPath := "/Users/" + user.Username + "/Library/Application Support/" + Env.AppName
-	os.MkdirAll(appPath, os.ModePerm)
-	os.Symlink(appPath, linkPath)
-}
-
-func createMacOSMenus(app *App) {
-	appMenu := app.AppMenu.AddSubmenu("App")
-	appMenu.AddText("Show", keys.CmdOrCtrl("s"), func(_ *menu.CallbackData) {
-		runtime.WindowShow(app.Ctx)
-	})
-	appMenu.AddText("Hide", keys.CmdOrCtrl("h"), func(_ *menu.CallbackData) {
-		runtime.WindowHide(app.Ctx)
-	})
-	appMenu.AddSeparator()
-	appMenu.AddText("Quit", keys.CmdOrCtrl("q"), func(_ *menu.CallbackData) {
-		runtime.EventsEmit(app.Ctx, "onExitApp")
-	})
-
-	// on macos platform, we should append EditMenu to enable Cmd+C,Cmd+V,Cmd+Z... shortcut
-	app.AppMenu.Append(menu.EditMenu())
-}
-
-func processFixedWebView2Runtime() {
-	webviewDir := filepath.Join(Env.BasePath, "data", "WebView2")
-
-	err := filepath.Walk(webviewDir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return nil
-		}
-		if !info.IsDir() && strings.EqualFold(info.Name(), "msedgewebview2.exe") {
-			Env.WebviewPath = filepath.Dir(path)
-			log.Printf("WebView2 runtime already exists at: %s", Env.WebviewPath)
-			return filepath.SkipDir
-		}
-		return nil
-	})
-
-	if err != nil {
-		log.Printf("Error during recursive search: %v\n", err)
-		return
-	}
-
-	if Env.WebviewPath != "" {
-		return
-	}
-
-	entries, err := os.ReadDir(webviewDir)
-	if err != nil {
-		log.Printf("Failed to read directory: %v\n", err)
-		return
-	}
-
-	var cabFile string
-	for _, e := range entries {
-		if !e.IsDir() &&
-			strings.HasSuffix(strings.ToLower(e.Name()), ".cab") &&
-			strings.Contains(e.Name(), "Microsoft.WebView2.FixedVersionRuntime") {
-			cabFile = filepath.Join(webviewDir, e.Name())
-			break
-		}
-	}
-
-	if cabFile == "" {
-		log.Println("No WebView2 .cab file found. Skipping extraction.")
-		return
-	}
-
-	log.Printf("Found CAB file: %s\n", cabFile)
-
-	cmd := exec.Command("expand.exe", "-F:*", cabFile, webviewDir)
-	SetCmdWindowHidden(cmd)
-
-	log.Println("Extracting WebView2 Runtime...")
-	if err := cmd.Run(); err != nil {
-		log.Printf("Extraction failed: %v\n", err)
-		return
-	}
-
-	log.Printf("WebView2 Runtime extracted successfully into: %s\n", webviewDir)
-	Env.WebviewPath = strings.TrimSuffix(cabFile, ".cab")
+	log.Printf("ShowMainWindow: no-op in server mode")
 }
 
 func extractEmbeddedFiles(fs embed.FS) {
@@ -271,9 +191,45 @@ func loadConfig() {
 		Config.Height = 540
 	}
 
-	Config.StartHidden = Env.FromTaskSch && Config.WindowStartState == int(options.Minimised)
+	Config.StartHidden = Env.FromTaskSch && Config.WindowStartState == 2 // Minimised
 
 	if !Env.FromTaskSch {
-		Config.WindowStartState = int(options.Normal)
+		Config.WindowStartState = 0 // Normal
 	}
+}
+
+func SaveConfig() error {
+	path := Env.BasePath + "/data/user.yaml"
+
+	// Read existing file and merge to preserve frontend-managed fields
+	existing := make(map[string]any)
+	if data, err := os.ReadFile(path); err == nil {
+		yaml.Unmarshal(data, &existing)
+	}
+
+	// Marshal Go-managed fields into a map
+	goData, err := yaml.Marshal(Config)
+	if err != nil {
+		return err
+	}
+	goFields := make(map[string]any)
+	if err := yaml.Unmarshal(goData, &goFields); err != nil {
+		return err
+	}
+
+	// Merge Go fields into existing (Go fields take precedence)
+	for k, v := range goFields {
+		existing[k] = v
+	}
+
+	// If authSecret is empty, remove it from the file
+	if Config.AuthSecret == "" {
+		delete(existing, "authSecret")
+	}
+
+	b, err := yaml.Marshal(existing)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, b, 0644)
 }
