@@ -2,9 +2,10 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { apiCall } from '@/bridge/http'
-import { setAuthToken } from '@/bridge'
+import { useAppSettingsStore } from '@/stores'
 
 const { t } = useI18n()
+const appSettings = useAppSettingsStore()
 
 const secret = ref('')
 const loading = ref(false)
@@ -22,7 +23,7 @@ const handleLogin = async () => {
   try {
     const result = await apiCall<{ flag: boolean; data: string }>('/auth/login', secret.value)
     if (result.flag) {
-      setAuthToken(result.data)
+      appSettings.sessionInfo.cacheToken = result.data
       emit('authenticated')
     } else {
       error.value = t('auth.invalidSecret')

@@ -113,6 +113,12 @@ export interface AppSettings {
   pages: string[]
 }
 
+export interface SessionInfo {
+  authEnabled: boolean
+  cacheToken: string
+  requireLogin: boolean
+}
+
 export interface PluginConfiguration {
   id: string
   title: string

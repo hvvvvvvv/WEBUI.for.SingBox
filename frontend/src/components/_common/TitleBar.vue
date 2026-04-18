@@ -10,8 +10,6 @@ import {
   WindowToggleMaximise,
   WindowIsMaximised,
   RestartApp,
-  clearAuthToken,
-  getAuthToken,
 } from '@/bridge'
 import { apiCall } from '@/bridge/http'
 import { useAppSettingsStore, useKernelApiStore, useEnvStore, useAppStore } from '@/stores'
@@ -30,15 +28,10 @@ const appStore = useAppStore()
 
 const isDarwin = envStore.env.os === OS.Darwin
 const isBrowser = !(window as any).WailsInvoke
-const showLogout = !!(window as any).__AUTH_REQUIRED__
 
 const handleLogout = async () => {
-  const token = getAuthToken()
-  if (token) {
-    await apiCall('/auth/logout', token).catch(() => {})
-  }
-  clearAuthToken()
-  location.reload()
+  await apiCall('/auth/logout').catch(() => {})
+  location.reload() 
 }
 
 const pinWindow = () => {
@@ -104,7 +97,7 @@ onUnmounted(() => window.removeEventListener('resize', onResize))
     </div>
 
     <div
-      v-if="showLogout"
+      v-if="appSettingsStore.sessionInfo.authEnabled"
       class="flex items-center"
       style="--wails-draggable: disabled"
     >

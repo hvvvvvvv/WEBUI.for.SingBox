@@ -40,14 +40,31 @@ import {
   deepClone,
 } from '@/utils'
 
-import type { AppSettings } from '@/types/app'
+import type { AppSettings, SessionInfo } from '@/types/app'
 
 export const useAppSettingsStore = defineStore('app-settings', () => {
   const appStore = useAppStore()
   const envStore = useEnvStore()
 
   let latestUserSettings: string
-  let extraFields: Record<string, any> = {}
+
+  const getSessionInfo = (): SessionInfo => {
+    const raw = sessionStorage.getItem('sessionInfo')
+    const defaults: SessionInfo = { authEnabled: false, cacheToken: '', requireLogin: false }
+    if (!raw) return defaults
+    try {
+      const parsed = JSON.parse(raw)
+      return parsed ?? defaults
+    } catch {
+      return defaults
+    }
+  }
+
+  const sessionInfo = ref<SessionInfo>(getSessionInfo())
+
+  watch(sessionInfo, (newInfo) => {
+    sessionStorage.setItem('sessionInfo', JSON.stringify(newInfo))
+  }, { deep: true })
 
   const app = ref<AppSettings>({
     lang: Lang.EN,
@@ -101,16 +118,10 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     debugNoAnimation: false,
     debugNoRounded: false,
     debugBorder: false,
-    pages: ['Overview', 'Profiles', 'Subscriptions', 'Plugins'],
+    pages: ['Overview', 'Profiles', 'Subscriptions', 'Plugins']
   })
 
   const saveAppSettings = debounce((config: string) => {
-    // Merge back any extra fields not managed by the frontend (e.g. authSecret)
-    if (Object.keys(extraFields).length > 0) {
-      const obj = parse(config) || {}
-      Object.assign(obj, extraFields)
-      config = stringify(obj)
-    }
     WriteFile(UserFilePath, config)
   }, 500)
 
@@ -120,14 +131,6 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     let settings: AppSettings
     if (data) {
       const raw = parse(data) || {}
-      // Preserve fields that the frontend doesn't manage (e.g. authSecret)
-      const knownKeys = new Set(Object.keys(defaults))
-      extraFields = {}
-      for (const key of Object.keys(raw)) {
-        if (!knownKeys.has(key)) {
-          extraFields[key] = raw[key]
-        }
-      }
       // Merge file values onto defaults so missing fields are filled in
       settings = { ...defaults, ...raw } as AppSettings
       // Deep-merge nested objects that must not be fully replaced by a partial value
@@ -155,6 +158,7 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     app.value = settings
     latestUserSettings = stringify(app.value)
   }
+
 
   const applyAppSettings = {
     theme(theme: Theme) {
@@ -270,13 +274,5 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
   }, 3000)
   watch(() => app.value.proxyBypassList, setSystemProxyBypass)
 
-  const setExtraField = (key: string, value: any) => {
-    if (value === undefined || value === null || value === '') {
-      delete extraFields[key]
-    } else {
-      extraFields[key] = value
-    }
-  }
-
-  return { setupAppSettings, app, themeMode, setExtraField }
+  return { setupAppSettings, app, themeMode, sessionInfo }
 })

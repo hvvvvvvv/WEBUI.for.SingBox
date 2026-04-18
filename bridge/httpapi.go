@@ -155,11 +155,11 @@ func StartHTTPServer(addr string, assets embed.FS) {
 
 func registerAPIRoutes(mux *http.ServeMux, app *App) {
 	apiRoute(mux, "/api/auth/login", func(args []json.RawMessage) any {
-		secret, _ := unmarshalArg[string](args, 0)
-		if secret == "" && Config.AuthSecret != "" {
+		plainSecret, _ := unmarshalArg[string](args, 0)
+		if plainSecret == "" && Config.AuthSecret != "" {
 			return FlagResult{false, "Secret is required"}
 		}
-		if !VerifySecret(secret, Config.AuthSecret) {
+		if !VerifySecret(plainSecret) {
 			return FlagResult{false, "Invalid secret"}
 		}
 		token, err := GenerateToken()
@@ -180,26 +180,22 @@ func registerAPIRoutes(mux *http.ServeMux, app *App) {
 
 	apiRoute(mux, "/api/auth/setup", func(args []json.RawMessage) any {
 		secret, _ := unmarshalArg[string](args, 0)
-		if secret == "" {
-			// Clear auth
-			Config.AuthSecret = ""
-		} else {
-			Config.AuthSecret = HashSecret(secret)
-		}
-		ClearSessions()
-		if err := SaveConfig(); err != nil {
+		needClear := !(secret == "" || HashSecret(secret) == GetSecretKey())
+
+		err := SetSecretKey(secret)
+		if err != nil {
 			return FlagResult{false, err.Error()}
 		}
-		// If a new secret was set, return a fresh session token so the caller
-		// can continue making authenticated requests (the old token was cleared).
-		if secret != "" {
+		if needClear {
 			token, err := GenerateToken()
 			if err != nil {
-				return FlagResult{true, ""}
+				return FlagResult{false, "Failed to generate token"}
 			}
+			ClearSessions()
 			AddSession(token)
-			return FlagResult{true, token}
+			return FlagResult{true, token}	
 		}
+		
 		return FlagResult{true, ""}
 	})
 

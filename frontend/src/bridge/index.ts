@@ -5,13 +5,7 @@ export * from './exec'
 export * from './app'
 export * from './server'
 export * from './mmdb'
-export {
-  AUTH_REQUIRED_EVENT,
-  setAuthToken,
-  getAuthToken,
-  loadAuthToken,
-  clearAuthToken,
-} from './http'
+export { loadAuthToken } from './http'
 
 // Stubs for Wails window functions (no-op in C/S mode)
 export const WindowHide = () => {}

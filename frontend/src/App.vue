@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { ref } from 'vue'
 
-import { AUTH_REQUIRED_EVENT, EventsOn, WindowHide, IsStartup, getAuthToken } from '@/bridge'
+import { EventsOn, WindowHide, IsStartup, loadAuthToken } from '@/bridge'
 import { NavigationBar, TitleBar, SplashView, AboutView, CommandView } from '@/components'
 import LoginView from '@/views/LoginView.vue'
 import * as Stores from '@/stores'
 import { exitApp, sampleID, sleep, message } from '@/utils'
 
-const needsLogin = ref(!getAuthToken())
 const appInitialized = ref(false)
 
 const loading = ref(true)
@@ -76,6 +75,12 @@ const initApp = async () => {
     return
   }
 
+  const authed = await loadAuthToken().catch(() => false)
+  if (!authed) {
+    loading.value = false
+    return
+  }
+
   const showError = (err: string) => {
     hasError.value = true
     message.error(err)
@@ -115,12 +120,9 @@ const initApp = async () => {
   }
 }
 
-const handleAuthRequired = () => {
-  needsLogin.value = true
-}
-
 const handleAuthenticated = () => {
-  needsLogin.value = false
+  appSettings.sessionInfo.authEnabled = true
+  appSettings.sessionInfo.requireLogin = false
   if (appInitialized.value) {
     location.reload()
     return
@@ -128,16 +130,13 @@ const handleAuthenticated = () => {
   initApp()
 }
 
-onMounted(() => window.addEventListener(AUTH_REQUIRED_EVENT, handleAuthRequired))
-onUnmounted(() => window.removeEventListener(AUTH_REQUIRED_EVENT, handleAuthRequired))
-
-if (!needsLogin.value) {
+if (!appSettings.sessionInfo.requireLogin) {
   initApp()
 }
 </script>
 
 <template>
-  <LoginView v-if="needsLogin" @authenticated="handleAuthenticated" />
+  <LoginView v-if="appSettings.sessionInfo.requireLogin" @authenticated="handleAuthenticated" />
   <div v-else class="app-zoomed">
     <SplashView v-if="loading">
       <Progress

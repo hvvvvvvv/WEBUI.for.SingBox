@@ -1,11 +1,10 @@
 <script lang="ts" setup>
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { parse } from 'yaml'
 
-import { MakeDir, OpenDir, ReadFile, clearAuthToken, setAuthToken } from '@/bridge'
+import { MakeDir, OpenDir } from '@/bridge'
 import { apiCall } from '@/bridge/http'
-import { RollingReleaseDirectory, UserFilePath } from '@/constant/app'
+import { RollingReleaseDirectory } from '@/constant/app'
 import { useAppSettingsStore } from '@/stores'
 import { APP_TITLE, APP_VERSION, message } from '@/utils'
 
@@ -15,7 +14,6 @@ const appSettings = useAppSettingsStore()
 const authSecret = ref('')
 const authSecretConfirm = ref('')
 const authLoading = ref(false)
-const authEnabled = ref(!!(window as any).__AUTH_REQUIRED__)
 
 const handleOpenRollingReleaseFolder = async () => {
   await MakeDir(RollingReleaseDirectory)
@@ -40,15 +38,12 @@ const handleSetupAuth = async () => {
   try {
     const result = await apiCall<{ flag: boolean; data: string }>('/auth/setup', authSecret.value)
     if (result.flag) {
-      // Server returns a fresh session token (old sessions were cleared)
-      if (result.data) setAuthToken(result.data)
-      // Refresh extraFields so the authSecret written by Go backend is preserved
-      const raw = parse((await ReadFile(UserFilePath)) || '{}')
-      if (raw?.authSecret) appSettings.setExtraField('authSecret', raw.authSecret)
-      message.success(t('auth.updateSuccess'))
-      authEnabled.value = true
-      authSecret.value = ''
-      authSecretConfirm.value = ''
+      appSettings.sessionInfo.authEnabled = true
+      if (result.data) appSettings.sessionInfo.cacheToken = result.data
+        message.success(t('auth.updateSuccess'))
+        appSettings.sessionInfo.authEnabled = true
+        authSecret.value = ''
+        authSecretConfirm.value = ''
     } else {
       message.error(result.data)
     }
@@ -64,10 +59,9 @@ const handleClearAuth = async () => {
   try {
     const result = await apiCall<{ flag: boolean; data: string }>('/auth/setup', '')
     if (result.flag) {
-      appSettings.setExtraField('authSecret', '')
+      if (result.data) appSettings.sessionInfo.cacheToken = result.data
+      appSettings.sessionInfo.authEnabled = false
       message.success(t('auth.clearSuccess'))
-      authEnabled.value = false
-      clearAuthToken()
     } else {
       message.error(result.data)
     }
@@ -160,7 +154,7 @@ const handleClearAuth = async () => {
         {{ $t('auth.setup') }}
         <span class="font-normal text-12">({{ $t('auth.setupTips') }})</span>
       </div>
-      <Tag v-if="authEnabled" color="primary">{{ $t('auth.authEnabled') }}</Tag>
+      <Tag v-if="appSettings.sessionInfo.authEnabled" color="primary">{{ $t('auth.authEnabled') }}</Tag>
       <Tag v-else>{{ $t('auth.authDisabled') }}</Tag>
     </div>
     <div class="px-8 py-12 flex items-center justify-between">
@@ -183,7 +177,7 @@ const handleClearAuth = async () => {
     </div>
     <div class="px-8 py-12 flex items-center justify-end gap-8">
       <Button
-        v-if="authEnabled"
+        v-if="appSettings.sessionInfo.authEnabled"
         type="text"
         :loading="authLoading"
         @click="handleClearAuth"

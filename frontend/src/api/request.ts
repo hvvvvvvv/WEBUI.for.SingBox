@@ -1,5 +1,4 @@
 import { parse } from 'yaml'
-import { handleUnauthorizedResponse } from '@/bridge/http'
 
 type Method = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
 
@@ -71,11 +70,6 @@ export class Request {
 
     if (res.status === 204) {
       return null as T
-    }
-
-    if (res.status === 401) {
-      const pending = handleUnauthorizedResponse(res.status)
-      if (pending) return pending
     }
 
     if ([504, 401, 503].includes(res.status)) {

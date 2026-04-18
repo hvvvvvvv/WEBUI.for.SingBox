@@ -1,7 +1,6 @@
 import { Request } from '@/api/request'
 import { WebSockets } from '@/api/websocket'
-import { useProfilesStore } from '@/stores'
-import { getAuthToken } from '@/bridge/http'
+import { useProfilesStore, useAppSettingsStore } from '@/stores'
 
 import type {
   CoreApiConfig,
@@ -33,6 +32,7 @@ export enum Api {
 
 const setupCoreApi = (protocol: 'http' | 'ws') => {
   const { currentProfile: profile } = useProfilesStore()
+  const appSettings = useAppSettingsStore()
 
   let kernelAddress = '127.0.0.1:20123'
   let kernelBearer = ''
@@ -45,21 +45,21 @@ const setupCoreApi = (protocol: 'http' | 'ws') => {
   }
 
   if (protocol === 'http') {
-      request.base = '/api/kernel'
-      request.bearer = getAuthToken()
-      request.customHeaders = {
-        'X-Kernel-Target': kernelAddress,
-        'X-Kernel-Bearer': kernelBearer,
-      }
-    } else {
-      const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:'
-      websocket.base = `${wsProto}//${location.host}/ws/kernel`
-      websocket.bearer = kernelBearer
-      websocket.customParams = {
-        target: kernelAddress,
-        auth: getAuthToken(),
-      }
+    request.base = '/api/kernel'
+    request.bearer = appSettings.sessionInfo.cacheToken
+    request.customHeaders = {
+      'X-Kernel-Target': kernelAddress,
+      'X-Kernel-Bearer': kernelBearer,
     }
+  } else {
+    const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+    websocket.base = `${wsProto}//${location.host}/ws/kernel`
+    websocket.bearer = kernelBearer
+    websocket.customParams = {
+      target: kernelAddress,
+      auth: appSettings.sessionInfo.cacheToken,
+    }
+  }
 }
 
 const request = new Request({ beforeRequest: () => setupCoreApi('http'), timeout: 60 * 1000 })
