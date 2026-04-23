@@ -10,7 +10,6 @@ import components from './components'
 import directives from './directives'
 import i18n from './lang'
 import router from './router'
-import { initWebSocket } from './bridge'
 
 const bootstrap = () => {
   const app = createApp(App)
@@ -24,8 +23,6 @@ const bootstrap = () => {
   app.use(directives)
 
   app.mount('#app')
-
-  initWebSocket()
 }
 
 bootstrap()

@@ -19,17 +19,24 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+var nonAuthPaths = []string{}
 
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Always allow static assets, index.html and auth endpoints
+
 		if !strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/api/auth/") {
 			next.ServeHTTP(w, r)
 			return
 		}
 
 		// WebSocket paths are handled separately
-		if r.URL.Path == "/ws" || strings.HasPrefix(r.URL.Path, "/ws/") {
+		if strings.HasPrefix(r.URL.Path, "/ws") {
+			token := r.URL.Query().Get("auth")
+			if !ValidateSession(token) {
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -105,6 +112,8 @@ func StartHTTPServer(addr string, assets embed.FS) {
 	if err != nil {
 		log.Fatal("Failed to access embedded frontend:", err)
 	}
+
+	
 
 	fileServer := http.FileServer(http.FS(distFS))
 	rollingHandler := RollingRelease(fileServer)

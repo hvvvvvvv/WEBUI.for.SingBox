@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-import { EventsOn, WindowHide, IsStartup, loadAuthToken } from '@/bridge'
+import { IsStartup, loadAuthToken, initWebSocket } from '@/bridge'
 import { NavigationBar, TitleBar, SplashView, AboutView, CommandView } from '@/components'
 import LoginView from '@/views/LoginView.vue'
 import * as Stores from '@/stores'
-import { exitApp, sampleID, sleep, message } from '@/utils'
+import { sleep, message } from '@/utils'
 
 const appInitialized = ref(false)
 
@@ -31,38 +31,6 @@ const handleRestartCore = async () => {
   }
 }
 
-EventsOn('onLaunchApp', async ([arg]: string[]) => {
-  if (!arg) return
-
-  const url = new URL(arg)
-  if (url.pathname.startsWith('//import-remote-profile')) {
-    const _url = url.searchParams.get('url')
-    const _name = decodeURIComponent(url.hash).slice(1) || sampleID()
-
-    if (!_url) {
-      message.error('URL missing')
-      return
-    }
-
-    try {
-      await subscribesStore.importSubscribe(_name, _url)
-      message.success('common.success')
-    } catch (e: any) {
-      message.error(e.message || e)
-    }
-  }
-})
-
-EventsOn('onBeforeExitApp', async () => {
-  if (appSettings.app.exitOnClose) {
-    exitApp()
-  } else {
-    WindowHide()
-  }
-})
-
-EventsOn('onExitApp', () => exitApp())
-
 window.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     const closeFn = appStore.modalStack.at(-1)
@@ -80,7 +48,8 @@ const initApp = async () => {
     loading.value = false
     return
   }
-
+  
+  initWebSocket(appSettings.sessionInfo.cacheToken)
   const showError = (err: string) => {
     hasError.value = true
     message.error(err)

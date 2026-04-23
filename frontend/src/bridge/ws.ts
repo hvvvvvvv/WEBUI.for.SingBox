@@ -3,10 +3,15 @@ type EventCallback = (...data: any[]) => void
 const listeners = new Map<string, Set<EventCallback>>()
 let ws: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let bearerToken: string | null = null
 
 const getWsUrl = () => {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${protocol}//${location.host}/ws`
+  let url = `${protocol}//${location.host}/ws`
+  if (bearerToken) {
+    url += `?auth=${bearerToken}`
+  }
+  return url
 }
 
 const connect = () => {
@@ -34,7 +39,8 @@ const connect = () => {
   }
 }
 
-export const initWebSocket = () => {
+export const initWebSocket = (token?: string) => {
+  bearerToken = token || bearerToken
   connect()
 }
 
