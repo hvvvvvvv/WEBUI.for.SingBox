@@ -77,45 +77,6 @@ docker run --rm -p 9090:9090 -v webui-for-singbox-data:/app/data webui.for.singb
 buf generate
 ```
 
-生成文件会输出到：
-
-- `gen/`
-- `frontend/gen/`
-
-## 发布与检查更新
-
-应用会从当前仓库检查最新 GitHub Release：
-
-```text
-https://api.github.com/repos/hvvvvvvv/WEBUI.for.SingBox/releases/latest
-```
-
-Release 资产文件名需要符合应用内检查更新的规则：
-
-```text
-webui.for.singbox-${os}-${arch}.zip
-```
-
-示例：
-
-```text
-webui.for.singbox-windows-amd64.zip
-webui.for.singbox-windows-arm64.zip
-webui.for.singbox-darwin-amd64.zip
-webui.for.singbox-darwin-arm64.zip
-webui.for.singbox-linux-amd64.zip
-```
-
-发布 `1.0.0` 版本：
-
-```bash
-git tag -a 1.0.0 -m "1.0.0"
-git push origin main
-git push origin 1.0.0
-```
-
-推送标签后，GitHub Actions 会构建并上传符合命名规则的发布文件。
-
 ## 许可证
 
 本项目遵循上游项目的许可证。详情见 [LICENSE](LICENSE)。
