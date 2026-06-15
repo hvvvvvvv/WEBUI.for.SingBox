@@ -41,7 +41,7 @@ var Env = &EnvResult{
 	PreventExit:  true,
 	FromTaskSch:  false,
 	AppName:      "",
-	AppVersion:   "v1.22.0",
+	AppVersion:   "1.0.0",
 	BasePath:     "",
 	OS:           sysruntime.GOOS,
 	ARCH:         sysruntime.GOARCH,
