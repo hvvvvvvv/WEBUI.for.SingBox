@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="build/appicon.png" alt="GUI.for.SingBox" width="200">
-  <h1>GUI.for.SingBox</h1>
-  <p>A GUI program developed by vue3 + wails.</p>
+  <img src="build/appicon.png" alt="webui.for.singbox" width="200">
+  <h1>webui.for.singbox</h1>
+  <p>A web GUI program developed with Vue 3 and Go.</p>
 </div>
 
 ## Preview
@@ -26,22 +26,32 @@ Take a look at the live version here: 👉 <a href="https://gui-for-cores.github
 
 - Go [link](https://go.dev/)
 
-- Wails [link](https://wails.io/) ：`go install github.com/wailsapp/wails/v2/cmd/wails@latest`
-
 2、Pull and Build
 
 ```bash
-git clone https://github.com/GUI-for-Cores/GUI.for.SingBox.git
+git clone https://github.com/GUI-for-Cores/webui.for.singbox.git
 
-cd GUI.for.SingBox/frontend
+cd webui.for.singbox/frontend
 
 pnpm install --frozen-lockfile && pnpm build
 
 cd ..
 
-wails build
+go build -trimpath -ldflags="-s -w" -o webui.for.singbox.server .
+```
+
+Run the server:
+
+```bash
+./webui.for.singbox.server --addr 0.0.0.0:9090
+```
+
+## Proto Code Generation
+
+```bash
+buf generate
 ```
 
 ## Stargazers over time
 
-[![Stargazers over time](https://starchart.cc/GUI-for-Cores/GUI.for.SingBox.svg)](https://starchart.cc/GUI-for-Cores/GUI.for.SingBox)
+[![Stargazers over time](https://starchart.cc/GUI-for-Cores/webui.for.singbox.svg)](https://starchart.cc/GUI-for-Cores/webui.for.singbox)

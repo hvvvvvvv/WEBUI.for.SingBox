@@ -9,8 +9,7 @@
     "lib": ["ESNext", "DOM"],
 
     "paths": {
-      "@/*": ["./src/*"],
-      "@wails/*": ["./src/bridge/wailsjs/*"]
+      "@/*": ["./src/*"]
     },
 
     // `vue-tsc --build` produces a .tsbuildinfo file for incremental type-checking.

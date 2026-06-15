@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { autocompletion } from '@codemirror/autocomplete'
 import { indentWithTab } from '@codemirror/commands'
 import { javascript } from '@codemirror/lang-javascript'
 import { json, jsonParseLinter } from '@codemirror/lang-json'
@@ -19,7 +18,6 @@ import { watch, onUnmounted, onMounted, useTemplateRef, inject } from 'vue'
 import { Theme } from '@/enums/app'
 import { useAppSettingsStore } from '@/stores'
 import { debounce, message } from '@/utils'
-import { getCompletions } from '@/utils/completion'
 
 import { IS_IN_MODAL } from '@/components/Modal/index.vue'
 
@@ -29,7 +27,6 @@ interface Props {
   lang?: 'json' | 'javascript' | 'yaml'
   mode?: 'editor' | 'diff'
   placeholder?: string
-  plugin?: Record<string, any>
 }
 
 const emit = defineEmits(['change', 'update:modelValue'])
@@ -38,7 +35,6 @@ const props = withDefaults(defineProps<Props>(), {
   lang: 'json',
   mode: 'editor',
   placeholder: '',
-  plugin: undefined,
 })
 
 const { promise: editorReady, resolve: markEditorReady } = Promise.withResolvers()
@@ -90,7 +86,6 @@ const formatDoc = async (view: EditorView) => {
       cursorOffset: cursor,
       parser,
       plugins,
-      // https://github.com/GUI-for-Cores/Plugin-Hub/blob/main/.prettierrc.json
       semi: false,
       tabWidth: 2,
       singleQuote: true,
@@ -154,9 +149,6 @@ const initEditor = () => {
     themeCompartment.of(
       appSettings.themeMode === Theme.Dark ? [EditorView.theme({}, { dark: true }), oneDark] : [],
     ),
-    ...(props.lang === 'javascript'
-      ? [autocompletion({ override: getCompletions(props.plugin) })]
-      : []),
     // lint
     ...(props.lang === 'json' ? [linter(jsonParseLinter())] : []),
     // lang

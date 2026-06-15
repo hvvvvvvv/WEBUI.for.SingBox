@@ -4,6 +4,5 @@
   "tabWidth": 2,
   "singleQuote": true,
   "printWidth": 100,
-  "trailingComma": "all",
-  "ignorePatterns": ["src/bridge/wailsjs/**"]
+  "trailingComma": "all"
 }

@@ -40,7 +40,6 @@ var Env = &EnvResult{
 	IsStartup:    true,
 	PreventExit:  true,
 	FromTaskSch:  false,
-	WebviewPath:  "",
 	AppName:      "",
 	AppVersion:   "v1.22.0",
 	BasePath:     "",
@@ -74,8 +73,6 @@ func CreateApp(fs embed.FS) *App {
 
 	app := NewApp()
 	AppInstance = app
-
-	extractEmbeddedFiles(fs)
 
 	loadConfig()
 
@@ -149,34 +146,6 @@ func (a *App) ShowMainWindow() {
 	log.Printf("ShowMainWindow: no-op in server mode")
 }
 
-func extractEmbeddedFiles(fs embed.FS) {
-	iconSrc := "frontend/dist/icons"
-	iconDst := "data/.cache/icons"
-	imgSrc := "frontend/dist/imgs"
-	imgDst := "data/.cache/imgs"
-
-	os.MkdirAll(GetPath(iconDst), os.ModePerm)
-	os.MkdirAll(GetPath(imgDst), os.ModePerm)
-
-	extractFiles(fs, iconSrc, iconDst)
-	extractFiles(fs, imgSrc, imgDst)
-}
-
-func extractFiles(fs embed.FS, srcDir, dstDir string) {
-	files, _ := fs.ReadDir(srcDir)
-	for _, file := range files {
-		fileName := file.Name()
-		dstPath := GetPath(dstDir + "/" + fileName)
-		if _, err := os.Stat(dstPath); os.IsNotExist(err) {
-			log.Printf("InitResources [%s]: %s", dstDir, fileName)
-			data, _ := fs.ReadFile(srcDir + "/" + fileName)
-			if err := os.WriteFile(dstPath, data, os.ModePerm); err != nil {
-				log.Printf("Error writing file %s: %v", dstPath, err)
-			}
-		}
-	}
-}
-
 func loadConfig() {
 	b, err := os.ReadFile(Env.BasePath + "/data/user.yaml")
 	if err == nil {
@@ -191,11 +160,6 @@ func loadConfig() {
 		Config.Height = 540
 	}
 
-	Config.StartHidden = Env.FromTaskSch && Config.WindowStartState == 2 // Minimised
-
-	if !Env.FromTaskSch {
-		Config.WindowStartState = 0 // Normal
-	}
 }
 
 func SaveConfig() error {

@@ -2,7 +2,7 @@
 import { ref, inject, h, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { generateConfig, message, restoreProfile } from '@/utils'
+import { generateConfigViaRpcByProfile, message, restoreProfile } from '@/utils'
 
 import Button from '@/components/Button/index.vue'
 import { useProfilesStore } from '@/stores'
@@ -51,9 +51,8 @@ const handleSave = async () => {
 }
 
 onMounted(() => {
-  generateConfig(props.profile, {
+  generateConfigViaRpcByProfile(props.profile, {
     enableStableConfigCompat: false,
-    enablePluginProcessing: false,
     enableMixinProcessing: false,
     enableScriptProcessing: false,
   }).then((text) => {

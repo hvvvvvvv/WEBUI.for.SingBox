@@ -29,6 +29,40 @@ export enum Api {
   Logs = '/logs',
 }
 
+const normalizeKernelAddress = (controller: string) => {
+  const fallback = '127.0.0.1:20123'
+  const raw = String(controller || '').trim()
+  if (!raw) return fallback
+
+  // Accept forms like:
+  // - 127.0.0.1:20123
+  // - :20123
+  // - http://127.0.0.1:20123
+  // - https://0.0.0.0:20123
+  if (raw.startsWith(':')) {
+    return `127.0.0.1${raw}`
+  }
+
+  if (raw.includes('://')) {
+    try {
+      const u = new URL(raw)
+      if (u.port) return `127.0.0.1:${u.port}`
+      return fallback
+    } catch {
+      return fallback
+    }
+  }
+
+  // Host-only values are invalid for kernel proxy target, keep default port.
+  if (!raw.includes(':')) {
+    return fallback
+  }
+
+  const port = raw.split(':').pop()
+  if (!port || !/^\d+$/.test(port)) return fallback
+  return `127.0.0.1:${port}`
+}
+
 
 const setupCoreApi = (protocol: 'http' | 'ws') => {
   const { currentProfile: profile } = useProfilesStore()
@@ -38,10 +72,12 @@ const setupCoreApi = (protocol: 'http' | 'ws') => {
   let kernelBearer = ''
 
   if (profile) {
-    const controller = profile.experimental.clash_api.external_controller || '127.0.0.1:20123'
-    const [, port = 20123] = controller.split(':')
-    kernelAddress = `127.0.0.1:${port}`
-    kernelBearer = profile.experimental.clash_api.secret || ''
+    // Keep backward compatibility for both legacy snake_case and generated camelCase shapes.
+    const experimental = (profile as any).experimental
+    const clashApi = experimental?.clash_api ?? experimental?.clashApi
+    const controller = clashApi?.external_controller ?? clashApi?.externalController ?? ''
+    kernelAddress = normalizeKernelAddress(controller)
+    kernelBearer = clashApi?.secret ?? ''
   }
 
   if (protocol === 'http') {
@@ -120,6 +156,7 @@ export const onTraffic = createCoreWSHandlerRegister('traffic')
 export const onConnections = createCoreWSHandlerRegister('connections')
 export const initWebsocket = () => {
   Object.values(wsChannels).forEach((channel) => {
+    channel.disconnect?.()
     const { connect, disconnect } = websocket.createWS({
       url: channel.url,
       params: channel.params,

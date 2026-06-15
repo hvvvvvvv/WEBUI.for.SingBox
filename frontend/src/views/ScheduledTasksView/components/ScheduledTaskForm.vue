@@ -4,12 +4,7 @@ import { useI18n } from 'vue-i18n'
 
 import { ScheduledTaskOptions } from '@/constant/app'
 import { ScheduledTasksType } from '@/enums/app'
-import {
-  useScheduledTasksStore,
-  useSubscribesStore,
-  useRulesetsStore,
-  usePluginsStore,
-} from '@/stores'
+import { useScheduledTasksStore, useSubscribesStore, useRulesetsStore } from '@/stores'
 import { alert, deepClone, formatDate, isValidCron, message, sampleID } from '@/utils'
 
 import Button from '@/components/Button/index.vue'
@@ -31,7 +26,6 @@ const task = ref<ScheduledTask>({
   type: ScheduledTasksType.RunScript,
   subscriptions: [],
   rulesets: [],
-  plugins: [],
   script: '',
   cron: '',
   notification: false,
@@ -43,7 +37,6 @@ const { t } = useI18n()
 const scheduledTasksStore = useScheduledTasksStore()
 const subscribesStore = useSubscribesStore()
 const rulesetsStore = useRulesetsStore()
-const pluginsStore = usePluginsStore()
 
 const handleCancel = inject('cancel') as any
 const handleSubmit = inject('submit') as any
@@ -63,10 +56,6 @@ const handleSave = async () => {
       break
     case ScheduledTasksType.UpdateRuleset:
       task.value.rulesets = task.value.rulesets.filter((id) => rulesetsStore.getRulesetById(id))
-      break
-    case ScheduledTasksType.UpdatePlugin:
-    case ScheduledTasksType.RunPlugin:
-      task.value.plugins = task.value.plugins.filter((id) => pluginsStore.getPluginById(id))
       break
   }
 
@@ -188,11 +177,7 @@ defineExpose({ modalSlots })
     </div>
     <div class="form-item">
       <div>{{ t('scheduledtask.type') }}</div>
-      <Radio v-model="task.type" :options="ScheduledTaskOptions.slice(5)" />
-    </div>
-    <div class="form-item">
-      <div></div>
-      <Radio v-model="task.type" :options="ScheduledTaskOptions.slice(0, 5)" />
+      <Radio v-model="task.type" :options="ScheduledTaskOptions" />
     </div>
     <div class="form-item">
       {{ t('scheduledtask.notification') }}
@@ -227,39 +212,6 @@ defineExpose({ modalSlots })
           @click="handleUse(task.rulesets, r.id)"
         >
           <div class="text-12 line-clamp-2">{{ r.type }}</div>
-        </Card>
-      </div>
-    </div>
-
-    <div v-else-if="task.type === ScheduledTasksType.UpdatePlugin">
-      <Divider>{{ t('scheduledtask.plugins') }}</Divider>
-      <Empty v-if="pluginsStore.plugins.length === 0" />
-      <div class="grid grid-cols-3 gap-8">
-        <Card
-          v-for="p in pluginsStore.plugins"
-          :key="p.id"
-          :title="p.name"
-          :selected="task.plugins.includes(p.id)"
-          @click="handleUse(task.plugins, p.id)"
-        >
-          <div class="text-12 line-clamp-2">{{ p.type }}</div>
-        </Card>
-      </div>
-    </div>
-
-    <div v-else-if="task.type === ScheduledTasksType.RunPlugin">
-      <Divider>{{ t('scheduledtask.plugins') }}</Divider>
-      <Empty v-if="pluginsStore.plugins.length === 0" />
-      <div class="grid grid-cols-3 gap-8">
-        <Card
-          v-for="p in pluginsStore.plugins"
-          :key="p.id"
-          v-tips="p.description"
-          :title="p.name"
-          :selected="task.plugins.includes(p.id)"
-          @click="handleUse(task.plugins, p.id)"
-        >
-          <div class="text-12 line-clamp-2">{{ p.description }}</div>
         </Card>
       </div>
     </div>

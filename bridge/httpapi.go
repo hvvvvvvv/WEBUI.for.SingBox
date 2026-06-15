@@ -19,32 +19,35 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-var nonAuthPaths = []string{}
+func isPublicPath(r *http.Request) bool {
+	if !strings.HasPrefix(r.URL.Path, "/api/") && !strings.HasPrefix(r.URL.Path, "/ws") {
+		return true
+	}
+	if r.URL.Path == "/api/auth/login" {
+		return true
+	}
+	if r.URL.Path == "/api/auth/setup" && GetSecretKey() == "" {
+		return true
+	}
+	return false
+}
+
+func requestAuthToken(r *http.Request) string {
+	if strings.HasPrefix(r.URL.Path, "/ws") {
+		return strings.TrimSpace(r.URL.Query().Get("auth"))
+	}
+	auth := r.Header.Get("Authorization")
+	return strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
+}
 
 func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Always allow static assets, index.html and auth endpoints
-
-		if !strings.HasPrefix(r.URL.Path, "/api/") || strings.HasPrefix(r.URL.Path, "/api/auth/") {
+		if isPublicPath(r) {
 			next.ServeHTTP(w, r)
 			return
 		}
 
-		// WebSocket paths are handled separately
-		if strings.HasPrefix(r.URL.Path, "/ws") {
-			token := r.URL.Query().Get("auth")
-			if !ValidateSession(token) {
-				http.Error(w, "Unauthorized", http.StatusUnauthorized)
-				return
-			}
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		auth := r.Header.Get("Authorization")
-		token := strings.TrimPrefix(auth, "Bearer ")
-
-		if !ValidateSession(token) {
+		if !ValidateSession(requestAuthToken(r)) {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
@@ -95,7 +98,7 @@ func StartHTTPServer(addr string, assets embed.FS) {
 
 	// WebSocket
 	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		Hub.ServeWS(w, r)
+		Hub.ServeWS(w, r, requestAuthToken(r))
 	})
 
 	// Kernel API proxy (HTTP)
@@ -103,6 +106,9 @@ func StartHTTPServer(addr string, assets embed.FS) {
 
 	// Kernel WebSocket proxy
 	mux.HandleFunc("/ws/kernel/", handleKernelWSProxy)
+
+	// Connect RPC routes
+	kernelSvc := registerConfigRPCRoutes(mux, app)
 
 	// API routes
 	registerAPIRoutes(mux, app)
@@ -112,8 +118,6 @@ func StartHTTPServer(addr string, assets embed.FS) {
 	if err != nil {
 		log.Fatal("Failed to access embedded frontend:", err)
 	}
-
-	
 
 	fileServer := http.FileServer(http.FS(distFS))
 	rollingHandler := RollingRelease(fileServer)
@@ -143,6 +147,8 @@ func StartHTTPServer(addr string, assets embed.FS) {
 		Handler: handler,
 	}
 
+	go kernelSvc.autoStartCoreOnLaunch(context.Background())
+
 	// Graceful shutdown on SIGINT / SIGTERM
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
@@ -163,24 +169,31 @@ func StartHTTPServer(addr string, assets embed.FS) {
 }
 
 func registerAPIRoutes(mux *http.ServeMux, app *App) {
-	apiRoute(mux, "/api/auth/login", func(args []json.RawMessage) any {
+	apiRouteWithRequest(mux, "/api/auth/login", func(r *http.Request, args []json.RawMessage) any {
+		if IsLoginRateLimited(r.RemoteAddr) {
+			return FlagResult{false, "Too many failed attempts, try again later"}
+		}
+
 		plainSecret, _ := unmarshalArg[string](args, 0)
 		if plainSecret == "" && Config.AuthSecret != "" {
+			RecordLoginFailure(r.RemoteAddr)
 			return FlagResult{false, "Secret is required"}
 		}
 		if !VerifySecret(plainSecret) {
+			RecordLoginFailure(r.RemoteAddr)
 			return FlagResult{false, "Invalid secret"}
 		}
 		token, err := GenerateToken()
 		if err != nil {
 			return FlagResult{false, "Failed to generate token"}
 		}
+		ClearLoginFailures(r.RemoteAddr)
 		AddSession(token)
 		return FlagResult{true, token}
 	})
 
-	apiRoute(mux, "/api/auth/logout", func(args []json.RawMessage) any {
-		token, _ := unmarshalArg[string](args, 0)
+	apiRouteWithRequest(mux, "/api/auth/logout", func(r *http.Request, args []json.RawMessage) any {
+		token := requestAuthToken(r)
 		if token != "" {
 			RemoveSession(token)
 		}
@@ -202,9 +215,9 @@ func registerAPIRoutes(mux *http.ServeMux, app *App) {
 			}
 			ClearSessions()
 			AddSession(token)
-			return FlagResult{true, token}	
+			return FlagResult{true, token}
 		}
-		
+
 		return FlagResult{true, ""}
 	})
 
@@ -228,24 +241,6 @@ func registerAPIRoutes(mux *http.ServeMux, app *App) {
 	})
 	apiRoute(mux, "/api/app/showMainWindow", func(args []json.RawMessage) any {
 		app.ShowMainWindow()
-		return FlagResult{true, "Success"}
-	})
-
-	// Tray
-	apiRoute(mux, "/api/tray/update", func(args []json.RawMessage) any {
-		tray, _ := unmarshalArg[TrayContent](args, 0)
-		app.UpdateTray(tray)
-		return FlagResult{true, "Success"}
-	})
-	apiRoute(mux, "/api/tray/updateMenus", func(args []json.RawMessage) any {
-		menus, _ := unmarshalArg[[]MenuItem](args, 0)
-		app.UpdateTrayMenus(menus)
-		return FlagResult{true, "Success"}
-	})
-	apiRoute(mux, "/api/tray/updateTrayAndMenus", func(args []json.RawMessage) any {
-		tray, _ := unmarshalArg[TrayContent](args, 0)
-		menus, _ := unmarshalArg[[]MenuItem](args, 1)
-		app.UpdateTrayAndMenus(tray, menus)
 		return FlagResult{true, "Success"}
 	})
 
@@ -407,6 +402,12 @@ func registerAPIRoutes(mux *http.ServeMux, app *App) {
 }
 
 func apiRoute(mux *http.ServeMux, path string, handler func(args []json.RawMessage) any) {
+	apiRouteWithRequest(mux, path, func(_ *http.Request, args []json.RawMessage) any {
+		return handler(args)
+	})
+}
+
+func apiRouteWithRequest(mux *http.ServeMux, path string, handler func(r *http.Request, args []json.RawMessage) any) {
 	mux.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -417,7 +418,7 @@ func apiRoute(mux *http.ServeMux, path string, handler func(args []json.RawMessa
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
-		result := handler(args)
+		result := handler(r, args)
 		jsonResponse(w, result)
 	})
 }
@@ -447,7 +448,7 @@ func handleKernelProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if bearer := r.Header.Get("X-Kernel-Bearer"); bearer != "" {
+	if bearer := resolveKernelBearer(r.Header.Get("X-Kernel-Bearer")); bearer != "" {
 		proxyReq.Header.Set("Authorization", "Bearer "+bearer)
 	}
 	if ct := r.Header.Get("Content-Type"); ct != "" {
@@ -483,7 +484,7 @@ func handleKernelWSProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Authenticate: check auth query param
-	authToken := query.Get("auth")
+	authToken := strings.TrimSpace(query.Get("auth"))
 	if !ValidateSession(authToken) {
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
@@ -500,6 +501,11 @@ func handleKernelWSProxy(w http.ResponseWriter, r *http.Request) {
 		if k != "target" && k != "auth" {
 			upstreamParams[k] = v
 		}
+	}
+
+	// Keep kernel token in sync with actual running config secret.
+	if token := resolveKernelBearer(query.Get("token")); token != "" {
+		upstreamParams.Set("token", token)
 	}
 
 	upstreamURL := "ws://" + target + kernelPath
@@ -532,6 +538,9 @@ func handleKernelWSProxy(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return
 			}
+			if !ValidateSession(authToken) {
+				return
+			}
 			if err := clientConn.WriteMessage(msgType, msg); err != nil {
 				return
 			}
@@ -546,6 +555,9 @@ func handleKernelWSProxy(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return
 			}
+			if !ValidateSession(authToken) {
+				return
+			}
 			if err := upstreamConn.WriteMessage(msgType, msg); err != nil {
 				return
 			}
@@ -553,4 +565,36 @@ func handleKernelWSProxy(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	<-done
+}
+
+func resolveKernelBearer(explicit string) string {
+	if configSecret := readKernelBearerFromGeneratedConfig(); configSecret != "" {
+		return configSecret
+	}
+	return strings.TrimSpace(explicit)
+}
+
+func readKernelBearerFromGeneratedConfig() string {
+	bytes, err := os.ReadFile(GetPath(coreConfigFilePath))
+	if err != nil || len(bytes) == 0 {
+		return ""
+	}
+
+	var root map[string]any
+	if err := json.Unmarshal(bytes, &root); err != nil {
+		return ""
+	}
+
+	experimental, _ := root["experimental"].(map[string]any)
+	if experimental == nil {
+		return ""
+	}
+
+	clashAPI, _ := experimental["clash_api"].(map[string]any)
+	if clashAPI == nil {
+		return ""
+	}
+
+	secret, _ := clashAPI["secret"].(string)
+	return strings.TrimSpace(secret)
 }

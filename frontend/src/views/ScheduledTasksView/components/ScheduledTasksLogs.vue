@@ -15,9 +15,9 @@ const props = withDefaults(defineProps<Props>(), { id: '' })
 
 const { t } = useI18n()
 const logsStore = useLogsStore()
-const pluginsStore = useScheduledTasksStore()
+const scheduledTasksStore = useScheduledTasksStore()
 
-const plugin = ref(pluginsStore.getScheduledTaskById(props.id)?.name)
+const selectedTaskName = ref(scheduledTasksStore.getScheduledTaskById(props.id)?.name)
 const keywords = ref('')
 
 const columns: Column[] = [
@@ -54,9 +54,9 @@ const columns: Column[] = [
   },
 ]
 
-const pluginsOptions = computed(() =>
+const taskOptions = computed(() =>
   [{ label: 'All', value: '' }].concat(
-    ...pluginsStore.scheduledtasks.map((v) => ({
+    ...scheduledTasksStore.scheduledtasks.map((v) => ({
       label: v.name,
       value: v.name,
     })),
@@ -65,7 +65,7 @@ const pluginsOptions = computed(() =>
 
 const filteredLogs = computed(() => {
   return logsStore.scheduledtasksLogs.filter((v) => {
-    const p = plugin.value ? v.name === plugin.value : true
+    const p = selectedTaskName.value ? v.name === selectedTaskName.value : true
     const k = buildSmartRegExp(keywords.value, 'i').test(JSON.stringify(v.result))
     return p && k
   })
@@ -81,7 +81,7 @@ const clearLogs = () => logsStore.scheduledtasksLogs.splice(0)
         {{ t('scheduledtasks.name') }}
         :
       </span>
-      <Select v-model="plugin" :options="pluginsOptions" size="small" />
+      <Select v-model="selectedTaskName" :options="taskOptions" size="small" />
       <Input
         v-model="keywords"
         clearable

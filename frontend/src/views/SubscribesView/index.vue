@@ -5,7 +5,7 @@ import { useI18n, I18nT } from 'vue-i18n'
 import { BrowserOpenURL, ClipboardSetText, RemoveFile } from '@/bridge'
 import { DraggableOptions, ViewOptions } from '@/constant/app'
 import { View } from '@/enums/app'
-import { useSubscribesStore, useAppSettingsStore, usePluginsStore, useAppStore } from '@/stores'
+import { useSubscribesStore, useAppSettingsStore, useAppStore } from '@/stores'
 import {
   formatBytes,
   formatRelativeTime,
@@ -57,51 +57,12 @@ const [Modal, modalApi] = useModal({})
 const appStore = useAppStore()
 const subscribeStore = useSubscribesStore()
 const appSettingsStore = useAppSettingsStore()
-const pluginsStore = usePluginsStore()
 
 const generateMenus = (subscription: Subscription) => {
-  const builtInMenus: Menu[] = menuList.map((v) => ({
+  return menuList.map((v) => ({
     ...v,
     handler: () => v.handler?.(subscription.id),
   }))
-
-  const contextMenus = pluginsStore.plugins.filter(
-    (plugin) => Object.keys(plugin.context.subscriptions).length !== 0,
-  )
-
-  if (contextMenus.length !== 0) {
-    builtInMenus.push(
-      {
-        label: '',
-        separator: true,
-      },
-      {
-        label: 'common.more',
-        children: contextMenus.reduce((prev, plugin) => {
-          const menus = Object.entries(plugin.context.subscriptions)
-          return prev.concat(
-            menus.map(([title, fn]) => {
-              return {
-                label: title,
-                handler: async () => {
-                  try {
-                    plugin.running = true
-                    await pluginsStore.manualTrigger(plugin.id, fn as any, subscription)
-                  } catch (error: any) {
-                    message.error(error)
-                  } finally {
-                    plugin.running = false
-                  }
-                },
-              }
-            }),
-          )
-        }, [] as Menu[]),
-      },
-    )
-  }
-
-  return builtInMenus
 }
 
 const handleShowSubForm = (id?: string) => {

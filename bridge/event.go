@@ -22,13 +22,13 @@ type eventCallback struct {
 
 type EventHub struct {
 	mu        sync.RWMutex
-	clients   map[*websocket.Conn]bool
+	clients   map[*websocket.Conn]string
 	listeners map[string][]eventCallback
 }
 
 func NewEventHub() *EventHub {
 	return &EventHub{
-		clients:   make(map[*websocket.Conn]bool),
+		clients:   make(map[*websocket.Conn]string),
 		listeners: make(map[string][]eventCallback),
 	}
 }
@@ -38,7 +38,12 @@ type wsMessage struct {
 	Data  []any  `json:"data"`
 }
 
-func (h *EventHub) ServeWS(w http.ResponseWriter, r *http.Request) {
+func (h *EventHub) ServeWS(w http.ResponseWriter, r *http.Request, token string) {
+	if !ValidateSession(token) {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Printf("WebSocket upgrade error: %v", err)
@@ -46,7 +51,7 @@ func (h *EventHub) ServeWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.mu.Lock()
-	h.clients[conn] = true
+	h.clients[conn] = token
 	h.mu.Unlock()
 
 	defer func() {
@@ -61,6 +66,9 @@ func (h *EventHub) ServeWS(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			break
 		}
+		if !ValidateSession(token) {
+			break
+		}
 		var msg wsMessage
 		if err := json.Unmarshal(message, &msg); err != nil {
 			continue
@@ -73,11 +81,24 @@ func (h *EventHub) ServeWS(w http.ResponseWriter, r *http.Request) {
 // Emit sends an event to all connected WebSocket clients (Go → Frontend)
 func (h *EventHub) Emit(event string, data ...any) {
 	msg, _ := json.Marshal(wsMessage{Event: event, Data: data})
+
 	h.mu.RLock()
-	for conn := range h.clients {
-		conn.WriteMessage(websocket.TextMessage, msg)
+	clients := make(map[*websocket.Conn]string, len(h.clients))
+	for conn, token := range h.clients {
+		clients[conn] = token
 	}
 	h.mu.RUnlock()
+
+	for conn, token := range clients {
+		if !ValidateSession(token) {
+			h.mu.Lock()
+			delete(h.clients, conn)
+			h.mu.Unlock()
+			conn.Close()
+			continue
+		}
+		conn.WriteMessage(websocket.TextMessage, msg)
+	}
 }
 
 // On registers a Go-side listener for events from the frontend (Frontend → Go)

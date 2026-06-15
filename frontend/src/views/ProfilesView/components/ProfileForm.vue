@@ -3,7 +3,7 @@ import { ref, inject, computed, useTemplateRef, type Ref, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { useProfilesStore } from '@/stores'
-import { deepClone, generateConfig, message, alert } from '@/utils'
+import { deepClone, generateConfigViaRpcByProfile, message, alert } from '@/utils'
 
 import Button from '@/components/Button/index.vue'
 import Dropdown from '@/components/Dropdown/index.vue'
@@ -123,7 +123,7 @@ const handleAdd = () => {
 
 const handlePreview = async () => {
   try {
-    const config = await generateConfig(profile.value)
+    const config = await generateConfigViaRpcByProfile(profile.value)
     alert(profile.value.name, JSON.stringify(config, null, 2))
   } catch (error: any) {
     message.error(error.message || error)

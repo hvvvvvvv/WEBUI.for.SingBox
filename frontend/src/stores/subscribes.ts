@@ -5,8 +5,7 @@ import { parse } from 'yaml'
 import { ReadFile, WriteFile, Requests } from '@/bridge'
 import { DefaultSubscribeScript, SubscribesFilePath } from '@/constant/app'
 import { DefaultExcludeProtocols } from '@/constant/kernel'
-import { PluginTriggerEvent, RequestMethod } from '@/enums/app'
-import { usePluginsStore } from '@/stores'
+import { RequestMethod } from '@/enums/app'
 import {
   sampleID,
   isValidSubJson,
@@ -126,12 +125,8 @@ export const useSubscribesStore = defineStore('subscribes', () => {
       throw 'Not a valid subscription data'
     }
 
-    const pluginStore = usePluginsStore()
-
-    proxies = await pluginStore.onSubscribeTrigger(proxies, s)
-
     if (proxies.some((proxy) => proxy.name && !proxy.tag) || proxies[0]?.base64) {
-      throw 'You need to install the [节点转换] plugin first'
+      throw 'Subscription data must be converted to sing-box outbound format before import'
     }
 
     if (s.type !== 'Manual') {
@@ -169,7 +164,7 @@ export const useSubscribesStore = defineStore('subscribes', () => {
     const fn = new window.AsyncFunction(
       'proxies',
       'subscription',
-      `${s.script}; return await ${PluginTriggerEvent.OnSubscribe}(proxies, subscription)`,
+      `${s.script}; return await onSubscribe(proxies, subscription)`,
     ) as (
       proxies: Recordable[],
       subscription: Subscription,

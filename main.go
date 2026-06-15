@@ -21,15 +21,17 @@ func main() {
 
 	if *resetAuth != "" {
 		if *resetAuth == "clear" {
-			bridge.Config.AuthSecret = ""
+			if err := bridge.SetSecretKey(""); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to clear auth secret: %v\n", err)
+				os.Exit(1)
+			}
 			fmt.Println("Auth secret cleared.")
 		} else {
-			bridge.Config.AuthSecret = bridge.HashSecret(*resetAuth)
+			if err := bridge.SetSecretKey(*resetAuth); err != nil {
+				fmt.Fprintf(os.Stderr, "Failed to update auth secret: %v\n", err)
+				os.Exit(1)
+			}
 			fmt.Println("Auth secret updated.")
-		}
-		if err := bridge.SaveConfig(); err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to save config: %v\n", err)
-			os.Exit(1)
 		}
 		os.Exit(0)
 	}

@@ -72,9 +72,15 @@ export class Request {
       return null as T
     }
 
-    if ([504, 401, 503].includes(res.status)) {
-      const { message } = await res.json()
-      throw message
+    if (!res.ok) {
+      const contentType = res.headers.get('content-type') || ''
+      if (contentType.includes('application/json')) {
+        const payload = await res.json().catch(() => ({}))
+        throw payload?.message || payload?.error || `HTTP ${res.status}`
+      }
+
+      const text = await res.text().catch(() => '')
+      throw text || `HTTP ${res.status}`
     }
 
     if (this.responseType === ResponseType.TEXT) {

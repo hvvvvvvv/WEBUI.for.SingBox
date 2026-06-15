@@ -14,7 +14,6 @@ type EnvResult struct {
 	IsStartup    bool   `json:"-"`
 	PreventExit  bool   `json:"-"`
 	FromTaskSch  bool   `json:"-"`
-	WebviewPath  string `json:"-"`
 	AppName      string `json:"appName"`
 	AppVersion   string `json:"appVersion"`
 	BasePath     string `json:"basePath"`
@@ -76,20 +75,12 @@ type HTTPResult struct {
 }
 
 type AppConfig struct {
-	WindowStartState int    `yaml:"windowStartState"`
-	WebviewGpuPolicy int    `yaml:"webviewGpuPolicy"`
 	Width            int    `yaml:"width"`
 	Height           int    `yaml:"height"`
 	MultipleInstance bool   `yaml:"multipleInstance"`
 	RollingRelease   bool   `yaml:"rollingRelease" default:"true"`
 	AuthSecret       string `yaml:"authSecret,omitempty"`
-	StartHidden      bool
-}
-
-type TrayContent struct {
-	Icon    string `json:"icon,omitempty"`
-	Title   string `json:"title,omitempty"`
-	Tooltip string `json:"tooltip,omitempty"`
+	AutoStartKernel  bool   `yaml:"autoStartKernel"`
 }
 
 type WriteTracker struct {
@@ -98,14 +89,4 @@ type WriteTracker struct {
 	LastEmitted    int64
 	EmitThreshold  int64
 	ProgressChange string
-}
-
-type MenuItem struct {
-	Type     string     `json:"type"` // Menu Type: item / separator
-	Text     string     `json:"text"`
-	Tooltip  string     `json:"tooltip"`
-	Event    string     `json:"event"`
-	Children []MenuItem `json:"children"`
-	Hidden   bool       `json:"hidden"`
-	Checked  bool       `json:"checked"`
 }

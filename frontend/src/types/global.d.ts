@@ -1,14 +1,10 @@
 interface Window {
   /**
-   * The variable is initialized in `globalMethods.ts:11`
-   */
-  Plugins: any
-  /**
-   * The variable is initialized in `globalMethods.ts:23`
+   * The variable is initialized in `globalMethods.ts:5`
    */
   AsyncFunction: FunctionConstructor
   /**
-   * The variable is initialized in `globalMethods.ts:21`
+   * The variable is initialized in `globalMethods.ts:3`
    */
   Vue: any
   /**

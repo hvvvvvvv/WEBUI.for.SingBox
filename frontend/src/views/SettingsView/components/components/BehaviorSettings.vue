@@ -2,7 +2,6 @@
 import { ref } from 'vue'
 
 import { ExitApp } from '@/bridge'
-import { WebviewGpuPolicyOptions, WindowStateOptions } from '@/constant/app'
 import { useAppSettingsStore, useEnvStore } from '@/stores'
 import {
   confirm,
@@ -107,15 +106,7 @@ if (envStore.env.os === OS.Windows) {
           ({{ $t('settings.needAdmin') }})
         </span>
       </div>
-      <div class="flex items-center">
-        <Radio
-          v-if="isAutoStart"
-          v-model="appSettings.app.windowStartState"
-          :options="WindowStateOptions"
-          type="number"
-        />
-        <Switch v-model="isAutoStart" class="ml-16" @change="onTaskSchChange" />
-      </div>
+      <Switch v-model="isAutoStart" @change="onTaskSchChange" />
     </div>
     <div
       v-if="isAutoStart"
@@ -138,33 +129,6 @@ if (envStore.env.os === OS.Windows) {
           <span class="ml-4" @click="showInput">{{ $t('settings.startup.delay') }}</span>
         </template>
       </Input>
-    </div>
-    <div class="px-8 py-12 flex items-center justify-between">
-      <div class="text-16 font-bold">{{ $t('settings.exitOnClose') }}</div>
-      <Switch v-model="appSettings.app.exitOnClose" />
-    </div>
-    <div class="px-8 py-12 flex items-center justify-between">
-      <div class="text-16 font-bold">{{ $t('settings.autoStartKernel') }}</div>
-      <Switch v-model="appSettings.app.autoStartKernel" />
-    </div>
-    <div class="px-8 py-12 flex items-center justify-between">
-      <div class="text-16 font-bold">{{ $t('settings.closeKernelOnExit') }}</div>
-      <Switch v-model="appSettings.app.closeKernelOnExit" />
-    </div>
-    <div v-platform="[OS.Linux]" class="px-8 py-12 flex items-center justify-between">
-      <div class="text-16 font-bold">
-        {{ $t('settings.webviewGpuPolicy.name') }}
-        <span class="font-normal text-12">({{ $t('settings.needRestart') }})</span>
-      </div>
-      <Radio v-model="appSettings.app.webviewGpuPolicy" :options="WebviewGpuPolicyOptions" />
-    </div>
-    <div class="px-8 py-12 flex items-center justify-between">
-      <div class="text-16 font-bold">{{ $t('settings.addPluginToMenu') }}</div>
-      <Switch v-model="appSettings.app.addPluginToMenu" />
-    </div>
-    <div class="px-8 py-12 flex items-center justify-between">
-      <div class="text-16 font-bold">{{ $t('settings.addGroupToMenu') }}</div>
-      <Switch v-model="appSettings.app.addGroupToMenu" />
     </div>
   </Card>
 </template>

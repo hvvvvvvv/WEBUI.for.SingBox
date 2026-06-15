@@ -7,7 +7,6 @@ import {
   GetEnv,
   ReadFile,
   RemoveFile,
-  WindowReloadApp,
   WriteFile,
 } from '@/bridge'
 import { CoreWorkingDirectory } from '@/constant/kernel'
@@ -20,7 +19,6 @@ import {
   useAppStore,
   useEnvStore,
   useKernelApiStore,
-  usePluginsStore,
   useRulesetsStore,
 } from '@/stores'
 import { ignoredError, message, confirm, APP_TITLE, getAutoStartConfiguration } from '@/utils'
@@ -514,65 +512,6 @@ export const GetSystemProxy = async () => {
   return ''
 }
 
-export const GetSystemProxyBypass = async () => {
-  const { os } = useEnvStore().env
-
-  if (os === OS.Windows) {
-    const out = await ignoredError(Exec, 'reg', [
-      'query',
-      'HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings',
-      '/v',
-      'ProxyOverride',
-    ])
-    if (!out) return ''
-    return out.match(/ProxyOverride\s+REG_SZ\s+(\S+)/)?.[1] || ''
-  }
-
-  if (os === OS.Darwin) {
-    async function _get(device: string) {
-      const out = await ignoredError(Exec, 'networksetup', ['-getproxybypassdomains', device])
-      if (!out) return []
-      return out.trim().split('\n').filter(Boolean)
-    }
-    const res = await Promise.all([_get('Ethernet'), _get('Wi-Fi')])
-    return res.flat().join(';')
-  }
-
-  if (os === OS.Linux) {
-    const desktop = await GetEnv('XDG_CURRENT_DESKTOP')
-    if (desktop.includes('KDE')) {
-      const out = await ignoredError(Exec, 'kreadconfig5', [
-        '--file',
-        'kioslaverc',
-        '--group',
-        'Proxy Settings',
-        '--key',
-        'NoProxyFor',
-      ])
-      if (!out) return ''
-      return out
-        .trim()
-        .split(',')
-        .map((v) => v.trim())
-        .join(';')
-    } else if (['GNOME', 'XFCE'].includes(desktop)) {
-      const out = await ignoredError(Exec, 'gsettings', [
-        'get',
-        'org.gnome.system.proxy',
-        'ignore-hosts',
-      ])
-      if (!out) return ''
-      const arrStart = out.indexOf('[')
-      const arrStr = arrStart >= 0 ? out.slice(arrStart) : out
-      const jsonLike = arrStr.replace(/'/g, '"')
-      const arr = (await ignoredError(JSON.parse, jsonLike)) ?? []
-      if (!Array.isArray(arr)) return ''
-      return arr.join(';')
-    }
-  }
-  return ''
-}
-
 const proxy_cache: { proxyPromise: Promise<string> | null; lastAccessTime: number } = {
   proxyPromise: null,
   lastAccessTime: 0,
@@ -736,79 +675,6 @@ export const addToRuleSet = async (
   })
   await WriteFile(path, JSON.stringify({ version: 1, rules }, null, 2))
   await rulesetsStoe.updateRuleset(id)
-}
-
-export const reloadApp = async () => {
-  const { t } = i18n.global
-  const appStore = useAppStore()
-  const pluginsStore = usePluginsStore()
-
-  appStore.isAppReloading = true
-
-  let timedout = false
-  const { destroy } = message.info('titlebar.reloadPending', 10 * 60 * 1000)
-
-  const timeoutId = setTimeout(async () => {
-    timedout = true
-    appStore.isAppReloading = false
-    destroy()
-    confirm('Warning', t('titlebar.reloadTimeout')).then(WindowReloadApp)
-  }, 10_000)
-
-  try {
-    await pluginsStore.onReloadTrigger()
-    if (!timedout) {
-      clearTimeout(timeoutId)
-      WindowReloadApp()
-    }
-  } catch (err: any) {
-    clearTimeout(timeoutId)
-    confirm('Error', t('titlebar.reloadError', { reason: err })).then(WindowReloadApp)
-  }
-
-  appStore.isAppReloading = false
-  destroy()
-}
-
-export const exitApp = async () => {
-  const { t } = i18n.global
-  const appStore = useAppStore()
-  const envStore = useEnvStore()
-  const pluginsStore = usePluginsStore()
-  const appSettings = useAppSettingsStore()
-  const kernelApiStore = useKernelApiStore()
-
-  appStore.isAppExiting = true
-
-  let timedout = false
-  const { destroy } = message.info('titlebar.exitPending', 10 * 60 * 1000)
-
-  const timeoutId = setTimeout(async () => {
-    timedout = true
-    appStore.isAppExiting = false
-    destroy()
-    confirm('Warning', t('titlebar.exitTimeout')).then(ExitApp)
-  }, 10_000)
-
-  try {
-    if (kernelApiStore.running && appSettings.app.closeKernelOnExit) {
-      await kernelApiStore.stopCore()
-      if (appSettings.app.autoSetSystemProxy) {
-        await envStore.clearSystemProxy()
-      }
-    }
-    await pluginsStore.onShutdownTrigger()
-    if (!timedout) {
-      clearTimeout(timeoutId)
-      ExitApp()
-    }
-  } catch (err: any) {
-    clearTimeout(timeoutId)
-    confirm('Error', t('titlebar.exitError', { reason: err })).then(ExitApp)
-  }
-
-  appStore.isAppExiting = false
-  destroy()
 }
 
 export const getKernelFileName = (isAlpha = false) => {

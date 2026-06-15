@@ -14,13 +14,13 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=frontend /src/frontend/dist ./frontend/dist
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /gui.for.singbox.server .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /webui.for.singbox.server .
 
 # Stage 3: Runtime
 FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
-COPY --from=backend /gui.for.singbox.server ./
+COPY --from=backend /webui.for.singbox.server ./
 
 VOLUME /app/data
 
@@ -28,4 +28,4 @@ ENV GFS_HOST=0.0.0.0
 ENV GFS_PORT=9090
 EXPOSE 9090
 
-ENTRYPOINT ["sh", "-c", "exec ./gui.for.singbox.server --addr ${GFS_HOST}:${GFS_PORT}"]
+ENTRYPOINT ["sh", "-c", "exec ./webui.for.singbox.server --addr ${GFS_HOST}:${GFS_PORT}"]

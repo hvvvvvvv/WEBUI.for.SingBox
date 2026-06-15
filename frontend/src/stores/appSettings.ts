@@ -2,13 +2,7 @@ import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 import { parse, stringify } from 'yaml'
 
-import {
-  ReadFile,
-  WriteFile,
-  WindowSetSystemDefaultTheme,
-  WindowIsMaximised,
-  WindowIsMinimised,
-} from '@/bridge'
+import { ReadFile, WriteFile } from '@/bridge'
 import {
   Colors,
   DefaultCardColumns,
@@ -22,21 +16,17 @@ import {
 import { DefaultConnections, DefaultCoreConfig } from '@/constant/kernel'
 import {
   Theme,
-  WindowStartState,
   Lang,
   View,
   Color,
-  WebviewGpuPolicy,
   ControllerCloseMode,
   Branch,
 } from '@/enums/app'
 import i18n, { loadLocale } from '@/lang'
-import { useAppStore, useEnvStore } from '@/stores'
+import { useAppStore } from '@/stores'
 import {
   debounce,
-  updateTrayAndMenus,
   ignoredError,
-  GetSystemProxyBypass,
   deepClone,
 } from '@/utils'
 
@@ -44,7 +34,6 @@ import type { AppSettings, SessionInfo } from '@/types/app'
 
 export const useAppSettingsStore = defineStore('app-settings', () => {
   const appStore = useAppStore()
-  const envStore = useEnvStore()
 
   let latestUserSettings: string
 
@@ -76,16 +65,8 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     profilesView: View.Grid,
     subscribesView: View.Grid,
     rulesetsView: View.Grid,
-    pluginsView: View.Grid,
     scheduledtasksView: View.Grid,
-    windowStartState: WindowStartState.Normal,
-    webviewGpuPolicy: WebviewGpuPolicy.OnDemand,
-    width: 0,
-    height: 0,
-    exitOnClose: true,
-    closeKernelOnExit: true,
     autoSetSystemProxy: true,
-    proxyBypassList: '',
     autoStartKernel: false,
     autoRestartKernel: false,
     userAgent: '',
@@ -108,17 +89,14 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       main: undefined as any,
       alpha: undefined as any,
     },
-    pluginSettings: {},
     githubApiToken: '',
     multipleInstance: false,
-    addPluginToMenu: false,
-    addGroupToMenu: false,
     rollingRelease: true,
     debugOutline: false,
     debugNoAnimation: false,
     debugNoRounded: false,
     debugBorder: false,
-    pages: ['Overview', 'Profiles', 'Subscriptions', 'Plugins']
+    pages: ['Overview', 'Profiles', 'Subscriptions']
   })
 
   const saveAppSettings = debounce((config: string) => {
@@ -151,10 +129,6 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       settings.kernel.main = DefaultCoreConfig()
       settings.kernel.alpha = DefaultCoreConfig()
     }
-    if (!settings.proxyBypassList) {
-      settings.proxyBypassList = await GetSystemProxyBypass()
-    }
-
     app.value = settings
     latestUserSettings = stringify(app.value)
   }
@@ -190,15 +164,6 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     },
     fontFamily(fontFamily: string) {
       document.body.style.fontFamily = fontFamily
-    },
-    windowSize(width: number, height: number) {
-      app.value.width = width
-      app.value.height = height
-    },
-    systemProxyBypass() {
-      if (envStore.systemProxy) {
-        envStore.setSystemProxy()
-      }
     },
   }
 
@@ -241,38 +206,8 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     } else {
       document.body.setAttribute('theme-mode', theme)
     }
-    WindowSetSystemDefaultTheme()
   }
   watch(themeMode, setAppTheme, { immediate: true })
-
-  /* Apply WindowSize */
-  const onWindowSizeChange = debounce(async () => {
-    const [isMinimised, isMaximised] = await Promise.all([WindowIsMinimised(), WindowIsMaximised()])
-    if (!isMinimised && !isMaximised) {
-      const w = document.documentElement.clientWidth
-      const h = document.documentElement.clientHeight
-      applyAppSettings.windowSize(w, h)
-    }
-  }, 1000)
-  window.addEventListener('resize', onWindowSizeChange)
-
-  /* Apply TrayAndMenus */
-  watch(
-    [
-      themeMode,
-      appStore.locales,
-      () => app.value.color,
-      () => app.value.lang,
-      () => app.value.addPluginToMenu,
-    ],
-    updateTrayAndMenus,
-  )
-
-  /* Apply SystemProxyBypass */
-  const setSystemProxyBypass = debounce(() => {
-    applyAppSettings.systemProxyBypass()
-  }, 3000)
-  watch(() => app.value.proxyBypassList, setSystemProxyBypass)
 
   return { setupAppSettings, app, themeMode, sessionInfo }
 })

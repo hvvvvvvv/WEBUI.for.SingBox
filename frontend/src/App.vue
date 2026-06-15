@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-import { IsStartup, loadAuthToken, initWebSocket } from '@/bridge'
+import { loadAuthToken, initWebSocket } from '@/bridge'
 import { NavigationBar, TitleBar, SplashView, AboutView, CommandView } from '@/components'
 import LoginView from '@/views/LoginView.vue'
 import * as Stores from '@/stores'
@@ -15,7 +15,6 @@ const hasError = ref(false)
 
 const envStore = Stores.useEnvStore()
 const appStore = Stores.useAppStore()
-const pluginsStore = Stores.usePluginsStore()
 const profilesStore = Stores.useProfilesStore()
 const rulesetsStore = Stores.useRulesetsStore()
 const appSettings = Stores.useAppSettingsStore()
@@ -44,16 +43,17 @@ const initApp = async () => {
   }
 
   const authed = await loadAuthToken().catch(() => false)
+  const showError = (err: string) => {
+    hasError.value = true
+    message.error(err)
+  }
   if (!authed) {
     loading.value = false
     return
   }
   
   initWebSocket(appSettings.sessionInfo.cacheToken)
-  const showError = (err: string) => {
-    hasError.value = true
-    message.error(err)
-  }
+  
 
   try {
     await envStore.setupEnv()
@@ -63,18 +63,11 @@ const initApp = async () => {
       profilesStore.setupProfiles(),
       subscribesStore.setupSubscribes(),
       rulesetsStore.setupRulesets(),
-      pluginsStore.setupPlugins(),
       scheduledTasksStore.setupScheduledTasks(),
     ])
 
     const startTime = performance.now()
-    percent.value = 20
-    if (await IsStartup()) {
-      await pluginsStore.onStartupTrigger().catch(showError)
-    }
-
     percent.value = 40
-    await pluginsStore.onReadyTrigger().catch(showError)
 
     const duration = performance.now() - startTime
     percent.value = duration < 500 ? 80 : 100

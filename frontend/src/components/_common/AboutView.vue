@@ -2,7 +2,7 @@
 import { useI18n } from 'vue-i18n'
 
 import logo from '@/assets/logo'
-import { RestartApp, BrowserOpenURL, ExitApp } from '@/bridge'
+import { BrowserOpenURL } from '@/bridge'
 import { useAppStore, useEnvStore } from '@/stores'
 import {
   APP_TITLE,
@@ -10,29 +10,12 @@ import {
   PROJECT_URL,
   TG_GROUP,
   TG_CHANNEL,
-  message,
-  RunWithOsaScript,
 } from '@/utils'
-import { OS } from '@/enums/app'
 
 const { t } = useI18n()
 const envStore = useEnvStore()
 const appStore = useAppStore()
 
-const handleRestartApp = async () => {
-  try {
-    if (envStore.env.os === OS.Darwin) {
-      RunWithOsaScript('open', [envStore.env.basePath.replace('/Contents/MacOS', '')], {
-        wait: false,
-      })
-      await ExitApp()
-    } else {
-      await RestartApp()
-    }
-  } catch (error: any) {
-    message.error(error)
-  }
-}
 
 appStore.checkForUpdates()
 </script>
@@ -43,16 +26,6 @@ appStore.checkForUpdates()
     <div class="py-8 font-bold">{{ APP_TITLE }}</div>
     <div class="flex items-center pb-8 my-4">
       <Button
-        v-if="appStore.restartable"
-        icon="restartApp"
-        size="small"
-        type="primary"
-        @click="handleRestartApp"
-      >
-        {{ t('about.restart') }}
-      </Button>
-      <template v-else>
-        <Button
           :loading="appStore.checkForUpdatesLoading"
           type="link"
           size="small"
@@ -67,8 +40,7 @@ appStore.checkForUpdates()
           @click="appStore.downloadApp"
         >
           {{ t('about.new') }}: {{ appStore.remoteVersion }}
-        </Button>
-      </template>
+      </Button>
     </div>
     <div
       class="text-12 underline flex items-center cursor-pointer"

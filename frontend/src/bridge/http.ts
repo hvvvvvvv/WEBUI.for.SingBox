@@ -10,7 +10,7 @@ const buildApiError = (status: number, statusText: string) => {
   return new Error(`API error: ${status} ${statusText}`)
 }
 
-const requestAuthToken = async (secret = '') => {
+export const requestAuthToken = async (secret = '') => {
   const resp = await fetch('/api/auth/login', {
     method: 'POST',
     headers: {
@@ -42,6 +42,15 @@ export const loadAuthToken = async () => {
     appSettings.sessionInfo.authEnabled = false
     appSettings.sessionInfo.requireLogin = false
   }
+  return true
+}
+
+export const loginAuthToken = async (secret: string) => {
+  const appSettings = useAppSettingsStore()
+  const token = await requestAuthToken(secret)
+  if (!token) return false
+  appSettings.sessionInfo.cacheToken = token
+  appSettings.sessionInfo.authEnabled = true
   return true
 }
 

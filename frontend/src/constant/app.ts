@@ -2,13 +2,10 @@ import {
   Color,
   ControllerCloseMode,
   Lang,
-  PluginTrigger,
   RequestMethod,
   ScheduledTasksType,
   Theme,
   View,
-  WebviewGpuPolicy,
-  WindowStartState,
 } from '@/enums/app'
 
 export const LocalesFilePath = 'data/locales'
@@ -21,11 +18,7 @@ export const SubscribesFilePath = 'data/subscribes.yaml'
 
 export const RulesetsFilePath = 'data/rulesets.yaml'
 
-export const PluginsFilePath = 'data/plugins.yaml'
-
 export const ScheduledTasksFilePath = 'data/scheduledtasks.yaml'
-
-export const PluginHubFilePath = 'data/.cache/plugin-list.json'
 
 export const RulesetHubFilePath = 'data/.cache/ruleset-list.json'
 
@@ -111,49 +104,20 @@ export const ColorOptions = [
   },
 ]
 
-export const WindowStateOptions = [
-  { label: 'settings.windowState.normal', value: WindowStartState.Normal },
-  { label: 'settings.windowState.minimised', value: WindowStartState.Minimised },
-]
-
-export const WebviewGpuPolicyOptions = [
-  { label: 'settings.webviewGpuPolicy.always', value: WebviewGpuPolicy.Always },
-  { label: 'settings.webviewGpuPolicy.onDemand', value: WebviewGpuPolicy.OnDemand },
-  { label: 'settings.webviewGpuPolicy.never', value: WebviewGpuPolicy.Never },
-]
-
 // vue-draggable-plus config
 export const DraggableOptions = {
   animation: 150,
 }
 
-export const PluginsTriggerOptions = [
-  { label: 'plugin.on::startup', value: PluginTrigger.OnStartup },
-  { label: 'plugin.on::ready', value: PluginTrigger.OnReady },
-  { label: 'plugin.on::reload', value: PluginTrigger.OnReload },
-  { label: 'plugin.on::shutdown', value: PluginTrigger.OnShutdown },
-  { label: 'plugin.on::manual', value: PluginTrigger.OnManual },
-  { label: 'plugin.on::generate', value: PluginTrigger.OnGenerate },
-  { label: 'plugin.on::subscribe', value: PluginTrigger.OnSubscribe },
-  { label: 'plugin.on::tray::update', value: PluginTrigger.OnTrayUpdate },
-  { label: 'plugin.on::before::core::start', value: PluginTrigger.OnBeforeCoreStart },
-  { label: 'plugin.on::core::started', value: PluginTrigger.OnCoreStarted },
-  { label: 'plugin.on::before::core::stop', value: PluginTrigger.OnBeforeCoreStop },
-  { label: 'plugin.on::core::stopped', value: PluginTrigger.OnCoreStopped },
-]
-
 export const ScheduledTaskOptions = [
   { label: 'scheduledtask.update::subscription', value: ScheduledTasksType.UpdateSubscription },
   { label: 'scheduledtask.update::ruleset', value: ScheduledTasksType.UpdateRuleset },
-  { label: 'scheduledtask.update::plugin', value: ScheduledTasksType.UpdatePlugin },
-  { label: 'scheduledtask.run::plugin', value: ScheduledTasksType.RunPlugin },
   { label: 'scheduledtask.run::script', value: ScheduledTasksType.RunScript },
   {
     label: 'scheduledtask.update::all::subscription',
     value: ScheduledTasksType.UpdateAllSubscription,
   },
   { label: 'scheduledtask.update::all::ruleset', value: ScheduledTasksType.UpdateAllRuleset },
-  { label: 'scheduledtask.update::all::plugin', value: ScheduledTasksType.UpdateAllPlugin },
 ]
 
 export const DefaultSubscribeScript = `const onSubscribe = async (proxies, subscription) => {\n  return { proxies, subscription }\n}`

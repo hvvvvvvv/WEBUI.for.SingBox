@@ -1,14 +1,13 @@
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { ref } from 'vue'
 
 import { GetEnv } from '@/bridge'
-import { useAppSettingsStore, useKernelApiStore } from '@/stores'
-import { updateTrayAndMenus, SetSystemProxy, GetSystemProxy } from '@/utils'
+import { useKernelApiStore } from '@/stores'
+import { SetSystemProxy, GetSystemProxy } from '@/utils'
 import { OS } from '@/enums/app'
 import type { AppEnv } from '@/types/app'
 
 export const useEnvStore = defineStore('env', () => {
-  const appSettings = useAppSettingsStore()
   const kernelApiStore = useKernelApiStore()
 
   const env = ref<AppEnv>({
@@ -60,7 +59,6 @@ export const useEnvStore = defineStore('env', () => {
   }
 
   const setSystemProxy = async () => {
-    const proxyBypassList = appSettings.app.proxyBypassList
     let proxyPort = kernelApiStore.getProxyPort()
 
     if (!proxyPort) {
@@ -71,14 +69,13 @@ export const useEnvStore = defineStore('env', () => {
 
     if (!proxyPort) throw 'home.overview.needPort'
 
-    await SetSystemProxy(true, '127.0.0.1:' + proxyPort.port, proxyPort.proxyType, proxyBypassList)
+    await SetSystemProxy(true, '127.0.0.1:' + proxyPort.port, proxyPort.proxyType)
 
     systemProxy.value = true
   }
 
   const clearSystemProxy = async () => {
-    const proxyBypassList = appSettings.app.proxyBypassList
-    await SetSystemProxy(false, '', undefined, proxyBypassList)
+    await SetSystemProxy(false, '')
     systemProxy.value = false
   }
 
@@ -86,8 +83,6 @@ export const useEnvStore = defineStore('env', () => {
     if (enable) await setSystemProxy()
     else await clearSystemProxy()
   }
-
-  watch(systemProxy, updateTrayAndMenus)
 
   return {
     env,

@@ -50,7 +50,7 @@ const modalSlots = {
           message.success('common.success')
         },
       },
-      () => t('plugin.restore'),
+      () => t('common.reset'),
     ),
   cancel: () =>
     h(

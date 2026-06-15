@@ -5,11 +5,8 @@ import type {
   Theme,
   Color,
   View,
-  WindowStartState,
-  WebviewGpuPolicy,
   Branch,
   ControllerCloseMode,
-  PluginTrigger,
   ScheduledTasksType,
   RequestMethod,
   OS,
@@ -24,12 +21,6 @@ export interface AppEnv {
   arch: string
   libc: string
   isPrivileged: boolean
-}
-
-export interface TrayContent {
-  icon?: string
-  title?: string
-  tooltip?: string
 }
 
 export interface Menu {
@@ -59,16 +50,8 @@ export interface AppSettings {
   profilesView: View
   subscribesView: View
   rulesetsView: View
-  pluginsView: View
   scheduledtasksView: View
-  windowStartState: WindowStartState
-  webviewGpuPolicy: WebviewGpuPolicy
-  width: number
-  height: number
-  exitOnClose: boolean
-  closeKernelOnExit: boolean
   autoSetSystemProxy: boolean
-  proxyBypassList: string
   autoStartKernel: boolean
   autoRestartKernel: boolean
   userAgent: string
@@ -100,11 +83,8 @@ export interface AppSettings {
       args: string[]
     }
   }
-  pluginSettings: Record<string, Record<string, any>>
   githubApiToken: string
   multipleInstance: boolean
-  addPluginToMenu: boolean
-  addGroupToMenu: boolean
   rollingRelease: boolean
   debugOutline: boolean
   debugNoAnimation: boolean
@@ -119,64 +99,12 @@ export interface SessionInfo {
   requireLogin: boolean
 }
 
-export interface PluginConfiguration {
-  id: string
-  title: string
-  description: string
-  key: string
-  component:
-    | 'CheckBox'
-    | 'CodeViewer'
-    | 'Input'
-    | 'InputList'
-    | 'KeyValueEditor'
-    | 'Radio'
-    | 'Select'
-    | 'MultipleSelect'
-    | 'Switch'
-    | 'ColorPicker'
-    | ''
-  value: any
-  options: any[]
-}
-
-export interface Plugin {
-  id: string
-  version: string
-  name: string
-  description: string
-  type: 'Http' | 'File'
-  url: string
-  path: string
-  triggers: PluginTrigger[]
-  tags: string[]
-  hasUI: boolean
-  menus: Record<string, string>
-  context: {
-    profiles: Recordable
-    subscriptions: Recordable
-    rulesets: Recordable
-    plugins: Recordable
-    scheduledtasks: Recordable
-  }
-  configuration: PluginConfiguration[]
-  disabled: boolean
-  install: boolean
-  installed: boolean
-  status: number // 0: Normal 1: Running 2: Stopped
-  // Not Config
-  updating?: boolean
-  loading?: boolean
-  running?: boolean
-}
-
 export interface ScheduledTask {
   id: string
   name: string
   type: ScheduledTasksType
   subscriptions: string[]
   rulesets: string[]
-  plugins: string[]
   script: string
   cron: string
   notification: boolean

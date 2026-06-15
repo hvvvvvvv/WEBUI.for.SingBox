@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package kernel.v1;
+
+option go_package = "guiforcores/proto/kernel/v1";
+
+enum CoreStatus {
+  CORE_STATUS_UNSPECIFIED = 0;
+  CORE_STATUS_STOPPED = 1;
+  CORE_STATUS_STARTING = 2;
+  CORE_STATUS_RUNNING = 3;
+  CORE_STATUS_STOPPING = 4;
+  CORE_STATUS_CRASHED = 5;
+}
+
+message StartCoreRequest {
+  string profile_id = 1;
+}
+
+message StartCoreResponse {}
+
+message StopCoreRequest {}
+
+message StopCoreResponse {}
+
+message RestartCoreRequest {
+  string profile_id = 1;
+}
+
+message RestartCoreResponse {}
+
+message GetCoreStatusRequest {}
+
+message GetCoreStatusResponse {
+  CoreStatus status = 1;
+}
+
+service KernelService {
+  rpc StartCore(StartCoreRequest) returns (StartCoreResponse);
+  rpc StopCore(StopCoreRequest) returns (StopCoreResponse);
+  rpc RestartCore(RestartCoreRequest) returns (RestartCoreResponse);
+  rpc GetCoreStatus(GetCoreStatusRequest) returns (GetCoreStatusResponse);
+}

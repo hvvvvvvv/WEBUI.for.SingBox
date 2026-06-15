@@ -1,18 +1,15 @@
-import { RestartApp } from '@/bridge'
 import { ColorOptions, ThemeOptions } from '@/constant/app'
 import { ModeOptions } from '@/constant/kernel'
-import { PluginTrigger, PluginTriggerEvent } from '@/enums/app'
 import useI18n from '@/lang'
 import {
   useAppSettingsStore,
   useAppStore,
   useEnvStore,
   useKernelApiStore,
-  usePluginsStore,
   useRulesetsStore,
   useSubscribesStore,
 } from '@/stores'
-import { exitApp, handleChangeMode, message, reloadApp } from '@/utils'
+import { handleChangeMode, message } from '@/utils'
 
 type Command = {
   label: string
@@ -48,35 +45,34 @@ export const getCommands = () => {
   const appStore = useAppStore()
   const subscriptionsStore = useSubscribesStore()
   const rulesetsStore = useRulesetsStore()
-  const pluginsStore = usePluginsStore()
 
   const rawCommands: Command[] = [
     {
-      label: 'tray.kernel',
+      label: 'commands.kernel',
       cmd: 'Core',
       children: [
         {
-          label: 'tray.startKernel',
+          label: 'commands.startKernel',
           cmd: 'Start Core',
           handler: kernelStore.startCore,
         },
         {
-          label: 'tray.stopKernel',
+          label: 'commands.stopKernel',
           cmd: 'Stop Core',
           handler: kernelStore.stopCore,
         },
         {
-          label: 'tray.restartKernel',
+          label: 'commands.restartKernel',
           cmd: 'Restart Core',
           handler: kernelStore.restartCore,
         },
         {
-          label: 'tray.enableTunMode',
+          label: 'commands.enableTunMode',
           cmd: 'Enable Tun',
           handler: () => kernelStore.updateConfig('tun', { enable: true }),
         },
         {
-          label: 'tray.disableTunMode',
+          label: 'commands.disableTunMode',
           cmd: 'Disable Tun',
           handler: () => kernelStore.updateConfig('tun', { enable: false }),
         },
@@ -102,16 +98,16 @@ export const getCommands = () => {
       ],
     },
     {
-      label: 'tray.proxy',
+      label: 'commands.proxy',
       cmd: 'System Proxy',
       children: [
         {
-          label: 'tray.setSystemProxy',
+          label: 'commands.setSystemProxy',
           cmd: 'Set System Proxy',
           handler: envStore.setSystemProxy,
         },
         {
-          label: 'tray.clearSystemProxy',
+          label: 'commands.clearSystemProxy',
           cmd: 'Clear System Proxy',
           handler: envStore.clearSystemProxy,
         },
@@ -159,21 +155,6 @@ export const getCommands = () => {
           })),
         },
         {
-          label: 'titlebar.reload',
-          cmd: 'Reload Window',
-          handler: reloadApp,
-        },
-        {
-          label: 'tray.restartTip',
-          cmd: 'Restart APP',
-          handler: RestartApp,
-        },
-        {
-          label: 'tray.exitTip',
-          cmd: 'Exit APP',
-          handler: exitApp,
-        },
-        {
           label: 'router.about',
           cmd: 'About APP',
           handler: () => (appStore.showAbout = true),
@@ -201,61 +182,6 @@ export const getCommands = () => {
           handler: rulesetsStore.updateRulesets,
         },
       ],
-    },
-    {
-      label: 'router.plugins',
-      cmd: 'Plugins',
-      children: [
-        {
-          label: 'common.updateAll',
-          cmd: 'Update Plugins',
-          handler: pluginsStore.updatePlugins,
-        },
-      ],
-    },
-    {
-      label: 'tray.plugins',
-      cmd: 'Plugins',
-      children: pluginsStore.plugins.flatMap((plugin) => {
-        const hasTrigger = !!plugin.triggers.find((trigger) => trigger === PluginTrigger.OnManual)
-        const hasMenus = !!Object.keys(plugin.menus).length
-        if (!hasTrigger && !hasMenus) return []
-        const children: Command[] = []
-        if (hasTrigger) {
-          children.push({
-            label: 'common.run',
-            cmd: PluginTrigger.OnManual,
-            handler: async () => {
-              plugin.running = true
-              try {
-                await pluginsStore.manualTrigger(plugin.id, PluginTriggerEvent.OnManual)
-              } catch (error: any) {
-                message.error(error)
-              }
-              plugin.running = false
-            },
-          })
-        }
-        if (hasMenus) {
-          Object.entries(plugin.menus).forEach(([title, fnName]) => {
-            children.push({
-              label: title,
-              cmd: fnName,
-              handler: async () => {
-                try {
-                  plugin.running = true
-                  await pluginsStore.manualTrigger(plugin.id, fnName as any)
-                } catch (error: any) {
-                  message.error(error.message || error)
-                } finally {
-                  plugin.running = false
-                }
-              },
-            })
-          })
-        }
-        return { label: plugin.name, cmd: plugin.id, children }
-      }),
     },
   ]
 

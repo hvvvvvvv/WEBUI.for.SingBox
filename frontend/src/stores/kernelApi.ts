@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 
 import {
   getProxies,
@@ -12,49 +12,59 @@ import {
   initWebsocket,
   destroyWebsocket,
 } from '@/api/kernel'
-import { ProcessInfo, KillProcess, ExecBackground, ReadFile, RemoveFile } from '@/bridge'
+import { ProcessInfo, ReadFile, createRpcClient } from '@/bridge'
 import {
   CoreConfigFilePath,
   CorePidFilePath,
-  CoreStopOutputKeyword,
-  CoreWorkingDirectory,
 } from '@/constant/kernel'
 import { DefaultInboundMixed } from '@/constant/profile'
-import { Branch } from '@/enums/app'
 import { Inbound, RulesetType, TunStack } from '@/enums/kernel'
 import {
   useAppSettingsStore,
   useProfilesStore,
   useLogsStore,
   useEnvStore,
-  usePluginsStore,
   useSubscribesStore,
   useRulesetsStore,
 } from '@/stores'
 import {
-  generateConfigFile,
-  updateTrayAndMenus,
-  getKernelFileName,
   restoreProfile,
   deepClone,
   message,
-  getKernelRuntimeArgs,
-  getKernelRuntimeEnv,
   eventBus,
 } from '@/utils'
+import { KernelService } from '../../gen/kernel/v1/kernel_pb'
 
 import type { CoreApiConfig, CoreApiProxy } from '@/types/kernel'
 
 export type ProxyType = 'mixed' | 'http' | 'socks'
 
+const normalizeCoreError = (error: unknown): string => {
+  if (typeof error === 'string') {
+    return error
+  }
+
+  if (error && typeof error === 'object') {
+    const obj = error as Record<string, any>
+    if (typeof obj.rawMessage === 'string' && obj.rawMessage.trim() !== '') {
+      return obj.rawMessage
+    }
+    if (typeof obj.message === 'string' && obj.message.trim() !== '') {
+      return obj.message
+    }
+  }
+
+  return 'Unknown core error'
+}
+
 export const useKernelApiStore = defineStore('kernelApi', () => {
   const envStore = useEnvStore()
   const logsStore = useLogsStore()
-  const pluginsStore = usePluginsStore()
   const profilesStore = useProfilesStore()
   const subscribesStore = useSubscribesStore()
   const rulesetsStore = useRulesetsStore()
   const appSettingsStore = useAppSettingsStore()
+  const kernelService = createRpcClient(KernelService)
 
   /** RESTful API */
   const config = ref<CoreApiConfig>({
@@ -226,8 +236,6 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   const restarting = ref(false)
   const needRestart = ref(false)
   const coreStateLoading = ref(true)
-  let isCoreStartedByThisInstance = false
-  let { promise: coreStoppedPromise, resolve: coreStoppedResolver } = Promise.withResolvers()
 
   const initCoreState = async () => {
     corePid.value = Number(await ReadFile(CorePidFilePath).catch(() => -1))
@@ -240,43 +248,13 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
       initWebsocket()
       await Promise.all([refreshConfig(), refreshProviderProxies()])
       await envStore.updateSystemProxyStatus()
-    } else if (appSettingsStore.app.autoStartKernel) {
-      await startCore()
     }
-  }
-
-  const runCoreProcess = (isAlpha: boolean) => {
-    return new Promise<number | void>((resolve, reject) => {
-      let output: string
-      const pid = ExecBackground(
-        CoreWorkingDirectory + '/' + getKernelFileName(isAlpha),
-        getKernelRuntimeArgs(isAlpha),
-        (out) => {
-          output = out
-          logsStore.recordKernelLog(out)
-          if (out.includes(CoreStopOutputKeyword)) {
-            resolve(pid)
-          }
-        },
-        () => {
-          onCoreStopped()
-          reject(output)
-        },
-        {
-          PidFile: CorePidFilePath,
-          StopOutputKeyword: CoreStopOutputKeyword,
-          Env: getKernelRuntimeEnv(isAlpha),
-        },
-      ).catch((e) => reject(e))
-    })
   }
 
   const onCoreStarted = async (pid: number) => {
     corePid.value = pid
     running.value = true
     needRestart.value = false
-    isCoreStartedByThisInstance = true
-    coreStoppedPromise = new Promise((r) => (coreStoppedResolver = r))
 
     initWebsocket()
     await Promise.all([refreshConfig(), refreshProviderProxies()])
@@ -285,15 +263,9 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
       await envStore.setSystemProxy().catch((err) => message.error(err))
     }
     await envStore.updateSystemProxyStatus()
-
-    await pluginsStore.onCoreStartedTrigger()
   }
 
   const onCoreStopped = async () => {
-    if (!isCoreStartedByThisInstance) {
-      await RemoveFile(CorePidFilePath)
-    }
-
     corePid.value = -1
     running.value = false
     needRestart.value = false
@@ -304,9 +276,6 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     if (envStore.systemProxy) {
       await envStore.clearSystemProxy()
     }
-    await pluginsStore.onCoreStoppedTrigger()
-
-    coreStoppedResolver(null)
   }
 
   const startCore = async (_profile?: IProfile) => {
@@ -314,7 +283,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
 
     logsStore.clearKernelLog()
 
-    const { profile: profileID, branch } = appSettingsStore.app.kernel
+    const { profile: profileID } = appSettingsStore.app.kernel
     const profile = _profile || profilesStore.getProfileById(profileID)
     if (!profile) throw 'Choose a profile first'
 
@@ -324,12 +293,11 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
 
     starting.value = true
     try {
-      await generateConfigFile(profile, (config) =>
-        pluginsStore.onBeforeCoreStartTrigger(config, profile),
-      )
-      const isAlpha = branch === Branch.Alpha
-      const pid = await runCoreProcess(isAlpha)
-      pid && (await onCoreStarted(pid))
+      await kernelService.startCore({ profileId: profile.id })
+      corePid.value = Number(await ReadFile(CorePidFilePath).catch(() => -1))
+      await onCoreStarted(corePid.value)
+    } catch (error) {
+      throw normalizeCoreError(error)
     } finally {
       starting.value = false
     }
@@ -340,9 +308,10 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
 
     stopping.value = true
     try {
-      await pluginsStore.onBeforeCoreStopTrigger()
-      await KillProcess(corePid.value)
-      await (isCoreStartedByThisInstance ? coreStoppedPromise : onCoreStopped())
+      await kernelService.stopCore({})
+      await onCoreStopped()
+    } catch (error) {
+      throw normalizeCoreError(error)
     } finally {
       stopping.value = false
     }
@@ -351,9 +320,14 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   const restartCore = async (cleanupTask?: () => Promise<any>, keepRuntimeProfile = false) => {
     restarting.value = true
     try {
-      await stopCore()
       await cleanupTask?.()
-      await startCore(keepRuntimeProfile ? runtimeProfile : undefined)
+      const profile = keepRuntimeProfile ? runtimeProfile : profilesStore.currentProfile
+      if (!profile) throw 'Choose a profile first'
+      await kernelService.restartCore({ profileId: profile.id })
+      corePid.value = Number(await ReadFile(CorePidFilePath).catch(() => -1))
+      await onCoreStarted(corePid.value)
+    } catch (error) {
+      throw normalizeCoreError(error)
     } finally {
       needRestart.value = false
       restarting.value = false
@@ -454,22 +428,6 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
       restartCore()
     }
   })
-
-  const watchSources = computed(() => {
-    const source = [config.value.mode, config.value.tun.enable]
-    if (!appSettingsStore.app.addGroupToMenu) return source.join('')
-
-    const { unAvailable, sortByDelay } = appSettingsStore.app.kernel
-
-    const proxySignature = Object.values(proxies.value)
-      .map((group) => group.name + group.now)
-      .sort()
-      .join()
-
-    return source.concat([proxySignature, unAvailable, sortByDelay]).join('')
-  })
-
-  watch([watchSources, running], updateTrayAndMenus)
 
   return {
     startCore,

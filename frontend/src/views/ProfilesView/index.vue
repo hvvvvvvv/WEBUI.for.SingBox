@@ -9,10 +9,9 @@ import {
   useAppSettingsStore,
   useKernelApiStore,
   useSubscribesStore,
-  usePluginsStore,
   useAppStore,
 } from '@/stores'
-import { debounce, deepClone, generateConfig, message, sampleID, alert } from '@/utils'
+import { debounce, deepClone, generateConfigViaRpc, message, sampleID, alert } from '@/utils'
 
 import { useModal } from '@/components/Modal'
 
@@ -28,7 +27,6 @@ const profilesStore = useProfilesStore()
 const subscribesStore = useSubscribesStore()
 const appSettingsStore = useAppSettingsStore()
 const kernelApiStore = useKernelApiStore()
-const pluginsStore = usePluginsStore()
 
 const menuList: Menu[] = [
   'profile.step.name',
@@ -78,9 +76,8 @@ const secondaryMenusList: Menu[] = [
   {
     label: 'profiles.copytoClipboard',
     handler: async (id: string) => {
-      const p = profilesStore.getProfileById(id)!
       try {
-        const config = await generateConfig(p)
+        const config = await generateConfigViaRpc(id)
         const str = JSON.stringify(config, null, 2)
         const ok = await ClipboardSetText(str)
         if (!ok) throw 'ClipboardSetText Error'
@@ -95,7 +92,7 @@ const secondaryMenusList: Menu[] = [
     handler: async (id: string) => {
       const p = profilesStore.getProfileById(id)!
       try {
-        const config = await generateConfig(p)
+        const config = await generateConfigViaRpc(id)
         alert(p.name, JSON.stringify(config, null, 2))
       } catch (error: any) {
         message.error(error.message || error)
@@ -128,39 +125,6 @@ const generateMenus = (profile: IProfile) => {
       children: moreMenus,
     },
   ]
-
-  const contextMenus = pluginsStore.plugins.filter(
-    (plugin) => Object.keys(plugin.context.profiles).length !== 0,
-  )
-
-  if (contextMenus.length !== 0) {
-    moreMenus.push(
-      {
-        label: '',
-        separator: true,
-      },
-      ...contextMenus.reduce((prev, plugin) => {
-        const menus = Object.entries(plugin.context.profiles)
-        return prev.concat(
-          menus.map(([title, fn]) => {
-            return {
-              label: title,
-              handler: async () => {
-                try {
-                  plugin.running = true
-                  await pluginsStore.manualTrigger(plugin.id, fn as any, profile)
-                } catch (error: any) {
-                  message.error(error)
-                } finally {
-                  plugin.running = false
-                }
-              },
-            }
-          }),
-        )
-      }, [] as Menu[]),
-    )
-  }
 
   return builtInMenus
 }

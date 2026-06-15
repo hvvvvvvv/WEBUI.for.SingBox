@@ -79,7 +79,7 @@ const handlePreview = async (ruleset: RuleSetHub['list'][number], format: Rulese
   }
 }
 
-const handleUpdatePluginHub = async () => {
+const handleUpdateRulesetHub = async () => {
   try {
     await rulesetsStore.updateRulesetHub()
     message.success('rulesets.updateSuccess')
@@ -135,8 +135,8 @@ defineExpose({ modalSlots })
           size="small"
           class="flex-1"
         />
-        <Button icon="refresh" size="small" @click="handleUpdatePluginHub">
-          {{ t('plugins.update') }}
+        <Button icon="refresh" size="small" @click="handleUpdateRulesetHub">
+          {{ t('common.update') }}
         </Button>
       </div>
 

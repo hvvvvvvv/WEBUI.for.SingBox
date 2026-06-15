@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { apiCall } from '@/bridge/http'
+import { loginAuthToken } from '@/bridge/http'
 import { useAppSettingsStore } from '@/stores'
 
 const { t } = useI18n()
@@ -21,9 +21,7 @@ const handleLogin = async () => {
   error.value = ''
 
   try {
-    const result = await apiCall<{ flag: boolean; data: string }>('/auth/login', secret.value)
-    if (result.flag) {
-      appSettings.sessionInfo.cacheToken = result.data
+    if (await loginAuthToken(secret.value)) {
       emit('authenticated')
     } else {
       error.value = t('auth.invalidSecret')

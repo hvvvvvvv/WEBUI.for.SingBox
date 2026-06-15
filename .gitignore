@@ -1,7 +1,7 @@
 build/bin
 frontend/dist
-gui.for.singbox.server
-gui-for-singbox-container.tar
+webui.for.singbox.server
+webui-for-singbox-container.tar
 data/.cache/
 data/secret.key
 data/sing-box/cache.db

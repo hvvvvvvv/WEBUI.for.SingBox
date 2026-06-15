@@ -6,7 +6,6 @@ import { useAppStore } from '@/stores'
 
 import GeneralSettings from './components/GeneralSettings.vue'
 import CoreSettings from './components/CoreSettings.vue'
-import PluginSettings from './components/PluginSettings.vue'
 
 const settings = [
   {
@@ -18,11 +17,6 @@ const settings = [
     key: 'kernel',
     tab: 'router.kernel',
     component: CoreSettings,
-  },
-  {
-    key: 'plugins',
-    tab: 'router.plugins',
-    component: PluginSettings,
   },
 ] as const
 

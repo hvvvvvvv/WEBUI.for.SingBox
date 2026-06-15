@@ -1,0 +1,363 @@
+syntax = "proto3";
+
+package profile.v1;
+
+option go_package = "guiforcores/proto/profile/v1";
+
+import "google/protobuf/struct.proto";
+
+
+
+enum LogLevel {
+  LOG_LEVEL_UNSPECIFIED = 0;
+  LOG_LEVEL_TRACE = 1;
+  LOG_LEVEL_DEBUG = 2;
+  LOG_LEVEL_INFO = 3;
+  LOG_LEVEL_WARN = 4;
+  LOG_LEVEL_ERROR = 5;
+  LOG_LEVEL_FATAL = 6;
+  LOG_LEVEL_PANIC = 7;
+}
+
+enum InboundType {
+  INBOUND_TYPE_UNSPECIFIED = 0;
+  INBOUND_TYPE_MIXED = 1;
+  INBOUND_TYPE_SOCKS = 2;
+  INBOUND_TYPE_HTTP = 3;
+  INBOUND_TYPE_TUN = 4;
+}
+
+enum OutboundType {
+  OUTBOUND_TYPE_UNSPECIFIED = 0;
+  OUTBOUND_TYPE_DIRECT = 1;
+  OUTBOUND_TYPE_BLOCK = 2;
+  OUTBOUND_TYPE_SELECTOR = 3;
+  OUTBOUND_TYPE_URLTEST = 4;
+}
+
+enum TunStack {
+  TUN_STACK_UNSPECIFIED = 0;
+  TUN_STACK_SYSTEM = 1;
+  TUN_STACK_GVISOR = 2;
+  TUN_STACK_MIXED = 3;
+}
+
+enum RulesetType {
+  RULESET_TYPE_UNSPECIFIED = 0;
+  RULESET_TYPE_INLINE = 1;
+  RULESET_TYPE_LOCAL = 2;
+  RULESET_TYPE_REMOTE = 3;
+}
+
+enum RulesetFormat {
+  RULESET_FORMAT_UNSPECIFIED = 0;
+  RULESET_FORMAT_SOURCE = 1;
+  RULESET_FORMAT_BINARY = 2;
+}
+
+enum RuleType {
+  RULE_TYPE_UNSPECIFIED = 0;
+  RULE_TYPE_INBOUND = 1;
+  RULE_TYPE_NETWORK = 2;
+  RULE_TYPE_PROTOCOL = 3;
+  RULE_TYPE_DOMAIN = 4;
+  RULE_TYPE_DOMAIN_SUFFIX = 5;
+  RULE_TYPE_DOMAIN_KEYWORD = 6;
+  RULE_TYPE_DOMAIN_REGEX = 7;
+  RULE_TYPE_SOURCE_IP_CIDR = 8;
+  RULE_TYPE_IP_CIDR = 9;
+  RULE_TYPE_IP_IS_PRIVATE = 10;
+  RULE_TYPE_SOURCE_PORT = 11;
+  RULE_TYPE_SOURCE_PORT_RANGE = 12;
+  RULE_TYPE_PORT = 13;
+  RULE_TYPE_PORT_RANGE = 14;
+  RULE_TYPE_PROCESS_NAME = 15;
+  RULE_TYPE_PROCESS_PATH = 16;
+  RULE_TYPE_PROCESS_PATH_REGEX = 17;
+  RULE_TYPE_CLASH_MODE = 18;
+  RULE_TYPE_RULE_SET = 19;
+  RULE_TYPE_IP_ACCEPT_ANY = 20;
+  RULE_TYPE_INLINE = 21;
+  RULE_TYPE_INSERTION_POINT = 22;
+}
+
+enum Strategy {
+  STRATEGY_UNSPECIFIED = 0;
+  STRATEGY_DEFAULT = 1;
+  STRATEGY_PREFER_IPV4 = 2;
+  STRATEGY_PREFER_IPV6 = 3;
+  STRATEGY_IPV4_ONLY = 4;
+  STRATEGY_IPV6_ONLY = 5;
+}
+
+enum DnsServerType {
+  DNS_SERVER_TYPE_UNSPECIFIED = 0;
+  DNS_SERVER_TYPE_LOCAL = 1;
+  DNS_SERVER_TYPE_HOSTS = 2;
+  DNS_SERVER_TYPE_TCP = 3;
+  DNS_SERVER_TYPE_UDP = 4;
+  DNS_SERVER_TYPE_TLS = 5;
+  DNS_SERVER_TYPE_HTTPS = 6;
+  DNS_SERVER_TYPE_QUIC = 7;
+  DNS_SERVER_TYPE_H3 = 8;
+  DNS_SERVER_TYPE_DHCP = 9;
+  DNS_SERVER_TYPE_FAKEIP = 10;
+  DNS_SERVER_TYPE_TAILSCALE = 11;
+}
+
+enum RuleAction {
+  RULE_ACTION_UNSPECIFIED = 0;
+  RULE_ACTION_ROUTE = 1;
+  RULE_ACTION_ROUTE_OPTIONS = 2;
+  RULE_ACTION_REJECT = 3;
+  RULE_ACTION_HIJACK_DNS = 4;
+  RULE_ACTION_SNIFF = 5;
+  RULE_ACTION_RESOLVE = 6;
+}
+
+enum DnsRuleAction {
+  DNS_RULE_ACTION_UNSPECIFIED = 0;
+  DNS_RULE_ACTION_ROUTE = 1;
+  DNS_RULE_ACTION_ROUTE_OPTIONS = 2;
+  DNS_RULE_ACTION_REJECT = 3;
+  DNS_RULE_ACTION_PREDEFINED = 4;
+}
+
+enum MixinPriority {
+  MIXIN_PRIORITY_UNSPECIFIED = 0;
+  MIXIN_PRIORITY_MIXIN = 1;
+  MIXIN_PRIORITY_GUI = 2;
+}
+
+enum MixinFormat {
+  MIXIN_FORMAT_UNSPECIFIED = 0;
+  MIXIN_FORMAT_JSON = 1;
+  MIXIN_FORMAT_YAML = 2;
+}
+
+message Log {
+  bool disabled = 1;
+  LogLevel level = 2;
+  string output = 3;
+  bool timestamp = 4;
+}
+
+message ClashApiExperimental {
+  string external_controller = 1;
+  string external_ui = 2;
+  string external_ui_download_url = 3;
+  string external_ui_download_detour = 4;
+  string secret = 5;
+  string default_mode = 6;
+  repeated string access_control_allow_origin = 7;
+  bool access_control_allow_private_network = 8;
+}
+
+message CacheFileExperimental {
+  bool enabled = 1;
+  string path = 2;
+  string cache_id = 3;
+  bool store_fakeip = 4;
+  bool store_rdrc = 5;
+  string rdrc_timeout = 6;
+}
+
+message Experimental {
+  ClashApiExperimental clash_api = 1;
+  CacheFileExperimental cache_file = 2;
+}
+
+message ProxyRef {
+  string id = 1;
+  string type = 2;
+  string tag = 3;
+}
+
+message RuleSet {
+  string id = 1;
+  RulesetType type = 2;
+  string tag = 3;
+  string rules = 4;
+  string path = 5;
+  string url = 6;
+  string download_detour = 7;
+  string update_interval = 8;
+  RulesetFormat format = 9;
+}
+
+message InboundListen {
+  string listen = 1;
+  int32 listen_port = 2;
+  bool tcp_fast_open = 3;
+  bool tcp_multi_path = 4;
+  bool udp_fragment = 5;
+}
+
+message InboundUserConfig {
+  InboundListen listen = 1;
+  repeated string users = 2;
+}
+
+message TunInboundConfig {
+  string interface_name = 1;
+  repeated string address = 2;
+  int32 mtu = 3;
+  bool auto_route = 4;
+  bool strict_route = 5;
+  repeated string route_address = 6;
+  repeated string route_exclude_address = 7;
+  bool endpoint_independent_nat = 8;
+  TunStack stack = 9;
+}
+
+message Inbound {
+  string id = 1;
+  InboundType type = 2;
+  string tag = 3;
+  bool enable = 4;
+  InboundUserConfig mixed = 5;
+  InboundUserConfig socks = 6;
+  InboundUserConfig http = 7;
+  TunInboundConfig tun = 8;
+}
+
+message Outbound {
+  string id = 1;
+  string tag = 2;
+  OutboundType type = 3;
+  repeated ProxyRef outbounds = 4;
+  string url = 5;
+  string interval = 6;
+  int32 tolerance = 7;
+  bool interrupt_exist_connections = 8;
+  string include = 9;
+  string exclude = 10;
+  string icon = 11;
+  bool hidden = 12;
+}
+
+message RouteRule {
+  string id = 1;
+  RuleType type = 2;
+  bool enable = 3;
+  string payload = 4;
+  bool invert = 5;
+  RuleAction action = 6;
+  string outbound = 7;
+  repeated string sniffer = 8;
+  Strategy strategy = 9;
+  string server = 10;
+}
+
+message RouteDefaultDomainResolver {
+  string server = 1;
+  string client_subnet = 2;
+}
+
+message Route {
+  repeated RouteRule rules = 1;
+  repeated RuleSet rule_set = 2;
+  string final = 3;
+  bool auto_detect_interface = 4;
+  string default_interface = 5;
+  bool find_process = 6;
+  RouteDefaultDomainResolver default_domain_resolver = 7;
+}
+
+message DnsServer {
+  string id = 1;
+  string tag = 2;
+  DnsServerType type = 3;
+  string detour = 4;
+  string domain_resolver = 5;
+  repeated string hosts_path = 6;
+  map<string, string> predefined = 7;
+  string server = 8;
+  string server_port = 9;
+  string path = 10;
+  string interface = 11;
+  string inet4_range = 12;
+  string inet6_range = 13;
+}
+
+message DnsRule {
+  string id = 1;
+  RuleType type = 2;
+  bool enable = 3;
+  string payload = 4;
+  DnsRuleAction action = 5;
+  bool invert = 6;
+  string server = 7;
+  Strategy strategy = 8;
+  bool disable_cache = 9;
+  string client_subnet = 10;
+}
+
+message Dns {
+  repeated DnsServer servers = 1;
+  repeated DnsRule rules = 2;
+  bool disable_cache = 3;
+  bool disable_expire = 4;
+  bool independent_cache = 5;
+  string client_subnet = 6;
+  string final = 7;
+  Strategy strategy = 8;
+}
+
+message Mixin {
+  MixinPriority priority = 1;
+  MixinFormat format = 2;
+  string config = 3;
+}
+
+message Script {
+  string code = 1;
+}
+
+message Profile {
+  string id = 1;
+  string name = 2;
+  Log log = 3;
+  Experimental experimental = 4;
+  repeated Inbound inbounds = 5;
+  repeated Outbound outbounds = 6;
+  Route route = 7;
+  Dns dns = 8;
+  Mixin mixin = 9;
+  Script script = 10;
+}
+
+message GenerateConfigOptions {
+  reserved 2;
+
+  bool enable_stable_config_compat = 1;
+  bool enable_mixin_processing = 3;
+  bool enable_script_processing = 4;
+}
+
+message GenerateDnsServerUrlRequest {
+  DnsServer dns_server = 1;
+}
+
+message GenerateDnsServerUrlResponse {
+  string url = 1;
+}
+
+message GenerateConfigRequest {
+  Profile profile = 1;
+  GenerateConfigOptions options = 2;
+}
+
+message GenerateConfigResponse {
+  google.protobuf.Struct config = 1;
+}
+
+message GenerateConfigFileRequest {
+  Profile profile = 1;
+  GenerateConfigOptions options = 2;
+}
+
+message GenerateConfigFileResponse {
+  string path = 1;
+  google.protobuf.Struct config = 2;
+}

@@ -45,7 +45,7 @@ marked.use({
       return `<img src="${href}" alt="${title || text}" style="max-width: 100%">`
     },
     link({ href, title }) {
-      return `<span onclick="Plugins.BrowserOpenURL('${href}')" style="color: var(--primary-color); cursor: pointer">${title || href}</span>`
+      return `<a href="${href}" target="_blank" rel="noreferrer" style="color: var(--primary-color); cursor: pointer">${title || href}</a>`
     },
     blockquote({ tokens }) {
       const text = this.parser.parse(tokens)

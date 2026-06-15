@@ -5,8 +5,8 @@ import { parse } from 'yaml'
 
 import { ReadFile, WriteFile, Notify } from '@/bridge'
 import { ScheduledTasksFilePath } from '@/constant/app'
-import { ScheduledTasksType, PluginTriggerEvent } from '@/enums/app'
-import { useSubscribesStore, useRulesetsStore, usePluginsStore, useLogsStore } from '@/stores'
+import { ScheduledTasksType } from '@/enums/app'
+import { useSubscribesStore, useRulesetsStore, useLogsStore } from '@/stores'
 import { ignoredError, stringifyNoFolding } from '@/utils'
 
 import type { ScheduledTask } from '@/types/app'
@@ -84,10 +84,6 @@ export const useScheduledTasksStore = defineStore('scheduledtasks', () => {
         const rulesetsStore = useRulesetsStore()
         return withOutput(task.rulesets, rulesetsStore.updateRuleset)
       }
-      case ScheduledTasksType.UpdatePlugin: {
-        const pluginsStores = usePluginsStore()
-        return withOutput(task.plugins, pluginsStores.updatePlugin)
-      }
       case ScheduledTasksType.UpdateAllSubscription: {
         const subscribesStore = useSubscribesStore()
         return withOutput(['0'], () => subscribesStore.updateSubscribes())
@@ -95,16 +91,6 @@ export const useScheduledTasksStore = defineStore('scheduledtasks', () => {
       case ScheduledTasksType.UpdateAllRuleset: {
         const rulesetsStore = useRulesetsStore()
         return withOutput(['1'], () => rulesetsStore.updateRulesets())
-      }
-      case ScheduledTasksType.UpdateAllPlugin: {
-        const pluginsStores = usePluginsStore()
-        return withOutput(['2'], () => pluginsStores.updatePlugins())
-      }
-      case ScheduledTasksType.RunPlugin: {
-        const pluginsStores = usePluginsStore()
-        return withOutput(task.plugins, async (id: string) =>
-          pluginsStores.manualTrigger(id, PluginTriggerEvent.OnTask),
-        )
       }
       case ScheduledTasksType.RunScript: {
         return withOutput([task.script], (script: string) => new window.AsyncFunction(script)())
