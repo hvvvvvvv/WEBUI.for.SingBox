@@ -3,7 +3,7 @@ name: Build webui.for.singbox
 on:
   push:
     tags:
-      - "v*"
+      - "*"
 
 permissions:
   contents: write
@@ -11,7 +11,7 @@ permissions:
 jobs:
   Build-Frontend:
     runs-on: ubuntu-latest
-    if: github.repository == 'GUI-for-Cores/webui.for.singbox'
+    if: github.repository == 'hvvvvvvv/WEBUI.for.SingBox'
     steps:
       - uses: actions/checkout@v6
       - uses: pnpm/action-setup@v4

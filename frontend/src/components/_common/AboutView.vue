@@ -4,13 +4,7 @@ import { useI18n } from 'vue-i18n'
 import logo from '@/assets/logo'
 import { BrowserOpenURL } from '@/bridge'
 import { useAppStore, useEnvStore } from '@/stores'
-import {
-  APP_TITLE,
-  APP_VERSION,
-  PROJECT_URL,
-  TG_GROUP,
-  TG_CHANNEL,
-} from '@/utils'
+import { APP_TITLE, APP_VERSION, PROJECT_URL } from '@/utils'
 
 const { t } = useI18n()
 const envStore = useEnvStore()
@@ -47,18 +41,6 @@ appStore.checkForUpdates()
       @click="BrowserOpenURL(PROJECT_URL)"
     >
       <Icon icon="github" />GitHub
-    </div>
-    <div
-      class="text-12 underline flex items-center cursor-pointer"
-      @click="BrowserOpenURL(TG_GROUP)"
-    >
-      <Icon icon="telegram" />Telegram Group
-    </div>
-    <div
-      class="text-12 underline flex items-center cursor-pointer"
-      @click="BrowserOpenURL(TG_CHANNEL)"
-    >
-      <Icon icon="telegram" />Telegram Channel
     </div>
   </div>
 </template>
