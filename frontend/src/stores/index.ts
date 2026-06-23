@@ -1,4 +1,5 @@
 export * from './appSettings'
+export * from './appConfig'
 export * from './profiles'
 export * from './subscribes'
 export * from './rulesets'

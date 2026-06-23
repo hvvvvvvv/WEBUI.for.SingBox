@@ -2,7 +2,7 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { useLogsStore, useScheduledTasksStore } from '@/stores'
+import { useScheduledTasksStore } from '@/stores'
 import { buildSmartRegExp, formatDate } from '@/utils'
 
 import type { Column } from '@/components/Table/index.vue'
@@ -14,7 +14,6 @@ interface Props {
 const props = withDefaults(defineProps<Props>(), { id: '' })
 
 const { t } = useI18n()
-const logsStore = useLogsStore()
 const scheduledTasksStore = useScheduledTasksStore()
 
 const selectedTaskName = ref(scheduledTasksStore.getScheduledTaskById(props.id)?.name)
@@ -50,7 +49,7 @@ const columns: Column[] = [
   {
     title: 'scheduledtasks.result',
     align: 'center',
-    key: 'result',
+    key: 'results',
   },
 ]
 
@@ -64,14 +63,16 @@ const taskOptions = computed(() =>
 )
 
 const filteredLogs = computed(() => {
-  return logsStore.scheduledtasksLogs.filter((v) => {
+  return scheduledTasksStore.scheduledtasksLogs.filter((v) => {
     const p = selectedTaskName.value ? v.name === selectedTaskName.value : true
-    const k = buildSmartRegExp(keywords.value, 'i').test(JSON.stringify(v.result))
+    const k = buildSmartRegExp(keywords.value, 'i').test(JSON.stringify(v.results))
     return p && k
   })
 })
 
-const clearLogs = () => logsStore.scheduledtasksLogs.splice(0)
+const clearLogs = () => scheduledTasksStore.clearScheduledTaskLogs()
+
+scheduledTasksStore.refreshScheduledTaskLogs(props.id)
 </script>
 
 <template>
@@ -102,11 +103,18 @@ const clearLogs = () => logsStore.scheduledtasksLogs.splice(0)
     <Empty v-if="filteredLogs.length === 0" />
 
     <Table v-else :columns="columns" :data-source="filteredLogs" sort="start" class="mt-8">
-      <template #result="{ record }">
-        <div class="flex flex-col gap-8 text-left">
-          <div v-for="item in record.result" :key="item">
+      <template #results="{ record }">
+        <div class="flex flex-col gap-6 text-left whitespace-normal min-w-240">
+          <div
+            v-for="item in record.results"
+            :key="item.id + item.name + item.result"
+            class="flex items-start gap-6"
+          >
             <span :style="{ color: item.ok ? 'greenyellow' : 'red' }">●</span>
-            {{ item.result }}
+            <span>
+              <span v-if="item.name" class="opacity-70">[{{ item.name }}]</span>
+              {{ item.result || '--' }}
+            </span>
           </div>
         </div>
       </template>

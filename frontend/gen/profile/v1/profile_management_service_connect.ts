@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { CreateProfileRequest, CreateProfileResponse, DeleteProfileRequest, DeleteProfileResponse, GetProfileRequest, GetProfileResponse, ListProfilesRequest, ListProfilesResponse, UpdateProfileRequest, UpdateProfileResponse } from "./profile_management_service_pb.js";
+import { CreateProfileRequest, CreateProfileResponse, DeleteProfileRequest, DeleteProfileResponse, GetProfileRequest, GetProfileResponse, ListProfilesRequest, ListProfilesResponse, SaveProfilesRequest, SaveProfilesResponse, UpdateProfileRequest, UpdateProfileResponse } from "./profile_management_service_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -55,6 +55,15 @@ export const ProfileManagementService = {
       name: "DeleteProfile",
       I: DeleteProfileRequest,
       O: DeleteProfileResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc profile.v1.ProfileManagementService.SaveProfiles
+     */
+    saveProfiles: {
+      name: "SaveProfiles",
+      I: SaveProfilesRequest,
+      O: SaveProfilesResponse,
       kind: MethodKind.Unary,
     },
   }

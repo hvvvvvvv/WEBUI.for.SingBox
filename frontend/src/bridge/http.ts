@@ -6,6 +6,8 @@ type AuthResult = {
   data: string
 }
 
+let authRecoverPromise: Promise<boolean> | null = null
+
 const buildApiError = (status: number, statusText: string) => {
   return new Error(`API error: ${status} ${statusText}`)
 }
@@ -59,14 +61,57 @@ export const loginAuthToken = async (secret: string) => {
 //   localStorage.removeItem(AUTH_TOKEN_KEY)
 // }
 
+export const checkAuthToken = async () => {
+  const appSettings = useAppSettingsStore()
+  const token = appSettings.sessionInfo.cacheToken
+  if (!token) return false
+
+  try {
+    const resp = await fetch('/api/auth/session', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ args: [] }),
+    })
+    return resp.status !== 401
+  } catch {
+    return true
+  }
+}
+
+export const recoverAuthToken = async () => {
+  if (authRecoverPromise) {
+    return authRecoverPromise
+  }
+
+  authRecoverPromise = (async () => {
+    const appSettings = useAppSettingsStore()
+    appSettings.sessionInfo.cacheToken = ''
+    const recovered = await loadAuthToken().catch(() => false)
+    if (!recovered) {
+      location.reload()
+    }
+    return recovered
+  })()
+
+  try {
+    return await authRecoverPromise
+  } finally {
+    authRecoverPromise = null
+  }
+}
+
 export const apiCall = async <T = any>(path: string, ...args: any[]): Promise<T> => {
   const appSettings = useAppSettingsStore()
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
   }
 
-  if (appSettings.sessionInfo.cacheToken == "" && !(await loadAuthToken())) {
+  if (appSettings.sessionInfo.cacheToken == "" && !(await recoverAuthToken())) {
     location.reload()
+    throw buildApiError(401, 'Unauthorized')
   }
 
   headers.Authorization = `Bearer ${appSettings.sessionInfo.cacheToken}`
@@ -78,9 +123,9 @@ export const apiCall = async <T = any>(path: string, ...args: any[]): Promise<T>
   })
 
   if (resp.status === 401) {
-    appSettings.sessionInfo.cacheToken = ''
-    if (!await loadAuthToken()) {
+    if (!await recoverAuthToken()) {
       location.reload()
+      throw buildApiError(401, 'Unauthorized')
     }
 
     headers.Authorization = `Bearer ${appSettings.sessionInfo.cacheToken}`

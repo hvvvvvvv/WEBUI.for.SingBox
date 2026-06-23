@@ -45,7 +45,6 @@ const getRulesetUrlAndSuffix = (ruleset: RuleSetHub['list'][number], format: Rul
 const handleAddRuleset = async (ruleset: RuleSetHub['list'][number], format: RulesetFormat) => {
   const [url, suffix] = getRulesetUrlAndSuffix(ruleset, format)
   const id = ruleset.type + '_' + ruleset.name + '.' + format
-  const file = ruleset.type + '_' + ruleset.name + suffix
   try {
     await rulesetsStore.addRuleset({
       id,
@@ -54,7 +53,7 @@ const handleAddRuleset = async (ruleset: RuleSetHub['list'][number], format: Rul
       disabled: false,
       type: 'Http',
       format,
-      path: 'data/rulesets/' + file,
+      path: '',
       url,
       count: ruleset.count,
     })

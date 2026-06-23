@@ -2,6 +2,8 @@ type WebSocketsOptions = {
   base?: string
   bearer?: string
   beforeConnect?: () => void
+  checkAuthToken?: () => Promise<boolean>
+  onUnauthorized?: () => Promise<boolean>
 }
 
 type Options = { url: string; cb: (data: any) => void; params?: Record<string, any> }
@@ -11,17 +13,22 @@ export class WebSockets {
   public bearer: string
   public customParams: Record<string, string> = {}
   public beforeConnect: () => void
+  public checkAuthToken: () => Promise<boolean>
+  public onUnauthorized: () => Promise<boolean>
 
   constructor(options: WebSocketsOptions) {
     this.base = options.base || ''
     this.bearer = options.bearer || ''
     this.beforeConnect = options.beforeConnect || (() => 0)
+    this.checkAuthToken = options.checkAuthToken || (async () => true)
+    this.onUnauthorized = options.onUnauthorized || (async () => false)
   }
 
   public createWS(options: Options) {
     let isManualClose = false
     let ws: WebSocket | null = null
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined
+    let isCheckingAuth = false
 
     const clearReconnectTimer = () => {
       if (reconnectTimer) {
@@ -32,7 +39,10 @@ export class WebSockets {
 
     const getUrl = () => {
       this.beforeConnect()
-      const params = { ...options.params, ...this.customParams, token: this.bearer }
+      const params = { ...options.params, ...this.customParams }
+      if (this.bearer) {
+        params.token = this.bearer
+      }
       const query = new URLSearchParams(params).toString()
       const url = query ? `${options.url}?${query}` : options.url
       return this.base + url
@@ -44,6 +54,29 @@ export class WebSockets {
         reconnectTimer = undefined
         connect()
       }, 4000)
+    }
+
+    const handleClose = async () => {
+      if (isManualClose || reconnectTimer || isCheckingAuth) return
+
+      isCheckingAuth = true
+      const isTokenValid = await this.checkAuthToken().catch(() => true)
+      if (isManualClose) {
+        isCheckingAuth = false
+        return
+      }
+
+      if (isTokenValid) {
+        isCheckingAuth = false
+        scheduleReconnect()
+        return
+      }
+
+      const recovered = await this.onUnauthorized()
+      isCheckingAuth = false
+      if (recovered && !isManualClose) {
+        connect()
+      }
     }
 
     const connect = () => {
@@ -62,7 +95,7 @@ export class WebSockets {
         if (ws === socket) {
           ws = null
         }
-        scheduleReconnect()
+        handleClose()
       }
     }
 

@@ -8,7 +8,6 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
 	"strings"
@@ -175,10 +174,6 @@ func registerAPIRoutes(mux *http.ServeMux, app *App) {
 		}
 
 		plainSecret, _ := unmarshalArg[string](args, 0)
-		if plainSecret == "" && Config.AuthSecret != "" {
-			RecordLoginFailure(r.RemoteAddr)
-			return FlagResult{false, "Secret is required"}
-		}
 		if !VerifySecret(plainSecret) {
 			RecordLoginFailure(r.RemoteAddr)
 			return FlagResult{false, "Invalid secret"}
@@ -198,6 +193,10 @@ func registerAPIRoutes(mux *http.ServeMux, app *App) {
 			RemoveSession(token)
 		}
 		return FlagResult{true, "Success"}
+	})
+
+	apiRoute(mux, "/api/auth/session", func(args []json.RawMessage) any {
+		return FlagResult{true, "Valid"}
 	})
 
 	apiRoute(mux, "/api/auth/setup", func(args []json.RawMessage) any {
@@ -226,22 +225,12 @@ func registerAPIRoutes(mux *http.ServeMux, app *App) {
 		app.ExitApp()
 		return FlagResult{true, "Success"}
 	})
-	apiRoute(mux, "/api/app/restart", func(args []json.RawMessage) any {
-		return app.RestartApp()
-	})
 	apiRoute(mux, "/api/app/env", func(args []json.RawMessage) any {
 		key, _ := unmarshalArg[string](args, 0)
 		return app.GetEnv(key)
 	})
 	apiRoute(mux, "/api/app/interfaces", func(args []json.RawMessage) any {
 		return app.GetInterfaces()
-	})
-	apiRoute(mux, "/api/app/isStartup", func(args []json.RawMessage) any {
-		return app.IsStartup()
-	})
-	apiRoute(mux, "/api/app/showMainWindow", func(args []json.RawMessage) any {
-		app.ShowMainWindow()
-		return FlagResult{true, "Success"}
 	})
 
 	// IO
@@ -264,11 +253,6 @@ func registerAPIRoutes(mux *http.ServeMux, app *App) {
 	apiRoute(mux, "/api/file/remove", func(args []json.RawMessage) any {
 		path, _ := unmarshalArg[string](args, 0)
 		return app.RemoveFile(path)
-	})
-	apiRoute(mux, "/api/file/copy", func(args []json.RawMessage) any {
-		src, _ := unmarshalArg[string](args, 0)
-		dst, _ := unmarshalArg[string](args, 1)
-		return app.CopyFile(src, dst)
 	})
 	apiRoute(mux, "/api/file/makeDir", func(args []json.RawMessage) any {
 		path, _ := unmarshalArg[string](args, 0)
@@ -299,11 +283,6 @@ func registerAPIRoutes(mux *http.ServeMux, app *App) {
 		output, _ := unmarshalArg[string](args, 1)
 		return app.UnzipZIPFile(path, output)
 	})
-	apiRoute(mux, "/api/file/unzipGZ", func(args []json.RawMessage) any {
-		path, _ := unmarshalArg[string](args, 0)
-		output, _ := unmarshalArg[string](args, 1)
-		return app.UnzipGZFile(path, output)
-	})
 	apiRoute(mux, "/api/file/unzipTarGZ", func(args []json.RawMessage) any {
 		path, _ := unmarshalArg[string](args, 0)
 		output, _ := unmarshalArg[string](args, 1)
@@ -328,15 +307,6 @@ func registerAPIRoutes(mux *http.ServeMux, app *App) {
 		options, _ := unmarshalArg[RequestOptions](args, 5)
 		return app.Download(method, url, path, headers, event, options)
 	})
-	apiRoute(mux, "/api/net/upload", func(args []json.RawMessage) any {
-		method, _ := unmarshalArg[string](args, 0)
-		url, _ := unmarshalArg[string](args, 1)
-		path, _ := unmarshalArg[string](args, 2)
-		headers, _ := unmarshalArg[map[string]string](args, 3)
-		event, _ := unmarshalArg[string](args, 4)
-		options, _ := unmarshalArg[RequestOptions](args, 5)
-		return app.Upload(method, url, path, headers, event, options)
-	})
 
 	// Exec
 	apiRoute(mux, "/api/exec/run", func(args []json.RawMessage) any {
@@ -345,14 +315,6 @@ func registerAPIRoutes(mux *http.ServeMux, app *App) {
 		options, _ := unmarshalArg[ExecOptions](args, 2)
 		return app.Exec(path, execArgs, options)
 	})
-	apiRoute(mux, "/api/exec/background", func(args []json.RawMessage) any {
-		path, _ := unmarshalArg[string](args, 0)
-		execArgs, _ := unmarshalArg[[]string](args, 1)
-		outEvent, _ := unmarshalArg[string](args, 2)
-		endEvent, _ := unmarshalArg[string](args, 3)
-		options, _ := unmarshalArg[ExecOptions](args, 4)
-		return app.ExecBackground(path, execArgs, outEvent, endEvent, options)
-	})
 	apiRoute(mux, "/api/exec/processInfo", func(args []json.RawMessage) any {
 		pid, _ := unmarshalArg[int32](args, 0)
 		return app.ProcessInfo(pid)
@@ -360,44 +322,6 @@ func registerAPIRoutes(mux *http.ServeMux, app *App) {
 	apiRoute(mux, "/api/exec/processMemory", func(args []json.RawMessage) any {
 		pid, _ := unmarshalArg[int32](args, 0)
 		return app.ProcessMemory(pid)
-	})
-	apiRoute(mux, "/api/exec/killProcess", func(args []json.RawMessage) any {
-		pid, _ := unmarshalArg[int](args, 0)
-		timeout, _ := unmarshalArg[int](args, 1)
-		return app.KillProcess(pid, timeout)
-	})
-
-	// Server
-	apiRoute(mux, "/api/server/start", func(args []json.RawMessage) any {
-		address, _ := unmarshalArg[string](args, 0)
-		serverID, _ := unmarshalArg[string](args, 1)
-		options, _ := unmarshalArg[ServerOptions](args, 2)
-		return app.StartServer(address, serverID, options)
-	})
-	apiRoute(mux, "/api/server/stop", func(args []json.RawMessage) any {
-		id, _ := unmarshalArg[string](args, 0)
-		return app.StopServer(id)
-	})
-	apiRoute(mux, "/api/server/list", func(args []json.RawMessage) any {
-		return app.ListServer()
-	})
-
-	// MMDB
-	apiRoute(mux, "/api/mmdb/open", func(args []json.RawMessage) any {
-		path, _ := unmarshalArg[string](args, 0)
-		id, _ := unmarshalArg[string](args, 1)
-		return app.OpenMMDB(path, id)
-	})
-	apiRoute(mux, "/api/mmdb/close", func(args []json.RawMessage) any {
-		path, _ := unmarshalArg[string](args, 0)
-		id, _ := unmarshalArg[string](args, 1)
-		return app.CloseMMDB(path, id)
-	})
-	apiRoute(mux, "/api/mmdb/query", func(args []json.RawMessage) any {
-		path, _ := unmarshalArg[string](args, 0)
-		ip, _ := unmarshalArg[string](args, 1)
-		dataType, _ := unmarshalArg[string](args, 2)
-		return app.QueryMMDB(path, ip, dataType)
 	})
 }
 
@@ -424,20 +348,13 @@ func apiRouteWithRequest(mux *http.ServeMux, path string, handler func(r *http.R
 }
 
 // handleKernelProxy proxies HTTP requests to the sing-box kernel's Clash API.
-// The frontend passes target address and bearer via headers.
 func handleKernelProxy(w http.ResponseWriter, r *http.Request) {
-	target := r.Header.Get("X-Kernel-Target")
-	if target == "" {
-		http.Error(w, "Missing X-Kernel-Target header", http.StatusBadRequest)
-		return
-	}
-
 	kernelPath := strings.TrimPrefix(r.URL.Path, "/api/kernel")
 	if kernelPath == "" {
 		kernelPath = "/"
 	}
 
-	targetURL := "http://" + target + kernelPath
+	targetURL := "http://" + coreAPIController + kernelPath
 	if r.URL.RawQuery != "" {
 		targetURL += "?" + r.URL.RawQuery
 	}
@@ -448,7 +365,7 @@ func handleKernelProxy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if bearer := resolveKernelBearer(r.Header.Get("X-Kernel-Bearer")); bearer != "" {
+	if bearer := readKernelBearerFromGeneratedConfig(); bearer != "" {
 		proxyReq.Header.Set("Authorization", "Bearer "+bearer)
 	}
 	if ct := r.Header.Get("Content-Type"); ct != "" {
@@ -473,15 +390,10 @@ func handleKernelProxy(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleKernelWSProxy proxies WebSocket connections to the sing-box kernel.
-// Query params: target (host:port), auth (session token or api secret).
+// Query params: auth (session token).
 // The remaining path after /ws/kernel is forwarded to the kernel.
 func handleKernelWSProxy(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
-	target := query.Get("target")
-	if target == "" {
-		http.Error(w, "Missing target parameter", http.StatusBadRequest)
-		return
-	}
 
 	// Authenticate: check auth query param
 	authToken := strings.TrimSpace(query.Get("auth"))
@@ -495,25 +407,20 @@ func handleKernelWSProxy(w http.ResponseWriter, r *http.Request) {
 		kernelPath = "/"
 	}
 
-	// Build upstream query params (exclude proxy-specific params)
-	upstreamParams := url.Values{}
-	for k, v := range query {
-		if k != "target" && k != "auth" {
-			upstreamParams[k] = v
-		}
-	}
+	upstreamParams := query
+	upstreamParams.Del("auth")
 
-	// Keep kernel token in sync with actual running config secret.
-	if token := resolveKernelBearer(query.Get("token")); token != "" {
-		upstreamParams.Set("token", token)
-	}
-
-	upstreamURL := "ws://" + target + kernelPath
+	upstreamURL := "ws://" + coreAPIController + kernelPath
 	if qs := upstreamParams.Encode(); qs != "" {
 		upstreamURL += "?" + qs
 	}
 
-	upstreamConn, _, err := websocket.DefaultDialer.Dial(upstreamURL, nil)
+	upstreamHeaders := http.Header{}
+	if bearer := readKernelBearerFromGeneratedConfig(); bearer != "" {
+		upstreamHeaders.Set("Authorization", "Bearer "+bearer)
+	}
+
+	upstreamConn, _, err := websocket.DefaultDialer.Dial(upstreamURL, upstreamHeaders)
 	if err != nil {
 		http.Error(w, "Failed to connect to kernel: "+err.Error(), http.StatusBadGateway)
 		return
@@ -538,7 +445,7 @@ func handleKernelWSProxy(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return
 			}
-			if !ValidateSession(authToken) {
+			if !ValidateSessionNonTouch(authToken) {
 				return
 			}
 			if err := clientConn.WriteMessage(msgType, msg); err != nil {
@@ -555,7 +462,7 @@ func handleKernelWSProxy(w http.ResponseWriter, r *http.Request) {
 			if err != nil {
 				return
 			}
-			if !ValidateSession(authToken) {
+			if !ValidateSessionNonTouch(authToken) {
 				return
 			}
 			if err := upstreamConn.WriteMessage(msgType, msg); err != nil {
@@ -565,13 +472,6 @@ func handleKernelWSProxy(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	<-done
-}
-
-func resolveKernelBearer(explicit string) string {
-	if configSecret := readKernelBearerFromGeneratedConfig(); configSecret != "" {
-		return configSecret
-	}
-	return strings.TrimSpace(explicit)
 }
 
 func readKernelBearerFromGeneratedConfig() string {

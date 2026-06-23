@@ -445,6 +445,94 @@ func (*DeleteProfileResponse) Descriptor() ([]byte, []int) {
 	return file_profile_v1_profile_management_service_proto_rawDescGZIP(), []int{9}
 }
 
+type SaveProfilesRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Profiles      []*Profile             `protobuf:"bytes,1,rep,name=profiles,proto3" json:"profiles,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveProfilesRequest) Reset() {
+	*x = SaveProfilesRequest{}
+	mi := &file_profile_v1_profile_management_service_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveProfilesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveProfilesRequest) ProtoMessage() {}
+
+func (x *SaveProfilesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_profile_v1_profile_management_service_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveProfilesRequest.ProtoReflect.Descriptor instead.
+func (*SaveProfilesRequest) Descriptor() ([]byte, []int) {
+	return file_profile_v1_profile_management_service_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *SaveProfilesRequest) GetProfiles() []*Profile {
+	if x != nil {
+		return x.Profiles
+	}
+	return nil
+}
+
+type SaveProfilesResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Profiles      []*Profile             `protobuf:"bytes,1,rep,name=profiles,proto3" json:"profiles,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveProfilesResponse) Reset() {
+	*x = SaveProfilesResponse{}
+	mi := &file_profile_v1_profile_management_service_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveProfilesResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveProfilesResponse) ProtoMessage() {}
+
+func (x *SaveProfilesResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_profile_v1_profile_management_service_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveProfilesResponse.ProtoReflect.Descriptor instead.
+func (*SaveProfilesResponse) Descriptor() ([]byte, []int) {
+	return file_profile_v1_profile_management_service_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *SaveProfilesResponse) GetProfiles() []*Profile {
+	if x != nil {
+		return x.Profiles
+	}
+	return nil
+}
+
 var File_profile_v1_profile_management_service_proto protoreflect.FileDescriptor
 
 const file_profile_v1_profile_management_service_proto_rawDesc = "" +
@@ -468,14 +556,19 @@ const file_profile_v1_profile_management_service_proto_rawDesc = "" +
 	"\aprofile\x18\x01 \x01(\v2\x13.profile.v1.ProfileR\aprofile\"&\n" +
 	"\x14DeleteProfileRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"\x17\n" +
-	"\x15DeleteProfileResponse2\xbc\x03\n" +
+	"\x15DeleteProfileResponse\"F\n" +
+	"\x13SaveProfilesRequest\x12/\n" +
+	"\bprofiles\x18\x01 \x03(\v2\x13.profile.v1.ProfileR\bprofiles\"G\n" +
+	"\x14SaveProfilesResponse\x12/\n" +
+	"\bprofiles\x18\x01 \x03(\v2\x13.profile.v1.ProfileR\bprofiles2\x8f\x04\n" +
 	"\x18ProfileManagementService\x12Q\n" +
 	"\fListProfiles\x12\x1f.profile.v1.ListProfilesRequest\x1a .profile.v1.ListProfilesResponse\x12K\n" +
 	"\n" +
 	"GetProfile\x12\x1d.profile.v1.GetProfileRequest\x1a\x1e.profile.v1.GetProfileResponse\x12T\n" +
 	"\rCreateProfile\x12 .profile.v1.CreateProfileRequest\x1a!.profile.v1.CreateProfileResponse\x12T\n" +
 	"\rUpdateProfile\x12 .profile.v1.UpdateProfileRequest\x1a!.profile.v1.UpdateProfileResponse\x12T\n" +
-	"\rDeleteProfile\x12 .profile.v1.DeleteProfileRequest\x1a!.profile.v1.DeleteProfileResponseB\x9e\x01\n" +
+	"\rDeleteProfile\x12 .profile.v1.DeleteProfileRequest\x1a!.profile.v1.DeleteProfileResponse\x12Q\n" +
+	"\fSaveProfiles\x12\x1f.profile.v1.SaveProfilesRequest\x1a .profile.v1.SaveProfilesResponseB\x9e\x01\n" +
 	"\x0ecom.profile.v1B\x1dProfileManagementServiceProtoP\x01Z$guiforcores/gen/profile/v1;profilev1\xa2\x02\x03PXX\xaa\x02\n" +
 	"Profile.V1\xca\x02\n" +
 	"Profile\\V1\xe2\x02\x16Profile\\V1\\GPBMetadata\xea\x02\vProfile::V1b\x06proto3"
@@ -492,7 +585,7 @@ func file_profile_v1_profile_management_service_proto_rawDescGZIP() []byte {
 	return file_profile_v1_profile_management_service_proto_rawDescData
 }
 
-var file_profile_v1_profile_management_service_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
+var file_profile_v1_profile_management_service_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_profile_v1_profile_management_service_proto_goTypes = []any{
 	(*ListProfilesRequest)(nil),   // 0: profile.v1.ListProfilesRequest
 	(*ListProfilesResponse)(nil),  // 1: profile.v1.ListProfilesResponse
@@ -504,30 +597,36 @@ var file_profile_v1_profile_management_service_proto_goTypes = []any{
 	(*UpdateProfileResponse)(nil), // 7: profile.v1.UpdateProfileResponse
 	(*DeleteProfileRequest)(nil),  // 8: profile.v1.DeleteProfileRequest
 	(*DeleteProfileResponse)(nil), // 9: profile.v1.DeleteProfileResponse
-	(*Profile)(nil),               // 10: profile.v1.Profile
+	(*SaveProfilesRequest)(nil),   // 10: profile.v1.SaveProfilesRequest
+	(*SaveProfilesResponse)(nil),  // 11: profile.v1.SaveProfilesResponse
+	(*Profile)(nil),               // 12: profile.v1.Profile
 }
 var file_profile_v1_profile_management_service_proto_depIdxs = []int32{
-	10, // 0: profile.v1.ListProfilesResponse.profiles:type_name -> profile.v1.Profile
-	10, // 1: profile.v1.GetProfileResponse.profile:type_name -> profile.v1.Profile
-	10, // 2: profile.v1.CreateProfileRequest.profile:type_name -> profile.v1.Profile
-	10, // 3: profile.v1.CreateProfileResponse.profile:type_name -> profile.v1.Profile
-	10, // 4: profile.v1.UpdateProfileRequest.profile:type_name -> profile.v1.Profile
-	10, // 5: profile.v1.UpdateProfileResponse.profile:type_name -> profile.v1.Profile
-	0,  // 6: profile.v1.ProfileManagementService.ListProfiles:input_type -> profile.v1.ListProfilesRequest
-	2,  // 7: profile.v1.ProfileManagementService.GetProfile:input_type -> profile.v1.GetProfileRequest
-	4,  // 8: profile.v1.ProfileManagementService.CreateProfile:input_type -> profile.v1.CreateProfileRequest
-	6,  // 9: profile.v1.ProfileManagementService.UpdateProfile:input_type -> profile.v1.UpdateProfileRequest
-	8,  // 10: profile.v1.ProfileManagementService.DeleteProfile:input_type -> profile.v1.DeleteProfileRequest
-	1,  // 11: profile.v1.ProfileManagementService.ListProfiles:output_type -> profile.v1.ListProfilesResponse
-	3,  // 12: profile.v1.ProfileManagementService.GetProfile:output_type -> profile.v1.GetProfileResponse
-	5,  // 13: profile.v1.ProfileManagementService.CreateProfile:output_type -> profile.v1.CreateProfileResponse
-	7,  // 14: profile.v1.ProfileManagementService.UpdateProfile:output_type -> profile.v1.UpdateProfileResponse
-	9,  // 15: profile.v1.ProfileManagementService.DeleteProfile:output_type -> profile.v1.DeleteProfileResponse
-	11, // [11:16] is the sub-list for method output_type
-	6,  // [6:11] is the sub-list for method input_type
-	6,  // [6:6] is the sub-list for extension type_name
-	6,  // [6:6] is the sub-list for extension extendee
-	0,  // [0:6] is the sub-list for field type_name
+	12, // 0: profile.v1.ListProfilesResponse.profiles:type_name -> profile.v1.Profile
+	12, // 1: profile.v1.GetProfileResponse.profile:type_name -> profile.v1.Profile
+	12, // 2: profile.v1.CreateProfileRequest.profile:type_name -> profile.v1.Profile
+	12, // 3: profile.v1.CreateProfileResponse.profile:type_name -> profile.v1.Profile
+	12, // 4: profile.v1.UpdateProfileRequest.profile:type_name -> profile.v1.Profile
+	12, // 5: profile.v1.UpdateProfileResponse.profile:type_name -> profile.v1.Profile
+	12, // 6: profile.v1.SaveProfilesRequest.profiles:type_name -> profile.v1.Profile
+	12, // 7: profile.v1.SaveProfilesResponse.profiles:type_name -> profile.v1.Profile
+	0,  // 8: profile.v1.ProfileManagementService.ListProfiles:input_type -> profile.v1.ListProfilesRequest
+	2,  // 9: profile.v1.ProfileManagementService.GetProfile:input_type -> profile.v1.GetProfileRequest
+	4,  // 10: profile.v1.ProfileManagementService.CreateProfile:input_type -> profile.v1.CreateProfileRequest
+	6,  // 11: profile.v1.ProfileManagementService.UpdateProfile:input_type -> profile.v1.UpdateProfileRequest
+	8,  // 12: profile.v1.ProfileManagementService.DeleteProfile:input_type -> profile.v1.DeleteProfileRequest
+	10, // 13: profile.v1.ProfileManagementService.SaveProfiles:input_type -> profile.v1.SaveProfilesRequest
+	1,  // 14: profile.v1.ProfileManagementService.ListProfiles:output_type -> profile.v1.ListProfilesResponse
+	3,  // 15: profile.v1.ProfileManagementService.GetProfile:output_type -> profile.v1.GetProfileResponse
+	5,  // 16: profile.v1.ProfileManagementService.CreateProfile:output_type -> profile.v1.CreateProfileResponse
+	7,  // 17: profile.v1.ProfileManagementService.UpdateProfile:output_type -> profile.v1.UpdateProfileResponse
+	9,  // 18: profile.v1.ProfileManagementService.DeleteProfile:output_type -> profile.v1.DeleteProfileResponse
+	11, // 19: profile.v1.ProfileManagementService.SaveProfiles:output_type -> profile.v1.SaveProfilesResponse
+	14, // [14:20] is the sub-list for method output_type
+	8,  // [8:14] is the sub-list for method input_type
+	8,  // [8:8] is the sub-list for extension type_name
+	8,  // [8:8] is the sub-list for extension extendee
+	0,  // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_profile_v1_profile_management_service_proto_init() }
@@ -542,7 +641,7 @@ func file_profile_v1_profile_management_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_profile_v1_profile_management_service_proto_rawDesc), len(file_profile_v1_profile_management_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   10,
+			NumMessages:   12,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

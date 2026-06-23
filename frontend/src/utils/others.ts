@@ -1,8 +1,7 @@
 import { stringify } from 'yaml'
 
-import { useAppSettingsStore } from '@/stores'
+import { useAppConfigStore } from '@/stores'
 import { APP_TITLE, APP_VERSION } from '@/utils'
-import { OS } from '@/enums/app'
 
 export const deepClone = <T>(json: T): T => JSON.parse(JSON.stringify(json))
 
@@ -177,92 +176,13 @@ export const createAsyncPool = <T, K>(
 }
 
 export const getUserAgent = () => {
-  const appSettings = useAppSettingsStore()
-  return appSettings.app.userAgent || APP_TITLE + '/' + APP_VERSION
+  const appConfig = useAppConfigStore()
+  return appConfig.config.userAgent || APP_TITLE + '/' + APP_VERSION
 }
 
 export const getGitHubApiAuthorization = () => {
-  const appSettings = useAppSettingsStore()
-  return appSettings.app.githubApiToken ? `Bearer ${appSettings.app.githubApiToken}` : ''
-}
-
-export const getAutoStartConfiguration = (os: OS, appPath: string, delay = 30) => {
-  if (os === OS.Windows) {
-    const xml = /*xml*/ `<?xml version="1.0" encoding="UTF-16"?>
-<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
-  <RegistrationInfo>
-    <Description>${APP_TITLE} at startup</Description>
-    <URI>\\${APP_TITLE}</URI>
-  </RegistrationInfo>
-  <Triggers>
-    <LogonTrigger>
-      <Enabled>true</Enabled>
-      <Delay>PT${delay}S</Delay>
-    </LogonTrigger>
-  </Triggers>
-  <Principals>
-    <Principal id="Author">
-      <LogonType>InteractiveToken</LogonType>
-      <RunLevel>HighestAvailable</RunLevel>
-    </Principal>
-  </Principals>
-  <Settings>
-    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
-    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
-    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
-    <AllowHardTerminate>true</AllowHardTerminate>
-    <StartWhenAvailable>false</StartWhenAvailable>
-    <RunOnlyIfNetworkAvailable>false</RunOnlyIfNetworkAvailable>
-    <IdleSettings>
-      <StopOnIdleEnd>true</StopOnIdleEnd>
-      <RestartOnIdle>false</RestartOnIdle>
-    </IdleSettings>
-    <AllowStartOnDemand>true</AllowStartOnDemand>
-    <Enabled>true</Enabled>
-    <Hidden>false</Hidden>
-    <RunOnlyIfIdle>false</RunOnlyIfIdle>
-    <WakeToRun>false</WakeToRun>
-    <ExecutionTimeLimit>PT72H</ExecutionTimeLimit>
-    <Priority>7</Priority>
-  </Settings>
-  <Actions Context="Author">
-    <Exec>
-      <Command>${appPath}</Command>
-      <Arguments>tasksch</Arguments>
-    </Exec>
-  </Actions>
-</Task>`
-    return xml
-  }
-  if (os === OS.Linux) {
-    const desktop = `[Desktop Entry]
-Type=Application
-Exec=${appPath} tasksch
-Name=${APP_TITLE}`
-    return desktop
-  }
-  if (os === OS.Darwin) {
-    const plist = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
- "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-    <key>Label</key>
-    <string>${APP_TITLE}</string>
-    <key>ProgramArguments</key>
-    <array>
-        <string>/usr/bin/open</string>
-        <string>${appPath}</string>
-        <string>--args</string>
-        <string>tasksch</string>
-    </array>
-    <key>RunAtLoad</key>
-    <true/>
-</dict>
-</plist>`
-    return plist
-  }
-  throw new Error('Not Implemented')
+  const appConfig = useAppConfigStore()
+  return appConfig.config.githubApiToken ? `Bearer ${appConfig.config.githubApiToken}` : ''
 }
 
 export const setIntervalImmediately = (func: () => void, interval: number) => {

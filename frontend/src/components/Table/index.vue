@@ -113,7 +113,7 @@ const renderCell = (column: Column, record: Recordable) => {
             :style="{ textAlign: column.align || 'left' }"
             class="select-text whitespace-nowrap p-8"
           >
-            <slot :name="column.key" :="{ column, record }">
+            <slot :name="column.key" :column="column" :record="record">
               <component :is="renderCell(column, record)" />
             </slot>
           </td>

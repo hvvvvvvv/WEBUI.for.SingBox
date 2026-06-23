@@ -3,16 +3,16 @@ import {
   Inbound,
   Outbound,
   TunStack,
-  ClashMode,
   RulesetType,
   RulesetFormat,
   RuleType,
   RuleAction,
   Strategy,
   DnsServer,
+  ClashMode,
 } from '@/enums/kernel'
 import i18n from '@/lang'
-import { generateSecureKey, sampleID } from '@/utils'
+import { sampleID } from '@/utils'
 
 import { DefaultTestURL } from './app'
 
@@ -57,16 +57,6 @@ export const DefaultLog = (): ILog => ({
 })
 
 export const DefaultExperimental = (): IExperimental => ({
-  clash_api: {
-    external_controller: '127.0.0.1:20123',
-    external_ui: '',
-    external_ui_download_url: '',
-    external_ui_download_detour: DefaultOutboundIds.Direct,
-    secret: generateSecureKey(),
-    default_mode: ClashMode.Rule,
-    access_control_allow_origin: ['*'],
-    access_control_allow_private_network: false,
-  },
   cache_file: {
     enabled: true,
     path: 'cache.db',

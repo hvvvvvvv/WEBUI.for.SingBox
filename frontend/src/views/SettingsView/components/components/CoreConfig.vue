@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 
 import { DraggableOptions } from '@/constant/app'
 import { DefaultCoreConfig } from '@/constant/kernel'
-import { useAppSettingsStore } from '@/stores'
+import { useAppConfigStore } from '@/stores'
 import { deepClone, message, processMagicVariables } from '@/utils'
 
 import Button from '@/components/Button/index.vue'
@@ -25,9 +25,9 @@ const handleCancel = inject('cancel') as any
 const handleSubmit = inject('submit') as any
 
 const { t } = useI18n()
-const appSettings = useAppSettingsStore()
+const appConfig = useAppConfigStore()
 
-const source = props.isAlpha ? appSettings.app.kernel.alpha : appSettings.app.kernel.main
+const source = props.isAlpha ? appConfig.config.alpha : appConfig.config.main
 
 const model = ref(deepClone(source))
 

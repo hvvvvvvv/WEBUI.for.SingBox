@@ -1,166 +1,110 @@
-import { Cron } from 'croner'
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { parse } from 'yaml'
 
-import { ReadFile, WriteFile, Notify } from '@/bridge'
-import { ScheduledTasksFilePath } from '@/constant/app'
-import { ScheduledTasksType } from '@/enums/app'
-import { useSubscribesStore, useRulesetsStore, useLogsStore } from '@/stores'
-import { ignoredError, stringifyNoFolding } from '@/utils'
+import { createRpcClient } from '@/bridge'
+import { ScheduledTaskService } from '../../gen/app/v1/app_service_pb'
 
 import type { ScheduledTask } from '@/types/app'
+import type { TaskResult } from '../../gen/app/v1/app_service_pb'
+
+interface ScheduledTaskLogRecord {
+  id: string
+  name: string
+  startTime: number
+  endTime: number
+  results: TaskResult[]
+}
+
+const parseList = <T>(items: string[]) => items.map((v) => JSON.parse(v) as T)
 
 export const useScheduledTasksStore = defineStore('scheduledtasks', () => {
   const scheduledtasks = ref<ScheduledTask[]>([])
-  const cronJobsMap: Recordable<Cron> = {}
+  const scheduledtasksLogs = ref<ScheduledTaskLogRecord[]>([])
+  const service = createRpcClient(ScheduledTaskService)
 
-  const setupScheduledTasks = async () => {
-    const data = await ignoredError(ReadFile, ScheduledTasksFilePath)
-    data && (scheduledtasks.value = parse(data))
+  const setupScheduledTasks = async (options: { logs?: boolean } = { logs: true }) => {
+    const { tasksJson } = await service.listScheduledTasks({})
+    scheduledtasks.value = parseList<ScheduledTask>(tasksJson)
+    if (options.logs) {
+      await refreshScheduledTaskLogs()
+    }
+  }
 
-    scheduledtasks.value.forEach(async ({ disabled, cron, id }) => {
-      if (!disabled) {
-        cronJobsMap[id] = new Cron(cron, () => runScheduledTask(id))
-      }
+  const saveScheduledTasks = async () => {
+    const { tasksJson } = await service.saveScheduledTasks({
+      tasksJson: scheduledtasks.value.map((v) => JSON.stringify(v)),
     })
-  }
-
-  const runScheduledTask = async (id: string) => {
-    const task = getScheduledTaskById(id)
-    if (!task) return
-
-    const logsStore = useLogsStore()
-
-    task.lastTime = Date.now()
-
-    const startTime = Date.now()
-    const result = await getTaskFn(task)()
-
-    if (task.notification) {
-      const successes = result.filter((v) => v.ok).length
-      const failures = result.length - successes
-      const details = result.flatMap((v) => v.result).join('\n')
-      const content = `Successes: ${successes}; Failures: ${failures}. \n\n${details}`
-      Notify(task.name, content)
-    }
-
-    logsStore.recordScheduledTasksLog({
-      name: task.name,
-      startTime,
-      endTime: Date.now(),
-      result: result,
-    })
-
-    await editScheduledTask(id, task)
-  }
-
-  const withOutput = <T>(list: string[], fn: (id: string) => Promise<T>) => {
-    return async () => {
-      const output: { ok: boolean; result: T }[] = []
-      for (const id of list) {
-        try {
-          const result = await fn(id)
-          if (Array.isArray(result)) {
-            output.push(...result)
-          } else {
-            output.push({ ok: true, result })
-          }
-        } catch (error: any) {
-          output.push({ ok: false, result: error.message || error })
-        }
-      }
-      return output
-    }
-  }
-
-  const getTaskFn = (task: ScheduledTask) => {
-    switch (task.type) {
-      case ScheduledTasksType.UpdateSubscription: {
-        const subscribesStore = useSubscribesStore()
-        return withOutput(task.subscriptions, subscribesStore.updateSubscribe)
-      }
-      case ScheduledTasksType.UpdateRuleset: {
-        const rulesetsStore = useRulesetsStore()
-        return withOutput(task.rulesets, rulesetsStore.updateRuleset)
-      }
-      case ScheduledTasksType.UpdateAllSubscription: {
-        const subscribesStore = useSubscribesStore()
-        return withOutput(['0'], () => subscribesStore.updateSubscribes())
-      }
-      case ScheduledTasksType.UpdateAllRuleset: {
-        const rulesetsStore = useRulesetsStore()
-        return withOutput(['1'], () => rulesetsStore.updateRulesets())
-      }
-      case ScheduledTasksType.RunScript: {
-        return withOutput([task.script], (script: string) => new window.AsyncFunction(script)())
-      }
-    }
-  }
-
-  const saveScheduledTasks = () => {
-    return WriteFile(ScheduledTasksFilePath, stringifyNoFolding(scheduledtasks.value))
+    scheduledtasks.value = parseList<ScheduledTask>(tasksJson)
   }
 
   const addScheduledTask = async (s: ScheduledTask) => {
-    scheduledtasks.value.push(s)
-    try {
-      cronJobsMap[s.id] = new Cron(s.cron, () => runScheduledTask(s.id))
-      await saveScheduledTasks()
-    } catch (error) {
-      cronJobsMap[s.id]?.stop()
-      delete cronJobsMap[s.id]
-      const idx = scheduledtasks.value.indexOf(s)
-      if (idx !== -1) {
-        scheduledtasks.value.splice(idx, 1)
-      }
-      throw error
-    }
+    const { taskJson } = await service.upsertScheduledTask({ taskJson: JSON.stringify(s) })
+    scheduledtasks.value.push(JSON.parse(taskJson))
   }
 
   const deleteScheduledTask = async (id: string) => {
+    await service.deleteScheduledTask({ id })
     const idx = scheduledtasks.value.findIndex((v) => v.id === id)
-    if (idx === -1) return
-    const backup = scheduledtasks.value.splice(idx, 1)[0]!
-    try {
-      await saveScheduledTasks()
-      cronJobsMap[id]?.stop()
-      delete cronJobsMap[id]
-    } catch (error) {
-      scheduledtasks.value.splice(idx, 0, backup)
-      throw error
-    }
+    idx !== -1 && scheduledtasks.value.splice(idx, 1)
   }
 
   const editScheduledTask = async (id: string, s: ScheduledTask) => {
+    const { taskJson } = await service.upsertScheduledTask({
+      taskJson: JSON.stringify({ ...s, id }),
+    })
+    const item = JSON.parse(taskJson) as ScheduledTask
     const idx = scheduledtasks.value.findIndex((v) => v.id === id)
-    if (idx === -1) return
-    const backup = scheduledtasks.value.splice(idx, 1, s)[0]!
-    try {
-      await saveScheduledTasks()
-      cronJobsMap[id]?.stop()
-      if (s.disabled) {
-        delete cronJobsMap[id]
-      } else {
-        cronJobsMap[id] = new Cron(s.cron, () => runScheduledTask(id))
-      }
-    } catch (error) {
-      scheduledtasks.value.splice(idx, 1, backup)
-      throw error
+    if (idx === -1) {
+      scheduledtasks.value.push(item)
+    } else {
+      scheduledtasks.value.splice(idx, 1, item)
     }
+  }
+
+  const runScheduledTask = async (id: string): Promise<TaskResult[]> => {
+    const { results, endTime } = await service.runScheduledTask({ id })
+    const task = getScheduledTaskById(id)
+    if (task) {
+      task.lastTime = Number(endTime)
+    }
+    return results
+  }
+
+  const refreshScheduledTaskLogs = async (id = '') => {
+    const { logs } = await service.listScheduledTaskLogs({ id })
+    scheduledtasksLogs.value = logs.map((v) => ({
+      id: v.id,
+      name: v.name,
+      startTime: Number(v.startTime),
+      endTime: Number(v.endTime),
+      results: v.results,
+    }))
+  }
+
+  const clearScheduledTaskLogs = async () => {
+    await service.clearScheduledTaskLogs({})
+    scheduledtasksLogs.value.splice(0)
+  }
+
+  const nextScheduledTaskRuns = async (cron: string, count = 20) => {
+    const { times } = await service.nextScheduledTaskRuns({ cron, count })
+    return times.map((v) => Number(v))
   }
 
   const getScheduledTaskById = (id: string) => scheduledtasks.value.find((v) => v.id === id)
 
   return {
     scheduledtasks,
+    scheduledtasksLogs,
     setupScheduledTasks,
     saveScheduledTasks,
     addScheduledTask,
     editScheduledTask,
     deleteScheduledTask,
     getScheduledTaskById,
-    getTaskFn,
     runScheduledTask,
+    refreshScheduledTaskLogs,
+    clearScheduledTaskLogs,
+    nextScheduledTaskRuns,
   }
 })

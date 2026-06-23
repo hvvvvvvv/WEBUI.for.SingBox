@@ -1,7 +1,4 @@
 import { apiCall } from './http'
-import { EventsOn, EventsOff } from './ws'
-
-import { sampleID } from '@/utils'
 
 interface ExecOptions {
   PidFile?: string
@@ -33,43 +30,6 @@ export const Exec = async (path: string, args: string[], options: ExecOptions = 
   return data
 }
 
-export const ExecBackground = async (
-  path: string,
-  args: string[] = [],
-  onOut?: (out: string) => void,
-  onEnd?: () => void,
-  options: ExecOptions = {},
-) => {
-  const outEvent = (onOut && sampleID()) || ''
-  const endEvent = (onEnd && sampleID()) || (outEvent && sampleID()) || ''
-
-  const { flag, data } = await apiCall<{ flag: boolean; data: string }>(
-    '/exec/background',
-    path,
-    args,
-    outEvent,
-    endEvent,
-    mergeExecOptions(options),
-  )
-  if (!flag) {
-    throw data
-  }
-
-  if (outEvent) {
-    EventsOn(outEvent, onOut!)
-  }
-
-  if (endEvent) {
-    EventsOn(endEvent, () => {
-      outEvent && EventsOff(outEvent)
-      EventsOff(endEvent)
-      onEnd?.()
-    })
-  }
-
-  return Number(data)
-}
-
 export const ProcessInfo = async (pid: number) => {
   const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/exec/processInfo', pid)
   if (!flag) {
@@ -84,12 +44,4 @@ export const ProcessMemory = async (pid: number) => {
     throw data
   }
   return Number(data)
-}
-
-export const KillProcess = async (pid: number, timeout = 10) => {
-  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/exec/killProcess', pid, timeout)
-  if (!flag) {
-    throw data
-  }
-  return data
 }

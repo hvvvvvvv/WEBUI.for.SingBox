@@ -245,7 +245,7 @@ defineExpose({ modalSlots })
       />
     </div>
     <div v-if="currentStep === Step.General">
-      <GeneralConfig v-model="generalConfig" :outbound-options="outboundOptions" />
+      <GeneralConfig v-model="generalConfig" />
     </div>
     <div v-if="currentStep === Step.Inbounds">
       <InboundsConfig ref="inboundsRef" v-model="profile.inbounds" />

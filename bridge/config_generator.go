@@ -1,12 +1,15 @@
 package bridge
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	configv1 "guiforcores/gen/profile/v1"
 
@@ -63,6 +66,8 @@ const (
 
 	mixinPriorityMixin = "mixin"
 	mixinPriorityGUI   = "gui"
+
+	coreAPIController = "127.0.0.1:20123"
 )
 
 type configGenerator struct {
@@ -177,26 +182,14 @@ func generateLog(log *configv1.Log) map[string]any {
 }
 
 func generateExperimental(experimental *configv1.Experimental, outbounds []*configv1.Outbound) map[string]any {
-	if experimental == nil {
-		return map[string]any{}
-	}
-
-	clashAPI := map[string]any{}
-	if source := experimental.GetClashApi(); source != nil {
-		clashAPI["external_controller"] = source.GetExternalController()
-		clashAPI["external_ui"] = source.GetExternalUi()
-		clashAPI["external_ui_download_url"] = source.GetExternalUiDownloadUrl()
-		if detour := getOutboundTag(outbounds, source.GetExternalUiDownloadDetour()); detour != "" {
-			clashAPI["external_ui_download_detour"] = detour
-		}
-		clashAPI["secret"] = source.GetSecret()
-		clashAPI["default_mode"] = source.GetDefaultMode()
-		clashAPI["access_control_allow_origin"] = stringsToAnySlice(source.GetAccessControlAllowOrigin())
-		clashAPI["access_control_allow_private_network"] = source.GetAccessControlAllowPrivateNetwork()
+	clashAPI := map[string]any{
+		"external_controller": coreAPIController,
+		"secret":              generateCoreAPISecret(),
 	}
 
 	cacheFile := map[string]any{}
-	if source := experimental.GetCacheFile(); source != nil {
+	if experimental != nil && experimental.GetCacheFile() != nil {
+		source := experimental.GetCacheFile()
 		cacheFile["enabled"] = source.GetEnabled()
 		cacheFile["path"] = source.GetPath()
 		cacheFile["cache_id"] = source.GetCacheId()
@@ -209,6 +202,14 @@ func generateExperimental(experimental *configv1.Experimental, outbounds []*conf
 		"clash_api":  clashAPI,
 		"cache_file": cacheFile,
 	}
+}
+
+func generateCoreAPISecret() string {
+	buffer := make([]byte, 32)
+	if _, err := rand.Read(buffer); err != nil {
+		return HashSecret(fmt.Sprintf("%d", time.Now().UnixNano()))
+	}
+	return hex.EncodeToString(buffer)
 }
 
 func generateInbounds(inbounds []*configv1.Inbound) []any {

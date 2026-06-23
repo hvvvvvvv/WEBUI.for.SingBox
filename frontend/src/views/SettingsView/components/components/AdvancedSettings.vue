@@ -5,11 +5,12 @@ import { useI18n } from 'vue-i18n'
 import { MakeDir, OpenDir } from '@/bridge'
 import { apiCall } from '@/bridge/http'
 import { RollingReleaseDirectory } from '@/constant/app'
-import { useAppSettingsStore } from '@/stores'
+import { useAppConfigStore, useAppSettingsStore } from '@/stores'
 import { APP_TITLE, APP_VERSION, message } from '@/utils'
 
 const { t } = useI18n()
 const appSettings = useAppSettingsStore()
+const appConfig = useAppConfigStore()
 
 const authSecret = ref('')
 const authSecretConfirm = ref('')
@@ -21,11 +22,11 @@ const handleOpenRollingReleaseFolder = async () => {
 }
 
 const handleClearApiToken = () => {
-  appSettings.app.githubApiToken = ''
+  appConfig.config.githubApiToken = ''
 }
 
 const handleClearUserAgent = () => {
-  appSettings.app.userAgent = ''
+  appConfig.config.userAgent = ''
 }
 
 const handleSetupAuth = async () => {
@@ -84,7 +85,7 @@ const handleClearAuth = async () => {
       </div>
       <div class="flex items-center gap-4">
         <Button type="primary" icon="folder" size="small" @click="handleOpenRollingReleaseFolder" />
-        <Switch v-model="appSettings.app.rollingRelease" />
+        <Switch v-model="appConfig.config.rollingRelease" />
       </div>
     </div>
     <div class="px-8 py-12 flex items-center justify-between">
@@ -96,18 +97,18 @@ const handleClearAuth = async () => {
         {{ $t('settings.autoRestartKernel.name') }}
         <span class="font-normal text-12">({{ $t('settings.autoRestartKernel.tips') }})</span>
       </div>
-      <Switch v-model="appSettings.app.autoRestartKernel" />
+      <Switch v-model="appConfig.config.autoRestartKernel" />
     </div>
     <div class="px-8 py-12 flex items-center justify-between">
       <div class="text-16 font-bold">{{ $t('settings.autoStartKernel') }}</div>
-      <Switch v-model="appSettings.app.autoStartKernel" />
+      <Switch v-model="appConfig.config.autoStartKernel" />
     </div>
     <div class="px-8 py-12 flex items-center justify-between">
       <div class="text-16 font-bold">
         {{ $t('settings.githubapi.name') }}
         <span class="font-normal text-12">({{ $t('settings.githubapi.tips') }})</span>
       </div>
-      <Input v-model.lazy="appSettings.app.githubApiToken" editable class="text-14">
+      <Input v-model.lazy="appConfig.config.githubApiToken" editable class="text-14">
         <template #suffix>
           <Button
             v-tips="'settings.userAgent.reset'"
@@ -125,7 +126,7 @@ const handleClearAuth = async () => {
         <span class="font-normal text-12">({{ $t('settings.userAgent.tips') }})</span>
       </div>
       <Input
-        v-model.lazy="appSettings.app.userAgent"
+        v-model.lazy="appConfig.config.userAgent"
         :placeholder="APP_TITLE + '/' + APP_VERSION"
         editable
         class="text-14"
@@ -140,13 +141,6 @@ const handleClearAuth = async () => {
           />
         </template>
       </Input>
-    </div>
-    <div class="px-8 py-12 flex items-center justify-between">
-      <div class="text-16 font-bold">
-        {{ $t('settings.multipleInstance') }}
-        <span class="font-normal text-12">({{ $t('settings.needRestart') }})</span>
-      </div>
-      <Switch v-model="appSettings.app.multipleInstance" />
     </div>
   </Card>
 

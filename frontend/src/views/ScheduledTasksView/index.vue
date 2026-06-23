@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { Cron } from 'croner'
 import { useI18n, I18nT } from 'vue-i18n'
 
 import { DraggableOptions, ViewOptions } from '@/constant/app'
@@ -10,6 +9,7 @@ import { debounce, formatRelativeTime, formatDate, message, alert } from '@/util
 import { useModal } from '@/components/Modal'
 
 import type { Menu, ScheduledTask } from '@/types/app'
+import type { TaskResult } from '../../../gen/app/v1/app_service_pb'
 
 import ScheduledTaskForm from './components/ScheduledTaskForm.vue'
 import ScheduledTasksLogs from './components/ScheduledTasksLogs.vue'
@@ -17,18 +17,19 @@ import ScheduledTasksLogs from './components/ScheduledTasksLogs.vue'
 const menuList: Menu[] = [
   {
     label: 'scheduledtasks.run',
-    handler: (id: string) => {
-      scheduledTasksStore.runScheduledTask(id)
+    handler: async (id: string) => {
+      await handleRunTask(id)
     },
   },
   {
     label: 'scheduledtasks.next',
-    handler: (id: string) => {
+    handler: async (id: string) => {
       const task = scheduledTasksStore.getScheduledTaskById(id)
       if (task) {
-        const list = new Cron(task.cron).nextRuns(99).map((v, i) => {
+        const runs = await scheduledTasksStore.nextScheduledTaskRuns(task.cron)
+        const list = runs.map((v: number, i: number) => {
           const index = (i + 1).toString().padStart(2, '0')
-          return index + ' - '.repeat(14) + formatDate(v.getTime(), 'YYYY/MM/DD HH:mm:ss')
+          return index + ' - '.repeat(14) + formatDate(v, 'YYYY/MM/DD HH:mm:ss')
         })
         alert('Next Run Time', list.join('\n'))
       }
@@ -46,6 +47,36 @@ const { t } = useI18n()
 const [Modal, modalApi] = useModal({})
 const scheduledTasksStore = useScheduledTasksStore()
 const appSettingsStore = useAppSettingsStore()
+
+const formatTaskRunResults = (results: TaskResult[]) => {
+  return results
+    .map((item) => {
+      const status = item.ok ? 'OK' : 'FAIL'
+      const name = item.name || item.id || '--'
+      return `[${status}] ${name}: ${item.result || '--'}`
+    })
+    .join('\n')
+}
+
+const handleRunTask = async (id: string) => {
+  try {
+    const results = await scheduledTasksStore.runScheduledTask(id)
+    const successes = results.filter((v) => v.ok).length
+    const failures = results.length - successes
+    const summary = `Successes: ${successes}; Failures: ${failures}`
+
+    if (failures > 0) {
+      message.error(summary)
+      alert('Scheduled Task Result', formatTaskRunResults(results))
+      return
+    }
+
+    message.success(summary)
+  } catch (error: any) {
+    console.error('runScheduledTask: ', error)
+    message.error(error.message || error)
+  }
+}
 
 const handleShowTaskLogs = (id?: string) => {
   modalApi.setProps({
@@ -80,7 +111,17 @@ const handleDeleteTask = async (s: ScheduledTask) => {
 
 const handleDisableTask = async (s: ScheduledTask) => {
   s.disabled = !s.disabled
-  scheduledTasksStore.editScheduledTask(s.id, s)
+  await scheduledTasksStore.editScheduledTask(s.id, s)
+}
+
+const handleRefreshTasks = async () => {
+  try {
+    await scheduledTasksStore.setupScheduledTasks({ logs: false })
+    message.success('common.success')
+  } catch (error: any) {
+    console.error('refreshScheduledTasks: ', error)
+    message.error(error.message || error)
+  }
 }
 
 const onSortUpdate = debounce(scheduledTasksStore.saveScheduledTasks, 1000)
@@ -110,6 +151,9 @@ const onSortUpdate = debounce(scheduledTasksStore.saveScheduledTasks, 1000)
       :options="ViewOptions"
       class="mr-auto"
     />
+    <Button icon="refresh" class="ml-16" @click="handleRefreshTasks">
+      {{ t('common.refresh') }}
+    </Button>
     <Button type="text" @click="handleShowTaskLogs()">
       {{ t('scheduledtasks.logs') }}
     </Button>

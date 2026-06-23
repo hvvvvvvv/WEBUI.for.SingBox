@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-import { loadAuthToken, initWebSocket } from '@/bridge'
+import { loadAuthToken, initWebSocket, EventsOn } from '@/bridge'
 import { NavigationBar, TitleBar, SplashView, AboutView, CommandView } from '@/components'
 import LoginView from '@/views/LoginView.vue'
 import * as Stores from '@/stores'
-import { sleep, message } from '@/utils'
+import { sleep, message, eventBus } from '@/utils'
 
 const appInitialized = ref(false)
 
@@ -18,6 +18,7 @@ const appStore = Stores.useAppStore()
 const profilesStore = Stores.useProfilesStore()
 const rulesetsStore = Stores.useRulesetsStore()
 const appSettings = Stores.useAppSettingsStore()
+const appConfig = Stores.useAppConfigStore()
 const kernelApiStore = Stores.useKernelApiStore()
 const subscribesStore = Stores.useSubscribesStore()
 const scheduledTasksStore = Stores.useScheduledTasksStore()
@@ -53,13 +54,21 @@ const initApp = async () => {
   }
   
   initWebSocket(appSettings.sessionInfo.cacheToken)
-  
+  EventsOn('profileChange', async (data?: { id?: string }) => {
+    try {
+      await profilesStore.setupProfiles()
+      eventBus.emit('profileChange', { id: data?.id || '' })
+    } catch (e: any) {
+      message.error(e.message || e)
+    }
+  })
 
   try {
     await envStore.setupEnv()
 
     await Promise.all([
       appSettings.setupAppSettings(),
+      appConfig.setupAppConfig(),
       profilesStore.setupProfiles(),
       subscribesStore.setupSubscribes(),
       rulesetsStore.setupRulesets(),

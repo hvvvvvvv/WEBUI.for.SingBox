@@ -2,7 +2,7 @@
 import { h, inject, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { useProfilesStore, useAppSettingsStore, useSubscribesStore } from '@/stores'
+import { useAppConfigStore, useProfilesStore, useSubscribesStore } from '@/stores'
 import { message, sampleID } from '@/utils'
 
 import Button from '@/components/Button/index.vue'
@@ -10,7 +10,7 @@ import Button from '@/components/Button/index.vue'
 const { t } = useI18n()
 const subscribeStore = useSubscribesStore()
 const profilesStore = useProfilesStore()
-const appSettingsStore = useAppSettingsStore()
+const appConfigStore = useAppConfigStore()
 
 const url = ref('')
 const name = ref('')
@@ -48,7 +48,7 @@ const handleSave = async () => {
 
   await profilesStore.addProfile(profile)
 
-  appSettingsStore.app.kernel.profile = profile.id
+  appConfigStore.config.profile = profile.id
 
   message.success('home.initSuccessful')
 

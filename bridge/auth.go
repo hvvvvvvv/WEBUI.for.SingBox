@@ -69,9 +69,6 @@ func GetSecretKey() string {
 			return key
 		}
 	}
-	if Config != nil && Config.AuthSecret != "" {
-		return strings.TrimSpace(Config.AuthSecret)
-	}
 	return ""
 }
 
@@ -89,11 +86,6 @@ func SetSecretKey(plain string) error {
 	}
 	if err := os.WriteFile(keyPath, content, 0600); err != nil {
 		return err
-	}
-
-	if Config != nil && Config.AuthSecret != "" {
-		Config.AuthSecret = ""
-		return SaveConfig()
 	}
 	return nil
 }
@@ -113,9 +105,17 @@ func AddSession(token string) {
 	sessions.DeleteExpired()
 }
 
+func ValidateSessionNonTouch(token string) bool {
+	return sessions.Has(token)
+}
+
 // ValidateSession checks whether the token is a valid session.
 func ValidateSession(token string) bool {
-	return sessions.Has(token)
+	var res = sessions.Has(token)
+	if res {
+		sessions.Touch(token)
+	}
+	return res
 }
 
 // RemoveSession removes a single session token.

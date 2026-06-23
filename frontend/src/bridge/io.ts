@@ -37,14 +37,6 @@ export const RemoveFile = async (path: string) => {
   return data
 }
 
-export const CopyFile = async (source: string, target: string) => {
-  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/copy', source, target)
-  if (!flag) {
-    throw data
-  }
-  return data
-}
-
 export const FileExists = async (path: string) => {
   const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/exists', path)
   if (!flag) {
@@ -101,14 +93,6 @@ export const OpenURI = async (uri: string) => {
 
 export const UnzipZIPFile = async (path: string, output: string) => {
   const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/unzipZIP', path, output)
-  if (!flag) {
-    throw data
-  }
-  return data
-}
-
-export const UnzipGZFile = async (path: string, output: string) => {
-  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/file/unzipGZ', path, output)
   if (!flag) {
     throw data
   }

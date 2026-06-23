@@ -1,19 +1,13 @@
 import type { AppEnv } from '@/types/app'
 import { apiCall } from './http'
-import { sampleID } from '@/utils'
-
 
 export const ExitApp = () => apiCall('/app/exit')
-
-export const ShowMainWindow = () => apiCall('/app/showMainWindow')
 
 export const GetEnv = <T extends string | undefined = undefined>(
   key?: T,
 ): Promise<T extends string ? string : AppEnv> => {
   return apiCall('/app/env', key || '')
 }
-
-export const IsStartup = () => apiCall<boolean>('/app/isStartup')
 
 export const GetInterfaces = async () => {
   const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/app/interfaces')

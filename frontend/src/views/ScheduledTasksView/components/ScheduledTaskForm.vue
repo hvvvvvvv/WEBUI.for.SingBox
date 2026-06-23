@@ -23,7 +23,7 @@ const loading = ref(false)
 const task = ref<ScheduledTask>({
   id: sampleID(),
   name: '',
-  type: ScheduledTasksType.RunScript,
+  type: ScheduledTasksType.UpdateAllSubscription,
   subscriptions: [],
   rulesets: [],
   script: '',
@@ -31,6 +31,7 @@ const task = ref<ScheduledTask>({
   notification: false,
   disabled: false,
   lastTime: 0,
+  logLimit: 20,
 })
 
 const { t } = useI18n()
@@ -42,6 +43,11 @@ const handleCancel = inject('cancel') as any
 const handleSubmit = inject('submit') as any
 
 const handleSave = async () => {
+  if (task.value.type === ScheduledTasksType.RunScript) {
+    message.error('run::script is not supported by the backend scheduler')
+    return
+  }
+
   const { ok, reason } = isValidCron(task.value.cron)
   if (!ok) {
     message.error(reason)
@@ -58,6 +64,7 @@ const handleSave = async () => {
       task.value.rulesets = task.value.rulesets.filter((id) => rulesetsStore.getRulesetById(id))
       break
   }
+  task.value.logLimit = task.value.logLimit && task.value.logLimit > 0 ? task.value.logLimit : 20
 
   loading.value = true
 
@@ -94,16 +101,18 @@ const handleValidate = () => {
   message.success('common.success')
 }
 
-const handleViewNextRuns = () => {
+const handleViewNextRuns = async () => {
   const { ok, reason, instance } = isValidCron(task.value.cron)
   if (!ok) {
     message.error(reason)
     return
   }
-  const list = instance!.nextRuns(99).map((v, i) => {
+  const runs = await scheduledTasksStore.nextScheduledTaskRuns(task.value.cron)
+  const list = runs.map((v: number, i: number) => {
     const index = (i + 1).toString().padStart(2, '0')
-    return index + ' - '.repeat(14) + formatDate(v.getTime(), 'YYYY/MM/DD HH:mm:ss')
+    return index + ' - '.repeat(14) + formatDate(v, 'YYYY/MM/DD HH:mm:ss')
   })
+  void instance
   alert('Next Run Time', list.join('\n'))
 }
 
@@ -125,6 +134,7 @@ if (props.id) {
   const s = scheduledTasksStore.getScheduledTaskById(props.id)
   if (s) {
     task.value = deepClone(s)
+    task.value.logLimit = task.value.logLimit && task.value.logLimit > 0 ? task.value.logLimit : 20
   }
 }
 
@@ -182,6 +192,12 @@ defineExpose({ modalSlots })
     <div class="form-item">
       {{ t('scheduledtask.notification') }}
       <Switch v-model="task.notification" @change="onNotificationChange" />
+    </div>
+    <div class="form-item">
+      {{ t('scheduledtask.logLimit') }}
+      <div class="min-w-[75%]">
+        <Input v-model="task.logLimit" type="number" :min="1" class="w-full" />
+      </div>
     </div>
 
     <div v-if="task.type === ScheduledTasksType.UpdateSubscription">

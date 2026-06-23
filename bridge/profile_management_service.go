@@ -91,6 +91,7 @@ func (s *profileManagementService) CreateProfile(
 		return nil, asConnectError(err)
 	}
 
+	Hub.Emit("profileChange", map[string]any{"id": profile.GetId()})
 	return connect.NewResponse(&configv1.CreateProfileResponse{Profile: cloneProfile(profile)}), nil
 }
 
@@ -169,6 +170,26 @@ func (s *profileManagementService) DeleteProfile(
 	return connect.NewResponse(&configv1.DeleteProfileResponse{}), nil
 }
 
+func (s *profileManagementService) SaveProfiles(
+	_ context.Context,
+	req *connect.Request[configv1.SaveProfilesRequest],
+) (*connect.Response[configv1.SaveProfilesResponse], error) {
+	profiles := cloneProfiles(req.Msg.GetProfiles())
+	if err := validateProfilesForSave(profiles); err != nil {
+		return nil, asConnectError(err)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if err := s.saveProfiles(profiles); err != nil {
+		return nil, asConnectError(err)
+	}
+
+	Hub.Emit("profileChange", map[string]any{"id": ""})
+	return connect.NewResponse(&configv1.SaveProfilesResponse{Profiles: cloneProfiles(profiles)}), nil
+}
+
 func (s *profileManagementService) loadProfiles() ([]*configv1.Profile, error) {
 	filePath := GetPath(profilesFilePath)
 	bytes, err := os.ReadFile(filePath)
@@ -212,6 +233,21 @@ func (s *profileManagementService) saveProfiles(profiles []*configv1.Profile) er
 	}
 	if err := os.WriteFile(fullPath, payload, 0644); err != nil {
 		return fmt.Errorf("write profiles file: %w", err)
+	}
+	return nil
+}
+
+func validateProfilesForSave(profiles []*configv1.Profile) error {
+	seen := make(map[string]struct{}, len(profiles))
+	for idx, profile := range profiles {
+		if profile == nil || profile.GetId() == "" {
+			return invalidArgumentError{message: fmt.Sprintf("profiles[%d].id is required", idx)}
+		}
+		id := profile.GetId()
+		if _, ok := seen[id]; ok {
+			return invalidArgumentError{message: fmt.Sprintf("duplicate profile id %q", id)}
+		}
+		seen[id] = struct{}{}
 	}
 	return nil
 }

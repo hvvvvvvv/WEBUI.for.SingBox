@@ -2,13 +2,11 @@
 import { computed } from 'vue'
 import { useI18n, I18nT } from 'vue-i18n'
 
-import { RemoveFile, WriteFile, OpenURI } from '@/bridge'
 import { DraggableOptions, ViewOptions } from '@/constant/app'
-import { EmptyRuleSet } from '@/constant/kernel'
 import { View } from '@/enums/app'
 import { RulesetFormat } from '@/enums/kernel'
-import { type RuleSet, useRulesetsStore, useAppSettingsStore, useEnvStore } from '@/stores'
-import { debounce, formatRelativeTime, ignoredError, formatDate, message } from '@/utils'
+import { type RuleSet, useRulesetsStore, useAppSettingsStore } from '@/stores'
+import { debounce, formatRelativeTime, formatDate, message } from '@/utils'
 
 import { useModal } from '@/components/Modal'
 
@@ -22,13 +20,6 @@ const sourceMenuList: Menu[] = [
   {
     label: 'rulesets.editRuleset',
     handler: (id: string) => handleEditRulesetList(id),
-  },
-  {
-    label: 'common.openFile',
-    handler: async (id: string) => {
-      const ruleset = rulesetsStore.getRulesetById(id)
-      await OpenURI(envStore.env.basePath + '/' + ruleset!.path)
-    },
   },
   {
     label: 'common.clear',
@@ -48,7 +39,6 @@ const binaryMenuList: Menu[] = [
 
 const { t } = useI18n()
 const [Modal, modalApi] = useModal({})
-const envStore = useEnvStore()
 const rulesetsStore = useRulesetsStore()
 const appSettingsStore = useAppSettingsStore()
 
@@ -106,7 +96,6 @@ const handleUpdateRuleset = async (r: RuleSet) => {
 
 const handleDeleteRuleset = async (r: RuleSet) => {
   try {
-    await ignoredError(RemoveFile, r.path)
     await rulesetsStore.deleteRuleset(r.id)
   } catch (error: any) {
     console.error('deleteRuleset: ', error)
@@ -125,8 +114,7 @@ const handleClearRuleset = async (id: string) => {
   if (r.format != RulesetFormat.Source) return
 
   try {
-    await WriteFile(r.path, JSON.stringify(EmptyRuleSet, null, 2))
-    rulesetsStore.editRuleset(r.id, r)
+    await rulesetsStore.clearRulesetContent(r.id)
   } catch (error: any) {
     message.error(error)
     console.error(error)

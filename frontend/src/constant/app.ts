@@ -10,8 +10,6 @@ import {
 
 export const LocalesFilePath = 'data/locales'
 
-export const UserFilePath = 'data/user.yaml'
-
 export const ProfilesFilePath = 'data/profiles.yaml'
 
 export const SubscribesFilePath = 'data/subscribes.yaml'

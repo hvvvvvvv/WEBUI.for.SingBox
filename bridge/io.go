@@ -153,35 +153,6 @@ func (a *App) RemoveFile(path string) FlagResult {
 	return FlagResult{true, "Success"}
 }
 
-func (a *App) CopyFile(src string, dst string) FlagResult {
-	log.Printf("CopyFile: %s -> %s", src, dst)
-
-	srcPath := GetPath(src)
-	dstPath := GetPath(dst)
-
-	srcFile, err := os.Open(srcPath)
-	if err != nil {
-		return FlagResult{false, err.Error()}
-	}
-	defer srcFile.Close()
-
-	if err := os.MkdirAll(filepath.Dir(dstPath), os.ModePerm); err != nil {
-		return FlagResult{false, err.Error()}
-	}
-
-	dstFile, err := os.Create(dstPath)
-	if err != nil {
-		return FlagResult{false, err.Error()}
-	}
-	defer dstFile.Close()
-
-	if _, err := io.Copy(dstFile, srcFile); err != nil {
-		return FlagResult{false, err.Error()}
-	}
-
-	return FlagResult{true, "Success"}
-}
-
 func (a *App) MakeDir(path string) FlagResult {
 	log.Printf("MakeDir: %s", path)
 
@@ -344,37 +315,6 @@ func (a *App) UnzipTarGZFile(path string, output string) FlagResult {
 		}
 
 		dstFile.Close()
-	}
-
-	return FlagResult{true, "Success"}
-}
-
-func (a *App) UnzipGZFile(path string, output string) FlagResult {
-	log.Printf("UnzipGZFile: %s -> %s", path, output)
-
-	fullPath := GetPath(path)
-	outputPath := GetPath(output)
-
-	gzipFile, err := os.Open(fullPath)
-	if err != nil {
-		return FlagResult{false, err.Error()}
-	}
-	defer gzipFile.Close()
-
-	outputFile, err := os.Create(outputPath)
-	if err != nil {
-		return FlagResult{false, err.Error()}
-	}
-	defer outputFile.Close()
-
-	gzipReader, err := gzip.NewReader(gzipFile)
-	if err != nil {
-		return FlagResult{false, err.Error()}
-	}
-	defer gzipReader.Close()
-
-	if _, err := io.Copy(outputFile, gzipReader); err != nil {
-		return FlagResult{false, err.Error()}
 	}
 
 	return FlagResult{true, "Success"}

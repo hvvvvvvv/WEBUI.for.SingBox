@@ -1,6 +1,7 @@
 import { Request } from '@/api/request'
 import { WebSockets } from '@/api/websocket'
-import { useProfilesStore, useAppSettingsStore } from '@/stores'
+import { checkAuthToken, recoverAuthToken } from '@/bridge/http'
+import { useAppSettingsStore } from '@/stores'
 
 import type {
   CoreApiConfig,
@@ -29,77 +30,33 @@ export enum Api {
   Logs = '/logs',
 }
 
-const normalizeKernelAddress = (controller: string) => {
-  const fallback = '127.0.0.1:20123'
-  const raw = String(controller || '').trim()
-  if (!raw) return fallback
-
-  // Accept forms like:
-  // - 127.0.0.1:20123
-  // - :20123
-  // - http://127.0.0.1:20123
-  // - https://0.0.0.0:20123
-  if (raw.startsWith(':')) {
-    return `127.0.0.1${raw}`
-  }
-
-  if (raw.includes('://')) {
-    try {
-      const u = new URL(raw)
-      if (u.port) return `127.0.0.1:${u.port}`
-      return fallback
-    } catch {
-      return fallback
-    }
-  }
-
-  // Host-only values are invalid for kernel proxy target, keep default port.
-  if (!raw.includes(':')) {
-    return fallback
-  }
-
-  const port = raw.split(':').pop()
-  if (!port || !/^\d+$/.test(port)) return fallback
-  return `127.0.0.1:${port}`
-}
-
-
 const setupCoreApi = (protocol: 'http' | 'ws') => {
-  const { currentProfile: profile } = useProfilesStore()
   const appSettings = useAppSettingsStore()
-
-  let kernelAddress = '127.0.0.1:20123'
-  let kernelBearer = ''
-
-  if (profile) {
-    // Keep backward compatibility for both legacy snake_case and generated camelCase shapes.
-    const experimental = (profile as any).experimental
-    const clashApi = experimental?.clash_api ?? experimental?.clashApi
-    const controller = clashApi?.external_controller ?? clashApi?.externalController ?? ''
-    kernelAddress = normalizeKernelAddress(controller)
-    kernelBearer = clashApi?.secret ?? ''
-  }
 
   if (protocol === 'http') {
     request.base = '/api/kernel'
     request.bearer = appSettings.sessionInfo.cacheToken
-    request.customHeaders = {
-      'X-Kernel-Target': kernelAddress,
-      'X-Kernel-Bearer': kernelBearer,
-    }
+    request.customHeaders = {}
   } else {
     const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:'
     websocket.base = `${wsProto}//${location.host}/ws/kernel`
-    websocket.bearer = kernelBearer
+    websocket.bearer = ''
     websocket.customParams = {
-      target: kernelAddress,
       auth: appSettings.sessionInfo.cacheToken,
     }
   }
 }
 
-const request = new Request({ beforeRequest: () => setupCoreApi('http'), timeout: 60 * 1000 })
-const websocket = new WebSockets({ beforeConnect: () => setupCoreApi('ws') })
+const request = new Request({
+  beforeRequest: () => setupCoreApi('http'),
+  onUnauthorized: recoverAuthToken,
+  timeout: 60 * 1000,
+})
+const websocket = new WebSockets({
+  beforeConnect: () => setupCoreApi('ws'),
+  checkAuthToken,
+  onUnauthorized: recoverAuthToken,
+})
 
 const wsChannels: {
   [K in WsKey]: WsChannel<K>

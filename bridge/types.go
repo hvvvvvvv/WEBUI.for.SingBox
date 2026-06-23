@@ -11,7 +11,6 @@ type App struct {
 }
 
 type EnvResult struct {
-	IsStartup    bool   `json:"-"`
 	PreventExit  bool   `json:"-"`
 	FromTaskSch  bool   `json:"-"`
 	AppName      string `json:"appName"`
@@ -24,12 +23,11 @@ type EnvResult struct {
 }
 
 type RequestOptions struct {
-	Proxy     string
-	Insecure  bool
-	Redirect  bool
-	Timeout   int
-	CancelId  string
-	FileField string
+	Proxy    string
+	Insecure bool
+	Redirect bool
+	Timeout  int
+	CancelId string
 }
 
 type ExecOptions struct {
@@ -55,18 +53,6 @@ type FlagResult struct {
 	Data string `json:"data"`
 }
 
-type ServerOptions struct {
-	Cert          string
-	Key           string
-	StaticPath    string
-	StaticRoute   string
-	StaticHeaders map[string]string
-	UploadPath    string
-	UploadRoute   string
-	UploadHeaders map[string]string
-	MaxUploadSize int64
-}
-
 type HTTPResult struct {
 	Flag    bool        `json:"flag"`
 	Status  int         `json:"status"`
@@ -75,12 +61,20 @@ type HTTPResult struct {
 }
 
 type AppConfig struct {
-	Width            int    `yaml:"width"`
-	Height           int    `yaml:"height"`
-	MultipleInstance bool   `yaml:"multipleInstance"`
-	RollingRelease   bool   `yaml:"rollingRelease" default:"true"`
-	AuthSecret       string `yaml:"authSecret,omitempty"`
-	AutoStartKernel  bool   `yaml:"autoStartKernel"`
+	AutoStartKernel   bool                 `yaml:"autoStartKernel"`
+	AutoRestartKernel bool                 `yaml:"autoRestartKernel"`
+	UserAgent         string               `yaml:"userAgent"`
+	GitHubApiToken    string               `yaml:"githubApiToken"`
+	RollingRelease    bool                 `yaml:"rollingRelease"`
+	Branch            string               `yaml:"branch"`
+	Profile           string               `yaml:"profile"`
+	Main              AppCoreRuntimeConfig `yaml:"main"`
+	Alpha             AppCoreRuntimeConfig `yaml:"alpha"`
+}
+
+type AppCoreRuntimeConfig struct {
+	Env  map[string]string `yaml:"env"`
+	Args []string          `yaml:"args"`
 }
 
 type WriteTracker struct {

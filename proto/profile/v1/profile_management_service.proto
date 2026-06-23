@@ -42,10 +42,19 @@ message DeleteProfileRequest {
 
 message DeleteProfileResponse {}
 
+message SaveProfilesRequest {
+  repeated Profile profiles = 1;
+}
+
+message SaveProfilesResponse {
+  repeated Profile profiles = 1;
+}
+
 service ProfileManagementService {
   rpc ListProfiles(ListProfilesRequest) returns (ListProfilesResponse);
   rpc GetProfile(GetProfileRequest) returns (GetProfileResponse);
   rpc CreateProfile(CreateProfileRequest) returns (CreateProfileResponse);
   rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
   rpc DeleteProfile(DeleteProfileRequest) returns (DeleteProfileResponse);
+  rpc SaveProfiles(SaveProfilesRequest) returns (SaveProfilesResponse);
 }

@@ -17,7 +17,6 @@ import (
 	configv1 "guiforcores/gen/profile/v1"
 
 	connect "connectrpc.com/connect"
-	"gopkg.in/yaml.v3"
 )
 
 const (
@@ -133,21 +132,7 @@ func (s *kernelService) StartCore(
 	s.corePID = pid
 	s.mu.Unlock()
 
-	controller := "127.0.0.1:20123"
-	secret := ""
-	if exp := profile.GetExperimental(); exp != nil {
-		if clash := exp.GetClashApi(); clash != nil {
-			if v := strings.TrimSpace(clash.GetExternalController()); v != "" {
-				controller = v
-			}
-			secret = strings.TrimSpace(clash.GetSecret())
-		}
-	}
-	if configSecret := readKernelBearerFromGeneratedConfig(); configSecret != "" {
-		secret = configSecret
-	}
-
-	if err := waitKernelAPIReady(ctx, controller, secret, pid, 15*time.Second); err != nil {
+	if err := waitKernelAPIReady(ctx, coreAPIController, readKernelBearerFromGeneratedConfig(), pid, 15*time.Second); err != nil {
 		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_CRASHED)
 		Hub.Emit("kernelCrashed", map[string]any{"pid": pid, "reason": err.Error()})
 		_ = s.app.KillProcess(pid, 5)
@@ -235,11 +220,7 @@ func (s *kernelService) autoStartCoreOnLaunch(ctx context.Context) {
 		return
 	}
 
-	profileID, err := loadSelectedKernelProfileID()
-	if err != nil {
-		log.Printf("AutoStartCore: skipped: %v", err)
-		return
-	}
+	profileID := strings.TrimSpace(Config.Profile)
 	if profileID == "" {
 		log.Printf("AutoStartCore: skipped: no kernel profile selected")
 		return
@@ -253,25 +234,6 @@ func (s *kernelService) autoStartCoreOnLaunch(ctx context.Context) {
 	if _, err := s.StartCore(ctx, connect.NewRequest(&kernelv1.StartCoreRequest{ProfileId: profileID})); err != nil {
 		log.Printf("AutoStartCore: failed: %v", err)
 	}
-}
-
-func loadSelectedKernelProfileID() (string, error) {
-	bytes, err := os.ReadFile(GetPath("data/user.yaml"))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return "", nil
-		}
-		return "", fmt.Errorf("read user.yaml: %w", err)
-	}
-
-	var root map[string]any
-	if err := yaml.Unmarshal(bytes, &root); err != nil {
-		return "", fmt.Errorf("parse user.yaml: %w", err)
-	}
-
-	kernel, _ := root["kernel"].(map[string]any)
-	profileID, _ := kernel["profile"].(string)
-	return strings.TrimSpace(profileID), nil
 }
 
 func (s *kernelService) attachExistingCoreFromPID(profileID string) bool {
@@ -323,63 +285,19 @@ func (s *kernelService) setStatus(status kernelv1.CoreStatus) {
 }
 
 func loadKernelRuntimeConfig() (kernelRuntimeConfig, error) {
+	appCfg := normalizeAppConfig(*Config)
+	coreCfg := appCfg.Main
+	if appCfg.Branch == "alpha" {
+		coreCfg = appCfg.Alpha
+	}
 	cfg := kernelRuntimeConfig{
-		Branch: "main",
-		Args: []string{
-			"run",
-			"--disable-color",
-			"-c",
-			"$APP_BASE_PATH/$CORE_BASE_PATH/config.json",
-			"-D",
-			"$APP_BASE_PATH/$CORE_BASE_PATH",
-		},
-		Env: map[string]string{},
+		Branch: appCfg.Branch,
+		Args:   append([]string{}, coreCfg.Args...),
+		Env:    map[string]string{},
 	}
-
-	bytes, err := os.ReadFile(GetPath("data/user.yaml"))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return normalizeKernelRuntime(cfg), nil
-		}
-		return cfg, fmt.Errorf("read user.yaml: %w", err)
+	for key, value := range coreCfg.Env {
+		cfg.Env[key] = value
 	}
-
-	var root map[string]any
-	if err := yaml.Unmarshal(bytes, &root); err != nil {
-		return cfg, fmt.Errorf("parse user.yaml: %w", err)
-	}
-
-	kernel, _ := root["kernel"].(map[string]any)
-	if branch, ok := kernel["branch"].(string); ok && branch != "" {
-		cfg.Branch = branch
-	}
-
-	target := "main"
-	if cfg.Branch == "alpha" {
-		target = "alpha"
-	}
-	runtimeNode, _ := kernel[target].(map[string]any)
-
-	if rawArgs, ok := runtimeNode["args"].([]any); ok {
-		args := make([]string, 0, len(rawArgs))
-		for _, item := range rawArgs {
-			if str, ok := item.(string); ok {
-				args = append(args, str)
-			}
-		}
-		if len(args) > 0 {
-			cfg.Args = args
-		}
-	}
-
-	if rawEnv, ok := runtimeNode["env"].(map[string]any); ok {
-		env := make(map[string]string, len(rawEnv))
-		for k, v := range rawEnv {
-			env[k] = fmt.Sprint(v)
-		}
-		cfg.Env = env
-	}
-
 	return normalizeKernelRuntime(cfg), nil
 }
 

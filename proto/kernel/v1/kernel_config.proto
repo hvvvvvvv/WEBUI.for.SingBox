@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package kernel.v1;
+
+option go_package = "guiforcores/proto/kernel/v1";
+
+import "profile/v1/profile.proto";
+
+service KernelConfigService {
+  rpc GenerateDnsServerUrl(profile.v1.GenerateDnsServerUrlRequest) returns (profile.v1.GenerateDnsServerUrlResponse);
+  rpc GenerateConfig(profile.v1.GenerateConfigRequest) returns (profile.v1.GenerateConfigResponse);
+  rpc GenerateConfigFile(profile.v1.GenerateConfigFileRequest) returns (profile.v1.GenerateConfigFileResponse);
+}

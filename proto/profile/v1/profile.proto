@@ -142,17 +142,6 @@ message Log {
   bool timestamp = 4;
 }
 
-message ClashApiExperimental {
-  string external_controller = 1;
-  string external_ui = 2;
-  string external_ui_download_url = 3;
-  string external_ui_download_detour = 4;
-  string secret = 5;
-  string default_mode = 6;
-  repeated string access_control_allow_origin = 7;
-  bool access_control_allow_private_network = 8;
-}
-
 message CacheFileExperimental {
   bool enabled = 1;
   string path = 2;
@@ -163,7 +152,7 @@ message CacheFileExperimental {
 }
 
 message Experimental {
-  ClashApiExperimental clash_api = 1;
+  reserved 1;
   CacheFileExperimental cache_file = 2;
 }
 

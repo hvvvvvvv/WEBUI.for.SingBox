@@ -14,6 +14,7 @@ type RequestOptions = {
   timeout?: number
   responseType?: ResponseType
   beforeRequest?: () => void
+  onUnauthorized?: () => Promise<boolean>
 }
 
 export class Request {
@@ -22,6 +23,7 @@ export class Request {
   public timeout: number
   public responseType: string
   public beforeRequest: () => void
+  public onUnauthorized?: () => Promise<boolean>
   public customHeaders: Record<string, string> = {}
 
   constructor(options: RequestOptions = {}) {
@@ -30,9 +32,10 @@ export class Request {
     this.timeout = options.timeout || 10000
     this.responseType = options.responseType || ResponseType.JSON
     this.beforeRequest = options.beforeRequest || (() => 0)
+    this.onUnauthorized = options.onUnauthorized
   }
 
-  private request = async <T>(
+  private createRequest = (
     url: string,
     options: { method: Method; body?: Record<string, any> },
   ) => {
@@ -66,7 +69,10 @@ export class Request {
       init.body = JSON.stringify(options.body || {})
     }
 
-    const res = await fetch(url, init)
+    return { url, init }
+  }
+
+  private parseResponse = async <T>(res: Response) => {
 
     if (res.status === 204) {
       return null as T
@@ -95,6 +101,24 @@ export class Request {
 
     const json = await res.json()
     return json as T
+  }
+
+  private request = async <T>(
+    url: string,
+    options: { method: Method; body?: Record<string, any> },
+  ) => {
+    let req = this.createRequest(url, options)
+    let res = await fetch(req.url, req.init)
+
+    if (res.status === 401 && this.onUnauthorized && await this.onUnauthorized()) {
+      req = this.createRequest(url, options)
+      res = await fetch(req.url, req.init)
+      if (res.status === 401) {
+        location.reload()
+      }
+    }
+
+    return this.parseResponse<T>(res)
   }
 
   public get = <T>(url: string, body = {}) => this.request<T>(url, { method: 'GET', body })

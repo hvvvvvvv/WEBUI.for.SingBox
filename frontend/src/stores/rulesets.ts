@@ -1,19 +1,12 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { parse } from 'yaml'
 
-import { ReadFile, WriteFile, CopyFile, Download, HttpGet } from '@/bridge'
-import { RulesetHubFilePath, RulesetsFilePath } from '@/constant/app'
-import { EmptyRuleSet } from '@/constant/kernel'
-import { RulesetFormat } from '@/enums/kernel'
-import {
-  asyncPool,
-  stringifyNoFolding,
-  eventBus,
-  ignoredError,
-  isValidRulesJson,
-  omitArray,
-} from '@/utils'
+import { createRpcClient } from '@/bridge'
+import { eventBus } from '@/utils'
+import { RuleSetService } from '../../gen/app/v1/app_service_pb'
+
+import type { RulesetFormat } from '@/enums/kernel'
+import type { TaskResult } from '../../gen/app/v1/app_service_pb'
 
 export interface RuleSet {
   id: string
@@ -25,7 +18,6 @@ export interface RuleSet {
   path: string
   url: string
   count: number
-  // Not Config
   updating?: boolean
 }
 
@@ -35,180 +27,117 @@ export interface RuleSetHub {
   list: { name: string; type: 'geosite' | 'geoip'; description: string; count: number }[]
 }
 
+const parseList = <T>(items: string[]) => items.map((v) => JSON.parse(v) as T)
+const emptyHub = (): RuleSetHub => ({ geosite: '', geoip: '', list: [] })
+
 export const useRulesetsStore = defineStore('rulesets', () => {
   const rulesets = ref<RuleSet[]>([])
-  const rulesetHub = ref<RuleSetHub>({ geosite: '', geoip: '', list: [] })
+  const rulesetHub = ref<RuleSetHub>(emptyHub())
+  const rulesetHubLoading = ref(false)
+  const service = createRpcClient(RuleSetService)
 
   const setupRulesets = async () => {
-    const data = await ignoredError(ReadFile, RulesetsFilePath)
-    data && (rulesets.value = parse(data))
-
-    const list = await ignoredError(ReadFile, RulesetHubFilePath)
-    list && (rulesetHub.value = JSON.parse(list))
+    const { rulesetsJson, hubJson } = await service.listRuleSets({})
+    rulesets.value = parseList<RuleSet>(rulesetsJson)
+    rulesetHub.value = hubJson ? JSON.parse(hubJson) : emptyHub()
   }
 
-  const saveRulesets = () => {
-    const r = omitArray(rulesets.value, ['updating'])
-    return WriteFile(RulesetsFilePath, stringifyNoFolding(r))
+  const saveRulesets = async () => {
+    const { rulesetsJson } = await service.saveRuleSets({
+      rulesetsJson: rulesets.value.map((v) => JSON.stringify(v)),
+    })
+    rulesets.value = parseList<RuleSet>(rulesetsJson)
+    eventBus.emit('rulesetsChange', undefined)
   }
 
   const addRuleset = async (r: RuleSet) => {
-    rulesets.value.push(r)
-    try {
-      await saveRulesets()
-    } catch (error) {
-      const idx = rulesets.value.indexOf(r)
-      if (idx !== -1) {
-        rulesets.value.splice(idx, 1)
-      }
-      throw error
-    }
+    const { rulesetJson } = await service.upsertRuleSet({ rulesetJson: JSON.stringify(r) })
+    rulesets.value.push(JSON.parse(rulesetJson))
+    eventBus.emit('rulesetChange', { id: r.id })
   }
 
   const deleteRuleset = async (id: string) => {
+    await service.deleteRuleSet({ id })
     const idx = rulesets.value.findIndex((v) => v.id === id)
-    if (idx === -1) return
-    const backup = rulesets.value.splice(idx, 1)[0]!
-    try {
-      await saveRulesets()
-    } catch (error) {
-      rulesets.value.splice(idx, 0, backup)
-      throw error
-    }
-
+    idx !== -1 && rulesets.value.splice(idx, 1)
     eventBus.emit('rulesetChange', { id })
   }
 
   const editRuleset = async (id: string, r: RuleSet) => {
+    const { rulesetJson } = await service.upsertRuleSet({
+      rulesetJson: JSON.stringify({ ...r, id }),
+    })
+    const item = JSON.parse(rulesetJson) as RuleSet
     const idx = rulesets.value.findIndex((v) => v.id === id)
-    if (idx === -1) return
-    const backup = rulesets.value.splice(idx, 1, r)[0]!
-    try {
-      await saveRulesets()
-    } catch (error) {
-      rulesets.value.splice(idx, 1, backup)
-      throw error
+    if (idx === -1) {
+      rulesets.value.push(item)
+    } else {
+      rulesets.value.splice(idx, 1, item)
     }
-
     eventBus.emit('rulesetChange', { id })
   }
 
-  const _doUpdateRuleset = async (r: RuleSet) => {
-    if (r.format === RulesetFormat.Source) {
-      let body = ''
-      let isExist = true
-
-      if (r.type === 'File') {
-        body = await ReadFile(r.url)
-      } else if (r.type === 'Http') {
-        const { body: b } = await HttpGet(r.url)
-        body = b
-        if (typeof body !== 'string') {
-          body = JSON.stringify(body)
-        }
-      } else if (r.type === 'Manual') {
-        body = await ReadFile(r.path).catch(() => '')
-        if (!body) {
-          body = JSON.stringify(EmptyRuleSet)
-          isExist = false
-        }
-      }
-
-      if (!isValidRulesJson(body)) {
-        throw 'Not a valid ruleset data'
-      }
-
-      const ruleset = JSON.parse(body)
-
-      r.count = ruleset.rules.reduce(
-        (p: number, c: string[]) =>
-          Object.values(c).reduce(
-            (p, c: string[] | string) => (Array.isArray(c) ? p + c.length : p + 1),
-            0,
-          ) + p,
-        0,
-      )
-
-      if (
-        (['Http', 'File'].includes(r.type) && r.url !== r.path) ||
-        (r.type === 'Manual' && !isExist)
-      ) {
-        await WriteFile(r.path, JSON.stringify(ruleset, null, 2))
-      }
-    }
-
-    if (r.format === RulesetFormat.Binary) {
-      if (r.type === 'File' && r.url !== r.path) {
-        await CopyFile(r.url, r.path)
-      } else if (r.type === 'Http') {
-        await Download(r.url, r.path)
-      }
-    }
-
-    r.updateTime = Date.now()
-  }
-
-  const updateRuleset = async (id: string) => {
+  const updateRuleset = async (id: string): Promise<TaskResult[]> => {
     const r = rulesets.value.find((v) => v.id === id)
-    if (!r) throw id + ' Not Found'
-    if (r.disabled) throw r.tag + ' Disabled'
+    if (r) r.updating = true
     try {
-      r.updating = true
-      await _doUpdateRuleset(r)
-      await saveRulesets()
+      const { results } = await service.updateRuleSet({ id })
+      await setupRulesets()
+      eventBus.emit('rulesetChange', { id })
+      return results
     } finally {
-      r.updating = false
+      const next = rulesets.value.find((v) => v.id === id)
+      if (next) next.updating = false
     }
-
-    eventBus.emit('rulesetChange', { id })
-
-    return `Ruleset [${r.tag}] updated successfully.`
   }
 
-  const updateRulesets = async () => {
-    let needSave = false
-
-    const update = async (r: RuleSet) => {
-      const result = { ok: true, id: r.id, name: r.tag, result: '' }
-      try {
-        r.updating = true
-        await _doUpdateRuleset(r)
-        needSave = true
-        result.result = `Rule-Set [${r.tag}] updated successfully.`
-      } catch (error: any) {
-        result.ok = false
-        result.result = `Failed to update rule-set [${r.tag}]. Reason: ${error.message || error}`
-      } finally {
-        r.updating = false
-      }
-      return result
+  const updateRulesets = async (): Promise<TaskResult[]> => {
+    rulesets.value.forEach((v) => !v.disabled && (v.updating = true))
+    try {
+      const { results } = await service.updateAllRuleSets({})
+      await setupRulesets()
+      eventBus.emit('rulesetsChange', undefined)
+      return results
+    } finally {
+      rulesets.value.forEach((v) => (v.updating = false))
     }
-
-    const result = await asyncPool(
-      5,
-      rulesets.value.filter((v) => !v.disabled),
-      update,
-    )
-
-    if (needSave) await saveRulesets()
-
-    eventBus.emit('rulesetsChange', undefined)
-
-    return result.flatMap((v) => (v.ok && v.value) || [])
   }
 
-  const rulesetHubLoading = ref(false)
   const updateRulesetHub = async () => {
     rulesetHubLoading.value = true
     try {
-      const { body } = await HttpGet<string>(
-        'https://github.com/GUI-for-Cores/Ruleset-Hub/releases/download/latest/sing-full.json',
-      )
-      rulesetHub.value = JSON.parse(body)
-      await WriteFile(RulesetHubFilePath, body)
+      const { hubJson } = await service.updateRuleSetHub({})
+      rulesetHub.value = hubJson ? JSON.parse(hubJson) : emptyHub()
     } finally {
       rulesetHubLoading.value = false
     }
+  }
+
+  const getRulesetContent = async (id: string) => {
+    const { content } = await service.getRuleSetContent({ id })
+    return content
+  }
+
+  const saveRulesetContent = async (id: string, content: string) => {
+    const { rulesetJson } = await service.saveRuleSetContent({ id, content })
+    const item = JSON.parse(rulesetJson) as RuleSet
+    const idx = rulesets.value.findIndex((v) => v.id === id)
+    if (idx === -1) {
+      rulesets.value.push(item)
+    } else {
+      rulesets.value.splice(idx, 1, item)
+    }
+    eventBus.emit('rulesetChange', { id })
+  }
+
+  const clearRulesetContent = async (id: string) => {
+    const { rulesetJson } = await service.clearRuleSetContent({ id })
+    const item = JSON.parse(rulesetJson) as RuleSet
+    const idx = rulesets.value.findIndex((v) => v.id === id)
+    if (idx !== -1) {
+      rulesets.value.splice(idx, 1, item)
+    }
+    eventBus.emit('rulesetChange', { id })
   }
 
   const getRulesetById = (id: string) => rulesets.value.find((v) => v.id === id)
@@ -223,6 +152,9 @@ export const useRulesetsStore = defineStore('rulesets', () => {
     updateRuleset,
     updateRulesets,
     getRulesetById,
+    getRulesetContent,
+    saveRulesetContent,
+    clearRulesetContent,
 
     rulesetHub,
     rulesetHubLoading,

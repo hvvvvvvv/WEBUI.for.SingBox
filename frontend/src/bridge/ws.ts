@@ -1,9 +1,14 @@
+import { useAppSettingsStore } from '@/stores'
+
+import { checkAuthToken, recoverAuthToken } from './http'
+
 type EventCallback = (...data: any[]) => void
 
 const listeners = new Map<string, Set<EventCallback>>()
 let ws: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let bearerToken: string | null = null
+let isCheckingAuth = false
 
 const getWsUrl = () => {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -15,6 +20,10 @@ const getWsUrl = () => {
 }
 
 const connect = () => {
+  if (ws && (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.OPEN)) {
+    return
+  }
+
   ws = new WebSocket(getWsUrl())
 
   ws.onmessage = (event) => {
@@ -30,12 +39,39 @@ const connect = () => {
   }
 
   ws.onclose = () => {
-    if (reconnectTimer) clearTimeout(reconnectTimer)
-    reconnectTimer = setTimeout(connect, 2000)
+    ws = null
+    handleClose()
   }
 
   ws.onerror = () => {
     ws?.close()
+  }
+}
+
+const scheduleReconnect = () => {
+  if (reconnectTimer) clearTimeout(reconnectTimer)
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null
+    connect()
+  }, 2000)
+}
+
+const handleClose = async () => {
+  if (isCheckingAuth) return
+
+  isCheckingAuth = true
+  const isTokenValid = await checkAuthToken().catch(() => true)
+  if (isTokenValid) {
+    isCheckingAuth = false
+    scheduleReconnect()
+    return
+  }
+
+  const recovered = await recoverAuthToken()
+  isCheckingAuth = false
+  if (recovered) {
+    bearerToken = useAppSettingsStore().sessionInfo.cacheToken
+    connect()
   }
 }
 

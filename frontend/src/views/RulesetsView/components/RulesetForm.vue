@@ -29,7 +29,7 @@ const ruleset = ref<RuleSet>({
   type: 'Http',
   url: '',
   count: 0,
-  path: `data/rulesets/${sampleID()}.srs`,
+  path: '',
   disabled: false,
 })
 
@@ -50,7 +50,7 @@ const handleSubmit = async () => {
       message.error(error)
     }
 
-    loading.value = true
+    loading.value = false
 
     return
   }
@@ -63,14 +63,13 @@ const handleSubmit = async () => {
     message.error(error)
   }
 
-  loading.value = true
+  loading.value = false
 }
 
 const disabled = computed(
   () =>
     !ruleset.value.tag ||
-    (ruleset.value.type === 'Manual' && !ruleset.value.path) ||
-    (['Http', 'File'].includes(ruleset.value.type) && (!ruleset.value.url || !ruleset.value.path)),
+    (['Http', 'File'].includes(ruleset.value.type) && !ruleset.value.url),
 )
 
 watch(
@@ -91,10 +90,6 @@ watch(
       message.error('Not support')
       return
     }
-    ruleset.value.path = ruleset.value.path.replace(
-      isJson ? '.srs' : '.json',
-      isJson ? '.json' : '.srs',
-    )
   },
 )
 
@@ -166,16 +161,6 @@ defineExpose({ modalSlots })
               : 'data/local/{filename}.' +
                 (ruleset.format === RulesetFormat.Binary ? 'srs' : 'json')
           "
-          class="w-full"
-        />
-      </div>
-    </div>
-    <div class="form-item">
-      {{ t('ruleset.path') }} *
-      <div class="min-w-[75%]">
-        <Input
-          v-model="ruleset.path"
-          :placeholder="`data/rulesets/{filename}.${ruleset.format === RulesetFormat.Binary ? 'srs' : 'json'}`"
           class="w-full"
         />
       </div>

@@ -1,12 +1,10 @@
 package bridge
 
 import (
-	"bytes"
 	"context"
 	"crypto/tls"
 	"io"
 	"log"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -94,74 +92,6 @@ func (a *App) Download(method string, url string, path string, headers map[strin
 	}
 
 	return HTTPResult{true, resp.StatusCode, resp.Header, "Success"}
-}
-
-func (a *App) Upload(method string, url string, path string, headers map[string]string, event string, options RequestOptions) HTTPResult {
-	log.Printf("Upload: %s %s %s %v %s %v", method, url, path, headers, event, options)
-
-	path = GetPath(path)
-
-	file, err := os.Open(path)
-	if err != nil {
-		return HTTPResult{false, 500, nil, err.Error()}
-	}
-	defer file.Close()
-
-	fileStat, err := file.Stat()
-	if err != nil {
-		return HTTPResult{false, 500, nil, err.Error()}
-	}
-
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	part, err := writer.CreateFormFile(options.FileField, path)
-	if err != nil {
-		return HTTPResult{false, 500, nil, err.Error()}
-	}
-
-	reader := wrapWithProgress(file, fileStat.Size(), event, a)
-
-	_, err = io.Copy(part, reader)
-	if err != nil {
-		return HTTPResult{false, 500, nil, err.Error()}
-	}
-
-	err = writer.Close()
-	if err != nil {
-		return HTTPResult{false, 500, nil, err.Error()}
-	}
-
-	client, ctx, cancel := withRequestOptionsClient(options)
-
-	if options.CancelId != "" {
-		Hub.On(options.CancelId, options.CancelId, func(data ...any) {
-			log.Printf("Upload Canceled: %v %v", url, path)
-			cancel()
-		})
-		defer Hub.Off(options.CancelId, options.CancelId)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, method, url, body)
-	if err != nil {
-		return HTTPResult{false, 500, nil, err.Error()}
-	}
-
-	req.Header = GetHeader(headers)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return HTTPResult{false, 500, nil, err.Error()}
-	}
-	defer resp.Body.Close()
-
-	b, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return HTTPResult{false, 500, nil, err.Error()}
-	}
-
-	return HTTPResult{true, resp.StatusCode, resp.Header, string(b)}
 }
 
 func (wt *WriteTracker) Write(p []byte) (n int, err error) {

@@ -7,6 +7,7 @@ import { View } from '@/enums/app'
 import {
   useProfilesStore,
   useAppSettingsStore,
+  useAppConfigStore,
   useKernelApiStore,
   useSubscribesStore,
   useAppStore,
@@ -16,6 +17,7 @@ import { debounce, deepClone, generateConfigViaRpc, message, sampleID, alert } f
 import { useModal } from '@/components/Modal'
 
 import type { Menu } from '@/types/app'
+import type { SortableEvent } from 'vue-draggable-plus'
 
 import ProfileForm from './components/ProfileForm.vue'
 import ProfileEditor from './components/ProfileEditor.vue'
@@ -26,6 +28,7 @@ const appStore = useAppStore()
 const profilesStore = useProfilesStore()
 const subscribesStore = useSubscribesStore()
 const appSettingsStore = useAppSettingsStore()
+const appConfigStore = useAppConfigStore()
 const kernelApiStore = useKernelApiStore()
 
 const menuList: Menu[] = [
@@ -50,7 +53,7 @@ const secondaryMenusList: Menu[] = [
   {
     label: 'profiles.start',
     handler: async (id: string) => {
-      appSettingsStore.app.kernel.profile = id
+      appConfigStore.config.profile = id
       try {
         const e = await kernelApiStore.stopCore().catch((e) => e)
         if (e && e !== 'The core is not running') {
@@ -69,7 +72,7 @@ const secondaryMenusList: Menu[] = [
       const p = deepClone(profilesStore.getProfileById(id)!)
       p.id = sampleID()
       p.name = p.name + '(Copy)'
-      profilesStore.addProfile(p)
+      await profilesStore.addProfile(p)
       message.success('common.success')
     },
   },
@@ -135,7 +138,7 @@ const handleShowProfileForm = (id?: string, step = 0) => {
 }
 
 const handleDeleteProfile = async (p: IProfile) => {
-  const { profile } = appSettingsStore.app.kernel
+  const { profile } = appConfigStore.config
   if (profile === p.id && kernelApiStore.running) {
     message.warn('profiles.shouldStop')
     return
@@ -150,9 +153,9 @@ const handleDeleteProfile = async (p: IProfile) => {
 }
 
 const handleUseProfile = async (p: IProfile) => {
-  if (appSettingsStore.app.kernel.profile === p.id) return
+  if (appConfigStore.config.profile === p.id) return
 
-  appSettingsStore.app.kernel.profile = p.id
+  appConfigStore.config.profile = p.id
 
   if (kernelApiStore.running) {
     await kernelApiStore.restartCore()
@@ -165,7 +168,22 @@ const isCreatedBySubscription = (id: string) => {
 
 const showAuto = () => alert('Tips', 'profile.auto')
 
-const onSortUpdate = debounce(profilesStore.saveProfiles, 1000)
+const saveProfileOrder = debounce((ids: string[]) => profilesStore.saveProfilesOrder(ids), 1000)
+
+const onSortUpdate = (event: SortableEvent) => {
+  const oldIndex = event.oldDraggableIndex ?? event.oldIndex
+  const newIndex = event.newDraggableIndex ?? event.newIndex
+  if (oldIndex == null || newIndex == null || oldIndex === newIndex) return
+
+  const next = [...profilesStore.profiles]
+  const [item] = next.splice(oldIndex, 1)
+  if (!item) return
+  next.splice(newIndex, 0, item)
+  profilesStore.profiles.splice(0, profilesStore.profiles.length, ...next)
+  saveProfileOrder(next.map((profile) => profile.id)).catch((error: any) => {
+    message.error(error.message || error)
+  })
+}
 </script>
 
 <template>
@@ -193,7 +211,7 @@ const onSortUpdate = debounce(profilesStore.saveProfiles, 1000)
   </div>
 
   <div
-    v-draggable="[profilesStore.profiles, { ...DraggableOptions, onUpdate: onSortUpdate }]"
+    v-draggable="[profilesStore.profiles, { ...DraggableOptions, customUpdate: onSortUpdate }]"
     :class="'grid-list-' + appSettingsStore.app.profilesView"
   >
     <Card
@@ -201,7 +219,7 @@ const onSortUpdate = debounce(profilesStore.saveProfiles, 1000)
       :key="p.id"
       v-menu="generateMenus(p)"
       :title="p.name"
-      :selected="appSettingsStore.app.kernel.profile === p.id"
+      :selected="appConfigStore.config.profile === p.id"
       class="grid-list-item"
       @dblclick="handleUseProfile(p)"
     >

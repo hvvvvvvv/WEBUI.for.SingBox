@@ -11,8 +11,6 @@ import (
 	"strings"
 
 	sysruntime "runtime"
-
-	"gopkg.in/yaml.v3"
 )
 
 func detectLibc() string {
@@ -37,7 +35,6 @@ var Config = &AppConfig{}
 var ServerAddr string
 
 var Env = &EnvResult{
-	IsStartup:    true,
 	PreventExit:  true,
 	FromTaskSch:  false,
 	AppName:      "",
@@ -79,34 +76,10 @@ func CreateApp(fs embed.FS) *App {
 	return app
 }
 
-func (a *App) IsStartup() bool {
-	if Env.IsStartup {
-		Env.IsStartup = false
-		return true
-	}
-	return false
-}
-
 func (a *App) ExitApp() {
 	log.Printf("ExitApp")
 	Env.PreventExit = false
 	os.Exit(0)
-}
-
-func (a *App) RestartApp() FlagResult {
-	log.Printf("RestartApp")
-	exePath := Env.BasePath + "/" + Env.AppName
-
-	cmd := exec.Command(exePath)
-	SetCmdWindowHidden(cmd)
-
-	if err := cmd.Start(); err != nil {
-		return FlagResult{false, err.Error()}
-	}
-
-	a.ExitApp()
-
-	return FlagResult{true, "Success"}
 }
 
 func (a *App) GetEnv(key string) any {
@@ -140,60 +113,4 @@ func (a *App) GetInterfaces() FlagResult {
 	}
 
 	return FlagResult{true, strings.Join(interfaceNames, "|")}
-}
-
-func (a *App) ShowMainWindow() {
-	log.Printf("ShowMainWindow: no-op in server mode")
-}
-
-func loadConfig() {
-	b, err := os.ReadFile(Env.BasePath + "/data/user.yaml")
-	if err == nil {
-		yaml.Unmarshal(b, &Config)
-	}
-
-	if Config.Width == 0 {
-		Config.Width = 800
-	}
-
-	if Config.Height == 0 {
-		Config.Height = 540
-	}
-
-}
-
-func SaveConfig() error {
-	path := Env.BasePath + "/data/user.yaml"
-
-	// Read existing file and merge to preserve frontend-managed fields
-	existing := make(map[string]any)
-	if data, err := os.ReadFile(path); err == nil {
-		yaml.Unmarshal(data, &existing)
-	}
-
-	// Marshal Go-managed fields into a map
-	goData, err := yaml.Marshal(Config)
-	if err != nil {
-		return err
-	}
-	goFields := make(map[string]any)
-	if err := yaml.Unmarshal(goData, &goFields); err != nil {
-		return err
-	}
-
-	// Merge Go fields into existing (Go fields take precedence)
-	for k, v := range goFields {
-		existing[k] = v
-	}
-
-	// If authSecret is empty, remove it from the file
-	if Config.AuthSecret == "" {
-		delete(existing, "authSecret")
-	}
-
-	b, err := yaml.Marshal(existing)
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(path, b, 0644)
 }

@@ -134,13 +134,12 @@ const handleUse = (ruleset: any) => {
           <Card
             v-for="ruleset in rulesetsStore.rulesets"
             :key="ruleset.tag"
-            v-tips="ruleset.path"
             :title="ruleset.tag"
             :selected="fields.path === ruleset.id"
             @click="handleUse(ruleset)"
           >
             <div class="text-12">
-              {{ ruleset.path }}
+              {{ ruleset.type }} / {{ ruleset.format }}
             </div>
           </Card>
         </template>

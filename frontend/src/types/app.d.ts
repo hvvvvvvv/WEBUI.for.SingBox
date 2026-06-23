@@ -51,19 +51,12 @@ export interface AppSettings {
   subscribesView: View
   rulesetsView: View
   scheduledtasksView: View
-  autoSetSystemProxy: boolean
-  autoStartKernel: boolean
-  autoRestartKernel: boolean
-  userAgent: string
-  startupDelay: number
   connections: {
     visibility: Record<string, boolean>
     order: string[]
   }
   kernel: {
     realMemoryUsage: boolean
-    branch: Branch
-    profile: string
     autoClose: boolean
     unAvailable: boolean
     cardMode: boolean
@@ -74,23 +67,29 @@ export interface AppSettings {
     concurrencyLimit: number
     controllerCloseMode: ControllerCloseMode
     controllerSensitivity: number
-    main: {
-      env: Recordable
-      args: string[]
-    }
-    alpha: {
-      env: Recordable
-      args: string[]
-    }
   }
-  githubApiToken: string
-  multipleInstance: boolean
-  rollingRelease: boolean
   debugOutline: boolean
   debugNoAnimation: boolean
   debugNoRounded: false
   debugBorder: boolean
   pages: string[]
+}
+
+export interface CoreRuntimeConfig {
+  env: Record<string, string>
+  args: string[]
+}
+
+export interface AppConfig {
+  autoStartKernel: boolean
+  autoRestartKernel: boolean
+  userAgent: string
+  githubApiToken: string
+  rollingRelease: boolean
+  branch: Branch
+  profile: string
+  main: CoreRuntimeConfig
+  alpha: CoreRuntimeConfig
 }
 
 export interface SessionInfo {
@@ -110,6 +109,7 @@ export interface ScheduledTask {
   notification: boolean
   disabled: boolean
   lastTime: number
+  logLimit?: number
 }
 
 export interface Subscription {

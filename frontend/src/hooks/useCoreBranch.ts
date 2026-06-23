@@ -18,7 +18,7 @@ import {
 } from '@/bridge'
 import { CoreWorkingDirectory } from '@/constant/kernel'
 import { Branch, OS } from '@/enums/app'
-import { useAppSettingsStore, useEnvStore, useKernelApiStore } from '@/stores'
+import { useAppConfigStore, useEnvStore, useKernelApiStore } from '@/stores'
 import {
   getGitHubApiAuthorization,
   GrantTUNPermission,
@@ -54,11 +54,11 @@ export const useCoreBranch = (isAlpha = false) => {
 
   const { t } = useI18n()
   const envStore = useEnvStore()
-  const appSettings = useAppSettingsStore()
+  const appConfig = useAppConfigStore()
   const kernelApiStore = useKernelApiStore()
 
   const restartable = computed(() => {
-    const { branch } = appSettings.app.kernel
+    const { branch } = appConfig.config
     if (!kernelApiStore.running) return false
     return localVersion.value && downloadCompleted.value && (branch === Branch.Alpha) === isAlpha
   })
@@ -211,7 +211,7 @@ export const useCoreBranch = (isAlpha = false) => {
 
     const doRollback = () => MoveFile(CoreBakFilePath, CoreFilePath)
 
-    const { branch } = appSettings.app.kernel
+    const { branch } = appConfig.config
     const isCurrentRunning = kernelApiStore.running && (branch === Branch.Alpha) === isAlpha
     if (isCurrentRunning) {
       await kernelApiStore.restartCore(doRollback)
@@ -231,7 +231,7 @@ export const useCoreBranch = (isAlpha = false) => {
   }
 
   watch(
-    () => appSettings.app.kernel.branch,
+    () => appConfig.config.branch,
     () => (downloadCompleted.value = false),
   )
 

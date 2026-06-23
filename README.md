@@ -4,7 +4,7 @@
 
 这个分支主要面向透明代理场景：将管理界面从桌面应用形态调整为可通过浏览器访问的 Web 服务，方便部署在网关、旁路由、软路由、服务器或容器环境中，用于远程维护 sing-box 的配置和运行状态。
 
-本项目基于 [GUI-for-Cores/GUI.for.SingBox](https://github.com/GUI-for-Cores/GUI.for.SingBox) 修改而来。感谢上游项目提供的原始界面、配置模型和 sing-box 管理体验。
+本项目基于 [GUI-for-Cores/GUI.for.SingBox](https://github.com/GUI-for-Cores/GUI.for.SingBox) 修改而来。感谢上游项目提供的原始界面、配置模型和规则集仓库等。
 
 ## 相比上游的主要改动
 
@@ -76,7 +76,3 @@ docker run --rm -p 9090:9090 -v webui-for-singbox-data:/app/data webui.for.singb
 ```bash
 buf generate
 ```
-
-## 许可证
-
-本项目遵循上游项目的许可证。详情见 [LICENSE](LICENSE)。

@@ -2,11 +2,8 @@ import { deleteConnection, getConnections, useProxy } from '@/api/kernel'
 import {
   AbsolutePath,
   Exec,
-  ExitApp,
-  FileExists,
   GetEnv,
   ReadFile,
-  RemoveFile,
   WriteFile,
 } from '@/bridge'
 import { CoreWorkingDirectory } from '@/constant/kernel'
@@ -15,65 +12,20 @@ import { RulesetFormat } from '@/enums/kernel'
 import i18n from '@/lang'
 import {
   type ProxyType,
+  useAppConfigStore,
   useAppSettingsStore,
   useAppStore,
   useEnvStore,
   useKernelApiStore,
   useRulesetsStore,
 } from '@/stores'
-import { ignoredError, message, confirm, APP_TITLE, getAutoStartConfiguration } from '@/utils'
+import { ignoredError, message, confirm } from '@/utils'
 
 export const getZoomLevel = () => {
   const el = document.querySelector('.app-zoomed') as HTMLElement | null
   if (!el) return 1
   const style = getComputedStyle(el)
   return parseFloat(style.zoom) || 1
-}
-
-// Permissions Helper
-export const SwitchPermissions = async (enable: boolean) => {
-  const { appPath } = useEnvStore().env
-  const args = enable
-    ? [
-        'add',
-        'HKEY_CURRENT_USER\\Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers',
-        '/v',
-        appPath,
-        '/t',
-        'REG_SZ',
-        '/d',
-        'RunAsAdmin',
-        '/f',
-      ]
-    : [
-        'delete',
-        'HKEY_CURRENT_USER\\Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers',
-        '/v',
-        appPath,
-        '/f',
-      ]
-  await Exec('reg', args, { Convert: true })
-}
-
-export const CheckPermissions = async () => {
-  const { appPath } = useEnvStore().env
-  try {
-    const out = await Exec(
-      'reg',
-      [
-        'query',
-        'HKEY_CURRENT_USER\\Software\\Microsoft\\Windows NT\\CurrentVersion\\AppCompatFlags\\Layers',
-        '/v',
-        appPath,
-        '/t',
-        'REG_SZ',
-      ],
-      { Convert: true },
-    )
-    return out.includes('RunAsAdmin')
-  } catch {
-    return false
-  }
 }
 
 export const GrantTUNPermission = async (path: string) => {
@@ -109,31 +61,6 @@ export const RunWithOsaScript = async (
   }
   const osaArgs = ['-e', appleScript]
   return await Exec('osascript', osaArgs, others)
-}
-
-export const RunWithPowerShell = async (
-  path: string,
-  args: string[] = [],
-  options: { admin?: boolean; hidden?: boolean; wait?: boolean } = {},
-) => {
-  const { admin = false, hidden = false, wait = true, ...others } = options
-  const psArgs: string[] = []
-  let command = `Start-Process -FilePath "${path}"`
-  if (args.length > 0) {
-    const argList = args.map((a) => `"${a.replace(/"/g, '""')}"`).join(',')
-    command += ` -ArgumentList ${argList}`
-  }
-  if (admin) {
-    command += ' -Verb RunAs'
-  }
-  if (hidden) {
-    command += ' -WindowStyle Hidden'
-  }
-  if (wait) {
-    command += ' -Wait'
-  }
-  psArgs.push('-NoProfile', '-Command', command)
-  return await Exec('powershell', psArgs, { Convert: true, ...others })
 }
 
 // SystemProxy Helper
@@ -537,70 +464,6 @@ export const GetSystemOrKernelProxy = async () => {
   return proxy_cache.proxyPromise
 }
 
-// Auto-start
-const getPlistPath = async () => {
-  const home = await GetEnv('HOME')
-  return `${home}/Library/LaunchAgents/${APP_TITLE}.plist`
-}
-
-const getDesktopPath = async () => {
-  const home = await GetEnv('HOME')
-  return `${home}/.config/autostart/${APP_TITLE}.desktop`
-}
-
-export const IsAutoStartEnabled = async () => {
-  const { os } = useEnvStore().env
-  let isAutoStart = false
-  if (os === OS.Windows) {
-    isAutoStart = await Exec('Schtasks', ['/Query', '/TN', APP_TITLE, '/XML'], { Convert: true })
-      .then(() => true)
-      .catch(() => false)
-  } else if (os === OS.Darwin) {
-    const plistPath = await getPlistPath()
-    isAutoStart = await FileExists(plistPath)
-  } else if (os === OS.Linux) {
-    const desktopPath = await getDesktopPath()
-    isAutoStart = await FileExists(desktopPath)
-  }
-  return isAutoStart
-}
-
-export const EnableAutoStart = async (delay = 10) => {
-  const { os, appPath, isPrivileged } = useEnvStore().env
-  const configuration = getAutoStartConfiguration(os, appPath, delay)
-  if (os === OS.Windows) {
-    const xmlPath = await AbsolutePath('data/.cache/tasksch.xml')
-    await WriteFile(xmlPath, configuration)
-    const fn = isPrivileged ? Exec : RunWithPowerShell
-    await fn('SchTasks', ['/Create', '/F', '/TN', APP_TITLE, '/XML', xmlPath], {
-      admin: true,
-      hidden: true,
-    })
-  } else if (os === OS.Darwin) {
-    const plistPath = await getPlistPath()
-    await WriteFile(plistPath, configuration)
-    await Exec('launchctl', ['load', plistPath])
-  } else if (os === OS.Linux) {
-    const desktopPath = await getDesktopPath()
-    await WriteFile(desktopPath, configuration)
-  }
-}
-
-export const DisableAutoStart = async () => {
-  const { os, isPrivileged } = useEnvStore().env
-  if (os === OS.Windows) {
-    const fn = isPrivileged ? Exec : RunWithPowerShell
-    await fn('SchTasks', ['/Delete', '/F', '/TN', APP_TITLE], { admin: true, hidden: true })
-  } else if (os === OS.Darwin) {
-    const plistPath = await getPlistPath()
-    await Exec('launchctl', ['unload', plistPath])
-    await RemoveFile(plistPath)
-  } else if (os === OS.Linux) {
-    const desktopPath = await getDesktopPath()
-    await RemoveFile(desktopPath)
-  }
-}
-
 // Others
 export const handleUseProxy = async (group: any, proxy: any) => {
   if (group.type !== 'Selector' || group.now === proxy.name) return
@@ -706,8 +569,8 @@ export const processMagicVariables = (str: string) => {
 }
 
 export const getKernelRuntimeEnv = (isAlpha = false) => {
-  const appSettings = useAppSettingsStore()
-  const { env } = isAlpha ? appSettings.app.kernel.alpha : appSettings.app.kernel.main
+  const appConfig = useAppConfigStore()
+  const { env } = isAlpha ? appConfig.config.alpha : appConfig.config.main
   return Object.entries(env).reduce((p, [key, value]) => {
     p[key] = processMagicVariables(value)
     return p
@@ -715,7 +578,7 @@ export const getKernelRuntimeEnv = (isAlpha = false) => {
 }
 
 export const getKernelRuntimeArgs = (isAlpha = false) => {
-  const appSettings = useAppSettingsStore()
-  const { args } = isAlpha ? appSettings.app.kernel.alpha : appSettings.app.kernel.main
+  const appConfig = useAppConfigStore()
+  const { args } = isAlpha ? appConfig.config.alpha : appConfig.config.main
   return args.map((arg) => processMagicVariables(arg))
 }

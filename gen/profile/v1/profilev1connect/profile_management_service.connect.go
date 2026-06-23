@@ -48,6 +48,9 @@ const (
 	// ProfileManagementServiceDeleteProfileProcedure is the fully-qualified name of the
 	// ProfileManagementService's DeleteProfile RPC.
 	ProfileManagementServiceDeleteProfileProcedure = "/profile.v1.ProfileManagementService/DeleteProfile"
+	// ProfileManagementServiceSaveProfilesProcedure is the fully-qualified name of the
+	// ProfileManagementService's SaveProfiles RPC.
+	ProfileManagementServiceSaveProfilesProcedure = "/profile.v1.ProfileManagementService/SaveProfiles"
 )
 
 // ProfileManagementServiceClient is a client for the profile.v1.ProfileManagementService service.
@@ -57,6 +60,7 @@ type ProfileManagementServiceClient interface {
 	CreateProfile(context.Context, *connect.Request[v1.CreateProfileRequest]) (*connect.Response[v1.CreateProfileResponse], error)
 	UpdateProfile(context.Context, *connect.Request[v1.UpdateProfileRequest]) (*connect.Response[v1.UpdateProfileResponse], error)
 	DeleteProfile(context.Context, *connect.Request[v1.DeleteProfileRequest]) (*connect.Response[v1.DeleteProfileResponse], error)
+	SaveProfiles(context.Context, *connect.Request[v1.SaveProfilesRequest]) (*connect.Response[v1.SaveProfilesResponse], error)
 }
 
 // NewProfileManagementServiceClient constructs a client for the profile.v1.ProfileManagementService
@@ -100,6 +104,12 @@ func NewProfileManagementServiceClient(httpClient connect.HTTPClient, baseURL st
 			connect.WithSchema(profileManagementServiceMethods.ByName("DeleteProfile")),
 			connect.WithClientOptions(opts...),
 		),
+		saveProfiles: connect.NewClient[v1.SaveProfilesRequest, v1.SaveProfilesResponse](
+			httpClient,
+			baseURL+ProfileManagementServiceSaveProfilesProcedure,
+			connect.WithSchema(profileManagementServiceMethods.ByName("SaveProfiles")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -110,6 +120,7 @@ type profileManagementServiceClient struct {
 	createProfile *connect.Client[v1.CreateProfileRequest, v1.CreateProfileResponse]
 	updateProfile *connect.Client[v1.UpdateProfileRequest, v1.UpdateProfileResponse]
 	deleteProfile *connect.Client[v1.DeleteProfileRequest, v1.DeleteProfileResponse]
+	saveProfiles  *connect.Client[v1.SaveProfilesRequest, v1.SaveProfilesResponse]
 }
 
 // ListProfiles calls profile.v1.ProfileManagementService.ListProfiles.
@@ -137,6 +148,11 @@ func (c *profileManagementServiceClient) DeleteProfile(ctx context.Context, req 
 	return c.deleteProfile.CallUnary(ctx, req)
 }
 
+// SaveProfiles calls profile.v1.ProfileManagementService.SaveProfiles.
+func (c *profileManagementServiceClient) SaveProfiles(ctx context.Context, req *connect.Request[v1.SaveProfilesRequest]) (*connect.Response[v1.SaveProfilesResponse], error) {
+	return c.saveProfiles.CallUnary(ctx, req)
+}
+
 // ProfileManagementServiceHandler is an implementation of the profile.v1.ProfileManagementService
 // service.
 type ProfileManagementServiceHandler interface {
@@ -145,6 +161,7 @@ type ProfileManagementServiceHandler interface {
 	CreateProfile(context.Context, *connect.Request[v1.CreateProfileRequest]) (*connect.Response[v1.CreateProfileResponse], error)
 	UpdateProfile(context.Context, *connect.Request[v1.UpdateProfileRequest]) (*connect.Response[v1.UpdateProfileResponse], error)
 	DeleteProfile(context.Context, *connect.Request[v1.DeleteProfileRequest]) (*connect.Response[v1.DeleteProfileResponse], error)
+	SaveProfiles(context.Context, *connect.Request[v1.SaveProfilesRequest]) (*connect.Response[v1.SaveProfilesResponse], error)
 }
 
 // NewProfileManagementServiceHandler builds an HTTP handler from the service implementation. It
@@ -184,6 +201,12 @@ func NewProfileManagementServiceHandler(svc ProfileManagementServiceHandler, opt
 		connect.WithSchema(profileManagementServiceMethods.ByName("DeleteProfile")),
 		connect.WithHandlerOptions(opts...),
 	)
+	profileManagementServiceSaveProfilesHandler := connect.NewUnaryHandler(
+		ProfileManagementServiceSaveProfilesProcedure,
+		svc.SaveProfiles,
+		connect.WithSchema(profileManagementServiceMethods.ByName("SaveProfiles")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/profile.v1.ProfileManagementService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ProfileManagementServiceListProfilesProcedure:
@@ -196,6 +219,8 @@ func NewProfileManagementServiceHandler(svc ProfileManagementServiceHandler, opt
 			profileManagementServiceUpdateProfileHandler.ServeHTTP(w, r)
 		case ProfileManagementServiceDeleteProfileProcedure:
 			profileManagementServiceDeleteProfileHandler.ServeHTTP(w, r)
+		case ProfileManagementServiceSaveProfilesProcedure:
+			profileManagementServiceSaveProfilesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -223,4 +248,8 @@ func (UnimplementedProfileManagementServiceHandler) UpdateProfile(context.Contex
 
 func (UnimplementedProfileManagementServiceHandler) DeleteProfile(context.Context, *connect.Request[v1.DeleteProfileRequest]) (*connect.Response[v1.DeleteProfileResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("profile.v1.ProfileManagementService.DeleteProfile is not implemented"))
+}
+
+func (UnimplementedProfileManagementServiceHandler) SaveProfiles(context.Context, *connect.Request[v1.SaveProfilesRequest]) (*connect.Response[v1.SaveProfilesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("profile.v1.ProfileManagementService.SaveProfiles is not implemented"))
 }

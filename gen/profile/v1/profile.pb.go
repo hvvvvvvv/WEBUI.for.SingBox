@@ -874,106 +874,6 @@ func (x *Log) GetTimestamp() bool {
 	return false
 }
 
-type ClashApiExperimental struct {
-	state                            protoimpl.MessageState `protogen:"open.v1"`
-	ExternalController               string                 `protobuf:"bytes,1,opt,name=external_controller,json=externalController,proto3" json:"external_controller,omitempty"`
-	ExternalUi                       string                 `protobuf:"bytes,2,opt,name=external_ui,json=externalUi,proto3" json:"external_ui,omitempty"`
-	ExternalUiDownloadUrl            string                 `protobuf:"bytes,3,opt,name=external_ui_download_url,json=externalUiDownloadUrl,proto3" json:"external_ui_download_url,omitempty"`
-	ExternalUiDownloadDetour         string                 `protobuf:"bytes,4,opt,name=external_ui_download_detour,json=externalUiDownloadDetour,proto3" json:"external_ui_download_detour,omitempty"`
-	Secret                           string                 `protobuf:"bytes,5,opt,name=secret,proto3" json:"secret,omitempty"`
-	DefaultMode                      string                 `protobuf:"bytes,6,opt,name=default_mode,json=defaultMode,proto3" json:"default_mode,omitempty"`
-	AccessControlAllowOrigin         []string               `protobuf:"bytes,7,rep,name=access_control_allow_origin,json=accessControlAllowOrigin,proto3" json:"access_control_allow_origin,omitempty"`
-	AccessControlAllowPrivateNetwork bool                   `protobuf:"varint,8,opt,name=access_control_allow_private_network,json=accessControlAllowPrivateNetwork,proto3" json:"access_control_allow_private_network,omitempty"`
-	unknownFields                    protoimpl.UnknownFields
-	sizeCache                        protoimpl.SizeCache
-}
-
-func (x *ClashApiExperimental) Reset() {
-	*x = ClashApiExperimental{}
-	mi := &file_profile_v1_profile_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *ClashApiExperimental) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*ClashApiExperimental) ProtoMessage() {}
-
-func (x *ClashApiExperimental) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use ClashApiExperimental.ProtoReflect.Descriptor instead.
-func (*ClashApiExperimental) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *ClashApiExperimental) GetExternalController() string {
-	if x != nil {
-		return x.ExternalController
-	}
-	return ""
-}
-
-func (x *ClashApiExperimental) GetExternalUi() string {
-	if x != nil {
-		return x.ExternalUi
-	}
-	return ""
-}
-
-func (x *ClashApiExperimental) GetExternalUiDownloadUrl() string {
-	if x != nil {
-		return x.ExternalUiDownloadUrl
-	}
-	return ""
-}
-
-func (x *ClashApiExperimental) GetExternalUiDownloadDetour() string {
-	if x != nil {
-		return x.ExternalUiDownloadDetour
-	}
-	return ""
-}
-
-func (x *ClashApiExperimental) GetSecret() string {
-	if x != nil {
-		return x.Secret
-	}
-	return ""
-}
-
-func (x *ClashApiExperimental) GetDefaultMode() string {
-	if x != nil {
-		return x.DefaultMode
-	}
-	return ""
-}
-
-func (x *ClashApiExperimental) GetAccessControlAllowOrigin() []string {
-	if x != nil {
-		return x.AccessControlAllowOrigin
-	}
-	return nil
-}
-
-func (x *ClashApiExperimental) GetAccessControlAllowPrivateNetwork() bool {
-	if x != nil {
-		return x.AccessControlAllowPrivateNetwork
-	}
-	return false
-}
-
 type CacheFileExperimental struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Enabled       bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
@@ -988,7 +888,7 @@ type CacheFileExperimental struct {
 
 func (x *CacheFileExperimental) Reset() {
 	*x = CacheFileExperimental{}
-	mi := &file_profile_v1_profile_proto_msgTypes[2]
+	mi := &file_profile_v1_profile_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1000,7 +900,7 @@ func (x *CacheFileExperimental) String() string {
 func (*CacheFileExperimental) ProtoMessage() {}
 
 func (x *CacheFileExperimental) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[2]
+	mi := &file_profile_v1_profile_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1013,7 +913,7 @@ func (x *CacheFileExperimental) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CacheFileExperimental.ProtoReflect.Descriptor instead.
 func (*CacheFileExperimental) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{2}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *CacheFileExperimental) GetEnabled() bool {
@@ -1060,7 +960,6 @@ func (x *CacheFileExperimental) GetRdrcTimeout() string {
 
 type Experimental struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	ClashApi      *ClashApiExperimental  `protobuf:"bytes,1,opt,name=clash_api,json=clashApi,proto3" json:"clash_api,omitempty"`
 	CacheFile     *CacheFileExperimental `protobuf:"bytes,2,opt,name=cache_file,json=cacheFile,proto3" json:"cache_file,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -1068,7 +967,7 @@ type Experimental struct {
 
 func (x *Experimental) Reset() {
 	*x = Experimental{}
-	mi := &file_profile_v1_profile_proto_msgTypes[3]
+	mi := &file_profile_v1_profile_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1080,7 +979,7 @@ func (x *Experimental) String() string {
 func (*Experimental) ProtoMessage() {}
 
 func (x *Experimental) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[3]
+	mi := &file_profile_v1_profile_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1093,14 +992,7 @@ func (x *Experimental) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Experimental.ProtoReflect.Descriptor instead.
 func (*Experimental) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{3}
-}
-
-func (x *Experimental) GetClashApi() *ClashApiExperimental {
-	if x != nil {
-		return x.ClashApi
-	}
-	return nil
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *Experimental) GetCacheFile() *CacheFileExperimental {
@@ -1121,7 +1013,7 @@ type ProxyRef struct {
 
 func (x *ProxyRef) Reset() {
 	*x = ProxyRef{}
-	mi := &file_profile_v1_profile_proto_msgTypes[4]
+	mi := &file_profile_v1_profile_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1133,7 +1025,7 @@ func (x *ProxyRef) String() string {
 func (*ProxyRef) ProtoMessage() {}
 
 func (x *ProxyRef) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[4]
+	mi := &file_profile_v1_profile_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1146,7 +1038,7 @@ func (x *ProxyRef) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ProxyRef.ProtoReflect.Descriptor instead.
 func (*ProxyRef) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{4}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *ProxyRef) GetId() string {
@@ -1187,7 +1079,7 @@ type RuleSet struct {
 
 func (x *RuleSet) Reset() {
 	*x = RuleSet{}
-	mi := &file_profile_v1_profile_proto_msgTypes[5]
+	mi := &file_profile_v1_profile_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1199,7 +1091,7 @@ func (x *RuleSet) String() string {
 func (*RuleSet) ProtoMessage() {}
 
 func (x *RuleSet) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[5]
+	mi := &file_profile_v1_profile_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1212,7 +1104,7 @@ func (x *RuleSet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RuleSet.ProtoReflect.Descriptor instead.
 func (*RuleSet) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{5}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *RuleSet) GetId() string {
@@ -1291,7 +1183,7 @@ type InboundListen struct {
 
 func (x *InboundListen) Reset() {
 	*x = InboundListen{}
-	mi := &file_profile_v1_profile_proto_msgTypes[6]
+	mi := &file_profile_v1_profile_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1303,7 +1195,7 @@ func (x *InboundListen) String() string {
 func (*InboundListen) ProtoMessage() {}
 
 func (x *InboundListen) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[6]
+	mi := &file_profile_v1_profile_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1316,7 +1208,7 @@ func (x *InboundListen) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InboundListen.ProtoReflect.Descriptor instead.
 func (*InboundListen) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{6}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *InboundListen) GetListen() string {
@@ -1364,7 +1256,7 @@ type InboundUserConfig struct {
 
 func (x *InboundUserConfig) Reset() {
 	*x = InboundUserConfig{}
-	mi := &file_profile_v1_profile_proto_msgTypes[7]
+	mi := &file_profile_v1_profile_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1376,7 +1268,7 @@ func (x *InboundUserConfig) String() string {
 func (*InboundUserConfig) ProtoMessage() {}
 
 func (x *InboundUserConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[7]
+	mi := &file_profile_v1_profile_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1389,7 +1281,7 @@ func (x *InboundUserConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use InboundUserConfig.ProtoReflect.Descriptor instead.
 func (*InboundUserConfig) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{7}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *InboundUserConfig) GetListen() *InboundListen {
@@ -1423,7 +1315,7 @@ type TunInboundConfig struct {
 
 func (x *TunInboundConfig) Reset() {
 	*x = TunInboundConfig{}
-	mi := &file_profile_v1_profile_proto_msgTypes[8]
+	mi := &file_profile_v1_profile_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1435,7 +1327,7 @@ func (x *TunInboundConfig) String() string {
 func (*TunInboundConfig) ProtoMessage() {}
 
 func (x *TunInboundConfig) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[8]
+	mi := &file_profile_v1_profile_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1448,7 +1340,7 @@ func (x *TunInboundConfig) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use TunInboundConfig.ProtoReflect.Descriptor instead.
 func (*TunInboundConfig) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{8}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *TunInboundConfig) GetInterfaceName() string {
@@ -1530,7 +1422,7 @@ type Inbound struct {
 
 func (x *Inbound) Reset() {
 	*x = Inbound{}
-	mi := &file_profile_v1_profile_proto_msgTypes[9]
+	mi := &file_profile_v1_profile_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1542,7 +1434,7 @@ func (x *Inbound) String() string {
 func (*Inbound) ProtoMessage() {}
 
 func (x *Inbound) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[9]
+	mi := &file_profile_v1_profile_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1555,7 +1447,7 @@ func (x *Inbound) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Inbound.ProtoReflect.Descriptor instead.
 func (*Inbound) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{9}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Inbound) GetId() string {
@@ -1634,7 +1526,7 @@ type Outbound struct {
 
 func (x *Outbound) Reset() {
 	*x = Outbound{}
-	mi := &file_profile_v1_profile_proto_msgTypes[10]
+	mi := &file_profile_v1_profile_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1646,7 +1538,7 @@ func (x *Outbound) String() string {
 func (*Outbound) ProtoMessage() {}
 
 func (x *Outbound) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[10]
+	mi := &file_profile_v1_profile_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1659,7 +1551,7 @@ func (x *Outbound) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Outbound.ProtoReflect.Descriptor instead.
 func (*Outbound) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{10}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Outbound) GetId() string {
@@ -1764,7 +1656,7 @@ type RouteRule struct {
 
 func (x *RouteRule) Reset() {
 	*x = RouteRule{}
-	mi := &file_profile_v1_profile_proto_msgTypes[11]
+	mi := &file_profile_v1_profile_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1776,7 +1668,7 @@ func (x *RouteRule) String() string {
 func (*RouteRule) ProtoMessage() {}
 
 func (x *RouteRule) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[11]
+	mi := &file_profile_v1_profile_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1789,7 +1681,7 @@ func (x *RouteRule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RouteRule.ProtoReflect.Descriptor instead.
 func (*RouteRule) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{11}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *RouteRule) GetId() string {
@@ -1872,7 +1764,7 @@ type RouteDefaultDomainResolver struct {
 
 func (x *RouteDefaultDomainResolver) Reset() {
 	*x = RouteDefaultDomainResolver{}
-	mi := &file_profile_v1_profile_proto_msgTypes[12]
+	mi := &file_profile_v1_profile_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1884,7 +1776,7 @@ func (x *RouteDefaultDomainResolver) String() string {
 func (*RouteDefaultDomainResolver) ProtoMessage() {}
 
 func (x *RouteDefaultDomainResolver) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[12]
+	mi := &file_profile_v1_profile_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1897,7 +1789,7 @@ func (x *RouteDefaultDomainResolver) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RouteDefaultDomainResolver.ProtoReflect.Descriptor instead.
 func (*RouteDefaultDomainResolver) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{12}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *RouteDefaultDomainResolver) GetServer() string {
@@ -1929,7 +1821,7 @@ type Route struct {
 
 func (x *Route) Reset() {
 	*x = Route{}
-	mi := &file_profile_v1_profile_proto_msgTypes[13]
+	mi := &file_profile_v1_profile_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1941,7 +1833,7 @@ func (x *Route) String() string {
 func (*Route) ProtoMessage() {}
 
 func (x *Route) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[13]
+	mi := &file_profile_v1_profile_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1954,7 +1846,7 @@ func (x *Route) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Route.ProtoReflect.Descriptor instead.
 func (*Route) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{13}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *Route) GetRules() []*RouteRule {
@@ -2027,7 +1919,7 @@ type DnsServer struct {
 
 func (x *DnsServer) Reset() {
 	*x = DnsServer{}
-	mi := &file_profile_v1_profile_proto_msgTypes[14]
+	mi := &file_profile_v1_profile_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2039,7 +1931,7 @@ func (x *DnsServer) String() string {
 func (*DnsServer) ProtoMessage() {}
 
 func (x *DnsServer) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[14]
+	mi := &file_profile_v1_profile_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2052,7 +1944,7 @@ func (x *DnsServer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DnsServer.ProtoReflect.Descriptor instead.
 func (*DnsServer) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{14}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *DnsServer) GetId() string {
@@ -2164,7 +2056,7 @@ type DnsRule struct {
 
 func (x *DnsRule) Reset() {
 	*x = DnsRule{}
-	mi := &file_profile_v1_profile_proto_msgTypes[15]
+	mi := &file_profile_v1_profile_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2176,7 +2068,7 @@ func (x *DnsRule) String() string {
 func (*DnsRule) ProtoMessage() {}
 
 func (x *DnsRule) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[15]
+	mi := &file_profile_v1_profile_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2189,7 +2081,7 @@ func (x *DnsRule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DnsRule.ProtoReflect.Descriptor instead.
 func (*DnsRule) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{15}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DnsRule) GetId() string {
@@ -2278,7 +2170,7 @@ type Dns struct {
 
 func (x *Dns) Reset() {
 	*x = Dns{}
-	mi := &file_profile_v1_profile_proto_msgTypes[16]
+	mi := &file_profile_v1_profile_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2290,7 +2182,7 @@ func (x *Dns) String() string {
 func (*Dns) ProtoMessage() {}
 
 func (x *Dns) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[16]
+	mi := &file_profile_v1_profile_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2303,7 +2195,7 @@ func (x *Dns) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Dns.ProtoReflect.Descriptor instead.
 func (*Dns) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{16}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *Dns) GetServers() []*DnsServer {
@@ -2373,7 +2265,7 @@ type Mixin struct {
 
 func (x *Mixin) Reset() {
 	*x = Mixin{}
-	mi := &file_profile_v1_profile_proto_msgTypes[17]
+	mi := &file_profile_v1_profile_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2385,7 +2277,7 @@ func (x *Mixin) String() string {
 func (*Mixin) ProtoMessage() {}
 
 func (x *Mixin) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[17]
+	mi := &file_profile_v1_profile_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2398,7 +2290,7 @@ func (x *Mixin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Mixin.ProtoReflect.Descriptor instead.
 func (*Mixin) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{17}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *Mixin) GetPriority() MixinPriority {
@@ -2431,7 +2323,7 @@ type Script struct {
 
 func (x *Script) Reset() {
 	*x = Script{}
-	mi := &file_profile_v1_profile_proto_msgTypes[18]
+	mi := &file_profile_v1_profile_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2443,7 +2335,7 @@ func (x *Script) String() string {
 func (*Script) ProtoMessage() {}
 
 func (x *Script) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[18]
+	mi := &file_profile_v1_profile_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2456,7 +2348,7 @@ func (x *Script) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Script.ProtoReflect.Descriptor instead.
 func (*Script) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{18}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *Script) GetCode() string {
@@ -2484,7 +2376,7 @@ type Profile struct {
 
 func (x *Profile) Reset() {
 	*x = Profile{}
-	mi := &file_profile_v1_profile_proto_msgTypes[19]
+	mi := &file_profile_v1_profile_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2496,7 +2388,7 @@ func (x *Profile) String() string {
 func (*Profile) ProtoMessage() {}
 
 func (x *Profile) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[19]
+	mi := &file_profile_v1_profile_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2509,7 +2401,7 @@ func (x *Profile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Profile.ProtoReflect.Descriptor instead.
 func (*Profile) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{19}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *Profile) GetId() string {
@@ -2593,7 +2485,7 @@ type GenerateConfigOptions struct {
 
 func (x *GenerateConfigOptions) Reset() {
 	*x = GenerateConfigOptions{}
-	mi := &file_profile_v1_profile_proto_msgTypes[20]
+	mi := &file_profile_v1_profile_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2605,7 +2497,7 @@ func (x *GenerateConfigOptions) String() string {
 func (*GenerateConfigOptions) ProtoMessage() {}
 
 func (x *GenerateConfigOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[20]
+	mi := &file_profile_v1_profile_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2618,7 +2510,7 @@ func (x *GenerateConfigOptions) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateConfigOptions.ProtoReflect.Descriptor instead.
 func (*GenerateConfigOptions) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{20}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GenerateConfigOptions) GetEnableStableConfigCompat() bool {
@@ -2651,7 +2543,7 @@ type GenerateDnsServerUrlRequest struct {
 
 func (x *GenerateDnsServerUrlRequest) Reset() {
 	*x = GenerateDnsServerUrlRequest{}
-	mi := &file_profile_v1_profile_proto_msgTypes[21]
+	mi := &file_profile_v1_profile_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2663,7 +2555,7 @@ func (x *GenerateDnsServerUrlRequest) String() string {
 func (*GenerateDnsServerUrlRequest) ProtoMessage() {}
 
 func (x *GenerateDnsServerUrlRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[21]
+	mi := &file_profile_v1_profile_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2676,7 +2568,7 @@ func (x *GenerateDnsServerUrlRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateDnsServerUrlRequest.ProtoReflect.Descriptor instead.
 func (*GenerateDnsServerUrlRequest) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{21}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *GenerateDnsServerUrlRequest) GetDnsServer() *DnsServer {
@@ -2695,7 +2587,7 @@ type GenerateDnsServerUrlResponse struct {
 
 func (x *GenerateDnsServerUrlResponse) Reset() {
 	*x = GenerateDnsServerUrlResponse{}
-	mi := &file_profile_v1_profile_proto_msgTypes[22]
+	mi := &file_profile_v1_profile_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2707,7 +2599,7 @@ func (x *GenerateDnsServerUrlResponse) String() string {
 func (*GenerateDnsServerUrlResponse) ProtoMessage() {}
 
 func (x *GenerateDnsServerUrlResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[22]
+	mi := &file_profile_v1_profile_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2720,7 +2612,7 @@ func (x *GenerateDnsServerUrlResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateDnsServerUrlResponse.ProtoReflect.Descriptor instead.
 func (*GenerateDnsServerUrlResponse) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{22}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *GenerateDnsServerUrlResponse) GetUrl() string {
@@ -2740,7 +2632,7 @@ type GenerateConfigRequest struct {
 
 func (x *GenerateConfigRequest) Reset() {
 	*x = GenerateConfigRequest{}
-	mi := &file_profile_v1_profile_proto_msgTypes[23]
+	mi := &file_profile_v1_profile_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2752,7 +2644,7 @@ func (x *GenerateConfigRequest) String() string {
 func (*GenerateConfigRequest) ProtoMessage() {}
 
 func (x *GenerateConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[23]
+	mi := &file_profile_v1_profile_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2765,7 +2657,7 @@ func (x *GenerateConfigRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateConfigRequest.ProtoReflect.Descriptor instead.
 func (*GenerateConfigRequest) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{23}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *GenerateConfigRequest) GetProfile() *Profile {
@@ -2791,7 +2683,7 @@ type GenerateConfigResponse struct {
 
 func (x *GenerateConfigResponse) Reset() {
 	*x = GenerateConfigResponse{}
-	mi := &file_profile_v1_profile_proto_msgTypes[24]
+	mi := &file_profile_v1_profile_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2803,7 +2695,7 @@ func (x *GenerateConfigResponse) String() string {
 func (*GenerateConfigResponse) ProtoMessage() {}
 
 func (x *GenerateConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[24]
+	mi := &file_profile_v1_profile_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2816,7 +2708,7 @@ func (x *GenerateConfigResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateConfigResponse.ProtoReflect.Descriptor instead.
 func (*GenerateConfigResponse) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{24}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *GenerateConfigResponse) GetConfig() *structpb.Struct {
@@ -2836,7 +2728,7 @@ type GenerateConfigFileRequest struct {
 
 func (x *GenerateConfigFileRequest) Reset() {
 	*x = GenerateConfigFileRequest{}
-	mi := &file_profile_v1_profile_proto_msgTypes[25]
+	mi := &file_profile_v1_profile_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2848,7 +2740,7 @@ func (x *GenerateConfigFileRequest) String() string {
 func (*GenerateConfigFileRequest) ProtoMessage() {}
 
 func (x *GenerateConfigFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[25]
+	mi := &file_profile_v1_profile_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2861,7 +2753,7 @@ func (x *GenerateConfigFileRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateConfigFileRequest.ProtoReflect.Descriptor instead.
 func (*GenerateConfigFileRequest) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{25}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *GenerateConfigFileRequest) GetProfile() *Profile {
@@ -2888,7 +2780,7 @@ type GenerateConfigFileResponse struct {
 
 func (x *GenerateConfigFileResponse) Reset() {
 	*x = GenerateConfigFileResponse{}
-	mi := &file_profile_v1_profile_proto_msgTypes[26]
+	mi := &file_profile_v1_profile_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2900,7 +2792,7 @@ func (x *GenerateConfigFileResponse) String() string {
 func (*GenerateConfigFileResponse) ProtoMessage() {}
 
 func (x *GenerateConfigFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[26]
+	mi := &file_profile_v1_profile_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2913,7 +2805,7 @@ func (x *GenerateConfigFileResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GenerateConfigFileResponse.ProtoReflect.Descriptor instead.
 func (*GenerateConfigFileResponse) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{26}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GenerateConfigFileResponse) GetPath() string {
@@ -2940,17 +2832,7 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\bdisabled\x18\x01 \x01(\bR\bdisabled\x12*\n" +
 	"\x05level\x18\x02 \x01(\x0e2\x14.profile.v1.LogLevelR\x05level\x12\x16\n" +
 	"\x06output\x18\x03 \x01(\tR\x06output\x12\x1c\n" +
-	"\ttimestamp\x18\x04 \x01(\bR\ttimestamp\"\xaa\x03\n" +
-	"\x14ClashApiExperimental\x12/\n" +
-	"\x13external_controller\x18\x01 \x01(\tR\x12externalController\x12\x1f\n" +
-	"\vexternal_ui\x18\x02 \x01(\tR\n" +
-	"externalUi\x127\n" +
-	"\x18external_ui_download_url\x18\x03 \x01(\tR\x15externalUiDownloadUrl\x12=\n" +
-	"\x1bexternal_ui_download_detour\x18\x04 \x01(\tR\x18externalUiDownloadDetour\x12\x16\n" +
-	"\x06secret\x18\x05 \x01(\tR\x06secret\x12!\n" +
-	"\fdefault_mode\x18\x06 \x01(\tR\vdefaultMode\x12=\n" +
-	"\x1baccess_control_allow_origin\x18\a \x03(\tR\x18accessControlAllowOrigin\x12N\n" +
-	"$access_control_allow_private_network\x18\b \x01(\bR accessControlAllowPrivateNetwork\"\xc5\x01\n" +
+	"\ttimestamp\x18\x04 \x01(\bR\ttimestamp\"\xc5\x01\n" +
 	"\x15CacheFileExperimental\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x12\n" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x19\n" +
@@ -2958,11 +2840,10 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\fstore_fakeip\x18\x04 \x01(\bR\vstoreFakeip\x12\x1d\n" +
 	"\n" +
 	"store_rdrc\x18\x05 \x01(\bR\tstoreRdrc\x12!\n" +
-	"\frdrc_timeout\x18\x06 \x01(\tR\vrdrcTimeout\"\x8f\x01\n" +
-	"\fExperimental\x12=\n" +
-	"\tclash_api\x18\x01 \x01(\v2 .profile.v1.ClashApiExperimentalR\bclashApi\x12@\n" +
+	"\frdrc_timeout\x18\x06 \x01(\tR\vrdrcTimeout\"V\n" +
+	"\fExperimental\x12@\n" +
 	"\n" +
-	"cache_file\x18\x02 \x01(\v2!.profile.v1.CacheFileExperimentalR\tcacheFile\"@\n" +
+	"cache_file\x18\x02 \x01(\v2!.profile.v1.CacheFileExperimentalR\tcacheFileJ\x04\b\x01\x10\x02\"@\n" +
 	"\bProxyRef\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x10\n" +
@@ -3248,7 +3129,7 @@ func file_profile_v1_profile_proto_rawDescGZIP() []byte {
 }
 
 var file_profile_v1_profile_proto_enumTypes = make([]protoimpl.EnumInfo, 13)
-var file_profile_v1_profile_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_profile_v1_profile_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
 var file_profile_v1_profile_proto_goTypes = []any{
 	(LogLevel)(0),                        // 0: profile.v1.LogLevel
 	(InboundType)(0),                     // 1: profile.v1.InboundType
@@ -3264,86 +3145,84 @@ var file_profile_v1_profile_proto_goTypes = []any{
 	(MixinPriority)(0),                   // 11: profile.v1.MixinPriority
 	(MixinFormat)(0),                     // 12: profile.v1.MixinFormat
 	(*Log)(nil),                          // 13: profile.v1.Log
-	(*ClashApiExperimental)(nil),         // 14: profile.v1.ClashApiExperimental
-	(*CacheFileExperimental)(nil),        // 15: profile.v1.CacheFileExperimental
-	(*Experimental)(nil),                 // 16: profile.v1.Experimental
-	(*ProxyRef)(nil),                     // 17: profile.v1.ProxyRef
-	(*RuleSet)(nil),                      // 18: profile.v1.RuleSet
-	(*InboundListen)(nil),                // 19: profile.v1.InboundListen
-	(*InboundUserConfig)(nil),            // 20: profile.v1.InboundUserConfig
-	(*TunInboundConfig)(nil),             // 21: profile.v1.TunInboundConfig
-	(*Inbound)(nil),                      // 22: profile.v1.Inbound
-	(*Outbound)(nil),                     // 23: profile.v1.Outbound
-	(*RouteRule)(nil),                    // 24: profile.v1.RouteRule
-	(*RouteDefaultDomainResolver)(nil),   // 25: profile.v1.RouteDefaultDomainResolver
-	(*Route)(nil),                        // 26: profile.v1.Route
-	(*DnsServer)(nil),                    // 27: profile.v1.DnsServer
-	(*DnsRule)(nil),                      // 28: profile.v1.DnsRule
-	(*Dns)(nil),                          // 29: profile.v1.Dns
-	(*Mixin)(nil),                        // 30: profile.v1.Mixin
-	(*Script)(nil),                       // 31: profile.v1.Script
-	(*Profile)(nil),                      // 32: profile.v1.Profile
-	(*GenerateConfigOptions)(nil),        // 33: profile.v1.GenerateConfigOptions
-	(*GenerateDnsServerUrlRequest)(nil),  // 34: profile.v1.GenerateDnsServerUrlRequest
-	(*GenerateDnsServerUrlResponse)(nil), // 35: profile.v1.GenerateDnsServerUrlResponse
-	(*GenerateConfigRequest)(nil),        // 36: profile.v1.GenerateConfigRequest
-	(*GenerateConfigResponse)(nil),       // 37: profile.v1.GenerateConfigResponse
-	(*GenerateConfigFileRequest)(nil),    // 38: profile.v1.GenerateConfigFileRequest
-	(*GenerateConfigFileResponse)(nil),   // 39: profile.v1.GenerateConfigFileResponse
-	nil,                                  // 40: profile.v1.DnsServer.PredefinedEntry
-	(*structpb.Struct)(nil),              // 41: google.protobuf.Struct
+	(*CacheFileExperimental)(nil),        // 14: profile.v1.CacheFileExperimental
+	(*Experimental)(nil),                 // 15: profile.v1.Experimental
+	(*ProxyRef)(nil),                     // 16: profile.v1.ProxyRef
+	(*RuleSet)(nil),                      // 17: profile.v1.RuleSet
+	(*InboundListen)(nil),                // 18: profile.v1.InboundListen
+	(*InboundUserConfig)(nil),            // 19: profile.v1.InboundUserConfig
+	(*TunInboundConfig)(nil),             // 20: profile.v1.TunInboundConfig
+	(*Inbound)(nil),                      // 21: profile.v1.Inbound
+	(*Outbound)(nil),                     // 22: profile.v1.Outbound
+	(*RouteRule)(nil),                    // 23: profile.v1.RouteRule
+	(*RouteDefaultDomainResolver)(nil),   // 24: profile.v1.RouteDefaultDomainResolver
+	(*Route)(nil),                        // 25: profile.v1.Route
+	(*DnsServer)(nil),                    // 26: profile.v1.DnsServer
+	(*DnsRule)(nil),                      // 27: profile.v1.DnsRule
+	(*Dns)(nil),                          // 28: profile.v1.Dns
+	(*Mixin)(nil),                        // 29: profile.v1.Mixin
+	(*Script)(nil),                       // 30: profile.v1.Script
+	(*Profile)(nil),                      // 31: profile.v1.Profile
+	(*GenerateConfigOptions)(nil),        // 32: profile.v1.GenerateConfigOptions
+	(*GenerateDnsServerUrlRequest)(nil),  // 33: profile.v1.GenerateDnsServerUrlRequest
+	(*GenerateDnsServerUrlResponse)(nil), // 34: profile.v1.GenerateDnsServerUrlResponse
+	(*GenerateConfigRequest)(nil),        // 35: profile.v1.GenerateConfigRequest
+	(*GenerateConfigResponse)(nil),       // 36: profile.v1.GenerateConfigResponse
+	(*GenerateConfigFileRequest)(nil),    // 37: profile.v1.GenerateConfigFileRequest
+	(*GenerateConfigFileResponse)(nil),   // 38: profile.v1.GenerateConfigFileResponse
+	nil,                                  // 39: profile.v1.DnsServer.PredefinedEntry
+	(*structpb.Struct)(nil),              // 40: google.protobuf.Struct
 }
 var file_profile_v1_profile_proto_depIdxs = []int32{
 	0,  // 0: profile.v1.Log.level:type_name -> profile.v1.LogLevel
-	14, // 1: profile.v1.Experimental.clash_api:type_name -> profile.v1.ClashApiExperimental
-	15, // 2: profile.v1.Experimental.cache_file:type_name -> profile.v1.CacheFileExperimental
-	4,  // 3: profile.v1.RuleSet.type:type_name -> profile.v1.RulesetType
-	5,  // 4: profile.v1.RuleSet.format:type_name -> profile.v1.RulesetFormat
-	19, // 5: profile.v1.InboundUserConfig.listen:type_name -> profile.v1.InboundListen
-	3,  // 6: profile.v1.TunInboundConfig.stack:type_name -> profile.v1.TunStack
-	1,  // 7: profile.v1.Inbound.type:type_name -> profile.v1.InboundType
-	20, // 8: profile.v1.Inbound.mixed:type_name -> profile.v1.InboundUserConfig
-	20, // 9: profile.v1.Inbound.socks:type_name -> profile.v1.InboundUserConfig
-	20, // 10: profile.v1.Inbound.http:type_name -> profile.v1.InboundUserConfig
-	21, // 11: profile.v1.Inbound.tun:type_name -> profile.v1.TunInboundConfig
-	2,  // 12: profile.v1.Outbound.type:type_name -> profile.v1.OutboundType
-	17, // 13: profile.v1.Outbound.outbounds:type_name -> profile.v1.ProxyRef
-	6,  // 14: profile.v1.RouteRule.type:type_name -> profile.v1.RuleType
-	9,  // 15: profile.v1.RouteRule.action:type_name -> profile.v1.RuleAction
-	7,  // 16: profile.v1.RouteRule.strategy:type_name -> profile.v1.Strategy
-	24, // 17: profile.v1.Route.rules:type_name -> profile.v1.RouteRule
-	18, // 18: profile.v1.Route.rule_set:type_name -> profile.v1.RuleSet
-	25, // 19: profile.v1.Route.default_domain_resolver:type_name -> profile.v1.RouteDefaultDomainResolver
-	8,  // 20: profile.v1.DnsServer.type:type_name -> profile.v1.DnsServerType
-	40, // 21: profile.v1.DnsServer.predefined:type_name -> profile.v1.DnsServer.PredefinedEntry
-	6,  // 22: profile.v1.DnsRule.type:type_name -> profile.v1.RuleType
-	10, // 23: profile.v1.DnsRule.action:type_name -> profile.v1.DnsRuleAction
-	7,  // 24: profile.v1.DnsRule.strategy:type_name -> profile.v1.Strategy
-	27, // 25: profile.v1.Dns.servers:type_name -> profile.v1.DnsServer
-	28, // 26: profile.v1.Dns.rules:type_name -> profile.v1.DnsRule
-	7,  // 27: profile.v1.Dns.strategy:type_name -> profile.v1.Strategy
-	11, // 28: profile.v1.Mixin.priority:type_name -> profile.v1.MixinPriority
-	12, // 29: profile.v1.Mixin.format:type_name -> profile.v1.MixinFormat
-	13, // 30: profile.v1.Profile.log:type_name -> profile.v1.Log
-	16, // 31: profile.v1.Profile.experimental:type_name -> profile.v1.Experimental
-	22, // 32: profile.v1.Profile.inbounds:type_name -> profile.v1.Inbound
-	23, // 33: profile.v1.Profile.outbounds:type_name -> profile.v1.Outbound
-	26, // 34: profile.v1.Profile.route:type_name -> profile.v1.Route
-	29, // 35: profile.v1.Profile.dns:type_name -> profile.v1.Dns
-	30, // 36: profile.v1.Profile.mixin:type_name -> profile.v1.Mixin
-	31, // 37: profile.v1.Profile.script:type_name -> profile.v1.Script
-	27, // 38: profile.v1.GenerateDnsServerUrlRequest.dns_server:type_name -> profile.v1.DnsServer
-	32, // 39: profile.v1.GenerateConfigRequest.profile:type_name -> profile.v1.Profile
-	33, // 40: profile.v1.GenerateConfigRequest.options:type_name -> profile.v1.GenerateConfigOptions
-	41, // 41: profile.v1.GenerateConfigResponse.config:type_name -> google.protobuf.Struct
-	32, // 42: profile.v1.GenerateConfigFileRequest.profile:type_name -> profile.v1.Profile
-	33, // 43: profile.v1.GenerateConfigFileRequest.options:type_name -> profile.v1.GenerateConfigOptions
-	41, // 44: profile.v1.GenerateConfigFileResponse.config:type_name -> google.protobuf.Struct
-	45, // [45:45] is the sub-list for method output_type
-	45, // [45:45] is the sub-list for method input_type
-	45, // [45:45] is the sub-list for extension type_name
-	45, // [45:45] is the sub-list for extension extendee
-	0,  // [0:45] is the sub-list for field type_name
+	14, // 1: profile.v1.Experimental.cache_file:type_name -> profile.v1.CacheFileExperimental
+	4,  // 2: profile.v1.RuleSet.type:type_name -> profile.v1.RulesetType
+	5,  // 3: profile.v1.RuleSet.format:type_name -> profile.v1.RulesetFormat
+	18, // 4: profile.v1.InboundUserConfig.listen:type_name -> profile.v1.InboundListen
+	3,  // 5: profile.v1.TunInboundConfig.stack:type_name -> profile.v1.TunStack
+	1,  // 6: profile.v1.Inbound.type:type_name -> profile.v1.InboundType
+	19, // 7: profile.v1.Inbound.mixed:type_name -> profile.v1.InboundUserConfig
+	19, // 8: profile.v1.Inbound.socks:type_name -> profile.v1.InboundUserConfig
+	19, // 9: profile.v1.Inbound.http:type_name -> profile.v1.InboundUserConfig
+	20, // 10: profile.v1.Inbound.tun:type_name -> profile.v1.TunInboundConfig
+	2,  // 11: profile.v1.Outbound.type:type_name -> profile.v1.OutboundType
+	16, // 12: profile.v1.Outbound.outbounds:type_name -> profile.v1.ProxyRef
+	6,  // 13: profile.v1.RouteRule.type:type_name -> profile.v1.RuleType
+	9,  // 14: profile.v1.RouteRule.action:type_name -> profile.v1.RuleAction
+	7,  // 15: profile.v1.RouteRule.strategy:type_name -> profile.v1.Strategy
+	23, // 16: profile.v1.Route.rules:type_name -> profile.v1.RouteRule
+	17, // 17: profile.v1.Route.rule_set:type_name -> profile.v1.RuleSet
+	24, // 18: profile.v1.Route.default_domain_resolver:type_name -> profile.v1.RouteDefaultDomainResolver
+	8,  // 19: profile.v1.DnsServer.type:type_name -> profile.v1.DnsServerType
+	39, // 20: profile.v1.DnsServer.predefined:type_name -> profile.v1.DnsServer.PredefinedEntry
+	6,  // 21: profile.v1.DnsRule.type:type_name -> profile.v1.RuleType
+	10, // 22: profile.v1.DnsRule.action:type_name -> profile.v1.DnsRuleAction
+	7,  // 23: profile.v1.DnsRule.strategy:type_name -> profile.v1.Strategy
+	26, // 24: profile.v1.Dns.servers:type_name -> profile.v1.DnsServer
+	27, // 25: profile.v1.Dns.rules:type_name -> profile.v1.DnsRule
+	7,  // 26: profile.v1.Dns.strategy:type_name -> profile.v1.Strategy
+	11, // 27: profile.v1.Mixin.priority:type_name -> profile.v1.MixinPriority
+	12, // 28: profile.v1.Mixin.format:type_name -> profile.v1.MixinFormat
+	13, // 29: profile.v1.Profile.log:type_name -> profile.v1.Log
+	15, // 30: profile.v1.Profile.experimental:type_name -> profile.v1.Experimental
+	21, // 31: profile.v1.Profile.inbounds:type_name -> profile.v1.Inbound
+	22, // 32: profile.v1.Profile.outbounds:type_name -> profile.v1.Outbound
+	25, // 33: profile.v1.Profile.route:type_name -> profile.v1.Route
+	28, // 34: profile.v1.Profile.dns:type_name -> profile.v1.Dns
+	29, // 35: profile.v1.Profile.mixin:type_name -> profile.v1.Mixin
+	30, // 36: profile.v1.Profile.script:type_name -> profile.v1.Script
+	26, // 37: profile.v1.GenerateDnsServerUrlRequest.dns_server:type_name -> profile.v1.DnsServer
+	31, // 38: profile.v1.GenerateConfigRequest.profile:type_name -> profile.v1.Profile
+	32, // 39: profile.v1.GenerateConfigRequest.options:type_name -> profile.v1.GenerateConfigOptions
+	40, // 40: profile.v1.GenerateConfigResponse.config:type_name -> google.protobuf.Struct
+	31, // 41: profile.v1.GenerateConfigFileRequest.profile:type_name -> profile.v1.Profile
+	32, // 42: profile.v1.GenerateConfigFileRequest.options:type_name -> profile.v1.GenerateConfigOptions
+	40, // 43: profile.v1.GenerateConfigFileResponse.config:type_name -> google.protobuf.Struct
+	44, // [44:44] is the sub-list for method output_type
+	44, // [44:44] is the sub-list for method input_type
+	44, // [44:44] is the sub-list for extension type_name
+	44, // [44:44] is the sub-list for extension extendee
+	0,  // [0:44] is the sub-list for field type_name
 }
 
 func init() { file_profile_v1_profile_proto_init() }
@@ -3357,7 +3236,7 @@ func file_profile_v1_profile_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_profile_v1_profile_proto_rawDesc), len(file_profile_v1_profile_proto_rawDesc)),
 			NumEnums:      13,
-			NumMessages:   28,
+			NumMessages:   27,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

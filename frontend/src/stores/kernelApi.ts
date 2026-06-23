@@ -20,12 +20,12 @@ import {
 import { DefaultInboundMixed } from '@/constant/profile'
 import { Inbound, RulesetType, TunStack } from '@/enums/kernel'
 import {
-  useAppSettingsStore,
   useProfilesStore,
   useLogsStore,
   useEnvStore,
   useSubscribesStore,
   useRulesetsStore,
+  useAppConfigStore,
 } from '@/stores'
 import {
   restoreProfile,
@@ -63,7 +63,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   const profilesStore = useProfilesStore()
   const subscribesStore = useSubscribesStore()
   const rulesetsStore = useRulesetsStore()
-  const appSettingsStore = useAppSettingsStore()
+  const appConfigStore = useAppConfigStore()
   const kernelService = createRpcClient(KernelService)
 
   /** RESTful API */
@@ -259,9 +259,6 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     initWebsocket()
     await Promise.all([refreshConfig(), refreshProviderProxies()])
 
-    if (appSettingsStore.app.autoSetSystemProxy) {
-      await envStore.setSystemProxy().catch((err) => message.error(err))
-    }
     await envStore.updateSystemProxyStatus()
   }
 
@@ -283,7 +280,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
 
     logsStore.clearKernelLog()
 
-    const { profile: profileID } = appSettingsStore.app.kernel
+    const { profile: profileID } = appConfigStore.config
     const profile = _profile || profilesStore.getProfileById(profileID)
     if (!profile) throw 'Choose a profile first'
 
@@ -364,7 +361,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   }
 
   eventBus.on('profileChange', ({ id }) => {
-    if (running.value && id === appSettingsStore.app.kernel.profile) {
+    if (running.value && id === appConfigStore.config.profile) {
       needRestart.value = true
     }
   })
@@ -424,7 +421,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   })
 
   watch(needRestart, (v) => {
-    if (v && appSettingsStore.app.autoRestartKernel) {
+    if (v && appConfigStore.config.autoRestartKernel) {
       restartCore()
     }
   })

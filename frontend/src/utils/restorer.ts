@@ -63,7 +63,7 @@ export const restoreProfile = (
     id: profile?.id || sampleID(),
     name,
     log: deepAssign(Defaults.DefaultLog(), config.log),
-    experimental: restoreExperimental(config.experimental, OutboundsIds),
+    experimental: restoreExperimental(config.experimental),
     inbounds: restoreInbounds(config.inbounds || [], InboundsIds),
     outbounds: restoreOutbounds(
       config.outbounds || [],
@@ -109,12 +109,12 @@ export const restoreProfile = (
   }
 }
 
-const restoreExperimental = (raw: Recordable, OutboundsIds: Recordable): IExperimental => {
+const restoreExperimental = (raw: Recordable): IExperimental => {
   const template = Defaults.DefaultExperimental()
-  const experimental = deepAssign(template, raw)
-  experimental.clash_api.external_ui_download_detour =
-    OutboundsIds[raw.clash_api?.external_ui_download_detour] || ''
-  return experimental
+  return {
+    ...template,
+    cache_file: deepAssign(template.cache_file, raw?.cache_file || {}),
+  }
 }
 
 const restoreInbounds = (inbounds: Recordable[], InboundsIds: Recordable): IInbound[] => {

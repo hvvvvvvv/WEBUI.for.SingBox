@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"guiforcores/gen/app/v1/appv1connect"
 	"guiforcores/gen/kernel/v1/kernelv1connect"
 	configv1 "guiforcores/gen/profile/v1"
 	"guiforcores/gen/profile/v1/profilev1connect"
@@ -39,8 +40,9 @@ func registerConfigRPCRoutes(mux *http.ServeMux, app *App) *kernelService {
 	configSvc := &configService{app: app}
 	profileMgmtSvc := &profileManagementService{app: app}
 	kernelSvc := newKernelService(app, configSvc, profileMgmtSvc)
+	appRuntimeSvc := newAppRuntimeService(app, kernelSvc)
 
-	path, handler := profilev1connect.NewProfileServiceHandler(configSvc)
+	path, handler := kernelv1connect.NewKernelConfigServiceHandler(configSvc)
 	mux.Handle("/api/rpc"+path, http.StripPrefix("/api/rpc", handler))
 
 	path, handler = profilev1connect.NewProfileManagementServiceHandler(profileMgmtSvc)
@@ -48,6 +50,23 @@ func registerConfigRPCRoutes(mux *http.ServeMux, app *App) *kernelService {
 
 	path, handler = kernelv1connect.NewKernelServiceHandler(kernelSvc)
 	mux.Handle("/api/rpc"+path, http.StripPrefix("/api/rpc", handler))
+
+	path, handler = appv1connect.NewAppSettingsServiceHandler(appRuntimeSvc)
+	mux.Handle("/api/rpc"+path, http.StripPrefix("/api/rpc", handler))
+
+	path, handler = appv1connect.NewAppConfigServiceHandler(appRuntimeSvc)
+	mux.Handle("/api/rpc"+path, http.StripPrefix("/api/rpc", handler))
+
+	path, handler = appv1connect.NewSubscriptionServiceHandler(appRuntimeSvc)
+	mux.Handle("/api/rpc"+path, http.StripPrefix("/api/rpc", handler))
+
+	path, handler = appv1connect.NewRuleSetServiceHandler(appRuntimeSvc)
+	mux.Handle("/api/rpc"+path, http.StripPrefix("/api/rpc", handler))
+
+	path, handler = appv1connect.NewScheduledTaskServiceHandler(appRuntimeSvc)
+	mux.Handle("/api/rpc"+path, http.StripPrefix("/api/rpc", handler))
+
+	appRuntimeSvc.StartScheduler()
 
 	return kernelSvc
 }

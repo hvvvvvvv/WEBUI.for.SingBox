@@ -7,16 +7,6 @@ interface ILog {
 }
 
 interface IExperimental {
-  clash_api: {
-    external_controller: string
-    external_ui: string
-    external_ui_download_url: string
-    external_ui_download_detour: string
-    secret: string
-    default_mode: string
-    access_control_allow_origin: string[]
-    access_control_allow_private_network: boolean
-  }
   cache_file: {
     enabled: boolean
     path: string

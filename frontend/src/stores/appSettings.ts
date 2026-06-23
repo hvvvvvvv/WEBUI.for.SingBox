@@ -1,8 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
-import { parse, stringify } from 'yaml'
 
-import { ReadFile, WriteFile } from '@/bridge'
+import { createRpcClient } from '@/bridge'
 import {
   Colors,
   DefaultCardColumns,
@@ -11,31 +10,129 @@ import {
   DefaultFontFamily,
   DefaultTestTimeout,
   DefaultTestURL,
-  UserFilePath,
 } from '@/constant/app'
-import { DefaultConnections, DefaultCoreConfig } from '@/constant/kernel'
+import { DefaultConnections } from '@/constant/kernel'
 import {
   Theme,
   Lang,
   View,
   Color,
   ControllerCloseMode,
-  Branch,
 } from '@/enums/app'
 import i18n, { loadLocale } from '@/lang'
 import { useAppStore } from '@/stores'
 import {
   debounce,
-  ignoredError,
   deepClone,
 } from '@/utils'
+import { AppSettingsService } from '../../gen/app/v1/app_service_pb'
 
 import type { AppSettings, SessionInfo } from '@/types/app'
 
 export const useAppSettingsStore = defineStore('app-settings', () => {
   const appStore = useAppStore()
+  const service = createRpcClient(AppSettingsService)
 
   let latestUserSettings: string
+
+  const stableStringify = (value: any): string => {
+    if (Array.isArray(value)) {
+      return `[${value.map((item) => stableStringify(item)).join(',')}]`
+    }
+    if (value && typeof value === 'object') {
+      return `{${Object.keys(value)
+        .sort()
+        .map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`)
+        .join(',')}}`
+    }
+    return JSON.stringify(value)
+  }
+
+  const parseSettingsJSON = (settingsJson: string): Recordable => {
+    if (!settingsJson) return {}
+    return JSON.parse(settingsJson) || {}
+  }
+
+  const isRecord = (value: unknown): value is Recordable => {
+    return !!value && typeof value === 'object' && !Array.isArray(value)
+  }
+
+  const normalizeSettings = (rawSettings: unknown, defaults: AppSettings): AppSettings => {
+    const raw = isRecord(rawSettings) ? rawSettings : {}
+    const settings = {
+      lang: defaults.lang,
+      theme: defaults.theme,
+      color: defaults.color,
+      primaryColor: defaults.primaryColor,
+      secondaryColor: defaults.secondaryColor,
+      fontFamily: defaults.fontFamily,
+      profilesView: defaults.profilesView,
+      subscribesView: defaults.subscribesView,
+      rulesetsView: defaults.rulesetsView,
+      scheduledtasksView: defaults.scheduledtasksView,
+      connections: { ...defaults.connections },
+      kernel: { ...defaults.kernel },
+      debugOutline: defaults.debugOutline,
+      debugNoAnimation: defaults.debugNoAnimation,
+      debugNoRounded: defaults.debugNoRounded,
+      debugBorder: defaults.debugBorder,
+      pages: defaults.pages,
+    } as any
+    ;[
+      'lang',
+      'theme',
+      'color',
+      'primaryColor',
+      'secondaryColor',
+      'fontFamily',
+      'profilesView',
+      'subscribesView',
+      'rulesetsView',
+      'scheduledtasksView',
+      'debugOutline',
+      'debugNoAnimation',
+      'debugNoRounded',
+      'debugBorder',
+      'pages',
+    ].forEach((key) => {
+      if (key in raw) {
+        settings[key] = raw[key]
+      }
+    })
+
+    settings.connections = { ...defaults.connections }
+    if (isRecord(raw.connections)) {
+      if (isRecord(raw.connections.visibility)) {
+        settings.connections.visibility = raw.connections.visibility
+      }
+      if (Array.isArray(raw.connections.order)) {
+        settings.connections.order = raw.connections.order
+      }
+    }
+
+    settings.kernel = { ...defaults.kernel }
+    if (isRecord(raw.kernel)) {
+      ;[
+        'realMemoryUsage',
+        'autoClose',
+        'unAvailable',
+        'cardMode',
+        'cardColumns',
+        'sortByDelay',
+        'testUrl',
+        'testTimeout',
+        'concurrencyLimit',
+        'controllerCloseMode',
+        'controllerSensitivity',
+      ].forEach((key) => {
+        if (key in raw.kernel) {
+          ;(settings.kernel as any)[key] = raw.kernel[key]
+        }
+      })
+    }
+
+    return settings as AppSettings
+  }
 
   const getSessionInfo = (): SessionInfo => {
     const raw = sessionStorage.getItem('sessionInfo')
@@ -66,16 +163,9 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     subscribesView: View.Grid,
     rulesetsView: View.Grid,
     scheduledtasksView: View.Grid,
-    autoSetSystemProxy: true,
-    autoStartKernel: false,
-    autoRestartKernel: false,
-    userAgent: '',
-    startupDelay: 30,
     connections: DefaultConnections(),
     kernel: {
       realMemoryUsage: false,
-      branch: Branch.Main,
-      profile: '',
       autoClose: true,
       unAvailable: true,
       cardMode: true,
@@ -86,12 +176,7 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       concurrencyLimit: DefaultConcurrencyLimit,
       controllerCloseMode: ControllerCloseMode.All,
       controllerSensitivity: DefaultControllerSensitivity,
-      main: undefined as any,
-      alpha: undefined as any,
     },
-    githubApiToken: '',
-    multipleInstance: false,
-    rollingRelease: true,
     debugOutline: false,
     debugNoAnimation: false,
     debugNoRounded: false,
@@ -99,38 +184,26 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     pages: ['Overview', 'Profiles', 'Subscriptions']
   })
 
-  const saveAppSettings = debounce((config: string) => {
-    WriteFile(UserFilePath, config)
+  const saveAppSettings = debounce(async (settingsJson: string) => {
+    const result = await service.saveAppSettings({ settingsJson })
+    return result.settingsJson
   }, 500)
 
   const setupAppSettings = async () => {
-    const data = await ignoredError(ReadFile, UserFilePath)
+    const { settingsJson } = await service.getAppSettings({})
     const defaults = deepClone(app.value)
     let settings: AppSettings
-    if (data) {
-      const raw = parse(data) || {}
-      // Merge file values onto defaults so missing fields are filled in
-      settings = { ...defaults, ...raw } as AppSettings
-      // Deep-merge nested objects that must not be fully replaced by a partial value
-      if (raw.kernel) {
-        settings.kernel = { ...defaults.kernel, ...raw.kernel }
-      }
-      if (raw.connections) {
-        settings.connections = { ...defaults.connections, ...raw.connections }
-      }
+    if (settingsJson) {
+      const raw = parseSettingsJSON(settingsJson)
+      settings = normalizeSettings(raw, defaults)
     } else {
       settings = defaults
     }
 
     await appStore.loadLocales(false, false)
 
-    if (!settings.kernel?.main) {
-      if (!settings.kernel) settings.kernel = {} as any
-      settings.kernel.main = DefaultCoreConfig()
-      settings.kernel.alpha = DefaultCoreConfig()
-    }
     app.value = settings
-    latestUserSettings = stringify(app.value)
+    latestUserSettings = stableStringify(app.value)
   }
 
 
@@ -179,10 +252,11 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       settings.debugNoRounded,
       settings.debugBorder,
     )
-    const lastModifiedSettings = stringify(settings)
+    const normalizedSettings = normalizeSettings(settings, deepClone(app.value))
+    const lastModifiedSettings = stableStringify(normalizedSettings)
     if (latestUserSettings !== lastModifiedSettings) {
-      saveAppSettings(lastModifiedSettings).then(() => {
-        latestUserSettings = lastModifiedSettings
+      saveAppSettings(JSON.stringify(normalizedSettings)).then((settingsJson) => {
+        latestUserSettings = stableStringify(normalizeSettings(parseSettingsJSON(settingsJson as string), deepClone(app.value)))
       })
     } else {
       saveAppSettings.cancel()

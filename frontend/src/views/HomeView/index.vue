@@ -4,7 +4,7 @@ import { useI18n } from 'vue-i18n'
 
 import logo from '@/assets/logo'
 import { ControllerCloseMode } from '@/enums/app'
-import { useAppSettingsStore, useProfilesStore, useKernelApiStore } from '@/stores'
+import { useAppConfigStore, useAppSettingsStore, useProfilesStore, useKernelApiStore } from '@/stores'
 import { APP_TITLE, debounce, message } from '@/utils'
 
 import { useModal } from '@/components/Modal'
@@ -21,6 +21,7 @@ const { t } = useI18n()
 const [Modal, modalApi] = useModal({})
 
 const appSettingsStore = useAppSettingsStore()
+const appConfigStore = useAppConfigStore()
 const profilesStore = useProfilesStore()
 const kernelApiStore = useKernelApiStore()
 
@@ -101,8 +102,8 @@ watch(showController, (v) => {
           <Card
             v-for="p in profilesStore.profiles.slice(0, profilesStore.profiles.length > 4 ? 3 : 4)"
             :key="p.id"
-            :selected="appSettingsStore.app.kernel.profile === p.id"
-            @click="appSettingsStore.app.kernel.profile = p.id"
+            :selected="appConfigStore.config.profile === p.id"
+            @click="appConfigStore.config.profile = p.id"
           >
             <div
               class="w-128 h-full flex items-center justify-center py-24 text-center cursor-pointer font-bold text-12"
@@ -123,11 +124,11 @@ watch(showController, (v) => {
                 <Button
                   v-for="p in profilesStore.profiles.slice(3)"
                   :key="p.id"
-                  @click="appSettingsStore.app.kernel.profile = p.id"
+                  @click="appConfigStore.config.profile = p.id"
                 >
                   <div class="min-w-32 w-full flex items-center justify-between">
                     {{ p.name }}
-                    <Icon v-if="appSettingsStore.app.kernel.profile === p.id" icon="selected" />
+                    <Icon v-if="appConfigStore.config.profile === p.id" icon="selected" />
                   </div>
                 </Button>
               </div>
