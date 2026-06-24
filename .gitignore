@@ -1,12 +1,2 @@
 build/bin
 frontend/dist
-webui.for.singbox.server
-webui-for-singbox-container.tar
-data/.cache/
-data/secret.key
-data/sing-box/cache.db
-data/sing-box/pid.txt
-data/sing-box/sing-box
-data/sing-box/sing-box.bak
-
-.DS_Store
