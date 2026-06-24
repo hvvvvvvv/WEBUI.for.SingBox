@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package app.v1;
+
+option go_package = "guiforcores/proto/app/v1";
+
+enum KernelBranch {
+  KERNEL_BRANCH_UNSPECIFIED = 0;
+  KERNEL_BRANCH_MAIN = 1;
+  KERNEL_BRANCH_ALPHA = 2;
+}
+
+message CoreRuntimeConfig {
+  map<string, string> env = 1;
+  repeated string args = 2;
+}
+
+message AppConfig {
+  bool auto_start_kernel = 1;
+  bool auto_restart_kernel = 2;
+  string user_agent = 3;
+  string github_api_token = 4;
+  bool rolling_release = 5;
+  KernelBranch branch = 6;
+  string profile = 7;
+  CoreRuntimeConfig main = 8;
+  CoreRuntimeConfig alpha = 9;
+}

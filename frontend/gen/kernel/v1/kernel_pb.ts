@@ -2,131 +2,14 @@
 // @generated from file kernel/v1/kernel.proto (package kernel.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
-import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Message } from "@bufbuild/protobuf";
+import type { GenEnum, GenFile } from "@bufbuild/protobuf/codegenv2";
+import { enumDesc, fileDesc } from "@bufbuild/protobuf/codegenv2";
 
 /**
  * Describes the file kernel/v1/kernel.proto.
  */
 export const file_kernel_v1_kernel: GenFile = /*@__PURE__*/
-  fileDesc("ChZrZXJuZWwvdjEva2VybmVsLnByb3RvEglrZXJuZWwudjEiJgoQU3RhcnRDb3JlUmVxdWVzdBISCgpwcm9maWxlX2lkGAEgASgJIhMKEVN0YXJ0Q29yZVJlc3BvbnNlIhEKD1N0b3BDb3JlUmVxdWVzdCISChBTdG9wQ29yZVJlc3BvbnNlIigKElJlc3RhcnRDb3JlUmVxdWVzdBISCgpwcm9maWxlX2lkGAEgASgJIhUKE1Jlc3RhcnRDb3JlUmVzcG9uc2UiFgoUR2V0Q29yZVN0YXR1c1JlcXVlc3QiPgoVR2V0Q29yZVN0YXR1c1Jlc3BvbnNlEiUKBnN0YXR1cxgBIAEoDjIVLmtlcm5lbC52MS5Db3JlU3RhdHVzKqgBCgpDb3JlU3RhdHVzEhsKF0NPUkVfU1RBVFVTX1VOU1BFQ0lGSUVEEAASFwoTQ09SRV9TVEFUVVNfU1RPUFBFRBABEhgKFENPUkVfU1RBVFVTX1NUQVJUSU5HEAISFwoTQ09SRV9TVEFUVVNfUlVOTklORxADEhgKFENPUkVfU1RBVFVTX1NUT1BQSU5HEAQSFwoTQ09SRV9TVEFUVVNfQ1JBU0hFRBAFMr4CCg1LZXJuZWxTZXJ2aWNlEkYKCVN0YXJ0Q29yZRIbLmtlcm5lbC52MS5TdGFydENvcmVSZXF1ZXN0Ghwua2VybmVsLnYxLlN0YXJ0Q29yZVJlc3BvbnNlEkMKCFN0b3BDb3JlEhoua2VybmVsLnYxLlN0b3BDb3JlUmVxdWVzdBobLmtlcm5lbC52MS5TdG9wQ29yZVJlc3BvbnNlEkwKC1Jlc3RhcnRDb3JlEh0ua2VybmVsLnYxLlJlc3RhcnRDb3JlUmVxdWVzdBoeLmtlcm5lbC52MS5SZXN0YXJ0Q29yZVJlc3BvbnNlElIKDUdldENvcmVTdGF0dXMSHy5rZXJuZWwudjEuR2V0Q29yZVN0YXR1c1JlcXVlc3QaIC5rZXJuZWwudjEuR2V0Q29yZVN0YXR1c1Jlc3BvbnNlQoUBCg1jb20ua2VybmVsLnYxQgtLZXJuZWxQcm90b1ABWiJndWlmb3Jjb3Jlcy9nZW4va2VybmVsL3YxO2tlcm5lbHYxogIDS1hYqgIJS2VybmVsLlYxygIJS2VybmVsXFYx4gIVS2VybmVsXFYxXEdQQk1ldGFkYXRh6gIKS2VybmVsOjpWMWIGcHJvdG8z");
-
-/**
- * @generated from message kernel.v1.StartCoreRequest
- */
-export type StartCoreRequest = Message<"kernel.v1.StartCoreRequest"> & {
-  /**
-   * @generated from field: string profile_id = 1;
-   */
-  profileId: string;
-};
-
-/**
- * Describes the message kernel.v1.StartCoreRequest.
- * Use `create(StartCoreRequestSchema)` to create a new message.
- */
-export const StartCoreRequestSchema: GenMessage<StartCoreRequest> = /*@__PURE__*/
-  messageDesc(file_kernel_v1_kernel, 0);
-
-/**
- * @generated from message kernel.v1.StartCoreResponse
- */
-export type StartCoreResponse = Message<"kernel.v1.StartCoreResponse"> & {
-};
-
-/**
- * Describes the message kernel.v1.StartCoreResponse.
- * Use `create(StartCoreResponseSchema)` to create a new message.
- */
-export const StartCoreResponseSchema: GenMessage<StartCoreResponse> = /*@__PURE__*/
-  messageDesc(file_kernel_v1_kernel, 1);
-
-/**
- * @generated from message kernel.v1.StopCoreRequest
- */
-export type StopCoreRequest = Message<"kernel.v1.StopCoreRequest"> & {
-};
-
-/**
- * Describes the message kernel.v1.StopCoreRequest.
- * Use `create(StopCoreRequestSchema)` to create a new message.
- */
-export const StopCoreRequestSchema: GenMessage<StopCoreRequest> = /*@__PURE__*/
-  messageDesc(file_kernel_v1_kernel, 2);
-
-/**
- * @generated from message kernel.v1.StopCoreResponse
- */
-export type StopCoreResponse = Message<"kernel.v1.StopCoreResponse"> & {
-};
-
-/**
- * Describes the message kernel.v1.StopCoreResponse.
- * Use `create(StopCoreResponseSchema)` to create a new message.
- */
-export const StopCoreResponseSchema: GenMessage<StopCoreResponse> = /*@__PURE__*/
-  messageDesc(file_kernel_v1_kernel, 3);
-
-/**
- * @generated from message kernel.v1.RestartCoreRequest
- */
-export type RestartCoreRequest = Message<"kernel.v1.RestartCoreRequest"> & {
-  /**
-   * @generated from field: string profile_id = 1;
-   */
-  profileId: string;
-};
-
-/**
- * Describes the message kernel.v1.RestartCoreRequest.
- * Use `create(RestartCoreRequestSchema)` to create a new message.
- */
-export const RestartCoreRequestSchema: GenMessage<RestartCoreRequest> = /*@__PURE__*/
-  messageDesc(file_kernel_v1_kernel, 4);
-
-/**
- * @generated from message kernel.v1.RestartCoreResponse
- */
-export type RestartCoreResponse = Message<"kernel.v1.RestartCoreResponse"> & {
-};
-
-/**
- * Describes the message kernel.v1.RestartCoreResponse.
- * Use `create(RestartCoreResponseSchema)` to create a new message.
- */
-export const RestartCoreResponseSchema: GenMessage<RestartCoreResponse> = /*@__PURE__*/
-  messageDesc(file_kernel_v1_kernel, 5);
-
-/**
- * @generated from message kernel.v1.GetCoreStatusRequest
- */
-export type GetCoreStatusRequest = Message<"kernel.v1.GetCoreStatusRequest"> & {
-};
-
-/**
- * Describes the message kernel.v1.GetCoreStatusRequest.
- * Use `create(GetCoreStatusRequestSchema)` to create a new message.
- */
-export const GetCoreStatusRequestSchema: GenMessage<GetCoreStatusRequest> = /*@__PURE__*/
-  messageDesc(file_kernel_v1_kernel, 6);
-
-/**
- * @generated from message kernel.v1.GetCoreStatusResponse
- */
-export type GetCoreStatusResponse = Message<"kernel.v1.GetCoreStatusResponse"> & {
-  /**
-   * @generated from field: kernel.v1.CoreStatus status = 1;
-   */
-  status: CoreStatus;
-};
-
-/**
- * Describes the message kernel.v1.GetCoreStatusResponse.
- * Use `create(GetCoreStatusResponseSchema)` to create a new message.
- */
-export const GetCoreStatusResponseSchema: GenMessage<GetCoreStatusResponse> = /*@__PURE__*/
-  messageDesc(file_kernel_v1_kernel, 7);
+  fileDesc("ChZrZXJuZWwvdjEva2VybmVsLnByb3RvEglrZXJuZWwudjEqqAEKCkNvcmVTdGF0dXMSGwoXQ09SRV9TVEFUVVNfVU5TUEVDSUZJRUQQABIXChNDT1JFX1NUQVRVU19TVE9QUEVEEAESGAoUQ09SRV9TVEFUVVNfU1RBUlRJTkcQAhIXChNDT1JFX1NUQVRVU19SVU5OSU5HEAMSGAoUQ09SRV9TVEFUVVNfU1RPUFBJTkcQBBIXChNDT1JFX1NUQVRVU19DUkFTSEVEEAVChQEKDWNvbS5rZXJuZWwudjFCC0tlcm5lbFByb3RvUAFaImd1aWZvcmNvcmVzL2dlbi9rZXJuZWwvdjE7a2VybmVsdjGiAgNLWFiqAglLZXJuZWwuVjHKAglLZXJuZWxcVjHiAhVLZXJuZWxcVjFcR1BCTWV0YWRhdGHqAgpLZXJuZWw6OlYxYgZwcm90bzM");
 
 /**
  * @generated from enum kernel.v1.CoreStatus
@@ -168,43 +51,4 @@ export enum CoreStatus {
  */
 export const CoreStatusSchema: GenEnum<CoreStatus> = /*@__PURE__*/
   enumDesc(file_kernel_v1_kernel, 0);
-
-/**
- * @generated from service kernel.v1.KernelService
- */
-export const KernelService: GenService<{
-  /**
-   * @generated from rpc kernel.v1.KernelService.StartCore
-   */
-  startCore: {
-    methodKind: "unary";
-    input: typeof StartCoreRequestSchema;
-    output: typeof StartCoreResponseSchema;
-  },
-  /**
-   * @generated from rpc kernel.v1.KernelService.StopCore
-   */
-  stopCore: {
-    methodKind: "unary";
-    input: typeof StopCoreRequestSchema;
-    output: typeof StopCoreResponseSchema;
-  },
-  /**
-   * @generated from rpc kernel.v1.KernelService.RestartCore
-   */
-  restartCore: {
-    methodKind: "unary";
-    input: typeof RestartCoreRequestSchema;
-    output: typeof RestartCoreResponseSchema;
-  },
-  /**
-   * @generated from rpc kernel.v1.KernelService.GetCoreStatus
-   */
-  getCoreStatus: {
-    methodKind: "unary";
-    input: typeof GetCoreStatusRequestSchema;
-    output: typeof GetCoreStatusResponseSchema;
-  },
-}> = /*@__PURE__*/
-  serviceDesc(file_kernel_v1_kernel, 0);
 

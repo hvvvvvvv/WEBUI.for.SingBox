@@ -9,7 +9,7 @@ import { debounce, formatRelativeTime, formatDate, message, alert } from '@/util
 import { useModal } from '@/components/Modal'
 
 import type { Menu, ScheduledTask } from '@/types/app'
-import type { TaskResult } from '../../../gen/app/v1/app_service_pb'
+import type { TaskResult } from '../../../gen/app/v1/task_pb'
 
 import ScheduledTaskForm from './components/ScheduledTaskForm.vue'
 import ScheduledTasksLogs from './components/ScheduledTasksLogs.vue'

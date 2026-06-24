@@ -4,10 +4,6 @@ package profile.v1;
 
 option go_package = "guiforcores/proto/profile/v1";
 
-import "google/protobuf/struct.proto";
-
-
-
 enum LogLevel {
   LOG_LEVEL_UNSPECIFIED = 0;
   LOG_LEVEL_TRACE = 1;
@@ -314,39 +310,4 @@ message Profile {
   Dns dns = 8;
   Mixin mixin = 9;
   Script script = 10;
-}
-
-message GenerateConfigOptions {
-  reserved 2;
-
-  bool enable_stable_config_compat = 1;
-  bool enable_mixin_processing = 3;
-  bool enable_script_processing = 4;
-}
-
-message GenerateDnsServerUrlRequest {
-  DnsServer dns_server = 1;
-}
-
-message GenerateDnsServerUrlResponse {
-  string url = 1;
-}
-
-message GenerateConfigRequest {
-  Profile profile = 1;
-  GenerateConfigOptions options = 2;
-}
-
-message GenerateConfigResponse {
-  google.protobuf.Struct config = 1;
-}
-
-message GenerateConfigFileRequest {
-  Profile profile = 1;
-  GenerateConfigOptions options = 2;
-}
-
-message GenerateConfigFileResponse {
-  string path = 1;
-  google.protobuf.Struct config = 2;
 }

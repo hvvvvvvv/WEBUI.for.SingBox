@@ -3,10 +3,10 @@ import { ref } from 'vue'
 
 import { createRpcClient } from '@/bridge'
 import { eventBus } from '@/utils'
-import { RuleSetService } from '../../gen/app/v1/app_service_pb'
+import { RuleSetService } from '../../gen/app/v1/rule_set_service_pb'
 
 import type { RulesetFormat } from '@/enums/kernel'
-import type { TaskResult } from '../../gen/app/v1/app_service_pb'
+import type { TaskResult } from '../../gen/app/v1/task_pb'
 
 export interface RuleSet {
   id: string

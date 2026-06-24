@@ -6,11 +6,11 @@ import * as Defaults from '@/constant/profile'
 import { useAppConfigStore } from '@/stores'
 import { sampleID } from '@/utils/others'
 import { iProfileToProto, protoProfileToIProfile } from '@/utils/profileRpc'
-import { ProfileManagementService } from '../../gen/profile/v1/profile_management_service_pb'
+import { ProfileService } from '../../gen/profile/v1/profile_service_pb'
 
 export const useProfilesStore = defineStore('profiles', () => {
   const appConfigStore = useAppConfigStore()
-  const service = createRpcClient(ProfileManagementService)
+  const service = createRpcClient(ProfileService)
 
   const profiles = ref<IProfile[]>([])
   const currentProfile = computed(() => getProfileById(appConfigStore.config.profile))

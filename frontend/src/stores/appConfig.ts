@@ -6,11 +6,11 @@ import { DefaultCoreConfig } from '@/constant/kernel'
 import { Branch } from '@/enums/app'
 import { debounce, deepClone } from '@/utils'
 import {
-  AppConfigService,
   KernelBranch,
   type AppConfig as ProtoAppConfig,
   type CoreRuntimeConfig as ProtoCoreRuntimeConfig,
-} from '../../gen/app/v1/app_service_pb'
+} from '../../gen/app/v1/app_pb'
+import { AppConfigService } from '../../gen/app/v1/app_config_service_pb'
 
 import type { AppConfig, CoreRuntimeConfig } from '@/types/app'
 

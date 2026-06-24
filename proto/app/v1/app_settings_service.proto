@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package app.v1;
+
+option go_package = "guiforcores/proto/app/v1";
+
+message GetAppSettingsRequest {}
+
+message GetAppSettingsResponse {
+  string settings_json = 1;
+}
+
+message SaveAppSettingsRequest {
+  string settings_json = 1;
+}
+
+message SaveAppSettingsResponse {
+  string settings_json = 1;
+}
+
+service AppSettingsService {
+  rpc GetAppSettings(GetAppSettingsRequest) returns (GetAppSettingsResponse);
+  rpc SaveAppSettings(SaveAppSettingsRequest) returns (SaveAppSettingsResponse);
+}

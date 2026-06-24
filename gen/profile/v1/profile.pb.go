@@ -9,7 +9,6 @@ package profilev1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
-	structpb "google.golang.org/protobuf/types/known/structpb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -2474,360 +2473,12 @@ func (x *Profile) GetScript() *Script {
 	return nil
 }
 
-type GenerateConfigOptions struct {
-	state                    protoimpl.MessageState `protogen:"open.v1"`
-	EnableStableConfigCompat bool                   `protobuf:"varint,1,opt,name=enable_stable_config_compat,json=enableStableConfigCompat,proto3" json:"enable_stable_config_compat,omitempty"`
-	EnableMixinProcessing    bool                   `protobuf:"varint,3,opt,name=enable_mixin_processing,json=enableMixinProcessing,proto3" json:"enable_mixin_processing,omitempty"`
-	EnableScriptProcessing   bool                   `protobuf:"varint,4,opt,name=enable_script_processing,json=enableScriptProcessing,proto3" json:"enable_script_processing,omitempty"`
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
-}
-
-func (x *GenerateConfigOptions) Reset() {
-	*x = GenerateConfigOptions{}
-	mi := &file_profile_v1_profile_proto_msgTypes[19]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GenerateConfigOptions) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GenerateConfigOptions) ProtoMessage() {}
-
-func (x *GenerateConfigOptions) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[19]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GenerateConfigOptions.ProtoReflect.Descriptor instead.
-func (*GenerateConfigOptions) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{19}
-}
-
-func (x *GenerateConfigOptions) GetEnableStableConfigCompat() bool {
-	if x != nil {
-		return x.EnableStableConfigCompat
-	}
-	return false
-}
-
-func (x *GenerateConfigOptions) GetEnableMixinProcessing() bool {
-	if x != nil {
-		return x.EnableMixinProcessing
-	}
-	return false
-}
-
-func (x *GenerateConfigOptions) GetEnableScriptProcessing() bool {
-	if x != nil {
-		return x.EnableScriptProcessing
-	}
-	return false
-}
-
-type GenerateDnsServerUrlRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	DnsServer     *DnsServer             `protobuf:"bytes,1,opt,name=dns_server,json=dnsServer,proto3" json:"dns_server,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GenerateDnsServerUrlRequest) Reset() {
-	*x = GenerateDnsServerUrlRequest{}
-	mi := &file_profile_v1_profile_proto_msgTypes[20]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GenerateDnsServerUrlRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GenerateDnsServerUrlRequest) ProtoMessage() {}
-
-func (x *GenerateDnsServerUrlRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[20]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GenerateDnsServerUrlRequest.ProtoReflect.Descriptor instead.
-func (*GenerateDnsServerUrlRequest) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{20}
-}
-
-func (x *GenerateDnsServerUrlRequest) GetDnsServer() *DnsServer {
-	if x != nil {
-		return x.DnsServer
-	}
-	return nil
-}
-
-type GenerateDnsServerUrlResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Url           string                 `protobuf:"bytes,1,opt,name=url,proto3" json:"url,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GenerateDnsServerUrlResponse) Reset() {
-	*x = GenerateDnsServerUrlResponse{}
-	mi := &file_profile_v1_profile_proto_msgTypes[21]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GenerateDnsServerUrlResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GenerateDnsServerUrlResponse) ProtoMessage() {}
-
-func (x *GenerateDnsServerUrlResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[21]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GenerateDnsServerUrlResponse.ProtoReflect.Descriptor instead.
-func (*GenerateDnsServerUrlResponse) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{21}
-}
-
-func (x *GenerateDnsServerUrlResponse) GetUrl() string {
-	if x != nil {
-		return x.Url
-	}
-	return ""
-}
-
-type GenerateConfigRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Profile       *Profile               `protobuf:"bytes,1,opt,name=profile,proto3" json:"profile,omitempty"`
-	Options       *GenerateConfigOptions `protobuf:"bytes,2,opt,name=options,proto3" json:"options,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GenerateConfigRequest) Reset() {
-	*x = GenerateConfigRequest{}
-	mi := &file_profile_v1_profile_proto_msgTypes[22]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GenerateConfigRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GenerateConfigRequest) ProtoMessage() {}
-
-func (x *GenerateConfigRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[22]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GenerateConfigRequest.ProtoReflect.Descriptor instead.
-func (*GenerateConfigRequest) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{22}
-}
-
-func (x *GenerateConfigRequest) GetProfile() *Profile {
-	if x != nil {
-		return x.Profile
-	}
-	return nil
-}
-
-func (x *GenerateConfigRequest) GetOptions() *GenerateConfigOptions {
-	if x != nil {
-		return x.Options
-	}
-	return nil
-}
-
-type GenerateConfigResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Config        *structpb.Struct       `protobuf:"bytes,1,opt,name=config,proto3" json:"config,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GenerateConfigResponse) Reset() {
-	*x = GenerateConfigResponse{}
-	mi := &file_profile_v1_profile_proto_msgTypes[23]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GenerateConfigResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GenerateConfigResponse) ProtoMessage() {}
-
-func (x *GenerateConfigResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[23]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GenerateConfigResponse.ProtoReflect.Descriptor instead.
-func (*GenerateConfigResponse) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{23}
-}
-
-func (x *GenerateConfigResponse) GetConfig() *structpb.Struct {
-	if x != nil {
-		return x.Config
-	}
-	return nil
-}
-
-type GenerateConfigFileRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Profile       *Profile               `protobuf:"bytes,1,opt,name=profile,proto3" json:"profile,omitempty"`
-	Options       *GenerateConfigOptions `protobuf:"bytes,2,opt,name=options,proto3" json:"options,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GenerateConfigFileRequest) Reset() {
-	*x = GenerateConfigFileRequest{}
-	mi := &file_profile_v1_profile_proto_msgTypes[24]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GenerateConfigFileRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GenerateConfigFileRequest) ProtoMessage() {}
-
-func (x *GenerateConfigFileRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[24]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GenerateConfigFileRequest.ProtoReflect.Descriptor instead.
-func (*GenerateConfigFileRequest) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{24}
-}
-
-func (x *GenerateConfigFileRequest) GetProfile() *Profile {
-	if x != nil {
-		return x.Profile
-	}
-	return nil
-}
-
-func (x *GenerateConfigFileRequest) GetOptions() *GenerateConfigOptions {
-	if x != nil {
-		return x.Options
-	}
-	return nil
-}
-
-type GenerateConfigFileResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Path          string                 `protobuf:"bytes,1,opt,name=path,proto3" json:"path,omitempty"`
-	Config        *structpb.Struct       `protobuf:"bytes,2,opt,name=config,proto3" json:"config,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *GenerateConfigFileResponse) Reset() {
-	*x = GenerateConfigFileResponse{}
-	mi := &file_profile_v1_profile_proto_msgTypes[25]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *GenerateConfigFileResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*GenerateConfigFileResponse) ProtoMessage() {}
-
-func (x *GenerateConfigFileResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[25]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use GenerateConfigFileResponse.ProtoReflect.Descriptor instead.
-func (*GenerateConfigFileResponse) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{25}
-}
-
-func (x *GenerateConfigFileResponse) GetPath() string {
-	if x != nil {
-		return x.Path
-	}
-	return ""
-}
-
-func (x *GenerateConfigFileResponse) GetConfig() *structpb.Struct {
-	if x != nil {
-		return x.Config
-	}
-	return nil
-}
-
 var File_profile_v1_profile_proto protoreflect.FileDescriptor
 
 const file_profile_v1_profile_proto_rawDesc = "" +
 	"\n" +
 	"\x18profile/v1/profile.proto\x12\n" +
-	"profile.v1\x1a\x1cgoogle/protobuf/struct.proto\"\x83\x01\n" +
+	"profile.v1\"\x83\x01\n" +
 	"\x03Log\x12\x1a\n" +
 	"\bdisabled\x18\x01 \x01(\bR\bdisabled\x12*\n" +
 	"\x05level\x18\x02 \x01(\x0e2\x14.profile.v1.LogLevelR\x05level\x12\x16\n" +
@@ -2987,27 +2638,7 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\x03dns\x18\b \x01(\v2\x0f.profile.v1.DnsR\x03dns\x12'\n" +
 	"\x05mixin\x18\t \x01(\v2\x11.profile.v1.MixinR\x05mixin\x12*\n" +
 	"\x06script\x18\n" +
-	" \x01(\v2\x12.profile.v1.ScriptR\x06script\"\xce\x01\n" +
-	"\x15GenerateConfigOptions\x12=\n" +
-	"\x1benable_stable_config_compat\x18\x01 \x01(\bR\x18enableStableConfigCompat\x126\n" +
-	"\x17enable_mixin_processing\x18\x03 \x01(\bR\x15enableMixinProcessing\x128\n" +
-	"\x18enable_script_processing\x18\x04 \x01(\bR\x16enableScriptProcessingJ\x04\b\x02\x10\x03\"S\n" +
-	"\x1bGenerateDnsServerUrlRequest\x124\n" +
-	"\n" +
-	"dns_server\x18\x01 \x01(\v2\x15.profile.v1.DnsServerR\tdnsServer\"0\n" +
-	"\x1cGenerateDnsServerUrlResponse\x12\x10\n" +
-	"\x03url\x18\x01 \x01(\tR\x03url\"\x83\x01\n" +
-	"\x15GenerateConfigRequest\x12-\n" +
-	"\aprofile\x18\x01 \x01(\v2\x13.profile.v1.ProfileR\aprofile\x12;\n" +
-	"\aoptions\x18\x02 \x01(\v2!.profile.v1.GenerateConfigOptionsR\aoptions\"I\n" +
-	"\x16GenerateConfigResponse\x12/\n" +
-	"\x06config\x18\x01 \x01(\v2\x17.google.protobuf.StructR\x06config\"\x87\x01\n" +
-	"\x19GenerateConfigFileRequest\x12-\n" +
-	"\aprofile\x18\x01 \x01(\v2\x13.profile.v1.ProfileR\aprofile\x12;\n" +
-	"\aoptions\x18\x02 \x01(\v2!.profile.v1.GenerateConfigOptionsR\aoptions\"a\n" +
-	"\x1aGenerateConfigFileResponse\x12\x12\n" +
-	"\x04path\x18\x01 \x01(\tR\x04path\x12/\n" +
-	"\x06config\x18\x02 \x01(\v2\x17.google.protobuf.StructR\x06config*\xb6\x01\n" +
+	" \x01(\v2\x12.profile.v1.ScriptR\x06script*\xb6\x01\n" +
 	"\bLogLevel\x12\x19\n" +
 	"\x15LOG_LEVEL_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fLOG_LEVEL_TRACE\x10\x01\x12\x13\n" +
@@ -3129,49 +2760,41 @@ func file_profile_v1_profile_proto_rawDescGZIP() []byte {
 }
 
 var file_profile_v1_profile_proto_enumTypes = make([]protoimpl.EnumInfo, 13)
-var file_profile_v1_profile_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_profile_v1_profile_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_profile_v1_profile_proto_goTypes = []any{
-	(LogLevel)(0),                        // 0: profile.v1.LogLevel
-	(InboundType)(0),                     // 1: profile.v1.InboundType
-	(OutboundType)(0),                    // 2: profile.v1.OutboundType
-	(TunStack)(0),                        // 3: profile.v1.TunStack
-	(RulesetType)(0),                     // 4: profile.v1.RulesetType
-	(RulesetFormat)(0),                   // 5: profile.v1.RulesetFormat
-	(RuleType)(0),                        // 6: profile.v1.RuleType
-	(Strategy)(0),                        // 7: profile.v1.Strategy
-	(DnsServerType)(0),                   // 8: profile.v1.DnsServerType
-	(RuleAction)(0),                      // 9: profile.v1.RuleAction
-	(DnsRuleAction)(0),                   // 10: profile.v1.DnsRuleAction
-	(MixinPriority)(0),                   // 11: profile.v1.MixinPriority
-	(MixinFormat)(0),                     // 12: profile.v1.MixinFormat
-	(*Log)(nil),                          // 13: profile.v1.Log
-	(*CacheFileExperimental)(nil),        // 14: profile.v1.CacheFileExperimental
-	(*Experimental)(nil),                 // 15: profile.v1.Experimental
-	(*ProxyRef)(nil),                     // 16: profile.v1.ProxyRef
-	(*RuleSet)(nil),                      // 17: profile.v1.RuleSet
-	(*InboundListen)(nil),                // 18: profile.v1.InboundListen
-	(*InboundUserConfig)(nil),            // 19: profile.v1.InboundUserConfig
-	(*TunInboundConfig)(nil),             // 20: profile.v1.TunInboundConfig
-	(*Inbound)(nil),                      // 21: profile.v1.Inbound
-	(*Outbound)(nil),                     // 22: profile.v1.Outbound
-	(*RouteRule)(nil),                    // 23: profile.v1.RouteRule
-	(*RouteDefaultDomainResolver)(nil),   // 24: profile.v1.RouteDefaultDomainResolver
-	(*Route)(nil),                        // 25: profile.v1.Route
-	(*DnsServer)(nil),                    // 26: profile.v1.DnsServer
-	(*DnsRule)(nil),                      // 27: profile.v1.DnsRule
-	(*Dns)(nil),                          // 28: profile.v1.Dns
-	(*Mixin)(nil),                        // 29: profile.v1.Mixin
-	(*Script)(nil),                       // 30: profile.v1.Script
-	(*Profile)(nil),                      // 31: profile.v1.Profile
-	(*GenerateConfigOptions)(nil),        // 32: profile.v1.GenerateConfigOptions
-	(*GenerateDnsServerUrlRequest)(nil),  // 33: profile.v1.GenerateDnsServerUrlRequest
-	(*GenerateDnsServerUrlResponse)(nil), // 34: profile.v1.GenerateDnsServerUrlResponse
-	(*GenerateConfigRequest)(nil),        // 35: profile.v1.GenerateConfigRequest
-	(*GenerateConfigResponse)(nil),       // 36: profile.v1.GenerateConfigResponse
-	(*GenerateConfigFileRequest)(nil),    // 37: profile.v1.GenerateConfigFileRequest
-	(*GenerateConfigFileResponse)(nil),   // 38: profile.v1.GenerateConfigFileResponse
-	nil,                                  // 39: profile.v1.DnsServer.PredefinedEntry
-	(*structpb.Struct)(nil),              // 40: google.protobuf.Struct
+	(LogLevel)(0),                      // 0: profile.v1.LogLevel
+	(InboundType)(0),                   // 1: profile.v1.InboundType
+	(OutboundType)(0),                  // 2: profile.v1.OutboundType
+	(TunStack)(0),                      // 3: profile.v1.TunStack
+	(RulesetType)(0),                   // 4: profile.v1.RulesetType
+	(RulesetFormat)(0),                 // 5: profile.v1.RulesetFormat
+	(RuleType)(0),                      // 6: profile.v1.RuleType
+	(Strategy)(0),                      // 7: profile.v1.Strategy
+	(DnsServerType)(0),                 // 8: profile.v1.DnsServerType
+	(RuleAction)(0),                    // 9: profile.v1.RuleAction
+	(DnsRuleAction)(0),                 // 10: profile.v1.DnsRuleAction
+	(MixinPriority)(0),                 // 11: profile.v1.MixinPriority
+	(MixinFormat)(0),                   // 12: profile.v1.MixinFormat
+	(*Log)(nil),                        // 13: profile.v1.Log
+	(*CacheFileExperimental)(nil),      // 14: profile.v1.CacheFileExperimental
+	(*Experimental)(nil),               // 15: profile.v1.Experimental
+	(*ProxyRef)(nil),                   // 16: profile.v1.ProxyRef
+	(*RuleSet)(nil),                    // 17: profile.v1.RuleSet
+	(*InboundListen)(nil),              // 18: profile.v1.InboundListen
+	(*InboundUserConfig)(nil),          // 19: profile.v1.InboundUserConfig
+	(*TunInboundConfig)(nil),           // 20: profile.v1.TunInboundConfig
+	(*Inbound)(nil),                    // 21: profile.v1.Inbound
+	(*Outbound)(nil),                   // 22: profile.v1.Outbound
+	(*RouteRule)(nil),                  // 23: profile.v1.RouteRule
+	(*RouteDefaultDomainResolver)(nil), // 24: profile.v1.RouteDefaultDomainResolver
+	(*Route)(nil),                      // 25: profile.v1.Route
+	(*DnsServer)(nil),                  // 26: profile.v1.DnsServer
+	(*DnsRule)(nil),                    // 27: profile.v1.DnsRule
+	(*Dns)(nil),                        // 28: profile.v1.Dns
+	(*Mixin)(nil),                      // 29: profile.v1.Mixin
+	(*Script)(nil),                     // 30: profile.v1.Script
+	(*Profile)(nil),                    // 31: profile.v1.Profile
+	nil,                                // 32: profile.v1.DnsServer.PredefinedEntry
 }
 var file_profile_v1_profile_proto_depIdxs = []int32{
 	0,  // 0: profile.v1.Log.level:type_name -> profile.v1.LogLevel
@@ -3194,7 +2817,7 @@ var file_profile_v1_profile_proto_depIdxs = []int32{
 	17, // 17: profile.v1.Route.rule_set:type_name -> profile.v1.RuleSet
 	24, // 18: profile.v1.Route.default_domain_resolver:type_name -> profile.v1.RouteDefaultDomainResolver
 	8,  // 19: profile.v1.DnsServer.type:type_name -> profile.v1.DnsServerType
-	39, // 20: profile.v1.DnsServer.predefined:type_name -> profile.v1.DnsServer.PredefinedEntry
+	32, // 20: profile.v1.DnsServer.predefined:type_name -> profile.v1.DnsServer.PredefinedEntry
 	6,  // 21: profile.v1.DnsRule.type:type_name -> profile.v1.RuleType
 	10, // 22: profile.v1.DnsRule.action:type_name -> profile.v1.DnsRuleAction
 	7,  // 23: profile.v1.DnsRule.strategy:type_name -> profile.v1.Strategy
@@ -3211,18 +2834,11 @@ var file_profile_v1_profile_proto_depIdxs = []int32{
 	28, // 34: profile.v1.Profile.dns:type_name -> profile.v1.Dns
 	29, // 35: profile.v1.Profile.mixin:type_name -> profile.v1.Mixin
 	30, // 36: profile.v1.Profile.script:type_name -> profile.v1.Script
-	26, // 37: profile.v1.GenerateDnsServerUrlRequest.dns_server:type_name -> profile.v1.DnsServer
-	31, // 38: profile.v1.GenerateConfigRequest.profile:type_name -> profile.v1.Profile
-	32, // 39: profile.v1.GenerateConfigRequest.options:type_name -> profile.v1.GenerateConfigOptions
-	40, // 40: profile.v1.GenerateConfigResponse.config:type_name -> google.protobuf.Struct
-	31, // 41: profile.v1.GenerateConfigFileRequest.profile:type_name -> profile.v1.Profile
-	32, // 42: profile.v1.GenerateConfigFileRequest.options:type_name -> profile.v1.GenerateConfigOptions
-	40, // 43: profile.v1.GenerateConfigFileResponse.config:type_name -> google.protobuf.Struct
-	44, // [44:44] is the sub-list for method output_type
-	44, // [44:44] is the sub-list for method input_type
-	44, // [44:44] is the sub-list for extension type_name
-	44, // [44:44] is the sub-list for extension extendee
-	0,  // [0:44] is the sub-list for field type_name
+	37, // [37:37] is the sub-list for method output_type
+	37, // [37:37] is the sub-list for method input_type
+	37, // [37:37] is the sub-list for extension type_name
+	37, // [37:37] is the sub-list for extension extendee
+	0,  // [0:37] is the sub-list for field type_name
 }
 
 func init() { file_profile_v1_profile_proto_init() }
@@ -3236,7 +2852,7 @@ func file_profile_v1_profile_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_profile_v1_profile_proto_rawDesc), len(file_profile_v1_profile_proto_rawDesc)),
 			NumEnums:      13,
-			NumMessages:   27,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

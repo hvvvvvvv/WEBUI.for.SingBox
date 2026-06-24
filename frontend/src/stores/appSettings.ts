@@ -25,7 +25,7 @@ import {
   debounce,
   deepClone,
 } from '@/utils'
-import { AppSettingsService } from '../../gen/app/v1/app_service_pb'
+import { AppSettingsService } from '../../gen/app/v1/app_settings_service_pb'
 
 import type { AppSettings, SessionInfo } from '@/types/app'
 

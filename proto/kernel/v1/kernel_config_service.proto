@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package kernel.v1;
+
+option go_package = "guiforcores/proto/kernel/v1";
+
+import "google/protobuf/struct.proto";
+import "profile/v1/profile.proto";
+
+message GenerateConfigOptions {
+  reserved 2;
+
+  bool enable_stable_config_compat = 1;
+  bool enable_mixin_processing = 3;
+  bool enable_script_processing = 4;
+}
+
+message GenerateDnsServerUrlRequest {
+  profile.v1.DnsServer dns_server = 1;
+}
+
+message GenerateDnsServerUrlResponse {
+  string url = 1;
+}
+
+message GenerateConfigRequest {
+  profile.v1.Profile profile = 1;
+  GenerateConfigOptions options = 2;
+}
+
+message GenerateConfigResponse {
+  google.protobuf.Struct config = 1;
+}
+
+message GenerateConfigFileRequest {
+  profile.v1.Profile profile = 1;
+  GenerateConfigOptions options = 2;
+}
+
+message GenerateConfigFileResponse {
+  string path = 1;
+  google.protobuf.Struct config = 2;
+}
+
+service KernelConfigService {
+  rpc GenerateDnsServerUrl(GenerateDnsServerUrlRequest) returns (GenerateDnsServerUrlResponse);
+  rpc GenerateConfig(GenerateConfigRequest) returns (GenerateConfigResponse);
+  rpc GenerateConfigFile(GenerateConfigFileRequest) returns (GenerateConfigFileResponse);
+}

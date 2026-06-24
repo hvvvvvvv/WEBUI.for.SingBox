@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package app.v1;
+
+option go_package = "guiforcores/proto/app/v1";
+
+message TaskResult {
+  bool ok = 1;
+  string id = 2;
+  string name = 3;
+  string result = 4;
+}
+
+message TaskLog {
+  string id = 1;
+  string name = 2;
+  int64 start_time = 3;
+  int64 end_time = 4;
+  repeated TaskResult results = 5;
+}

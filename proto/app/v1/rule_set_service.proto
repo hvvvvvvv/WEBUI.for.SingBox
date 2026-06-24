@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package app.v1;
+
+option go_package = "guiforcores/proto/app/v1";
+
+import "app/v1/task.proto";
+
+message ListRuleSetsRequest {}
+
+message ListRuleSetsResponse {
+  repeated string rulesets_json = 1;
+  string hub_json = 2;
+}
+
+message SaveRuleSetsRequest {
+  repeated string rulesets_json = 1;
+}
+
+message SaveRuleSetsResponse {
+  repeated string rulesets_json = 1;
+}
+
+message UpsertRuleSetRequest {
+  string ruleset_json = 1;
+}
+
+message UpsertRuleSetResponse {
+  string ruleset_json = 1;
+}
+
+message DeleteRuleSetRequest {
+  string id = 1;
+}
+
+message DeleteRuleSetResponse {}
+
+message UpdateRuleSetRequest {
+  string id = 1;
+}
+
+message UpdateRuleSetResponse {
+  repeated TaskResult results = 1;
+}
+
+message UpdateAllRuleSetsRequest {}
+
+message UpdateAllRuleSetsResponse {
+  repeated TaskResult results = 1;
+}
+
+message UpdateRuleSetHubRequest {}
+
+message UpdateRuleSetHubResponse {
+  string hub_json = 1;
+}
+
+message GetRuleSetContentRequest {
+  string id = 1;
+}
+
+message GetRuleSetContentResponse {
+  string content = 1;
+}
+
+message SaveRuleSetContentRequest {
+  string id = 1;
+  string content = 2;
+}
+
+message SaveRuleSetContentResponse {
+  string ruleset_json = 1;
+}
+
+message ClearRuleSetContentRequest {
+  string id = 1;
+}
+
+message ClearRuleSetContentResponse {
+  string ruleset_json = 1;
+}
+
+service RuleSetService {
+  rpc ListRuleSets(ListRuleSetsRequest) returns (ListRuleSetsResponse);
+  rpc SaveRuleSets(SaveRuleSetsRequest) returns (SaveRuleSetsResponse);
+  rpc UpsertRuleSet(UpsertRuleSetRequest) returns (UpsertRuleSetResponse);
+  rpc DeleteRuleSet(DeleteRuleSetRequest) returns (DeleteRuleSetResponse);
+  rpc UpdateRuleSet(UpdateRuleSetRequest) returns (UpdateRuleSetResponse);
+  rpc UpdateAllRuleSets(UpdateAllRuleSetsRequest) returns (UpdateAllRuleSetsResponse);
+  rpc UpdateRuleSetHub(UpdateRuleSetHubRequest) returns (UpdateRuleSetHubResponse);
+  rpc GetRuleSetContent(GetRuleSetContentRequest) returns (GetRuleSetContentResponse);
+  rpc SaveRuleSetContent(SaveRuleSetContentRequest) returns (SaveRuleSetContentResponse);
+  rpc ClearRuleSetContent(ClearRuleSetContentRequest) returns (ClearRuleSetContentResponse);
+}

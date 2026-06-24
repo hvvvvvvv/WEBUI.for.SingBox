@@ -2,10 +2,10 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 import { createRpcClient } from '@/bridge'
-import { ScheduledTaskService } from '../../gen/app/v1/app_service_pb'
+import { ScheduledTaskService } from '../../gen/app/v1/scheduled_task_service_pb'
 
 import type { ScheduledTask } from '@/types/app'
-import type { TaskResult } from '../../gen/app/v1/app_service_pb'
+import type { TaskResult } from '../../gen/app/v1/task_pb'
 
 interface ScheduledTaskLogRecord {
   id: string

@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package app.v1;
+
+option go_package = "guiforcores/proto/app/v1";
+
+import "app/v1/app.proto";
+
+message GetAppConfigRequest {}
+
+message GetAppConfigResponse {
+  AppConfig config = 1;
+}
+
+message SaveAppConfigRequest {
+  AppConfig config = 1;
+}
+
+message SaveAppConfigResponse {
+  AppConfig config = 1;
+}
+
+service AppConfigService {
+  rpc GetAppConfig(GetAppConfigRequest) returns (GetAppConfigResponse);
+  rpc SaveAppConfig(SaveAppConfigRequest) returns (SaveAppConfigResponse);
+}

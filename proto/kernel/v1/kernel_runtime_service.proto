@@ -1,0 +1,36 @@
+syntax = "proto3";
+
+package kernel.v1;
+
+option go_package = "guiforcores/proto/kernel/v1";
+
+import "kernel/v1/kernel.proto";
+
+message StartCoreRequest {
+  string profile_id = 1;
+}
+
+message StartCoreResponse {}
+
+message StopCoreRequest {}
+
+message StopCoreResponse {}
+
+message RestartCoreRequest {
+  string profile_id = 1;
+}
+
+message RestartCoreResponse {}
+
+message GetCoreStatusRequest {}
+
+message GetCoreStatusResponse {
+  CoreStatus status = 1;
+}
+
+service KernelRuntimeService {
+  rpc StartCore(StartCoreRequest) returns (StartCoreResponse);
+  rpc StopCore(StopCoreRequest) returns (StopCoreResponse);
+  rpc RestartCore(RestartCoreRequest) returns (RestartCoreResponse);
+  rpc GetCoreStatus(GetCoreStatusRequest) returns (GetCoreStatusResponse);
+}

@@ -1,0 +1,58 @@
+syntax = "proto3";
+
+package app.v1;
+
+option go_package = "guiforcores/proto/app/v1";
+
+import "app/v1/task.proto";
+
+message ListSubscriptionsRequest {}
+
+message ListSubscriptionsResponse {
+  repeated string subscriptions_json = 1;
+}
+
+message SaveSubscriptionsRequest {
+  repeated string subscriptions_json = 1;
+}
+
+message SaveSubscriptionsResponse {
+  repeated string subscriptions_json = 1;
+}
+
+message UpsertSubscriptionRequest {
+  string subscription_json = 1;
+}
+
+message UpsertSubscriptionResponse {
+  string subscription_json = 1;
+}
+
+message DeleteSubscriptionRequest {
+  string id = 1;
+}
+
+message DeleteSubscriptionResponse {}
+
+message UpdateSubscriptionRequest {
+  string id = 1;
+}
+
+message UpdateSubscriptionResponse {
+  repeated TaskResult results = 1;
+}
+
+message UpdateAllSubscriptionsRequest {}
+
+message UpdateAllSubscriptionsResponse {
+  repeated TaskResult results = 1;
+}
+
+service SubscriptionService {
+  rpc ListSubscriptions(ListSubscriptionsRequest) returns (ListSubscriptionsResponse);
+  rpc SaveSubscriptions(SaveSubscriptionsRequest) returns (SaveSubscriptionsResponse);
+  rpc UpsertSubscription(UpsertSubscriptionRequest) returns (UpsertSubscriptionResponse);
+  rpc DeleteSubscription(DeleteSubscriptionRequest) returns (DeleteSubscriptionResponse);
+  rpc UpdateSubscription(UpdateSubscriptionRequest) returns (UpdateSubscriptionResponse);
+  rpc UpdateAllSubscriptions(UpdateAllSubscriptionsRequest) returns (UpdateAllSubscriptionsResponse);
+}

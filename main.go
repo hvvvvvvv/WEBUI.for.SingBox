@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
 	"embed"
 	"flag"
 	"fmt"
 	"guiforcores/bridge"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
 //go:embed all:frontend/dist
@@ -16,18 +20,24 @@ func main() {
 	resetAuth := flag.String("reset-auth", "", "Reset auth secret (provide new secret, or 'clear' to remove)")
 	flag.Parse()
 
-	app := bridge.CreateApp(assets)
-	_ = app
+	app, err := bridge.New(bridge.Options{
+		Address: *addr,
+		Assets:  assets,
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to initialize application: %v\n", err)
+		os.Exit(1)
+	}
 
 	if *resetAuth != "" {
 		if *resetAuth == "clear" {
-			if err := bridge.SetSecretKey(""); err != nil {
+			if err := app.SetAuthSecret(""); err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to clear auth secret: %v\n", err)
 				os.Exit(1)
 			}
 			fmt.Println("Auth secret cleared.")
 		} else {
-			if err := bridge.SetSecretKey(*resetAuth); err != nil {
+			if err := app.SetAuthSecret(*resetAuth); err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to update auth secret: %v\n", err)
 				os.Exit(1)
 			}
@@ -36,7 +46,15 @@ func main() {
 		os.Exit(0)
 	}
 
-	bridge.ServerAddr = *addr
-
-	bridge.StartHTTPServer(*addr, assets)
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	defer func() {
+		closeContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = app.Close(closeContext)
+	}()
+	if err := app.Run(ctx); err != nil {
+		fmt.Fprintf(os.Stderr, "Server failed: %v\n", err)
+		os.Exit(1)
+	}
 }

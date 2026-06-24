@@ -33,7 +33,7 @@ import {
   message,
   eventBus,
 } from '@/utils'
-import { KernelService } from '../../gen/kernel/v1/kernel_pb'
+import { KernelRuntimeService } from '../../gen/kernel/v1/kernel_runtime_service_pb'
 
 import type { CoreApiConfig, CoreApiProxy } from '@/types/kernel'
 
@@ -64,7 +64,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   const subscribesStore = useSubscribesStore()
   const rulesetsStore = useRulesetsStore()
   const appConfigStore = useAppConfigStore()
-  const kernelService = createRpcClient(KernelService)
+  const kernelService = createRpcClient(KernelRuntimeService)
 
   /** RESTful API */
   const config = ref<CoreApiConfig>({

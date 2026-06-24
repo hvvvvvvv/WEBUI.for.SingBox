@@ -6,10 +6,10 @@ import { DefaultSubscribeScript } from '@/constant/app'
 import { DefaultExcludeProtocols } from '@/constant/kernel'
 import { RequestMethod } from '@/enums/app'
 import { sampleID, eventBus } from '@/utils'
-import { SubscriptionService } from '../../gen/app/v1/app_service_pb'
+import { SubscriptionService } from '../../gen/app/v1/subscription_service_pb'
 
 import type { Subscription } from '@/types/app'
-import type { TaskResult } from '../../gen/app/v1/app_service_pb'
+import type { TaskResult } from '../../gen/app/v1/task_pb'
 
 const parseList = <T>(items: string[]) => items.map((v) => JSON.parse(v) as T)
 

@@ -2,8 +2,8 @@ import { parse } from 'yaml'
 
 import { ReadFile, WriteFile, createRpcClient } from '@/bridge'
 import { CoreConfigFilePath } from '@/constant/kernel'
-import { KernelConfigService } from '../../gen/kernel/v1/kernel_config_pb'
-import { ProfileManagementService } from '../../gen/profile/v1/profile_management_service_pb'
+import { KernelConfigService } from '../../gen/kernel/v1/kernel_config_service_pb'
+import { ProfileService } from '../../gen/profile/v1/profile_service_pb'
 import {
   DnsServer,
   Inbound,
@@ -403,7 +403,7 @@ export const generateConfigViaRpcByProfile = async (
 }
 
 export const generateConfigViaRpc = async (profileId: string): Promise<Recordable> => {
-  const profileMgmtClient = createRpcClient(ProfileManagementService)
+  const profileMgmtClient = createRpcClient(ProfileService)
   const { profile } = await profileMgmtClient.getProfile({ id: profileId })
   if (!profile) throw new Error(`Profile "${profileId}" not found`)
   return generateConfigViaRpcByProfile(profile as any)

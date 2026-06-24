@@ -1,0 +1,77 @@
+syntax = "proto3";
+
+package app.v1;
+
+option go_package = "guiforcores/proto/app/v1";
+
+import "app/v1/task.proto";
+
+message ListScheduledTasksRequest {}
+
+message ListScheduledTasksResponse {
+  repeated string tasks_json = 1;
+}
+
+message SaveScheduledTasksRequest {
+  repeated string tasks_json = 1;
+}
+
+message SaveScheduledTasksResponse {
+  repeated string tasks_json = 1;
+}
+
+message UpsertScheduledTaskRequest {
+  string task_json = 1;
+}
+
+message UpsertScheduledTaskResponse {
+  string task_json = 1;
+}
+
+message DeleteScheduledTaskRequest {
+  string id = 1;
+}
+
+message DeleteScheduledTaskResponse {}
+
+message RunScheduledTaskRequest {
+  string id = 1;
+}
+
+message RunScheduledTaskResponse {
+  repeated TaskResult results = 1;
+  int64 start_time = 2;
+  int64 end_time = 3;
+}
+
+message ListScheduledTaskLogsRequest {
+  string id = 1;
+}
+
+message ListScheduledTaskLogsResponse {
+  repeated TaskLog logs = 1;
+}
+
+message ClearScheduledTaskLogsRequest {}
+
+message ClearScheduledTaskLogsResponse {}
+
+message NextScheduledTaskRunsRequest {
+  string cron = 1;
+  int32 count = 2;
+}
+
+message NextScheduledTaskRunsResponse {
+  repeated int64 times = 1;
+}
+
+service ScheduledTaskService {
+  rpc ListScheduledTasks(ListScheduledTasksRequest) returns (ListScheduledTasksResponse);
+  rpc SaveScheduledTasks(SaveScheduledTasksRequest) returns (SaveScheduledTasksResponse);
+  rpc UpsertScheduledTask(UpsertScheduledTaskRequest) returns (UpsertScheduledTaskResponse);
+  rpc DeleteScheduledTask(DeleteScheduledTaskRequest) returns (DeleteScheduledTaskResponse);
+  rpc RunScheduledTask(RunScheduledTaskRequest) returns (RunScheduledTaskResponse);
+  rpc ListScheduledTaskLogs(ListScheduledTaskLogsRequest) returns (ListScheduledTaskLogsResponse);
+  rpc ClearScheduledTaskLogs(ClearScheduledTaskLogsRequest) returns (ClearScheduledTaskLogsResponse);
+  rpc NextScheduledTaskRuns(NextScheduledTaskRunsRequest) returns (NextScheduledTaskRunsResponse);
+}
