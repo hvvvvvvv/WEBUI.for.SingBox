@@ -2,9 +2,7 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { MakeDir, OpenDir } from '@/bridge'
 import { apiCall } from '@/bridge/http'
-import { RollingReleaseDirectory } from '@/constant/app'
 import { useAppConfigStore, useAppSettingsStore } from '@/stores'
 import { APP_TITLE, APP_VERSION, message } from '@/utils'
 
@@ -15,11 +13,6 @@ const appConfig = useAppConfigStore()
 const authSecret = ref('')
 const authSecretConfirm = ref('')
 const authLoading = ref(false)
-
-const handleOpenRollingReleaseFolder = async () => {
-  await MakeDir(RollingReleaseDirectory)
-  await OpenDir(RollingReleaseDirectory)
-}
 
 const handleClearApiToken = () => {
   appConfig.config.githubApiToken = ''
@@ -84,7 +77,6 @@ const handleClearAuth = async () => {
         <span class="font-normal text-12">({{ $t('settings.needRestart') }})</span>
       </div>
       <div class="flex items-center gap-4">
-        <Button type="primary" icon="folder" size="small" @click="handleOpenRollingReleaseFolder" />
         <Switch v-model="appConfig.config.rollingRelease" />
       </div>
     </div>

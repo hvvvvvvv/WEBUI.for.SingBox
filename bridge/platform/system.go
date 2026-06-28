@@ -1,7 +1,6 @@
 package platform
 
 import (
-	"log"
 	"net"
 	"os"
 	"os/exec"
@@ -23,11 +22,6 @@ func DetectLibc() string {
 		return "musl"
 	}
 	return "glibc"
-}
-
-func (s *Service) ExitApp() {
-	log.Printf("ExitApp")
-	os.Exit(0)
 }
 
 func (s *Service) GetEnv(key string) any {

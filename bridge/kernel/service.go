@@ -20,6 +20,7 @@ import (
 	profilev1 "guiforcores/gen/profile/v1"
 
 	connect "connectrpc.com/connect"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -39,6 +40,7 @@ type ProcessRunner interface {
 	Exec(path string, args []string, options platform.ExecOptions) platform.Result
 	ExecBackground(path string, args []string, outEvent string, endEvent string, options platform.ExecOptions) platform.Result
 	ProcessInfo(pid int32) platform.Result
+	ProcessMemory(pid int32) platform.Result
 	KillProcess(pid int, timeout int) platform.Result
 	ResolvePath(path string) string
 	BaseDir() string
@@ -73,7 +75,10 @@ type Service struct {
 	status          kernelv1.CoreStatus
 	activeProfileID string
 	corePID         int
+	currentProfile  *profilev1.Profile
 }
+
+var waitKernelAPIReadyFunc = waitKernelAPIReady
 
 func NewService(processes ProcessRunner, configService ConfigGenerator, appConfig AppConfigReader, profiles ProfileReader, events EventPublisher) *Service {
 	return &Service{
@@ -108,28 +113,53 @@ func (s *Service) StartCore(
 	ctx context.Context,
 	req *connect.Request[kernelv1.StartCoreRequest],
 ) (*connect.Response[kernelv1.StartCoreResponse], error) {
+	profileID := req.Msg.GetProfileId()
+	if profileID == "" {
+		return nil, rpcutil.AsConnectError(rpcutil.InvalidArgumentError{Message: "profile_id is required"})
+	}
+
+	profile, err := s.loadProfileByID(profileID)
+	if err != nil {
+		return nil, rpcutil.AsConnectError(err)
+	}
+
+	pid, err := s.startCoreWithProfile(ctx, profile)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&kernelv1.StartCoreResponse{Pid: int32(pid)}), nil
+}
+
+func (s *Service) StartCoreWithProfile(
+	ctx context.Context,
+	req *connect.Request[kernelv1.StartCoreWithProfileRequest],
+) (*connect.Response[kernelv1.StartCoreWithProfileResponse], error) {
+	profile := req.Msg.GetProfile()
+	if profile == nil || profile.GetId() == "" {
+		return nil, rpcutil.AsConnectError(rpcutil.InvalidArgumentError{Message: "profile is required"})
+	}
+
+	pid, err := s.startCoreWithProfile(ctx, profile)
+	if err != nil {
+		return nil, err
+	}
+	return connect.NewResponse(&kernelv1.StartCoreWithProfileResponse{Pid: int32(pid)}), nil
+}
+
+func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.Profile) (int, error) {
+	profileID := profile.GetId()
+
 	s.mu.Lock()
 	if s.status == kernelv1.CoreStatus_CORE_STATUS_STARTING || s.status == kernelv1.CoreStatus_CORE_STATUS_RUNNING {
 		s.mu.Unlock()
-		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("core is already starting or running"))
-	}
-
-	profileID := req.Msg.GetProfileId()
-	if profileID == "" {
-		s.mu.Unlock()
-		return nil, rpcutil.AsConnectError(rpcutil.InvalidArgumentError{Message: "profile_id is required"})
+		return -1, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("core is already starting or running"))
 	}
 
 	s.status = kernelv1.CoreStatus_CORE_STATUS_STARTING
 	s.activeProfileID = profileID
+	s.currentProfile = nil
 	s.mu.Unlock()
 	s.publish("kernelStarting", map[string]any{"profileId": profileID})
-
-	profile, err := s.loadProfileByID(profileID)
-	if err != nil {
-		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_STOPPED)
-		return nil, rpcutil.AsConnectError(err)
-	}
 
 	generatedConfig, err := s.config.Generate(profile, &kernelv1.GenerateConfigOptions{
 		EnableMixinProcessing:  true,
@@ -137,24 +167,24 @@ func (s *Service) StartCore(
 	})
 	if err != nil {
 		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_STOPPED)
-		return nil, rpcutil.AsConnectError(err)
+		return -1, rpcutil.AsConnectError(err)
 	}
 
 	config.FinalizeGeneratedConfig(generatedConfig)
 	if err := s.config.WriteGeneratedConfig(generatedConfig); err != nil {
 		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_STOPPED)
-		return nil, rpcutil.AsConnectError(err)
+		return -1, rpcutil.AsConnectError(err)
 	}
 
 	runtimeCfg, err := s.loadRuntimeConfig()
 	if err != nil {
 		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_STOPPED)
-		return nil, rpcutil.AsConnectError(err)
+		return -1, rpcutil.AsConnectError(err)
 	}
 
 	if err := validateKernelConfig(s.processes, runtimeCfg); err != nil {
 		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_STOPPED)
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+		return -1, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
 	execResult := s.processes.ExecBackground(
@@ -170,20 +200,20 @@ func (s *Service) StartCore(
 	)
 	if !execResult.Flag {
 		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_STOPPED)
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("start core failed: %s", execResult.Data))
+		return -1, connect.NewError(connect.CodeInternal, fmt.Errorf("start core failed: %s", execResult.Data))
 	}
 
 	pid, convErr := parsePID(execResult.Data)
 	if convErr != nil {
 		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_STOPPED)
-		return nil, connect.NewError(connect.CodeInternal, convErr)
+		return -1, connect.NewError(connect.CodeInternal, convErr)
 	}
 
 	s.mu.Lock()
 	s.corePID = pid
 	s.mu.Unlock()
 
-	if err := waitKernelAPIReady(ctx, config.CoreAPIController, s.config.ReadGeneratedSecret(), pid, 15*time.Second); err != nil {
+	if err := waitKernelAPIReadyFunc(ctx, config.CoreAPIController, s.config.ReadGeneratedSecret(), pid, 15*time.Second); err != nil {
 		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_CRASHED)
 		s.publish("kernelCrashed", map[string]any{"pid": pid, "reason": err.Error()})
 		_ = s.processes.KillProcess(pid, 5)
@@ -191,16 +221,17 @@ func (s *Service) StartCore(
 		s.corePID = -1
 		s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPED
 		s.mu.Unlock()
-		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("kernel api is not ready: %w", err))
+		return -1, connect.NewError(connect.CodeUnavailable, fmt.Errorf("kernel api is not ready: %w", err))
 	}
 
 	s.mu.Lock()
 	s.status = kernelv1.CoreStatus_CORE_STATUS_RUNNING
+	s.currentProfile = cloneProfile(profile)
 	s.mu.Unlock()
 
 	s.publish("kernelStarted", map[string]any{"pid": pid, "profileId": profileID})
 	_ = ctx
-	return connect.NewResponse(&kernelv1.StartCoreResponse{}), nil
+	return pid, nil
 }
 
 func (s *Service) StopCore(
@@ -226,6 +257,7 @@ func (s *Service) StopCore(
 	s.mu.Lock()
 	s.corePID = -1
 	s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPED
+	s.currentProfile = nil
 	s.mu.Unlock()
 
 	s.publish("kernelStopped", map[string]any{"pid": pid})
@@ -250,10 +282,11 @@ func (s *Service) RestartCore(
 		return nil, rpcutil.AsConnectError(rpcutil.InvalidArgumentError{Message: "profile_id is required for restart when no active profile exists"})
 	}
 
-	if _, err := s.StartCore(ctx, connect.NewRequest(&kernelv1.StartCoreRequest{ProfileId: profileID})); err != nil {
+	startResp, err := s.StartCore(ctx, connect.NewRequest(&kernelv1.StartCoreRequest{ProfileId: profileID}))
+	if err != nil {
 		return nil, err
 	}
-	return connect.NewResponse(&kernelv1.RestartCoreResponse{}), nil
+	return connect.NewResponse(&kernelv1.RestartCoreResponse{Pid: startResp.Msg.GetPid()}), nil
 }
 
 func (s *Service) GetCoreStatus(
@@ -262,8 +295,81 @@ func (s *Service) GetCoreStatus(
 ) (*connect.Response[kernelv1.GetCoreStatusResponse], error) {
 	s.mu.Lock()
 	status := s.status
+	pid := s.corePID
 	s.mu.Unlock()
-	return connect.NewResponse(&kernelv1.GetCoreStatusResponse{Status: status}), nil
+	if status != kernelv1.CoreStatus_CORE_STATUS_RUNNING || pid <= 0 {
+		pid = -1
+	}
+	return connect.NewResponse(&kernelv1.GetCoreStatusResponse{Status: status, Pid: int32(pid)}), nil
+}
+
+func (s *Service) GetCurrentProfile(
+	_ context.Context,
+	_ *connect.Request[kernelv1.GetCurrentProfileRequest],
+) (*connect.Response[kernelv1.GetCurrentProfileResponse], error) {
+	s.mu.Lock()
+	status := s.status
+	currentProfile := cloneProfile(s.currentProfile)
+	activeProfileID := s.activeProfileID
+	s.mu.Unlock()
+
+	if status != kernelv1.CoreStatus_CORE_STATUS_RUNNING {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("core is not running"))
+	}
+
+	if currentProfile == nil && activeProfileID != "" {
+		profile, err := s.loadProfileByID(activeProfileID)
+		if err != nil {
+			return nil, rpcutil.AsConnectError(err)
+		}
+		currentProfile = cloneProfile(profile)
+	}
+
+	if currentProfile == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("current profile is not available"))
+	}
+
+	return connect.NewResponse(&kernelv1.GetCurrentProfileResponse{
+		Profile: currentProfile,
+		Status:  status,
+	}), nil
+}
+
+func cloneProfile(profile *profilev1.Profile) *profilev1.Profile {
+	if profile == nil {
+		return nil
+	}
+	cloned, ok := proto.Clone(profile).(*profilev1.Profile)
+	if !ok {
+		return nil
+	}
+	return cloned
+}
+
+func (s *Service) GetCurrentCoreMemory(
+	_ context.Context,
+	_ *connect.Request[kernelv1.GetCurrentCoreMemoryRequest],
+) (*connect.Response[kernelv1.GetCurrentCoreMemoryResponse], error) {
+	s.mu.Lock()
+	status := s.status
+	pid := s.corePID
+	s.mu.Unlock()
+
+	if status != kernelv1.CoreStatus_CORE_STATUS_RUNNING || pid <= 0 {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("core is not running"))
+	}
+
+	result := s.processes.ProcessMemory(int32(pid))
+	if !result.Flag {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("get current core memory failed: %s", result.Data))
+	}
+
+	rss, err := strconv.ParseUint(result.Data, 10, 64)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("invalid memory usage from core process: %q", result.Data))
+	}
+
+	return connect.NewResponse(&kernelv1.GetCurrentCoreMemoryResponse{Rss: rss}), nil
 }
 
 func (s *Service) AutoStart(ctx context.Context) {

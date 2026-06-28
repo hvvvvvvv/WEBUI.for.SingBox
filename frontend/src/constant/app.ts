@@ -7,9 +7,6 @@ import {
   Theme,
   View,
 } from '@/enums/app'
-
-export const LocalesFilePath = 'data/locales'
-
 export const ProfilesFilePath = 'data/profiles.yaml'
 
 export const SubscribesFilePath = 'data/subscribes.yaml'

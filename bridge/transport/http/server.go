@@ -307,10 +307,6 @@ func registerAPIRoutes(mux *http.ServeMux, app *platform.Service, authService *a
 	})
 
 	// App
-	apiRoute(mux, "/api/app/exit", func(args []json.RawMessage) any {
-		app.ExitApp()
-		return FlagResult{Flag: true, Data: "Success"}
-	})
 	apiRoute(mux, "/api/app/env", func(args []json.RawMessage) any {
 		key, _ := unmarshalArg[string](args, 0)
 		return app.GetEnv(key)
@@ -400,14 +396,6 @@ func registerAPIRoutes(mux *http.ServeMux, app *platform.Service, authService *a
 		execArgs, _ := unmarshalArg[[]string](args, 1)
 		options, _ := unmarshalArg[ExecOptions](args, 2)
 		return app.Exec(path, execArgs, options)
-	})
-	apiRoute(mux, "/api/exec/processInfo", func(args []json.RawMessage) any {
-		pid, _ := unmarshalArg[int32](args, 0)
-		return app.ProcessInfo(pid)
-	})
-	apiRoute(mux, "/api/exec/processMemory", func(args []json.RawMessage) any {
-		pid, _ := unmarshalArg[int32](args, 0)
-		return app.ProcessMemory(pid)
 	})
 }
 

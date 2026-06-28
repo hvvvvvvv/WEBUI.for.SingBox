@@ -5,12 +5,23 @@ package kernel.v1;
 option go_package = "guiforcores/proto/kernel/v1";
 
 import "kernel/v1/kernel.proto";
+import "profile/v1/profile.proto";
 
 message StartCoreRequest {
   string profile_id = 1;
 }
 
-message StartCoreResponse {}
+message StartCoreResponse {
+  int32 pid = 1;
+}
+
+message StartCoreWithProfileRequest {
+  profile.v1.Profile profile = 1;
+}
+
+message StartCoreWithProfileResponse {
+  int32 pid = 1;
+}
 
 message StopCoreRequest {}
 
@@ -20,17 +31,36 @@ message RestartCoreRequest {
   string profile_id = 1;
 }
 
-message RestartCoreResponse {}
+message RestartCoreResponse {
+  int32 pid = 1;
+}
 
 message GetCoreStatusRequest {}
 
 message GetCoreStatusResponse {
   CoreStatus status = 1;
+  int32 pid = 2;
+}
+
+message GetCurrentProfileRequest {}
+
+message GetCurrentProfileResponse {
+  profile.v1.Profile profile = 1;
+  CoreStatus status = 2;
+}
+
+message GetCurrentCoreMemoryRequest {}
+
+message GetCurrentCoreMemoryResponse {
+  uint64 rss = 1;
 }
 
 service KernelRuntimeService {
   rpc StartCore(StartCoreRequest) returns (StartCoreResponse);
+  rpc StartCoreWithProfile(StartCoreWithProfileRequest) returns (StartCoreWithProfileResponse);
   rpc StopCore(StopCoreRequest) returns (StopCoreResponse);
   rpc RestartCore(RestartCoreRequest) returns (RestartCoreResponse);
   rpc GetCoreStatus(GetCoreStatusRequest) returns (GetCoreStatusResponse);
+  rpc GetCurrentProfile(GetCurrentProfileRequest) returns (GetCurrentProfileResponse);
+  rpc GetCurrentCoreMemory(GetCurrentCoreMemoryRequest) returns (GetCurrentCoreMemoryResponse);
 }

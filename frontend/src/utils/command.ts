@@ -121,14 +121,6 @@ export const getCommands = () => {
           label: 'settings.lang.name',
           cmd: 'Language',
           children: [
-            {
-              label: 'settings.lang.load',
-              cmd: 'Load language files',
-              handler: async () => {
-                await appStore.loadLocales()
-                message.success('common.success')
-              },
-            },
             ...appStore.locales.map((v) => ({
               label: v.label,
               cmd: v.value,

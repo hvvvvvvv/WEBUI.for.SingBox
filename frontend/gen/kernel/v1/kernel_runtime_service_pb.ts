@@ -6,13 +6,15 @@ import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegen
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
 import type { CoreStatus } from "./kernel_pb";
 import { file_kernel_v1_kernel } from "./kernel_pb";
+import type { Profile } from "../../profile/v1/profile_pb";
+import { file_profile_v1_profile } from "../../profile/v1/profile_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file kernel/v1/kernel_runtime_service.proto.
  */
 export const file_kernel_v1_kernel_runtime_service: GenFile = /*@__PURE__*/
-  fileDesc("CiZrZXJuZWwvdjEva2VybmVsX3J1bnRpbWVfc2VydmljZS5wcm90bxIJa2VybmVsLnYxIiYKEFN0YXJ0Q29yZVJlcXVlc3QSEgoKcHJvZmlsZV9pZBgBIAEoCSITChFTdGFydENvcmVSZXNwb25zZSIRCg9TdG9wQ29yZVJlcXVlc3QiEgoQU3RvcENvcmVSZXNwb25zZSIoChJSZXN0YXJ0Q29yZVJlcXVlc3QSEgoKcHJvZmlsZV9pZBgBIAEoCSIVChNSZXN0YXJ0Q29yZVJlc3BvbnNlIhYKFEdldENvcmVTdGF0dXNSZXF1ZXN0Ij4KFUdldENvcmVTdGF0dXNSZXNwb25zZRIlCgZzdGF0dXMYASABKA4yFS5rZXJuZWwudjEuQ29yZVN0YXR1czLFAgoUS2VybmVsUnVudGltZVNlcnZpY2USRgoJU3RhcnRDb3JlEhsua2VybmVsLnYxLlN0YXJ0Q29yZVJlcXVlc3QaHC5rZXJuZWwudjEuU3RhcnRDb3JlUmVzcG9uc2USQwoIU3RvcENvcmUSGi5rZXJuZWwudjEuU3RvcENvcmVSZXF1ZXN0Ghsua2VybmVsLnYxLlN0b3BDb3JlUmVzcG9uc2USTAoLUmVzdGFydENvcmUSHS5rZXJuZWwudjEuUmVzdGFydENvcmVSZXF1ZXN0Gh4ua2VybmVsLnYxLlJlc3RhcnRDb3JlUmVzcG9uc2USUgoNR2V0Q29yZVN0YXR1cxIfLmtlcm5lbC52MS5HZXRDb3JlU3RhdHVzUmVxdWVzdBogLmtlcm5lbC52MS5HZXRDb3JlU3RhdHVzUmVzcG9uc2VCkwEKDWNvbS5rZXJuZWwudjFCGUtlcm5lbFJ1bnRpbWVTZXJ2aWNlUHJvdG9QAVoiZ3VpZm9yY29yZXMvZ2VuL2tlcm5lbC92MTtrZXJuZWx2MaICA0tYWKoCCUtlcm5lbC5WMcoCCUtlcm5lbFxWMeICFUtlcm5lbFxWMVxHUEJNZXRhZGF0YeoCCktlcm5lbDo6VjFiBnByb3RvMw", [file_kernel_v1_kernel]);
+  fileDesc("CiZrZXJuZWwvdjEva2VybmVsX3J1bnRpbWVfc2VydmljZS5wcm90bxIJa2VybmVsLnYxIiYKEFN0YXJ0Q29yZVJlcXVlc3QSEgoKcHJvZmlsZV9pZBgBIAEoCSIgChFTdGFydENvcmVSZXNwb25zZRILCgNwaWQYASABKAUiQwobU3RhcnRDb3JlV2l0aFByb2ZpbGVSZXF1ZXN0EiQKB3Byb2ZpbGUYASABKAsyEy5wcm9maWxlLnYxLlByb2ZpbGUiKwocU3RhcnRDb3JlV2l0aFByb2ZpbGVSZXNwb25zZRILCgNwaWQYASABKAUiEQoPU3RvcENvcmVSZXF1ZXN0IhIKEFN0b3BDb3JlUmVzcG9uc2UiKAoSUmVzdGFydENvcmVSZXF1ZXN0EhIKCnByb2ZpbGVfaWQYASABKAkiIgoTUmVzdGFydENvcmVSZXNwb25zZRILCgNwaWQYASABKAUiFgoUR2V0Q29yZVN0YXR1c1JlcXVlc3QiSwoVR2V0Q29yZVN0YXR1c1Jlc3BvbnNlEiUKBnN0YXR1cxgBIAEoDjIVLmtlcm5lbC52MS5Db3JlU3RhdHVzEgsKA3BpZBgCIAEoBSIaChhHZXRDdXJyZW50UHJvZmlsZVJlcXVlc3QiaAoZR2V0Q3VycmVudFByb2ZpbGVSZXNwb25zZRIkCgdwcm9maWxlGAEgASgLMhMucHJvZmlsZS52MS5Qcm9maWxlEiUKBnN0YXR1cxgCIAEoDjIVLmtlcm5lbC52MS5Db3JlU3RhdHVzIh0KG0dldEN1cnJlbnRDb3JlTWVtb3J5UmVxdWVzdCIrChxHZXRDdXJyZW50Q29yZU1lbW9yeVJlc3BvbnNlEgsKA3JzcxgBIAEoBDL3BAoUS2VybmVsUnVudGltZVNlcnZpY2USRgoJU3RhcnRDb3JlEhsua2VybmVsLnYxLlN0YXJ0Q29yZVJlcXVlc3QaHC5rZXJuZWwudjEuU3RhcnRDb3JlUmVzcG9uc2USZwoUU3RhcnRDb3JlV2l0aFByb2ZpbGUSJi5rZXJuZWwudjEuU3RhcnRDb3JlV2l0aFByb2ZpbGVSZXF1ZXN0Gicua2VybmVsLnYxLlN0YXJ0Q29yZVdpdGhQcm9maWxlUmVzcG9uc2USQwoIU3RvcENvcmUSGi5rZXJuZWwudjEuU3RvcENvcmVSZXF1ZXN0Ghsua2VybmVsLnYxLlN0b3BDb3JlUmVzcG9uc2USTAoLUmVzdGFydENvcmUSHS5rZXJuZWwudjEuUmVzdGFydENvcmVSZXF1ZXN0Gh4ua2VybmVsLnYxLlJlc3RhcnRDb3JlUmVzcG9uc2USUgoNR2V0Q29yZVN0YXR1cxIfLmtlcm5lbC52MS5HZXRDb3JlU3RhdHVzUmVxdWVzdBogLmtlcm5lbC52MS5HZXRDb3JlU3RhdHVzUmVzcG9uc2USXgoRR2V0Q3VycmVudFByb2ZpbGUSIy5rZXJuZWwudjEuR2V0Q3VycmVudFByb2ZpbGVSZXF1ZXN0GiQua2VybmVsLnYxLkdldEN1cnJlbnRQcm9maWxlUmVzcG9uc2USZwoUR2V0Q3VycmVudENvcmVNZW1vcnkSJi5rZXJuZWwudjEuR2V0Q3VycmVudENvcmVNZW1vcnlSZXF1ZXN0Gicua2VybmVsLnYxLkdldEN1cnJlbnRDb3JlTWVtb3J5UmVzcG9uc2VCkwEKDWNvbS5rZXJuZWwudjFCGUtlcm5lbFJ1bnRpbWVTZXJ2aWNlUHJvdG9QAVoiZ3VpZm9yY29yZXMvZ2VuL2tlcm5lbC92MTtrZXJuZWx2MaICA0tYWKoCCUtlcm5lbC5WMcoCCUtlcm5lbFxWMeICFUtlcm5lbFxWMVxHUEJNZXRhZGF0YeoCCktlcm5lbDo6VjFiBnByb3RvMw", [file_kernel_v1_kernel, file_profile_v1_profile]);
 
 /**
  * @generated from message kernel.v1.StartCoreRequest
@@ -35,6 +37,10 @@ export const StartCoreRequestSchema: GenMessage<StartCoreRequest> = /*@__PURE__*
  * @generated from message kernel.v1.StartCoreResponse
  */
 export type StartCoreResponse = Message<"kernel.v1.StartCoreResponse"> & {
+  /**
+   * @generated from field: int32 pid = 1;
+   */
+  pid: number;
 };
 
 /**
@@ -43,6 +49,40 @@ export type StartCoreResponse = Message<"kernel.v1.StartCoreResponse"> & {
  */
 export const StartCoreResponseSchema: GenMessage<StartCoreResponse> = /*@__PURE__*/
   messageDesc(file_kernel_v1_kernel_runtime_service, 1);
+
+/**
+ * @generated from message kernel.v1.StartCoreWithProfileRequest
+ */
+export type StartCoreWithProfileRequest = Message<"kernel.v1.StartCoreWithProfileRequest"> & {
+  /**
+   * @generated from field: profile.v1.Profile profile = 1;
+   */
+  profile?: Profile | undefined;
+};
+
+/**
+ * Describes the message kernel.v1.StartCoreWithProfileRequest.
+ * Use `create(StartCoreWithProfileRequestSchema)` to create a new message.
+ */
+export const StartCoreWithProfileRequestSchema: GenMessage<StartCoreWithProfileRequest> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 2);
+
+/**
+ * @generated from message kernel.v1.StartCoreWithProfileResponse
+ */
+export type StartCoreWithProfileResponse = Message<"kernel.v1.StartCoreWithProfileResponse"> & {
+  /**
+   * @generated from field: int32 pid = 1;
+   */
+  pid: number;
+};
+
+/**
+ * Describes the message kernel.v1.StartCoreWithProfileResponse.
+ * Use `create(StartCoreWithProfileResponseSchema)` to create a new message.
+ */
+export const StartCoreWithProfileResponseSchema: GenMessage<StartCoreWithProfileResponse> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 3);
 
 /**
  * @generated from message kernel.v1.StopCoreRequest
@@ -55,7 +95,7 @@ export type StopCoreRequest = Message<"kernel.v1.StopCoreRequest"> & {
  * Use `create(StopCoreRequestSchema)` to create a new message.
  */
 export const StopCoreRequestSchema: GenMessage<StopCoreRequest> = /*@__PURE__*/
-  messageDesc(file_kernel_v1_kernel_runtime_service, 2);
+  messageDesc(file_kernel_v1_kernel_runtime_service, 4);
 
 /**
  * @generated from message kernel.v1.StopCoreResponse
@@ -68,7 +108,7 @@ export type StopCoreResponse = Message<"kernel.v1.StopCoreResponse"> & {
  * Use `create(StopCoreResponseSchema)` to create a new message.
  */
 export const StopCoreResponseSchema: GenMessage<StopCoreResponse> = /*@__PURE__*/
-  messageDesc(file_kernel_v1_kernel_runtime_service, 3);
+  messageDesc(file_kernel_v1_kernel_runtime_service, 5);
 
 /**
  * @generated from message kernel.v1.RestartCoreRequest
@@ -85,12 +125,16 @@ export type RestartCoreRequest = Message<"kernel.v1.RestartCoreRequest"> & {
  * Use `create(RestartCoreRequestSchema)` to create a new message.
  */
 export const RestartCoreRequestSchema: GenMessage<RestartCoreRequest> = /*@__PURE__*/
-  messageDesc(file_kernel_v1_kernel_runtime_service, 4);
+  messageDesc(file_kernel_v1_kernel_runtime_service, 6);
 
 /**
  * @generated from message kernel.v1.RestartCoreResponse
  */
 export type RestartCoreResponse = Message<"kernel.v1.RestartCoreResponse"> & {
+  /**
+   * @generated from field: int32 pid = 1;
+   */
+  pid: number;
 };
 
 /**
@@ -98,7 +142,7 @@ export type RestartCoreResponse = Message<"kernel.v1.RestartCoreResponse"> & {
  * Use `create(RestartCoreResponseSchema)` to create a new message.
  */
 export const RestartCoreResponseSchema: GenMessage<RestartCoreResponse> = /*@__PURE__*/
-  messageDesc(file_kernel_v1_kernel_runtime_service, 5);
+  messageDesc(file_kernel_v1_kernel_runtime_service, 7);
 
 /**
  * @generated from message kernel.v1.GetCoreStatusRequest
@@ -111,7 +155,7 @@ export type GetCoreStatusRequest = Message<"kernel.v1.GetCoreStatusRequest"> & {
  * Use `create(GetCoreStatusRequestSchema)` to create a new message.
  */
 export const GetCoreStatusRequestSchema: GenMessage<GetCoreStatusRequest> = /*@__PURE__*/
-  messageDesc(file_kernel_v1_kernel_runtime_service, 6);
+  messageDesc(file_kernel_v1_kernel_runtime_service, 8);
 
 /**
  * @generated from message kernel.v1.GetCoreStatusResponse
@@ -121,6 +165,11 @@ export type GetCoreStatusResponse = Message<"kernel.v1.GetCoreStatusResponse"> &
    * @generated from field: kernel.v1.CoreStatus status = 1;
    */
   status: CoreStatus;
+
+  /**
+   * @generated from field: int32 pid = 2;
+   */
+  pid: number;
 };
 
 /**
@@ -128,7 +177,72 @@ export type GetCoreStatusResponse = Message<"kernel.v1.GetCoreStatusResponse"> &
  * Use `create(GetCoreStatusResponseSchema)` to create a new message.
  */
 export const GetCoreStatusResponseSchema: GenMessage<GetCoreStatusResponse> = /*@__PURE__*/
-  messageDesc(file_kernel_v1_kernel_runtime_service, 7);
+  messageDesc(file_kernel_v1_kernel_runtime_service, 9);
+
+/**
+ * @generated from message kernel.v1.GetCurrentProfileRequest
+ */
+export type GetCurrentProfileRequest = Message<"kernel.v1.GetCurrentProfileRequest"> & {
+};
+
+/**
+ * Describes the message kernel.v1.GetCurrentProfileRequest.
+ * Use `create(GetCurrentProfileRequestSchema)` to create a new message.
+ */
+export const GetCurrentProfileRequestSchema: GenMessage<GetCurrentProfileRequest> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 10);
+
+/**
+ * @generated from message kernel.v1.GetCurrentProfileResponse
+ */
+export type GetCurrentProfileResponse = Message<"kernel.v1.GetCurrentProfileResponse"> & {
+  /**
+   * @generated from field: profile.v1.Profile profile = 1;
+   */
+  profile?: Profile | undefined;
+
+  /**
+   * @generated from field: kernel.v1.CoreStatus status = 2;
+   */
+  status: CoreStatus;
+};
+
+/**
+ * Describes the message kernel.v1.GetCurrentProfileResponse.
+ * Use `create(GetCurrentProfileResponseSchema)` to create a new message.
+ */
+export const GetCurrentProfileResponseSchema: GenMessage<GetCurrentProfileResponse> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 11);
+
+/**
+ * @generated from message kernel.v1.GetCurrentCoreMemoryRequest
+ */
+export type GetCurrentCoreMemoryRequest = Message<"kernel.v1.GetCurrentCoreMemoryRequest"> & {
+};
+
+/**
+ * Describes the message kernel.v1.GetCurrentCoreMemoryRequest.
+ * Use `create(GetCurrentCoreMemoryRequestSchema)` to create a new message.
+ */
+export const GetCurrentCoreMemoryRequestSchema: GenMessage<GetCurrentCoreMemoryRequest> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 12);
+
+/**
+ * @generated from message kernel.v1.GetCurrentCoreMemoryResponse
+ */
+export type GetCurrentCoreMemoryResponse = Message<"kernel.v1.GetCurrentCoreMemoryResponse"> & {
+  /**
+   * @generated from field: uint64 rss = 1;
+   */
+  rss: bigint;
+};
+
+/**
+ * Describes the message kernel.v1.GetCurrentCoreMemoryResponse.
+ * Use `create(GetCurrentCoreMemoryResponseSchema)` to create a new message.
+ */
+export const GetCurrentCoreMemoryResponseSchema: GenMessage<GetCurrentCoreMemoryResponse> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 13);
 
 /**
  * @generated from service kernel.v1.KernelRuntimeService
@@ -141,6 +255,14 @@ export const KernelRuntimeService: GenService<{
     methodKind: "unary";
     input: typeof StartCoreRequestSchema;
     output: typeof StartCoreResponseSchema;
+  },
+  /**
+   * @generated from rpc kernel.v1.KernelRuntimeService.StartCoreWithProfile
+   */
+  startCoreWithProfile: {
+    methodKind: "unary";
+    input: typeof StartCoreWithProfileRequestSchema;
+    output: typeof StartCoreWithProfileResponseSchema;
   },
   /**
    * @generated from rpc kernel.v1.KernelRuntimeService.StopCore
@@ -165,6 +287,22 @@ export const KernelRuntimeService: GenService<{
     methodKind: "unary";
     input: typeof GetCoreStatusRequestSchema;
     output: typeof GetCoreStatusResponseSchema;
+  },
+  /**
+   * @generated from rpc kernel.v1.KernelRuntimeService.GetCurrentProfile
+   */
+  getCurrentProfile: {
+    methodKind: "unary";
+    input: typeof GetCurrentProfileRequestSchema;
+    output: typeof GetCurrentProfileResponseSchema;
+  },
+  /**
+   * @generated from rpc kernel.v1.KernelRuntimeService.GetCurrentCoreMemory
+   */
+  getCurrentCoreMemory: {
+    methodKind: "unary";
+    input: typeof GetCurrentCoreMemoryRequestSchema;
+    output: typeof GetCurrentCoreMemoryResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_kernel_v1_kernel_runtime_service, 0);

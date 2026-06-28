@@ -1,10 +1,8 @@
 <script lang="ts" setup>
-import { BrowserOpenURL, MakeDir, OpenDir } from '@/bridge'
-import { ColorOptions, DefaultFontFamily, LocalesFilePath, ThemeOptions } from '@/constant/app'
+import { ColorOptions, DefaultFontFamily, ThemeOptions } from '@/constant/app'
 import { Color } from '@/enums/app'
 import routes from '@/router/routes'
 import { useAppSettingsStore, useAppStore } from '@/stores'
-import { APP_LOCALES_URL } from '@/utils'
 
 const pages = routes.flatMap((route) => {
   if (route.meta?.hidden !== undefined) return []
@@ -26,10 +24,6 @@ const onThemeClick = (e: MouseEvent) => {
   document.documentElement.style.setProperty('--y', e.clientY + 'px')
 }
 
-const handleOpenLocalesFolder = async () => {
-  await MakeDir(LocalesFilePath)
-  await OpenDir(LocalesFilePath)
-}
 </script>
 <template>
   <div class="px-8 py-12 text-18 font-bold">{{ $t('settings.personalization') }}</div>
@@ -60,15 +54,6 @@ const handleOpenLocalesFolder = async () => {
     <div class="px-8 py-12 flex items-center justify-between">
       <div class="flex items-center text-16 font-bold">
         <div class="mr-4">{{ $t('settings.lang.name') }}</div>
-        <Button type="text" icon="link" @click="BrowserOpenURL(APP_LOCALES_URL)" />
-        <Button type="text" icon="folder" @click="handleOpenLocalesFolder" />
-        <Button
-          v-tips="'settings.lang.load'"
-          :loading="appStore.localesLoading"
-          type="text"
-          icon="refresh"
-          @click="appStore.loadLocales()"
-        />
       </div>
       <Radio v-model="appSettings.app.lang" :options="appStore.locales" />
     </div>

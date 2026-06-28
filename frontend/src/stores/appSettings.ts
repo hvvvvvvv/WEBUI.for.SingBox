@@ -19,8 +19,7 @@ import {
   Color,
   ControllerCloseMode,
 } from '@/enums/app'
-import i18n, { loadLocale } from '@/lang'
-import { useAppStore } from '@/stores'
+import i18n from '@/lang'
 import {
   debounce,
   deepClone,
@@ -30,7 +29,6 @@ import { AppSettingsService } from '../../gen/app/v1/app_settings_service_pb'
 import type { AppSettings, SessionInfo } from '@/types/app'
 
 export const useAppSettingsStore = defineStore('app-settings', () => {
-  const appStore = useAppStore()
   const service = createRpcClient(AppSettingsService)
 
   let latestUserSettings: string
@@ -200,8 +198,6 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       settings = defaults
     }
 
-    await appStore.loadLocales(false, false)
-
     app.value = settings
     latestUserSettings = stableStringify(app.value)
   }
@@ -218,9 +214,6 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     },
     lang(lang: string) {
       i18n.global.locale.value = lang
-      if (!i18n.global.availableLocales.includes(lang)) {
-        loadLocale(lang)
-      }
     },
     color(color: Color, primary: string, secondary: string) {
       if (color !== Color.Custom) {

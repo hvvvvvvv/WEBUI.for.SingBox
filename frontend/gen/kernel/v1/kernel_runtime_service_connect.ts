@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { GetCoreStatusRequest, GetCoreStatusResponse, RestartCoreRequest, RestartCoreResponse, StartCoreRequest, StartCoreResponse, StopCoreRequest, StopCoreResponse } from "./kernel_runtime_service_pb.js";
+import { GetCoreStatusRequest, GetCoreStatusResponse, GetCurrentCoreMemoryRequest, GetCurrentCoreMemoryResponse, GetCurrentProfileRequest, GetCurrentProfileResponse, RestartCoreRequest, RestartCoreResponse, StartCoreRequest, StartCoreResponse, StartCoreWithProfileRequest, StartCoreWithProfileResponse, StopCoreRequest, StopCoreResponse } from "./kernel_runtime_service_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -19,6 +19,15 @@ export const KernelRuntimeService = {
       name: "StartCore",
       I: StartCoreRequest,
       O: StartCoreResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc kernel.v1.KernelRuntimeService.StartCoreWithProfile
+     */
+    startCoreWithProfile: {
+      name: "StartCoreWithProfile",
+      I: StartCoreWithProfileRequest,
+      O: StartCoreWithProfileResponse,
       kind: MethodKind.Unary,
     },
     /**
@@ -46,6 +55,24 @@ export const KernelRuntimeService = {
       name: "GetCoreStatus",
       I: GetCoreStatusRequest,
       O: GetCoreStatusResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc kernel.v1.KernelRuntimeService.GetCurrentProfile
+     */
+    getCurrentProfile: {
+      name: "GetCurrentProfile",
+      I: GetCurrentProfileRequest,
+      O: GetCurrentProfileResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc kernel.v1.KernelRuntimeService.GetCurrentCoreMemory
+     */
+    getCurrentCoreMemory: {
+      name: "GetCurrentCoreMemory",
+      I: GetCurrentCoreMemoryRequest,
+      O: GetCurrentCoreMemoryResponse,
       kind: MethodKind.Unary,
     },
   }

@@ -9,6 +9,7 @@ package kernelv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	v1 "guiforcores/gen/profile/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -67,6 +68,7 @@ func (x *StartCoreRequest) GetProfileId() string {
 
 type StartCoreResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pid           int32                  `protobuf:"varint,1,opt,name=pid,proto3" json:"pid,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -101,6 +103,101 @@ func (*StartCoreResponse) Descriptor() ([]byte, []int) {
 	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{1}
 }
 
+func (x *StartCoreResponse) GetPid() int32 {
+	if x != nil {
+		return x.Pid
+	}
+	return 0
+}
+
+type StartCoreWithProfileRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Profile       *v1.Profile            `protobuf:"bytes,1,opt,name=profile,proto3" json:"profile,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartCoreWithProfileRequest) Reset() {
+	*x = StartCoreWithProfileRequest{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartCoreWithProfileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartCoreWithProfileRequest) ProtoMessage() {}
+
+func (x *StartCoreWithProfileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartCoreWithProfileRequest.ProtoReflect.Descriptor instead.
+func (*StartCoreWithProfileRequest) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *StartCoreWithProfileRequest) GetProfile() *v1.Profile {
+	if x != nil {
+		return x.Profile
+	}
+	return nil
+}
+
+type StartCoreWithProfileResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pid           int32                  `protobuf:"varint,1,opt,name=pid,proto3" json:"pid,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *StartCoreWithProfileResponse) Reset() {
+	*x = StartCoreWithProfileResponse{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *StartCoreWithProfileResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*StartCoreWithProfileResponse) ProtoMessage() {}
+
+func (x *StartCoreWithProfileResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use StartCoreWithProfileResponse.ProtoReflect.Descriptor instead.
+func (*StartCoreWithProfileResponse) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *StartCoreWithProfileResponse) GetPid() int32 {
+	if x != nil {
+		return x.Pid
+	}
+	return 0
+}
+
 type StopCoreRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	unknownFields protoimpl.UnknownFields
@@ -109,7 +206,7 @@ type StopCoreRequest struct {
 
 func (x *StopCoreRequest) Reset() {
 	*x = StopCoreRequest{}
-	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[2]
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -121,7 +218,7 @@ func (x *StopCoreRequest) String() string {
 func (*StopCoreRequest) ProtoMessage() {}
 
 func (x *StopCoreRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[2]
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -134,7 +231,7 @@ func (x *StopCoreRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopCoreRequest.ProtoReflect.Descriptor instead.
 func (*StopCoreRequest) Descriptor() ([]byte, []int) {
-	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{2}
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{4}
 }
 
 type StopCoreResponse struct {
@@ -145,7 +242,7 @@ type StopCoreResponse struct {
 
 func (x *StopCoreResponse) Reset() {
 	*x = StopCoreResponse{}
-	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[3]
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -157,7 +254,7 @@ func (x *StopCoreResponse) String() string {
 func (*StopCoreResponse) ProtoMessage() {}
 
 func (x *StopCoreResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[3]
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -170,7 +267,7 @@ func (x *StopCoreResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use StopCoreResponse.ProtoReflect.Descriptor instead.
 func (*StopCoreResponse) Descriptor() ([]byte, []int) {
-	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{3}
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{5}
 }
 
 type RestartCoreRequest struct {
@@ -182,7 +279,7 @@ type RestartCoreRequest struct {
 
 func (x *RestartCoreRequest) Reset() {
 	*x = RestartCoreRequest{}
-	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[4]
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -194,7 +291,7 @@ func (x *RestartCoreRequest) String() string {
 func (*RestartCoreRequest) ProtoMessage() {}
 
 func (x *RestartCoreRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[4]
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -207,7 +304,7 @@ func (x *RestartCoreRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestartCoreRequest.ProtoReflect.Descriptor instead.
 func (*RestartCoreRequest) Descriptor() ([]byte, []int) {
-	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{4}
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{6}
 }
 
 func (x *RestartCoreRequest) GetProfileId() string {
@@ -219,13 +316,14 @@ func (x *RestartCoreRequest) GetProfileId() string {
 
 type RestartCoreResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	Pid           int32                  `protobuf:"varint,1,opt,name=pid,proto3" json:"pid,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RestartCoreResponse) Reset() {
 	*x = RestartCoreResponse{}
-	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[5]
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -237,7 +335,7 @@ func (x *RestartCoreResponse) String() string {
 func (*RestartCoreResponse) ProtoMessage() {}
 
 func (x *RestartCoreResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[5]
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -250,7 +348,14 @@ func (x *RestartCoreResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RestartCoreResponse.ProtoReflect.Descriptor instead.
 func (*RestartCoreResponse) Descriptor() ([]byte, []int) {
-	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{5}
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *RestartCoreResponse) GetPid() int32 {
+	if x != nil {
+		return x.Pid
+	}
+	return 0
 }
 
 type GetCoreStatusRequest struct {
@@ -261,7 +366,7 @@ type GetCoreStatusRequest struct {
 
 func (x *GetCoreStatusRequest) Reset() {
 	*x = GetCoreStatusRequest{}
-	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[6]
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -273,7 +378,7 @@ func (x *GetCoreStatusRequest) String() string {
 func (*GetCoreStatusRequest) ProtoMessage() {}
 
 func (x *GetCoreStatusRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[6]
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -286,19 +391,20 @@ func (x *GetCoreStatusRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCoreStatusRequest.ProtoReflect.Descriptor instead.
 func (*GetCoreStatusRequest) Descriptor() ([]byte, []int) {
-	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{6}
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{8}
 }
 
 type GetCoreStatusResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Status        CoreStatus             `protobuf:"varint,1,opt,name=status,proto3,enum=kernel.v1.CoreStatus" json:"status,omitempty"`
+	Pid           int32                  `protobuf:"varint,2,opt,name=pid,proto3" json:"pid,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetCoreStatusResponse) Reset() {
 	*x = GetCoreStatusResponse{}
-	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[7]
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -310,7 +416,7 @@ func (x *GetCoreStatusResponse) String() string {
 func (*GetCoreStatusResponse) ProtoMessage() {}
 
 func (x *GetCoreStatusResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[7]
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -323,7 +429,7 @@ func (x *GetCoreStatusResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetCoreStatusResponse.ProtoReflect.Descriptor instead.
 func (*GetCoreStatusResponse) Descriptor() ([]byte, []int) {
-	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{7}
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetCoreStatusResponse) GetStatus() CoreStatus {
@@ -333,29 +439,221 @@ func (x *GetCoreStatusResponse) GetStatus() CoreStatus {
 	return CoreStatus_CORE_STATUS_UNSPECIFIED
 }
 
+func (x *GetCoreStatusResponse) GetPid() int32 {
+	if x != nil {
+		return x.Pid
+	}
+	return 0
+}
+
+type GetCurrentProfileRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCurrentProfileRequest) Reset() {
+	*x = GetCurrentProfileRequest{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCurrentProfileRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCurrentProfileRequest) ProtoMessage() {}
+
+func (x *GetCurrentProfileRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCurrentProfileRequest.ProtoReflect.Descriptor instead.
+func (*GetCurrentProfileRequest) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{10}
+}
+
+type GetCurrentProfileResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Profile       *v1.Profile            `protobuf:"bytes,1,opt,name=profile,proto3" json:"profile,omitempty"`
+	Status        CoreStatus             `protobuf:"varint,2,opt,name=status,proto3,enum=kernel.v1.CoreStatus" json:"status,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCurrentProfileResponse) Reset() {
+	*x = GetCurrentProfileResponse{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCurrentProfileResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCurrentProfileResponse) ProtoMessage() {}
+
+func (x *GetCurrentProfileResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCurrentProfileResponse.ProtoReflect.Descriptor instead.
+func (*GetCurrentProfileResponse) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *GetCurrentProfileResponse) GetProfile() *v1.Profile {
+	if x != nil {
+		return x.Profile
+	}
+	return nil
+}
+
+func (x *GetCurrentProfileResponse) GetStatus() CoreStatus {
+	if x != nil {
+		return x.Status
+	}
+	return CoreStatus_CORE_STATUS_UNSPECIFIED
+}
+
+type GetCurrentCoreMemoryRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCurrentCoreMemoryRequest) Reset() {
+	*x = GetCurrentCoreMemoryRequest{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCurrentCoreMemoryRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCurrentCoreMemoryRequest) ProtoMessage() {}
+
+func (x *GetCurrentCoreMemoryRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCurrentCoreMemoryRequest.ProtoReflect.Descriptor instead.
+func (*GetCurrentCoreMemoryRequest) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{12}
+}
+
+type GetCurrentCoreMemoryResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Rss           uint64                 `protobuf:"varint,1,opt,name=rss,proto3" json:"rss,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCurrentCoreMemoryResponse) Reset() {
+	*x = GetCurrentCoreMemoryResponse{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCurrentCoreMemoryResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCurrentCoreMemoryResponse) ProtoMessage() {}
+
+func (x *GetCurrentCoreMemoryResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCurrentCoreMemoryResponse.ProtoReflect.Descriptor instead.
+func (*GetCurrentCoreMemoryResponse) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *GetCurrentCoreMemoryResponse) GetRss() uint64 {
+	if x != nil {
+		return x.Rss
+	}
+	return 0
+}
+
 var File_kernel_v1_kernel_runtime_service_proto protoreflect.FileDescriptor
 
 const file_kernel_v1_kernel_runtime_service_proto_rawDesc = "" +
 	"\n" +
-	"&kernel/v1/kernel_runtime_service.proto\x12\tkernel.v1\x1a\x16kernel/v1/kernel.proto\"1\n" +
+	"&kernel/v1/kernel_runtime_service.proto\x12\tkernel.v1\x1a\x16kernel/v1/kernel.proto\x1a\x18profile/v1/profile.proto\"1\n" +
 	"\x10StartCoreRequest\x12\x1d\n" +
 	"\n" +
-	"profile_id\x18\x01 \x01(\tR\tprofileId\"\x13\n" +
-	"\x11StartCoreResponse\"\x11\n" +
+	"profile_id\x18\x01 \x01(\tR\tprofileId\"%\n" +
+	"\x11StartCoreResponse\x12\x10\n" +
+	"\x03pid\x18\x01 \x01(\x05R\x03pid\"L\n" +
+	"\x1bStartCoreWithProfileRequest\x12-\n" +
+	"\aprofile\x18\x01 \x01(\v2\x13.profile.v1.ProfileR\aprofile\"0\n" +
+	"\x1cStartCoreWithProfileResponse\x12\x10\n" +
+	"\x03pid\x18\x01 \x01(\x05R\x03pid\"\x11\n" +
 	"\x0fStopCoreRequest\"\x12\n" +
 	"\x10StopCoreResponse\"3\n" +
 	"\x12RestartCoreRequest\x12\x1d\n" +
 	"\n" +
-	"profile_id\x18\x01 \x01(\tR\tprofileId\"\x15\n" +
-	"\x13RestartCoreResponse\"\x16\n" +
-	"\x14GetCoreStatusRequest\"F\n" +
+	"profile_id\x18\x01 \x01(\tR\tprofileId\"'\n" +
+	"\x13RestartCoreResponse\x12\x10\n" +
+	"\x03pid\x18\x01 \x01(\x05R\x03pid\"\x16\n" +
+	"\x14GetCoreStatusRequest\"X\n" +
 	"\x15GetCoreStatusResponse\x12-\n" +
-	"\x06status\x18\x01 \x01(\x0e2\x15.kernel.v1.CoreStatusR\x06status2\xc5\x02\n" +
+	"\x06status\x18\x01 \x01(\x0e2\x15.kernel.v1.CoreStatusR\x06status\x12\x10\n" +
+	"\x03pid\x18\x02 \x01(\x05R\x03pid\"\x1a\n" +
+	"\x18GetCurrentProfileRequest\"y\n" +
+	"\x19GetCurrentProfileResponse\x12-\n" +
+	"\aprofile\x18\x01 \x01(\v2\x13.profile.v1.ProfileR\aprofile\x12-\n" +
+	"\x06status\x18\x02 \x01(\x0e2\x15.kernel.v1.CoreStatusR\x06status\"\x1d\n" +
+	"\x1bGetCurrentCoreMemoryRequest\"0\n" +
+	"\x1cGetCurrentCoreMemoryResponse\x12\x10\n" +
+	"\x03rss\x18\x01 \x01(\x04R\x03rss2\xf7\x04\n" +
 	"\x14KernelRuntimeService\x12F\n" +
-	"\tStartCore\x12\x1b.kernel.v1.StartCoreRequest\x1a\x1c.kernel.v1.StartCoreResponse\x12C\n" +
+	"\tStartCore\x12\x1b.kernel.v1.StartCoreRequest\x1a\x1c.kernel.v1.StartCoreResponse\x12g\n" +
+	"\x14StartCoreWithProfile\x12&.kernel.v1.StartCoreWithProfileRequest\x1a'.kernel.v1.StartCoreWithProfileResponse\x12C\n" +
 	"\bStopCore\x12\x1a.kernel.v1.StopCoreRequest\x1a\x1b.kernel.v1.StopCoreResponse\x12L\n" +
 	"\vRestartCore\x12\x1d.kernel.v1.RestartCoreRequest\x1a\x1e.kernel.v1.RestartCoreResponse\x12R\n" +
-	"\rGetCoreStatus\x12\x1f.kernel.v1.GetCoreStatusRequest\x1a .kernel.v1.GetCoreStatusResponseB\x93\x01\n" +
+	"\rGetCoreStatus\x12\x1f.kernel.v1.GetCoreStatusRequest\x1a .kernel.v1.GetCoreStatusResponse\x12^\n" +
+	"\x11GetCurrentProfile\x12#.kernel.v1.GetCurrentProfileRequest\x1a$.kernel.v1.GetCurrentProfileResponse\x12g\n" +
+	"\x14GetCurrentCoreMemory\x12&.kernel.v1.GetCurrentCoreMemoryRequest\x1a'.kernel.v1.GetCurrentCoreMemoryResponseB\x93\x01\n" +
 	"\rcom.kernel.v1B\x19KernelRuntimeServiceProtoP\x01Z\"guiforcores/gen/kernel/v1;kernelv1\xa2\x02\x03KXX\xaa\x02\tKernel.V1\xca\x02\tKernel\\V1\xe2\x02\x15Kernel\\V1\\GPBMetadata\xea\x02\n" +
 	"Kernel::V1b\x06proto3"
 
@@ -371,33 +669,49 @@ func file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP() []byte {
 	return file_kernel_v1_kernel_runtime_service_proto_rawDescData
 }
 
-var file_kernel_v1_kernel_runtime_service_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_kernel_v1_kernel_runtime_service_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
 var file_kernel_v1_kernel_runtime_service_proto_goTypes = []any{
-	(*StartCoreRequest)(nil),      // 0: kernel.v1.StartCoreRequest
-	(*StartCoreResponse)(nil),     // 1: kernel.v1.StartCoreResponse
-	(*StopCoreRequest)(nil),       // 2: kernel.v1.StopCoreRequest
-	(*StopCoreResponse)(nil),      // 3: kernel.v1.StopCoreResponse
-	(*RestartCoreRequest)(nil),    // 4: kernel.v1.RestartCoreRequest
-	(*RestartCoreResponse)(nil),   // 5: kernel.v1.RestartCoreResponse
-	(*GetCoreStatusRequest)(nil),  // 6: kernel.v1.GetCoreStatusRequest
-	(*GetCoreStatusResponse)(nil), // 7: kernel.v1.GetCoreStatusResponse
-	(CoreStatus)(0),               // 8: kernel.v1.CoreStatus
+	(*StartCoreRequest)(nil),             // 0: kernel.v1.StartCoreRequest
+	(*StartCoreResponse)(nil),            // 1: kernel.v1.StartCoreResponse
+	(*StartCoreWithProfileRequest)(nil),  // 2: kernel.v1.StartCoreWithProfileRequest
+	(*StartCoreWithProfileResponse)(nil), // 3: kernel.v1.StartCoreWithProfileResponse
+	(*StopCoreRequest)(nil),              // 4: kernel.v1.StopCoreRequest
+	(*StopCoreResponse)(nil),             // 5: kernel.v1.StopCoreResponse
+	(*RestartCoreRequest)(nil),           // 6: kernel.v1.RestartCoreRequest
+	(*RestartCoreResponse)(nil),          // 7: kernel.v1.RestartCoreResponse
+	(*GetCoreStatusRequest)(nil),         // 8: kernel.v1.GetCoreStatusRequest
+	(*GetCoreStatusResponse)(nil),        // 9: kernel.v1.GetCoreStatusResponse
+	(*GetCurrentProfileRequest)(nil),     // 10: kernel.v1.GetCurrentProfileRequest
+	(*GetCurrentProfileResponse)(nil),    // 11: kernel.v1.GetCurrentProfileResponse
+	(*GetCurrentCoreMemoryRequest)(nil),  // 12: kernel.v1.GetCurrentCoreMemoryRequest
+	(*GetCurrentCoreMemoryResponse)(nil), // 13: kernel.v1.GetCurrentCoreMemoryResponse
+	(*v1.Profile)(nil),                   // 14: profile.v1.Profile
+	(CoreStatus)(0),                      // 15: kernel.v1.CoreStatus
 }
 var file_kernel_v1_kernel_runtime_service_proto_depIdxs = []int32{
-	8, // 0: kernel.v1.GetCoreStatusResponse.status:type_name -> kernel.v1.CoreStatus
-	0, // 1: kernel.v1.KernelRuntimeService.StartCore:input_type -> kernel.v1.StartCoreRequest
-	2, // 2: kernel.v1.KernelRuntimeService.StopCore:input_type -> kernel.v1.StopCoreRequest
-	4, // 3: kernel.v1.KernelRuntimeService.RestartCore:input_type -> kernel.v1.RestartCoreRequest
-	6, // 4: kernel.v1.KernelRuntimeService.GetCoreStatus:input_type -> kernel.v1.GetCoreStatusRequest
-	1, // 5: kernel.v1.KernelRuntimeService.StartCore:output_type -> kernel.v1.StartCoreResponse
-	3, // 6: kernel.v1.KernelRuntimeService.StopCore:output_type -> kernel.v1.StopCoreResponse
-	5, // 7: kernel.v1.KernelRuntimeService.RestartCore:output_type -> kernel.v1.RestartCoreResponse
-	7, // 8: kernel.v1.KernelRuntimeService.GetCoreStatus:output_type -> kernel.v1.GetCoreStatusResponse
-	5, // [5:9] is the sub-list for method output_type
-	1, // [1:5] is the sub-list for method input_type
-	1, // [1:1] is the sub-list for extension type_name
-	1, // [1:1] is the sub-list for extension extendee
-	0, // [0:1] is the sub-list for field type_name
+	14, // 0: kernel.v1.StartCoreWithProfileRequest.profile:type_name -> profile.v1.Profile
+	15, // 1: kernel.v1.GetCoreStatusResponse.status:type_name -> kernel.v1.CoreStatus
+	14, // 2: kernel.v1.GetCurrentProfileResponse.profile:type_name -> profile.v1.Profile
+	15, // 3: kernel.v1.GetCurrentProfileResponse.status:type_name -> kernel.v1.CoreStatus
+	0,  // 4: kernel.v1.KernelRuntimeService.StartCore:input_type -> kernel.v1.StartCoreRequest
+	2,  // 5: kernel.v1.KernelRuntimeService.StartCoreWithProfile:input_type -> kernel.v1.StartCoreWithProfileRequest
+	4,  // 6: kernel.v1.KernelRuntimeService.StopCore:input_type -> kernel.v1.StopCoreRequest
+	6,  // 7: kernel.v1.KernelRuntimeService.RestartCore:input_type -> kernel.v1.RestartCoreRequest
+	8,  // 8: kernel.v1.KernelRuntimeService.GetCoreStatus:input_type -> kernel.v1.GetCoreStatusRequest
+	10, // 9: kernel.v1.KernelRuntimeService.GetCurrentProfile:input_type -> kernel.v1.GetCurrentProfileRequest
+	12, // 10: kernel.v1.KernelRuntimeService.GetCurrentCoreMemory:input_type -> kernel.v1.GetCurrentCoreMemoryRequest
+	1,  // 11: kernel.v1.KernelRuntimeService.StartCore:output_type -> kernel.v1.StartCoreResponse
+	3,  // 12: kernel.v1.KernelRuntimeService.StartCoreWithProfile:output_type -> kernel.v1.StartCoreWithProfileResponse
+	5,  // 13: kernel.v1.KernelRuntimeService.StopCore:output_type -> kernel.v1.StopCoreResponse
+	7,  // 14: kernel.v1.KernelRuntimeService.RestartCore:output_type -> kernel.v1.RestartCoreResponse
+	9,  // 15: kernel.v1.KernelRuntimeService.GetCoreStatus:output_type -> kernel.v1.GetCoreStatusResponse
+	11, // 16: kernel.v1.KernelRuntimeService.GetCurrentProfile:output_type -> kernel.v1.GetCurrentProfileResponse
+	13, // 17: kernel.v1.KernelRuntimeService.GetCurrentCoreMemory:output_type -> kernel.v1.GetCurrentCoreMemoryResponse
+	11, // [11:18] is the sub-list for method output_type
+	4,  // [4:11] is the sub-list for method input_type
+	4,  // [4:4] is the sub-list for extension type_name
+	4,  // [4:4] is the sub-list for extension extendee
+	0,  // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_kernel_v1_kernel_runtime_service_proto_init() }
@@ -412,7 +726,7 @@ func file_kernel_v1_kernel_runtime_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_kernel_v1_kernel_runtime_service_proto_rawDesc), len(file_kernel_v1_kernel_runtime_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   14,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

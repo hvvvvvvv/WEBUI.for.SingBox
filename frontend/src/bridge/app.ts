@@ -1,8 +1,6 @@
 import type { AppEnv } from '@/types/app'
 import { apiCall } from './http'
 
-export const ExitApp = () => apiCall('/app/exit')
-
 export const GetEnv = <T extends string | undefined = undefined>(
   key?: T,
 ): Promise<T extends string ? string : AppEnv> => {

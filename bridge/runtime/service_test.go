@@ -55,6 +55,76 @@ func TestUpsertRuleSetIgnoresClientPath(t *testing.T) {
 	}
 }
 
+func TestSourceTypeValidationRejectsFile(t *testing.T) {
+	tests := []struct {
+		name string
+		call func(*appRuntimeService) error
+	}{
+		{
+			name: "upsert subscription",
+			call: func(service *appRuntimeService) error {
+				_, err := service.UpsertSubscription(context.Background(), connect.NewRequest(&appv1.UpsertSubscriptionRequest{
+					SubscriptionJson: `{"id":"file-sub","name":"File","type":"File","url":"data/local/sub.json","path":"data/subscribes/file-sub.json"}`,
+				}))
+				return err
+			},
+		},
+		{
+			name: "save subscriptions",
+			call: func(service *appRuntimeService) error {
+				_, err := service.SaveSubscriptions(context.Background(), connect.NewRequest(&appv1.SaveSubscriptionsRequest{
+					SubscriptionsJson: []string{`{"id":"file-sub","name":"File","type":"File","url":"data/local/sub.json","path":"data/subscribes/file-sub.json"}`},
+				}))
+				return err
+			},
+		},
+		{
+			name: "upsert ruleset",
+			call: func(service *appRuntimeService) error {
+				_, err := service.UpsertRuleSet(context.Background(), connect.NewRequest(&appv1.UpsertRuleSetRequest{
+					RulesetJson: `{"id":"file-ruleset","tag":"File","type":"File","format":"source","url":"data/local/rules.json"}`,
+				}))
+				return err
+			},
+		},
+		{
+			name: "save rulesets",
+			call: func(service *appRuntimeService) error {
+				_, err := service.SaveRuleSets(context.Background(), connect.NewRequest(&appv1.SaveRuleSetsRequest{
+					RulesetsJson: []string{`{"id":"file-ruleset","tag":"File","type":"File","format":"source","url":"data/local/rules.json"}`},
+				}))
+				return err
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			withTempBasePath(t)
+			err := test.call(newAppRuntimeService(nil, nil))
+			if connect.CodeOf(err) != connect.CodeInvalidArgument {
+				t.Fatalf("expected invalid argument, got %v", err)
+			}
+		})
+	}
+}
+
+func TestSubscriptionSourceTypeValidationAllowsHttpAndManual(t *testing.T) {
+	withTempBasePath(t)
+	service := newAppRuntimeService(nil, nil)
+
+	for _, subscriptionJSON := range []string{
+		`{"id":"http-sub","name":"HTTP","type":"Http","url":"https://example.com/sub.json","path":"data/subscribes/http-sub.json"}`,
+		`{"id":"manual-sub","name":"Manual","type":"Manual","path":"data/subscribes/manual-sub.json"}`,
+	} {
+		if _, err := service.UpsertSubscription(context.Background(), connect.NewRequest(&appv1.UpsertSubscriptionRequest{
+			SubscriptionJson: subscriptionJSON,
+		})); err != nil {
+			t.Fatalf("expected supported subscription type, got %v", err)
+		}
+	}
+}
+
 func TestListRuleSetsBackfillsMissingPath(t *testing.T) {
 	withTempBasePath(t)
 	if err := writeRuntimeYAMLFile(runtimeRulesetsFilePath, []map[string]any{{

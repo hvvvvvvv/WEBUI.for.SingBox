@@ -89,7 +89,6 @@ defineExpose({ modalSlots })
         v-model="sub.type"
         :options="[
           { label: 'common.http', value: 'Http' },
-          { label: 'common.file', value: 'File' },
           { label: 'subscribe.manual', value: 'Manual' },
         ]"
       />
@@ -101,11 +100,11 @@ defineExpose({ modalSlots })
       </div>
     </div>
     <div v-if="!isManual" class="form-item">
-      {{ t(sub.type === 'Http' ? 'subscribe.url' : 'subscribe.localPath') }} *
+      {{ t('subscribe.url') }} *
       <div class="min-w-[75%]">
         <Input
           v-model="sub.url"
-          :placeholder="sub.type === 'Http' ? 'http(s)://' : 'data/local/{filename}.json'"
+          placeholder="http(s)://"
           allow-paste
           class="w-full"
         />

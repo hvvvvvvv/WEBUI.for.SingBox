@@ -38,7 +38,6 @@ const {
   rollbackCore,
   grantCorePermission,
   openReleasePage,
-  openFileLocation,
 } = useCoreBranch(props.isAlpha)
 
 const handleClearCoreCache = async () => {
@@ -90,13 +89,6 @@ const handleClearCoreCache = async () => {
       type="text"
       size="small"
       @click="openReleasePage"
-    />
-    <Button
-      v-tips="'settings.kernel.openTip'"
-      icon="folder"
-      type="text"
-      size="small"
-      @click="openFileLocation"
     />
     <Button
       v-tips="'settings.kernel.config.name'"

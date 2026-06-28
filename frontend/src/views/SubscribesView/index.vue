@@ -180,7 +180,7 @@ const onSortUpdate = debounce(subscribeStore.saveSubscribes, 1000)
 
       <template #title-suffix>
         <Icon
-          v-if="s.type !== 'File' && s.website"
+          v-if="s.website"
           v-tips="'subscribe.website'"
           icon="link"
           color="var(--card-color)"

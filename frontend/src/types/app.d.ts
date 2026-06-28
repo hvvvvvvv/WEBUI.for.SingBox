@@ -120,7 +120,7 @@ export interface Subscription {
   total: number
   expire: number
   updateTime: number
-  type: 'Http' | 'File' | 'Manual'
+  type: 'Http' | 'Manual'
   url: string
   website: string
   path: string

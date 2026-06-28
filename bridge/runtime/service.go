@@ -266,6 +266,9 @@ func saveJSONListAsYAML(path string, itemsJSON []string) ([]string, error) {
 		if err := json.Unmarshal([]byte(raw), &item); err != nil {
 			return nil, err
 		}
+		if err := validateSourceType(item["type"], "subscription"); err != nil {
+			return nil, err
+		}
 		delete(item, "updating")
 		items = append(items, item)
 	}
@@ -283,6 +286,9 @@ func upsertJSONItem(path string, itemJSON string) (string, error) {
 	id, _ := item["id"].(string)
 	if id == "" {
 		return "", fmt.Errorf("id is required")
+	}
+	if err := validateSourceType(item["type"], "subscription"); err != nil {
+		return "", err
 	}
 	delete(item, "updating")
 	items, err := readRuntimeYAMLFile[[]map[string]any](path)
@@ -305,6 +311,14 @@ func upsertJSONItem(path string, itemJSON string) (string, error) {
 	}
 	data, _ := json.Marshal(item)
 	return string(data), nil
+}
+
+func validateSourceType(value any, resource string) error {
+	sourceType, _ := value.(string)
+	if sourceType == "Http" || sourceType == "Manual" {
+		return nil
+	}
+	return invalidArgumentError{message: fmt.Sprintf("unsupported %s type %q", resource, sourceType)}
 }
 
 func deleteJSONItem(path string, id string) error {
@@ -448,6 +462,9 @@ func saveRulesetsJSON(itemsJSON []string) ([]string, error) {
 		if item.ID == "" {
 			return nil, fmt.Errorf("id is required")
 		}
+		if err := validateSourceType(item.Type, "ruleset"); err != nil {
+			return nil, err
+		}
 		prev, ok := existingByID[item.ID]
 		if ok {
 			item.Path = prev.Path
@@ -473,6 +490,9 @@ func upsertRulesetJSON(itemJSON string) (string, error) {
 	}
 	if item.ID == "" {
 		return "", fmt.Errorf("id is required")
+	}
+	if err := validateSourceType(item.Type, "ruleset"); err != nil {
+		return "", err
 	}
 	items, err := loadRulesets()
 	if err != nil {
@@ -890,8 +910,6 @@ func updateSubscriptionAt(items []subscription, idx int) (*appv1.TaskResult, boo
 	switch sub.Type {
 	case "Manual":
 		body, err = readText(sub.Path)
-	case "File":
-		body, err = readText(sub.URL)
 	case "Http":
 		resp, text, reqErr := httpRequest(sub.RequestMethod, sub.URL, sub.Header.Request, "", sub.InSecure, sub.RequestTimeout)
 		err = reqErr
@@ -1008,7 +1026,7 @@ func updateSubscriptionAt(items []subscription, idx int) (*appv1.TaskResult, boo
 	*sub = processedSub
 	sub.Proxies = proxyRefsFromOutbounds(processedProxies, sub.Proxies)
 
-	if sub.Type == "Http" || (sub.Type == "File" && sub.URL != sub.Path) {
+	if sub.Type == "Http" {
 		data, err := json.MarshalIndent(processedProxies, "", "  ")
 		if err != nil {
 			return taskResult(false, sub.ID, sub.Name, err.Error()), false
@@ -1055,8 +1073,6 @@ func updateRulesetAt(items []ruleset, idx int) (*appv1.TaskResult, bool) {
 		body := ""
 		exists := true
 		switch r.Type {
-		case "File":
-			body, err = readText(r.URL)
 		case "Http":
 			_, body, err = httpRequest(http.MethodGet, r.URL, nil, "", false, 15)
 		case "Manual":
@@ -1077,7 +1093,7 @@ func updateRulesetAt(items []ruleset, idx int) (*appv1.TaskResult, bool) {
 			return taskResult(false, r.ID, r.Tag, fmt.Sprintf("Failed to update rule-set [%s]. Reason: Not a valid ruleset data", r.Tag)), false
 		}
 		r.Count = countRules(rules["rules"])
-		if ((r.Type == "Http" || r.Type == "File") && r.URL != r.Path) || (r.Type == "Manual" && !exists) {
+		if (r.Type == "Http" && r.URL != r.Path) || (r.Type == "Manual" && !exists) {
 			data, _ := json.MarshalIndent(rules, "", "  ")
 			if err := os.MkdirAll(filepath.Dir(GetPath(r.Path)), os.ModePerm); err != nil {
 				return taskResult(false, r.ID, r.Tag, err.Error()), false
@@ -1088,18 +1104,7 @@ func updateRulesetAt(items []ruleset, idx int) (*appv1.TaskResult, bool) {
 		}
 	}
 	if r.Format == "binary" {
-		if r.Type == "File" && r.URL != r.Path {
-			input, err := os.ReadFile(GetPath(r.URL))
-			if err != nil {
-				return taskResult(false, r.ID, r.Tag, err.Error()), false
-			}
-			if err := os.MkdirAll(filepath.Dir(GetPath(r.Path)), os.ModePerm); err != nil {
-				return taskResult(false, r.ID, r.Tag, err.Error()), false
-			}
-			if err := os.WriteFile(GetPath(r.Path), input, 0644); err != nil {
-				return taskResult(false, r.ID, r.Tag, err.Error()), false
-			}
-		} else if r.Type == "Http" {
+		if r.Type == "Http" {
 			resp, err := http.Get(r.URL)
 			if err != nil {
 				return taskResult(false, r.ID, r.Tag, err.Error()), false

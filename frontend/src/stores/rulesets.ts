@@ -13,7 +13,7 @@ export interface RuleSet {
   tag: string
   updateTime: number
   disabled: boolean
-  type: 'Http' | 'File' | 'Manual'
+  type: 'Http' | 'Manual'
   format: RulesetFormat
   path: string
   url: string

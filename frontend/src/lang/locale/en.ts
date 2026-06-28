@@ -41,7 +41,6 @@ export default {
     confirm: 'OK',
     selectAll: 'Select All',
     http: 'Remote',
-    file: 'Local',
     openFile: 'Open File',
     develop: 'Develop',
     canceled: 'Canceled',
@@ -337,6 +336,7 @@ export default {
         'Takes effect temporarily. For persistent changes, please modify the `profile` settings.',
       updateGEO: 'Update GEO',
       needPort: 'Please add a Mixed/Http/Socks inbound first',
+      needInbound: 'Inbound not found',
       needTun: 'Please add a TUN inbound first',
     },
     controller: {
@@ -385,7 +385,6 @@ export default {
     manual: 'MANUAL',
     name: 'Name',
     url: 'Remote Url',
-    localPath: 'Local Path',
     website: 'Website',
     path: 'Save Path',
     include: 'Include Keywords',
@@ -615,10 +614,6 @@ export default {
     resetSize: 'Reset Window',
     reload: 'Reload Window',
     restart: 'Restart App',
-    exitApp: 'Exit App',
-    exitPending: 'Waiting for the program to exit...',
-    exitTimeout: 'The program exit timed out. Do you want to force quit?',
-    exitError: 'An error occurred during exit. Do you want to force quit?\n\nReason: {reason}',
     reloadPending: 'Waiting for the program to reload...',
     reloadTimeout: 'The reload timed out. Do you want to force reload?',
     reloadError:
@@ -643,7 +638,6 @@ export default {
     setSystemProxy: 'Set System Proxy',
     clearSystemProxy: 'Clear System Proxy',
     restartApp: 'Restart App',
-    exitApp: 'Exit App',
   },
   auth: {
     title: 'Authentication',

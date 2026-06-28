@@ -14,7 +14,6 @@ import {
   BrowserOpenURL,
   MakeDir,
   FileExists,
-  OpenDir,
 } from '@/bridge'
 import { CoreWorkingDirectory } from '@/constant/kernel'
 import { Branch, OS } from '@/enums/app'
@@ -226,10 +225,6 @@ export const useCoreBranch = (isAlpha = false) => {
     BrowserOpenURL(isAlpha ? AlphaPage : StablePage)
   }
 
-  const openFileLocation = async () => {
-    await OpenDir(CoreWorkingDirectory)
-  }
-
   watch(
     () => appConfig.config.branch,
     () => (downloadCompleted.value = false),
@@ -265,6 +260,5 @@ export const useCoreBranch = (isAlpha = false) => {
     rollbackCore,
     grantCorePermission,
     openReleasePage,
-    openFileLocation,
   }
 }

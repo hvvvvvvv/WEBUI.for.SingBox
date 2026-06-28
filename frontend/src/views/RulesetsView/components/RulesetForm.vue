@@ -67,9 +67,7 @@ const handleSubmit = async () => {
 }
 
 const disabled = computed(
-  () =>
-    !ruleset.value.tag ||
-    (['Http', 'File'].includes(ruleset.value.type) && !ruleset.value.url),
+  () => !ruleset.value.tag || (ruleset.value.type === 'Http' && !ruleset.value.url),
 )
 
 watch(
@@ -134,7 +132,6 @@ defineExpose({ modalSlots })
         v-model="ruleset.type"
         :options="[
           { label: 'common.http', value: 'Http' },
-          { label: 'common.file', value: 'File' },
           { label: 'ruleset.manual', value: 'Manual' },
         ]"
       />
@@ -155,12 +152,7 @@ defineExpose({ modalSlots })
         <Input
           v-model="ruleset.url"
           allow-paste
-          :placeholder="
-            ruleset.type === 'Http'
-              ? 'http(s)://'
-              : 'data/local/{filename}.' +
-                (ruleset.format === RulesetFormat.Binary ? 'srs' : 'json')
-          "
+          placeholder="http(s)://"
           class="w-full"
         />
       </div>

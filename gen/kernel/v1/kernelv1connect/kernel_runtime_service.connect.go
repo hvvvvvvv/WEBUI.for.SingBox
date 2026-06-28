@@ -36,6 +36,9 @@ const (
 	// KernelRuntimeServiceStartCoreProcedure is the fully-qualified name of the KernelRuntimeService's
 	// StartCore RPC.
 	KernelRuntimeServiceStartCoreProcedure = "/kernel.v1.KernelRuntimeService/StartCore"
+	// KernelRuntimeServiceStartCoreWithProfileProcedure is the fully-qualified name of the
+	// KernelRuntimeService's StartCoreWithProfile RPC.
+	KernelRuntimeServiceStartCoreWithProfileProcedure = "/kernel.v1.KernelRuntimeService/StartCoreWithProfile"
 	// KernelRuntimeServiceStopCoreProcedure is the fully-qualified name of the KernelRuntimeService's
 	// StopCore RPC.
 	KernelRuntimeServiceStopCoreProcedure = "/kernel.v1.KernelRuntimeService/StopCore"
@@ -45,14 +48,23 @@ const (
 	// KernelRuntimeServiceGetCoreStatusProcedure is the fully-qualified name of the
 	// KernelRuntimeService's GetCoreStatus RPC.
 	KernelRuntimeServiceGetCoreStatusProcedure = "/kernel.v1.KernelRuntimeService/GetCoreStatus"
+	// KernelRuntimeServiceGetCurrentProfileProcedure is the fully-qualified name of the
+	// KernelRuntimeService's GetCurrentProfile RPC.
+	KernelRuntimeServiceGetCurrentProfileProcedure = "/kernel.v1.KernelRuntimeService/GetCurrentProfile"
+	// KernelRuntimeServiceGetCurrentCoreMemoryProcedure is the fully-qualified name of the
+	// KernelRuntimeService's GetCurrentCoreMemory RPC.
+	KernelRuntimeServiceGetCurrentCoreMemoryProcedure = "/kernel.v1.KernelRuntimeService/GetCurrentCoreMemory"
 )
 
 // KernelRuntimeServiceClient is a client for the kernel.v1.KernelRuntimeService service.
 type KernelRuntimeServiceClient interface {
 	StartCore(context.Context, *connect.Request[v1.StartCoreRequest]) (*connect.Response[v1.StartCoreResponse], error)
+	StartCoreWithProfile(context.Context, *connect.Request[v1.StartCoreWithProfileRequest]) (*connect.Response[v1.StartCoreWithProfileResponse], error)
 	StopCore(context.Context, *connect.Request[v1.StopCoreRequest]) (*connect.Response[v1.StopCoreResponse], error)
 	RestartCore(context.Context, *connect.Request[v1.RestartCoreRequest]) (*connect.Response[v1.RestartCoreResponse], error)
 	GetCoreStatus(context.Context, *connect.Request[v1.GetCoreStatusRequest]) (*connect.Response[v1.GetCoreStatusResponse], error)
+	GetCurrentProfile(context.Context, *connect.Request[v1.GetCurrentProfileRequest]) (*connect.Response[v1.GetCurrentProfileResponse], error)
+	GetCurrentCoreMemory(context.Context, *connect.Request[v1.GetCurrentCoreMemoryRequest]) (*connect.Response[v1.GetCurrentCoreMemoryResponse], error)
 }
 
 // NewKernelRuntimeServiceClient constructs a client for the kernel.v1.KernelRuntimeService service.
@@ -70,6 +82,12 @@ func NewKernelRuntimeServiceClient(httpClient connect.HTTPClient, baseURL string
 			httpClient,
 			baseURL+KernelRuntimeServiceStartCoreProcedure,
 			connect.WithSchema(kernelRuntimeServiceMethods.ByName("StartCore")),
+			connect.WithClientOptions(opts...),
+		),
+		startCoreWithProfile: connect.NewClient[v1.StartCoreWithProfileRequest, v1.StartCoreWithProfileResponse](
+			httpClient,
+			baseURL+KernelRuntimeServiceStartCoreWithProfileProcedure,
+			connect.WithSchema(kernelRuntimeServiceMethods.ByName("StartCoreWithProfile")),
 			connect.WithClientOptions(opts...),
 		),
 		stopCore: connect.NewClient[v1.StopCoreRequest, v1.StopCoreResponse](
@@ -90,20 +108,40 @@ func NewKernelRuntimeServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(kernelRuntimeServiceMethods.ByName("GetCoreStatus")),
 			connect.WithClientOptions(opts...),
 		),
+		getCurrentProfile: connect.NewClient[v1.GetCurrentProfileRequest, v1.GetCurrentProfileResponse](
+			httpClient,
+			baseURL+KernelRuntimeServiceGetCurrentProfileProcedure,
+			connect.WithSchema(kernelRuntimeServiceMethods.ByName("GetCurrentProfile")),
+			connect.WithClientOptions(opts...),
+		),
+		getCurrentCoreMemory: connect.NewClient[v1.GetCurrentCoreMemoryRequest, v1.GetCurrentCoreMemoryResponse](
+			httpClient,
+			baseURL+KernelRuntimeServiceGetCurrentCoreMemoryProcedure,
+			connect.WithSchema(kernelRuntimeServiceMethods.ByName("GetCurrentCoreMemory")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // kernelRuntimeServiceClient implements KernelRuntimeServiceClient.
 type kernelRuntimeServiceClient struct {
-	startCore     *connect.Client[v1.StartCoreRequest, v1.StartCoreResponse]
-	stopCore      *connect.Client[v1.StopCoreRequest, v1.StopCoreResponse]
-	restartCore   *connect.Client[v1.RestartCoreRequest, v1.RestartCoreResponse]
-	getCoreStatus *connect.Client[v1.GetCoreStatusRequest, v1.GetCoreStatusResponse]
+	startCore            *connect.Client[v1.StartCoreRequest, v1.StartCoreResponse]
+	startCoreWithProfile *connect.Client[v1.StartCoreWithProfileRequest, v1.StartCoreWithProfileResponse]
+	stopCore             *connect.Client[v1.StopCoreRequest, v1.StopCoreResponse]
+	restartCore          *connect.Client[v1.RestartCoreRequest, v1.RestartCoreResponse]
+	getCoreStatus        *connect.Client[v1.GetCoreStatusRequest, v1.GetCoreStatusResponse]
+	getCurrentProfile    *connect.Client[v1.GetCurrentProfileRequest, v1.GetCurrentProfileResponse]
+	getCurrentCoreMemory *connect.Client[v1.GetCurrentCoreMemoryRequest, v1.GetCurrentCoreMemoryResponse]
 }
 
 // StartCore calls kernel.v1.KernelRuntimeService.StartCore.
 func (c *kernelRuntimeServiceClient) StartCore(ctx context.Context, req *connect.Request[v1.StartCoreRequest]) (*connect.Response[v1.StartCoreResponse], error) {
 	return c.startCore.CallUnary(ctx, req)
+}
+
+// StartCoreWithProfile calls kernel.v1.KernelRuntimeService.StartCoreWithProfile.
+func (c *kernelRuntimeServiceClient) StartCoreWithProfile(ctx context.Context, req *connect.Request[v1.StartCoreWithProfileRequest]) (*connect.Response[v1.StartCoreWithProfileResponse], error) {
+	return c.startCoreWithProfile.CallUnary(ctx, req)
 }
 
 // StopCore calls kernel.v1.KernelRuntimeService.StopCore.
@@ -121,12 +159,25 @@ func (c *kernelRuntimeServiceClient) GetCoreStatus(ctx context.Context, req *con
 	return c.getCoreStatus.CallUnary(ctx, req)
 }
 
+// GetCurrentProfile calls kernel.v1.KernelRuntimeService.GetCurrentProfile.
+func (c *kernelRuntimeServiceClient) GetCurrentProfile(ctx context.Context, req *connect.Request[v1.GetCurrentProfileRequest]) (*connect.Response[v1.GetCurrentProfileResponse], error) {
+	return c.getCurrentProfile.CallUnary(ctx, req)
+}
+
+// GetCurrentCoreMemory calls kernel.v1.KernelRuntimeService.GetCurrentCoreMemory.
+func (c *kernelRuntimeServiceClient) GetCurrentCoreMemory(ctx context.Context, req *connect.Request[v1.GetCurrentCoreMemoryRequest]) (*connect.Response[v1.GetCurrentCoreMemoryResponse], error) {
+	return c.getCurrentCoreMemory.CallUnary(ctx, req)
+}
+
 // KernelRuntimeServiceHandler is an implementation of the kernel.v1.KernelRuntimeService service.
 type KernelRuntimeServiceHandler interface {
 	StartCore(context.Context, *connect.Request[v1.StartCoreRequest]) (*connect.Response[v1.StartCoreResponse], error)
+	StartCoreWithProfile(context.Context, *connect.Request[v1.StartCoreWithProfileRequest]) (*connect.Response[v1.StartCoreWithProfileResponse], error)
 	StopCore(context.Context, *connect.Request[v1.StopCoreRequest]) (*connect.Response[v1.StopCoreResponse], error)
 	RestartCore(context.Context, *connect.Request[v1.RestartCoreRequest]) (*connect.Response[v1.RestartCoreResponse], error)
 	GetCoreStatus(context.Context, *connect.Request[v1.GetCoreStatusRequest]) (*connect.Response[v1.GetCoreStatusResponse], error)
+	GetCurrentProfile(context.Context, *connect.Request[v1.GetCurrentProfileRequest]) (*connect.Response[v1.GetCurrentProfileResponse], error)
+	GetCurrentCoreMemory(context.Context, *connect.Request[v1.GetCurrentCoreMemoryRequest]) (*connect.Response[v1.GetCurrentCoreMemoryResponse], error)
 }
 
 // NewKernelRuntimeServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -140,6 +191,12 @@ func NewKernelRuntimeServiceHandler(svc KernelRuntimeServiceHandler, opts ...con
 		KernelRuntimeServiceStartCoreProcedure,
 		svc.StartCore,
 		connect.WithSchema(kernelRuntimeServiceMethods.ByName("StartCore")),
+		connect.WithHandlerOptions(opts...),
+	)
+	kernelRuntimeServiceStartCoreWithProfileHandler := connect.NewUnaryHandler(
+		KernelRuntimeServiceStartCoreWithProfileProcedure,
+		svc.StartCoreWithProfile,
+		connect.WithSchema(kernelRuntimeServiceMethods.ByName("StartCoreWithProfile")),
 		connect.WithHandlerOptions(opts...),
 	)
 	kernelRuntimeServiceStopCoreHandler := connect.NewUnaryHandler(
@@ -160,16 +217,34 @@ func NewKernelRuntimeServiceHandler(svc KernelRuntimeServiceHandler, opts ...con
 		connect.WithSchema(kernelRuntimeServiceMethods.ByName("GetCoreStatus")),
 		connect.WithHandlerOptions(opts...),
 	)
+	kernelRuntimeServiceGetCurrentProfileHandler := connect.NewUnaryHandler(
+		KernelRuntimeServiceGetCurrentProfileProcedure,
+		svc.GetCurrentProfile,
+		connect.WithSchema(kernelRuntimeServiceMethods.ByName("GetCurrentProfile")),
+		connect.WithHandlerOptions(opts...),
+	)
+	kernelRuntimeServiceGetCurrentCoreMemoryHandler := connect.NewUnaryHandler(
+		KernelRuntimeServiceGetCurrentCoreMemoryProcedure,
+		svc.GetCurrentCoreMemory,
+		connect.WithSchema(kernelRuntimeServiceMethods.ByName("GetCurrentCoreMemory")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/kernel.v1.KernelRuntimeService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case KernelRuntimeServiceStartCoreProcedure:
 			kernelRuntimeServiceStartCoreHandler.ServeHTTP(w, r)
+		case KernelRuntimeServiceStartCoreWithProfileProcedure:
+			kernelRuntimeServiceStartCoreWithProfileHandler.ServeHTTP(w, r)
 		case KernelRuntimeServiceStopCoreProcedure:
 			kernelRuntimeServiceStopCoreHandler.ServeHTTP(w, r)
 		case KernelRuntimeServiceRestartCoreProcedure:
 			kernelRuntimeServiceRestartCoreHandler.ServeHTTP(w, r)
 		case KernelRuntimeServiceGetCoreStatusProcedure:
 			kernelRuntimeServiceGetCoreStatusHandler.ServeHTTP(w, r)
+		case KernelRuntimeServiceGetCurrentProfileProcedure:
+			kernelRuntimeServiceGetCurrentProfileHandler.ServeHTTP(w, r)
+		case KernelRuntimeServiceGetCurrentCoreMemoryProcedure:
+			kernelRuntimeServiceGetCurrentCoreMemoryHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -183,6 +258,10 @@ func (UnimplementedKernelRuntimeServiceHandler) StartCore(context.Context, *conn
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kernel.v1.KernelRuntimeService.StartCore is not implemented"))
 }
 
+func (UnimplementedKernelRuntimeServiceHandler) StartCoreWithProfile(context.Context, *connect.Request[v1.StartCoreWithProfileRequest]) (*connect.Response[v1.StartCoreWithProfileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kernel.v1.KernelRuntimeService.StartCoreWithProfile is not implemented"))
+}
+
 func (UnimplementedKernelRuntimeServiceHandler) StopCore(context.Context, *connect.Request[v1.StopCoreRequest]) (*connect.Response[v1.StopCoreResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kernel.v1.KernelRuntimeService.StopCore is not implemented"))
 }
@@ -193,4 +272,12 @@ func (UnimplementedKernelRuntimeServiceHandler) RestartCore(context.Context, *co
 
 func (UnimplementedKernelRuntimeServiceHandler) GetCoreStatus(context.Context, *connect.Request[v1.GetCoreStatusRequest]) (*connect.Response[v1.GetCoreStatusResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kernel.v1.KernelRuntimeService.GetCoreStatus is not implemented"))
+}
+
+func (UnimplementedKernelRuntimeServiceHandler) GetCurrentProfile(context.Context, *connect.Request[v1.GetCurrentProfileRequest]) (*connect.Response[v1.GetCurrentProfileResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kernel.v1.KernelRuntimeService.GetCurrentProfile is not implemented"))
+}
+
+func (UnimplementedKernelRuntimeServiceHandler) GetCurrentCoreMemory(context.Context, *connect.Request[v1.GetCurrentCoreMemoryRequest]) (*connect.Response[v1.GetCurrentCoreMemoryResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kernel.v1.KernelRuntimeService.GetCurrentCoreMemory is not implemented"))
 }

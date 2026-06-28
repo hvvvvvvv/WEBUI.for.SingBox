@@ -9,11 +9,9 @@ import {
   UnzipZIPFile,
   RemoveFile,
   HttpCancel,
-  ReadDir,
   Exec,
 } from '@/bridge'
-import { LanguageOptions, LocalesFilePath, RollingReleaseDirectory } from '@/constant/app'
-import { loadLocale } from '@/lang'
+import { LanguageOptions, RollingReleaseDirectory } from '@/constant/app'
 import {
   APP_TITLE,
   APP_VERSION,
@@ -22,7 +20,6 @@ import {
   ignoredError,
   message,
   sampleID,
-  sleep,
 } from '@/utils'
 
 import { useEnvStore } from './env'
@@ -31,7 +28,6 @@ import type { CustomAction, CustomActionFn, Menu } from '@/types/app'
 import { OS } from '@/enums/app'
 
 export const useAppStore = defineStore('app', () => {
-  const isAppExiting = ref(false)
   const isAppReloading = ref(false)
 
   /* Global Menu */
@@ -55,21 +51,7 @@ export const useAppStore = defineStore('app', () => {
   const modalZIndexCounter = 999
 
   /* i18n */
-  const localesLoading = ref(false)
-  const locales = ref<{ label: string; value: string }[]>([])
-  const loadLocales = async (delay = true, reload = true) => {
-    localesLoading.value = true
-    const dirs = await ReadDir(LocalesFilePath).catch(() => [])
-    const localLanguage = dirs.flatMap((file) => {
-      if (file.isDir) return []
-      const [name, ext] = file.name.split('.')
-      return name && ext === 'json' ? { label: name, value: name } : []
-    })
-    locales.value = [...LanguageOptions, ...localLanguage]
-    reload && (await loadLocale())
-    delay && (await sleep(200))
-    localesLoading.value = false
-  }
+  const locales = ref<{ label: string; value: string }[]>(LanguageOptions)
 
   /* Actions */
   const customActions = ref({
@@ -195,7 +177,6 @@ export const useAppStore = defineStore('app', () => {
   }
 
   return {
-    isAppExiting,
     isAppReloading,
     menuShow,
     menuPosition,
@@ -216,8 +197,6 @@ export const useAppStore = defineStore('app', () => {
     customActions,
     addCustomActions,
     removeCustomActions,
-    localesLoading,
     locales,
-    loadLocales,
   }
 })

@@ -12,12 +12,8 @@ import {
   initWebsocket,
   destroyWebsocket,
 } from '@/api/kernel'
-import { ProcessInfo, ReadFile, createRpcClient } from '@/bridge'
-import {
-  CoreConfigFilePath,
-  CorePidFilePath,
-} from '@/constant/kernel'
-import { DefaultInboundMixed } from '@/constant/profile'
+import { createRpcClient } from '@/bridge'
+import { DefaultInboundHttp, DefaultInboundMixed, DefaultInboundSocks } from '@/constant/profile'
 import { Inbound, RulesetType, TunStack } from '@/enums/kernel'
 import {
   useProfilesStore,
@@ -28,16 +24,32 @@ import {
   useAppConfigStore,
 } from '@/stores'
 import {
-  restoreProfile,
-  deepClone,
+  iProfileToProto,
+  protoProfileToIProfile,
   message,
   eventBus,
 } from '@/utils'
 import { KernelRuntimeService } from '../../gen/kernel/v1/kernel_runtime_service_pb'
+import { CoreStatus } from '../../gen/kernel/v1/kernel_pb'
 
 import type { CoreApiConfig, CoreApiProxy } from '@/types/kernel'
 
 export type ProxyType = 'mixed' | 'http' | 'socks'
+export type RuntimeConfigField =
+  | 'mode'
+  | 'inbound'
+  | 'http'
+  | 'socks'
+  | 'mixed'
+  | 'allow-lan'
+  | 'tun'
+  | 'tun-stack'
+  | 'tun-device'
+  | 'interface-name'
+export type RuntimeConfigChange = {
+  field: RuntimeConfigField
+  value: any
+}
 
 const normalizeCoreError = (error: unknown): string => {
   if (typeof error === 'string') {
@@ -84,44 +96,23 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   let runtimeProfile: IProfile | undefined
 
   const proxies = ref<Record<string, CoreApiProxy>>({})
+  const runtimeInbounds = ref<IInbound[]>([])
 
-  const refreshConfig = async () => {
-    const _config = await getConfigs()
+  const syncRuntimeInbounds = () => {
+    runtimeInbounds.value = runtimeProfile?.inbounds || []
+  }
 
-    config.value = {
-      ..._config,
-      tun: config.value.tun,
-    }
-
+  const syncConfigFromRuntimeProfile = () => {
     if (!runtimeProfile) {
-      const txt = await ReadFile(CoreConfigFilePath)
-      runtimeProfile = restoreProfile(JSON.parse(txt))
-      const profile = profilesStore.currentProfile
-      if (profile) {
-        const _profile = deepClone(profile)
-        _profile.inbounds.forEach((inbound) => {
-          const runtimeInbound = runtimeProfile?.inbounds.find((v) => v.tag === inbound.tag)
-          if (runtimeInbound) {
-            runtimeInbound.id = inbound.id
-          } else {
-            inbound.enable = false
-            runtimeProfile?.inbounds.push(inbound)
-          }
-        })
-        runtimeProfile.id = _profile.id
-        runtimeProfile.outbounds = _profile.outbounds
-        runtimeProfile.experimental = _profile.experimental
-        runtimeProfile.dns = _profile.dns
-        runtimeProfile.route = _profile.route
-        runtimeProfile.mixin = _profile.mixin
-        runtimeProfile.script = _profile.script
-      }
+      syncRuntimeInbounds()
+      return
     }
 
-    const mixed = runtimeProfile.inbounds.find((v) => v.enable && v.mixed)
-    const http = runtimeProfile.inbounds.find((v) => v.enable && v.http)
-    const socks = runtimeProfile.inbounds.find((v) => v.enable && v.socks)
-    const tun = runtimeProfile.inbounds.find((v) => v.tun)
+    const mixed = runtimeProfile.inbounds.find((v) => v.type === Inbound.Mixed && v.enable)
+    const http = runtimeProfile.inbounds.find((v) => v.type === Inbound.Http && v.enable)
+    const socks = runtimeProfile.inbounds.find((v) => v.type === Inbound.Socks && v.enable)
+    const tun = runtimeProfile.inbounds.find((v) => v.type === Inbound.Tun)
+
     config.value['mixed-port'] = mixed?.mixed?.listen.listen_port || 0
     config.value['port'] = http?.http?.listen.listen_port || 0
     config.value['socks-port'] = socks?.socks?.listen.listen_port || 0
@@ -135,15 +126,27 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     config.value.tun.device = tun?.tun?.interface_name || ''
     config.value.tun.stack = tun?.tun?.stack || ''
     config.value['interface-name'] = runtimeProfile.route.default_interface
+    syncRuntimeInbounds()
   }
 
-  const updateConfig = async (field: string, value: any) => {
-    if (field === 'mode') {
-      await setConfigs({ mode: value })
-      await refreshConfig()
-      return
+  const refreshConfig = async () => {
+    const _config = await getConfigs()
+
+    config.value = {
+      ..._config,
+      tun: config.value.tun,
     }
 
+    if (!runtimeProfile) {
+      const { profile } = await kernelService.getCurrentProfile({})
+      runtimeProfile = protoProfileToIProfile(profile)
+    }
+
+    syncConfigFromRuntimeProfile()
+  }
+
+  const updateConfigs = async (changes: RuntimeConfigChange[]) => {
+    if (changes.length === 0) return
     const patchInbound = () => {
       if (!runtimeProfile) return
       const inbound = runtimeProfile.inbounds.find(
@@ -164,7 +167,12 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
       if (inbound) {
         inbound[type]!.listen.listen_port = port
       } else {
-        const _type = DefaultInboundMixed()!
+        const inboundTemplateMap = {
+          [Inbound.Mixed]: DefaultInboundMixed,
+          [Inbound.Http]: DefaultInboundHttp,
+          [Inbound.Socks]: DefaultInboundSocks,
+        }
+        const _type = inboundTemplateMap[type]()!
         _type.listen.listen_port = port
         inbound = {
           id: type + '-in',
@@ -187,45 +195,88 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     }
 
     const patchInboundTun = (options: {
-      enable: boolean
-      stack: string
-      device: string
-      interface_name: string
+      enable?: boolean
+      stack?: string
+      device?: string
+      interface_name?: string
     }) => {
       if (!runtimeProfile) return
       const inbound = runtimeProfile.inbounds.find((v) => v.type === Inbound.Tun)
       if (!inbound) throw 'home.overview.needTun'
       options = { ...config.value.tun, ...options }
-      inbound.enable = options.enable
+      inbound.enable = !!options.enable
       inbound.tun!.stack = options.stack || TunStack.Mixed
       inbound.tun!.interface_name = options.device || ''
-      if (options.interface_name) {
-        runtimeProfile.route.default_interface = options.interface_name
-      }
+      runtimeProfile.route.default_interface = options.interface_name || ''
       runtimeProfile.route.auto_detect_interface = !options.interface_name
     }
 
-    const fieldHandlerMap: Recordable<() => void> = {
+    let shouldRestart = false
+    const tunOptions = { ...config.value.tun, interface_name: config.value['interface-name'] }
+
+    const fieldHandlerMap: Record<RuntimeConfigField, (value: any) => Promise<void> | void> = {
+      mode: async (value) => {
+        await setConfigs({ mode: value })
+        await refreshConfig()
+      },
       inbound: () => patchInbound(),
-      http: () => patchInboundPort(Inbound.Http, value),
-      socks: () => patchInboundPort(Inbound.Socks, value),
-      mixed: () => patchInboundPort(Inbound.Mixed, value),
-      'allow-lan': () => patchInboundAddress(value),
-      tun: () => patchInboundTun(value),
-      'tun-stack': () => patchInboundTun(value),
-      'tun-device': () => patchInboundTun(value),
-      'interface-name': () => patchInboundTun(value),
+      http: (value) => patchInboundPort(Inbound.Http, value),
+      socks: (value) => patchInboundPort(Inbound.Socks, value),
+      mixed: (value) => patchInboundPort(Inbound.Mixed, value),
+      'allow-lan': (value) => patchInboundAddress(value),
+      tun: (value) => {
+        Object.assign(tunOptions, value)
+        patchInboundTun(tunOptions)
+      },
+      'tun-stack': (value) => {
+        Object.assign(tunOptions, value)
+        patchInboundTun(tunOptions)
+      },
+      'tun-device': (value) => {
+        Object.assign(tunOptions, value)
+        patchInboundTun(tunOptions)
+      },
+      'interface-name': (value) => {
+        Object.assign(tunOptions, value)
+        patchInboundTun(tunOptions)
+      },
     }
 
-    fieldHandlerMap[field]?.()
+    for (const { field, value } of changes) {
+      await fieldHandlerMap[field]?.(value)
+      if (field !== 'mode') {
+        shouldRestart = true
+      }
+    }
 
+    if (shouldRestart) {
+      await restartCore(undefined, true)
+      syncConfigFromRuntimeProfile()
+      await envStore.updateSystemProxyStatus()
+    }
+  }
+
+  const updateConfig = async (field: RuntimeConfigField, value: any) =>
+    updateConfigs([{ field, value }])
+
+  const updateRuntimeInboundEnable = async (inboundId: string, enable: boolean) => {
+    const inbound = runtimeProfile?.inbounds.find((v) => v.id === inboundId)
+    if (!inbound) throw 'home.overview.needInbound'
+
+    inbound.enable = enable
     await restartCore(undefined, true)
+    syncConfigFromRuntimeProfile()
     await envStore.updateSystemProxyStatus()
   }
 
   const refreshProviderProxies = async () => {
     const { proxies: b } = await getProxies()
     proxies.value = b
+  }
+
+  const getCurrentCoreMemory = async () => {
+    const { rss } = await kernelService.getCurrentCoreMemory({})
+    return Number(rss)
   }
 
   /* Bridge API */
@@ -238,9 +289,12 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   const coreStateLoading = ref(true)
 
   const initCoreState = async () => {
-    corePid.value = Number(await ReadFile(CorePidFilePath).catch(() => -1))
-    const processName = corePid.value === -1 ? '' : await ProcessInfo(corePid.value).catch(() => '')
-    running.value = processName.startsWith('sing-box')
+    const status = await kernelService.getCoreStatus({}).catch(() => ({
+      status: CoreStatus.STOPPED,
+      pid: -1,
+    }))
+    corePid.value = status.pid > 0 ? status.pid : -1
+    running.value = status.status === CoreStatus.RUNNING && corePid.value > 0
 
     coreStateLoading.value = false
 
@@ -266,6 +320,8 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     corePid.value = -1
     running.value = false
     needRestart.value = false
+    runtimeProfile = undefined
+    syncRuntimeInbounds()
 
     destroyWebsocket()
 
@@ -273,6 +329,14 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     if (envStore.systemProxy) {
       await envStore.clearSystemProxy()
     }
+  }
+
+  const markCoreStoppedForRestart = () => {
+    corePid.value = -1
+    running.value = false
+    needRestart.value = false
+    runtimeInbounds.value = []
+    destroyWebsocket()
   }
 
   const startCore = async (_profile?: IProfile) => {
@@ -286,13 +350,13 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
 
     if (!_profile) {
       runtimeProfile = undefined
+      syncRuntimeInbounds()
     }
 
     starting.value = true
     try {
-      await kernelService.startCore({ profileId: profile.id })
-      corePid.value = Number(await ReadFile(CorePidFilePath).catch(() => -1))
-      await onCoreStarted(corePid.value)
+      const { pid } = await kernelService.startCore({ profileId: profile.id })
+      await onCoreStarted(pid)
     } catch (error) {
       throw normalizeCoreError(error)
     } finally {
@@ -320,9 +384,17 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
       await cleanupTask?.()
       const profile = keepRuntimeProfile ? runtimeProfile : profilesStore.currentProfile
       if (!profile) throw 'Choose a profile first'
-      await kernelService.restartCore({ profileId: profile.id })
-      corePid.value = Number(await ReadFile(CorePidFilePath).catch(() => -1))
-      await onCoreStarted(corePid.value)
+      if (keepRuntimeProfile) {
+        await kernelService.stopCore({})
+        markCoreStoppedForRestart()
+        const { pid } = await kernelService.startCoreWithProfile({
+          profile: iProfileToProto(profile),
+        })
+        await onCoreStarted(pid)
+      } else {
+        const { pid } = await kernelService.restartCore({ profileId: profile.id })
+        await onCoreStarted(pid)
+      }
     } catch (error) {
       throw normalizeCoreError(error)
     } finally {
@@ -440,10 +512,14 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     coreStateLoading,
     config,
     proxies,
+    runtimeInbounds,
     refreshConfig,
     updateConfig,
+    updateConfigs,
+    updateRuntimeInboundEnable,
     refreshProviderProxies,
     getProxyPort,
+    getCurrentCoreMemory,
 
     onLogs,
     onMemory,

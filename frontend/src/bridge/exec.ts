@@ -29,19 +29,3 @@ export const Exec = async (path: string, args: string[], options: ExecOptions = 
   }
   return data
 }
-
-export const ProcessInfo = async (pid: number) => {
-  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/exec/processInfo', pid)
-  if (!flag) {
-    throw data
-  }
-  return data
-}
-
-export const ProcessMemory = async (pid: number) => {
-  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/exec/processMemory', pid)
-  if (!flag) {
-    throw data
-  }
-  return Number(data)
-}

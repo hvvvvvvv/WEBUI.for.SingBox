@@ -69,6 +69,8 @@ const (
 	mixinPriorityMixin = "mixin"
 	mixinPriorityGUI   = "gui"
 
+	coreAPIDefaultMode = "rule"
+
 	CoreAPIController = "127.0.0.1:20123"
 )
 
@@ -195,6 +197,7 @@ func generateExperimental(experimental *configv1.Experimental, outbounds []*conf
 	clashAPI := map[string]any{
 		"external_controller": CoreAPIController,
 		"secret":              generateCoreAPISecret(),
+		"default_mode":        coreAPIDefaultMode,
 	}
 
 	cacheFile := map[string]any{}

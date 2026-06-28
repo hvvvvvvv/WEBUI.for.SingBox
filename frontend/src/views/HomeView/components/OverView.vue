@@ -2,14 +2,12 @@
 import { ref, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { ProcessMemory } from '@/bridge'
 import { ModeOptions } from '@/constant/kernel'
-import { useEnvStore, useAppStore, useKernelApiStore, useAppSettingsStore } from '@/stores'
+import { useAppStore, useKernelApiStore, useAppSettingsStore } from '@/stores'
 import { formatBytes, handleChangeMode, message } from '@/utils'
 
 import { useModal } from '@/components/Modal'
 
-import CommonController from './CommonController.vue'
 import ConnectionsController from './ConnectionsController.vue'
 import LogsController from './LogsController.vue'
 
@@ -27,7 +25,6 @@ const statistics = ref({
 const { t } = useI18n()
 const [Modal, modalApi] = useModal({})
 const appStore = useAppStore()
-const envStore = useEnvStore()
 const appSettings = useAppSettingsStore()
 const kernelApiStore = useKernelApiStore()
 
@@ -77,34 +74,13 @@ const handleToggleRealMemoryUsage = () => {
   appSettings.app.kernel.realMemoryUsage = !appSettings.app.kernel.realMemoryUsage
 }
 
-const handleShowSettings = () => {
-  modalApi.setProps({
-    title: 'home.overview.settings',
-    cancelText: 'common.close',
-    width: '90',
-    submit: false,
-    maskClosable: true,
-  })
-  modalApi.setContent(CommonController).open()
-}
-
-const onTunSwitchChange = async (enable: boolean) => {
+const onRuntimeInboundSwitchChange = async (inbound: IInbound, enable: boolean) => {
   try {
-    await kernelApiStore.updateConfig('tun', { enable })
+    await kernelApiStore.updateRuntimeInboundEnable(inbound.id, enable)
   } catch (error: any) {
-    kernelApiStore.config.tun.enable = !kernelApiStore.config.tun.enable
+    inbound.enable = !enable
     console.error(error)
     message.error(error)
-  }
-}
-
-const onSystemProxySwitchChange = async (enable: boolean) => {
-  try {
-    await envStore.switchSystemProxy(enable)
-  } catch (error: any) {
-    console.error(error)
-    message.error(error)
-    envStore.systemProxy = !envStore.systemProxy
   }
 }
 
@@ -113,7 +89,7 @@ const getCoreMemoryUsage = async (fallback: number) => {
   if (latestCoreMemoryUsageTime && Date.now() - latestCoreMemoryUsageTime < 3_000) {
     return fallback
   }
-  const useage = await ProcessMemory(kernelApiStore.pid).catch(() => fallback)
+  const useage = await kernelApiStore.getCurrentCoreMemory().catch(() => fallback)
   latestCoreMemoryUsageTime = Date.now()
   return useage
 }
@@ -157,24 +133,28 @@ onUnmounted(() => {
 <template>
   <div>
     <div class="flex items-center rounded-8 px-8 py-4" style="background-color: var(--card-bg)">
-      <Button type="text" size="small" icon="settings" @click="handleShowSettings" />
-      <Switch
-        v-model="envStore.systemProxy"
-        size="small"
-        border="square"
-        class="ml-4"
-        @change="onSystemProxySwitchChange"
+      <div
+        v-if="kernelApiStore.runtimeInbounds.length"
+        class="h-20 px-6 rounded-4 text-12 font-bold text-nowrap inline-flex items-center gap-4 shrink-0"
+        style="color: var(--primary-color); background-color: color-mix(in srgb, var(--primary-color) 12%, transparent)"
       >
-        {{ t('home.overview.systemProxy') }}
-      </Switch>
+        <Icon icon="inbound" :size="12" color="var(--primary-color)" />
+        <span>{{ t('profiles.inbounds') }}</span>
+      </div>
       <Switch
-        v-model="kernelApiStore.config.tun.enable"
+        v-for="(inbound, index) in kernelApiStore.runtimeInbounds"
+        :key="inbound.id"
+        v-model="inbound.enable"
         size="small"
         border="square"
         class="ml-8"
-        @change="onTunSwitchChange"
+        style="
+          --switch-on-bg: color-mix(in srgb, var(--primary-color) 78%, white);
+          --switch-on-hover-bg: color-mix(in srgb, var(--primary-color) 88%, white);
+        "
+        @change="(enable) => onRuntimeInboundSwitchChange(inbound, enable)"
       >
-        {{ t('home.overview.tunMode') }}
+        {{ inbound.tag }}
       </Switch>
       <CustomAction :actions="appStore.customActions.core_state" />
       <Button
