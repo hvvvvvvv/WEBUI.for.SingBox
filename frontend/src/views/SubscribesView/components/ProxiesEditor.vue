@@ -2,9 +2,8 @@
 import { ref, inject, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { ReadFile, WriteFile } from '@/bridge'
 import { useSubscribesStore } from '@/stores'
-import { deepClone, ignoredError, message, omitArray, sampleID } from '@/utils'
+import { deepClone, message, omitArray, sampleID } from '@/utils'
 
 import Button from '@/components/Button/index.vue'
 
@@ -29,15 +28,17 @@ const handleSubmit = inject('submit') as any
 const handleSave = async () => {
   loading.value = true
   try {
-    const { path, proxies, id } = sub.value
+    const { proxies, id } = sub.value
     const proxiesWithId: Record<string, any>[] = JSON.parse(proxiesText.value)
     sub.value.proxies = proxiesWithId.map((v) => ({
       id: proxies.find((proxy) => proxy.id === v.__id_in_gui)?.id || sampleID(),
       tag: v.tag,
       type: v.type,
     }))
-    await WriteFile(path, JSON.stringify(omitArray(proxiesWithId, ['__id_in_gui']), null, 2))
-    await subscribeStore.editSubscribe(id, sub.value)
+    await subscribeStore.saveSubscriptionContent(
+      id,
+      JSON.stringify(omitArray(proxiesWithId, ['__id_in_gui']), null, 2),
+    )
     handleSubmit()
   } catch (error: any) {
     console.log(error)
@@ -48,7 +49,7 @@ const handleSave = async () => {
 }
 
 const initProxiesText = async () => {
-  const content = (await ignoredError(ReadFile, sub.value.path)) || '[]'
+  const content = (await subscribeStore.getSubscriptionContent(sub.value.id)) || '[]'
   const proxies: Subscription['proxies'] = JSON.parse(content)
   const proxiesWithId = proxies.map((proxy) => {
     return {

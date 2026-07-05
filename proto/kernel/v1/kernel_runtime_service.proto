@@ -6,6 +6,7 @@ option go_package = "guiforcores/proto/kernel/v1";
 
 import "kernel/v1/kernel.proto";
 import "profile/v1/profile.proto";
+import "app/v1/app.proto";
 
 message StartCoreRequest {
   string profile_id = 1;
@@ -55,6 +56,61 @@ message GetCurrentCoreMemoryResponse {
   uint64 rss = 1;
 }
 
+message GetCoreBranchLocalVersionRequest {
+  app.v1.KernelBranch branch = 1;
+}
+
+message GetCoreBranchLocalVersionResponse {
+  string local_version = 1;
+  string version_detail = 2;
+  bool rollbackable = 3;
+}
+
+message GetCoreBranchRemoteVersionRequest {
+  app.v1.KernelBranch branch = 1;
+}
+
+message GetCoreBranchRemoteVersionResponse {
+  string remote_version = 1;
+  string asset_name = 2;
+  string release_page_url = 3;
+  bool trusted_asset = 4;
+}
+
+message DownloadCoreRequest {
+  app.v1.KernelBranch branch = 1;
+  string progress_event = 2;
+  bool allow_untrusted_asset = 3;
+}
+
+message DownloadCoreResponse {
+  string local_version = 1;
+  string version_detail = 2;
+  bool rollbackable = 3;
+}
+
+message CancelCoreDownloadRequest {
+  string progress_event = 1;
+}
+
+message CancelCoreDownloadResponse {}
+
+message RollbackCoreRequest {
+  app.v1.KernelBranch branch = 1;
+}
+
+message RollbackCoreResponse {
+  string local_version = 1;
+  string version_detail = 2;
+  bool rollbackable = 3;
+}
+
+message ClearCoreCacheRequest {
+  app.v1.KernelBranch branch = 1;
+}
+
+message ClearCoreCacheResponse {}
+
 service KernelRuntimeService {
   rpc StartCore(StartCoreRequest) returns (StartCoreResponse);
   rpc StartCoreWithProfile(StartCoreWithProfileRequest) returns (StartCoreWithProfileResponse);
@@ -63,4 +119,10 @@ service KernelRuntimeService {
   rpc GetCoreStatus(GetCoreStatusRequest) returns (GetCoreStatusResponse);
   rpc GetCurrentProfile(GetCurrentProfileRequest) returns (GetCurrentProfileResponse);
   rpc GetCurrentCoreMemory(GetCurrentCoreMemoryRequest) returns (GetCurrentCoreMemoryResponse);
+  rpc GetCoreBranchLocalVersion(GetCoreBranchLocalVersionRequest) returns (GetCoreBranchLocalVersionResponse);
+  rpc GetCoreBranchRemoteVersion(GetCoreBranchRemoteVersionRequest) returns (GetCoreBranchRemoteVersionResponse);
+  rpc DownloadCore(DownloadCoreRequest) returns (DownloadCoreResponse);
+  rpc CancelCoreDownload(CancelCoreDownloadRequest) returns (CancelCoreDownloadResponse);
+  rpc RollbackCore(RollbackCoreRequest) returns (RollbackCoreResponse);
+  rpc ClearCoreCache(ClearCoreCacheRequest) returns (ClearCoreCacheResponse);
 }

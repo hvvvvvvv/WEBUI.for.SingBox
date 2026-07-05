@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { DeleteSubscriptionRequest, DeleteSubscriptionResponse, ListSubscriptionsRequest, ListSubscriptionsResponse, SaveSubscriptionsRequest, SaveSubscriptionsResponse, UpdateAllSubscriptionsRequest, UpdateAllSubscriptionsResponse, UpdateSubscriptionRequest, UpdateSubscriptionResponse, UpsertSubscriptionRequest, UpsertSubscriptionResponse } from "./subscription_service_pb.js";
+import { DeleteSubscriptionRequest, DeleteSubscriptionResponse, GetSubscriptionContentRequest, GetSubscriptionContentResponse, ListSubscriptionsRequest, ListSubscriptionsResponse, SaveSubscriptionContentRequest, SaveSubscriptionContentResponse, SaveSubscriptionsRequest, SaveSubscriptionsResponse, UpdateAllSubscriptionsRequest, UpdateAllSubscriptionsResponse, UpdateSubscriptionRequest, UpdateSubscriptionResponse, UpsertSubscriptionRequest, UpsertSubscriptionResponse } from "./subscription_service_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -64,6 +64,24 @@ export const SubscriptionService = {
       name: "UpdateAllSubscriptions",
       I: UpdateAllSubscriptionsRequest,
       O: UpdateAllSubscriptionsResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc app.v1.SubscriptionService.GetSubscriptionContent
+     */
+    getSubscriptionContent: {
+      name: "GetSubscriptionContent",
+      I: GetSubscriptionContentRequest,
+      O: GetSubscriptionContentResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc app.v1.SubscriptionService.SaveSubscriptionContent
+     */
+    saveSubscriptionContent: {
+      name: "SaveSubscriptionContent",
+      I: SaveSubscriptionContentRequest,
+      O: SaveSubscriptionContentResponse,
       kind: MethodKind.Unary,
     },
   }

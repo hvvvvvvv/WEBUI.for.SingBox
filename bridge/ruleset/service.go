@@ -16,6 +16,7 @@ type Backend interface {
 	UpdateRuleSet(context.Context, *connect.Request[appv1.UpdateRuleSetRequest]) (*connect.Response[appv1.UpdateRuleSetResponse], error)
 	UpdateAllRuleSets(context.Context, *connect.Request[appv1.UpdateAllRuleSetsRequest]) (*connect.Response[appv1.UpdateAllRuleSetsResponse], error)
 	UpdateRuleSetHub(context.Context, *connect.Request[appv1.UpdateRuleSetHubRequest]) (*connect.Response[appv1.UpdateRuleSetHubResponse], error)
+	PreviewRuleSetHub(context.Context, *connect.Request[appv1.PreviewRuleSetHubRequest]) (*connect.Response[appv1.PreviewRuleSetHubResponse], error)
 	GetRuleSetContent(context.Context, *connect.Request[appv1.GetRuleSetContentRequest]) (*connect.Response[appv1.GetRuleSetContentResponse], error)
 	SaveRuleSetContent(context.Context, *connect.Request[appv1.SaveRuleSetContentRequest]) (*connect.Response[appv1.SaveRuleSetContentResponse], error)
 	ClearRuleSetContent(context.Context, *connect.Request[appv1.ClearRuleSetContentRequest]) (*connect.Response[appv1.ClearRuleSetContentResponse], error)
@@ -55,6 +56,10 @@ func (s *Service) UpdateAllRuleSets(ctx context.Context, req *connect.Request[ap
 
 func (s *Service) UpdateRuleSetHub(ctx context.Context, req *connect.Request[appv1.UpdateRuleSetHubRequest]) (*connect.Response[appv1.UpdateRuleSetHubResponse], error) {
 	return s.backend.UpdateRuleSetHub(ctx, req)
+}
+
+func (s *Service) PreviewRuleSetHub(ctx context.Context, req *connect.Request[appv1.PreviewRuleSetHubRequest]) (*connect.Response[appv1.PreviewRuleSetHubResponse], error) {
+	return s.backend.PreviewRuleSetHub(ctx, req)
 }
 
 func (s *Service) GetRuleSetContent(ctx context.Context, req *connect.Request[appv1.GetRuleSetContentRequest]) (*connect.Response[appv1.GetRuleSetContentResponse], error) {

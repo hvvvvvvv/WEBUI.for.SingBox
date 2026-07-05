@@ -1,7 +1,6 @@
 import { stringify } from 'yaml'
 
 import { useAppConfigStore } from '@/stores'
-import { APP_TITLE, APP_VERSION } from '@/utils'
 
 export const deepClone = <T>(json: T): T => JSON.parse(JSON.stringify(json))
 
@@ -173,11 +172,6 @@ export const createAsyncPool = <T, K>(
   const run = () => runPool(poolLimit, array, iteratorFn, { shouldPause, shouldCancel })
 
   return { run, controller }
-}
-
-export const getUserAgent = () => {
-  const appConfig = useAppConfigStore()
-  return appConfig.config.userAgent || APP_TITLE + '/' + APP_VERSION
 }
 
 export const getGitHubApiAuthorization = () => {

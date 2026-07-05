@@ -1,18 +1,11 @@
-import type { AppEnv } from '@/types/app'
-import { apiCall } from './http'
+import { AppSystemService } from '../../gen/app/v1/app_system_service_pb'
+import { createRpcClient } from './rpc'
 
-export const GetEnv = <T extends string | undefined = undefined>(
-  key?: T,
-): Promise<T extends string ? string : AppEnv> => {
-  return apiCall('/app/env', key || '')
-}
+const appSystemService = createRpcClient(AppSystemService)
 
 export const GetInterfaces = async () => {
-  const { flag, data } = await apiCall<{ flag: boolean; data: string }>('/app/interfaces')
-  if (!flag) {
-    throw data
-  }
-  return data.split('|')
+  const { interfaces } = await appSystemService.getInterfaces({})
+  return interfaces
 }
 
 export const Notify = async (title: string, body: string) => {

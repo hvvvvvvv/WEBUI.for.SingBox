@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file app/v1/rule_set_service.proto.
  */
 export const file_app_v1_rule_set_service: GenFile = /*@__PURE__*/
-  fileDesc("Ch1hcHAvdjEvcnVsZV9zZXRfc2VydmljZS5wcm90bxIGYXBwLnYxIhUKE0xpc3RSdWxlU2V0c1JlcXVlc3QiPwoUTGlzdFJ1bGVTZXRzUmVzcG9uc2USFQoNcnVsZXNldHNfanNvbhgBIAMoCRIQCghodWJfanNvbhgCIAEoCSIsChNTYXZlUnVsZVNldHNSZXF1ZXN0EhUKDXJ1bGVzZXRzX2pzb24YASADKAkiLQoUU2F2ZVJ1bGVTZXRzUmVzcG9uc2USFQoNcnVsZXNldHNfanNvbhgBIAMoCSIsChRVcHNlcnRSdWxlU2V0UmVxdWVzdBIUCgxydWxlc2V0X2pzb24YASABKAkiLQoVVXBzZXJ0UnVsZVNldFJlc3BvbnNlEhQKDHJ1bGVzZXRfanNvbhgBIAEoCSIiChREZWxldGVSdWxlU2V0UmVxdWVzdBIKCgJpZBgBIAEoCSIXChVEZWxldGVSdWxlU2V0UmVzcG9uc2UiIgoUVXBkYXRlUnVsZVNldFJlcXVlc3QSCgoCaWQYASABKAkiPAoVVXBkYXRlUnVsZVNldFJlc3BvbnNlEiMKB3Jlc3VsdHMYASADKAsyEi5hcHAudjEuVGFza1Jlc3VsdCIaChhVcGRhdGVBbGxSdWxlU2V0c1JlcXVlc3QiQAoZVXBkYXRlQWxsUnVsZVNldHNSZXNwb25zZRIjCgdyZXN1bHRzGAEgAygLMhIuYXBwLnYxLlRhc2tSZXN1bHQiGQoXVXBkYXRlUnVsZVNldEh1YlJlcXVlc3QiLAoYVXBkYXRlUnVsZVNldEh1YlJlc3BvbnNlEhAKCGh1Yl9qc29uGAEgASgJIiYKGEdldFJ1bGVTZXRDb250ZW50UmVxdWVzdBIKCgJpZBgBIAEoCSIsChlHZXRSdWxlU2V0Q29udGVudFJlc3BvbnNlEg8KB2NvbnRlbnQYASABKAkiOAoZU2F2ZVJ1bGVTZXRDb250ZW50UmVxdWVzdBIKCgJpZBgBIAEoCRIPCgdjb250ZW50GAIgASgJIjIKGlNhdmVSdWxlU2V0Q29udGVudFJlc3BvbnNlEhQKDHJ1bGVzZXRfanNvbhgBIAEoCSIoChpDbGVhclJ1bGVTZXRDb250ZW50UmVxdWVzdBIKCgJpZBgBIAEoCSIzChtDbGVhclJ1bGVTZXRDb250ZW50UmVzcG9uc2USFAoMcnVsZXNldF9qc29uGAEgASgJMtgGCg5SdWxlU2V0U2VydmljZRJJCgxMaXN0UnVsZVNldHMSGy5hcHAudjEuTGlzdFJ1bGVTZXRzUmVxdWVzdBocLmFwcC52MS5MaXN0UnVsZVNldHNSZXNwb25zZRJJCgxTYXZlUnVsZVNldHMSGy5hcHAudjEuU2F2ZVJ1bGVTZXRzUmVxdWVzdBocLmFwcC52MS5TYXZlUnVsZVNldHNSZXNwb25zZRJMCg1VcHNlcnRSdWxlU2V0EhwuYXBwLnYxLlVwc2VydFJ1bGVTZXRSZXF1ZXN0Gh0uYXBwLnYxLlVwc2VydFJ1bGVTZXRSZXNwb25zZRJMCg1EZWxldGVSdWxlU2V0EhwuYXBwLnYxLkRlbGV0ZVJ1bGVTZXRSZXF1ZXN0Gh0uYXBwLnYxLkRlbGV0ZVJ1bGVTZXRSZXNwb25zZRJMCg1VcGRhdGVSdWxlU2V0EhwuYXBwLnYxLlVwZGF0ZVJ1bGVTZXRSZXF1ZXN0Gh0uYXBwLnYxLlVwZGF0ZVJ1bGVTZXRSZXNwb25zZRJYChFVcGRhdGVBbGxSdWxlU2V0cxIgLmFwcC52MS5VcGRhdGVBbGxSdWxlU2V0c1JlcXVlc3QaIS5hcHAudjEuVXBkYXRlQWxsUnVsZVNldHNSZXNwb25zZRJVChBVcGRhdGVSdWxlU2V0SHViEh8uYXBwLnYxLlVwZGF0ZVJ1bGVTZXRIdWJSZXF1ZXN0GiAuYXBwLnYxLlVwZGF0ZVJ1bGVTZXRIdWJSZXNwb25zZRJYChFHZXRSdWxlU2V0Q29udGVudBIgLmFwcC52MS5HZXRSdWxlU2V0Q29udGVudFJlcXVlc3QaIS5hcHAudjEuR2V0UnVsZVNldENvbnRlbnRSZXNwb25zZRJbChJTYXZlUnVsZVNldENvbnRlbnQSIS5hcHAudjEuU2F2ZVJ1bGVTZXRDb250ZW50UmVxdWVzdBoiLmFwcC52MS5TYXZlUnVsZVNldENvbnRlbnRSZXNwb25zZRJeChNDbGVhclJ1bGVTZXRDb250ZW50EiIuYXBwLnYxLkNsZWFyUnVsZVNldENvbnRlbnRSZXF1ZXN0GiMuYXBwLnYxLkNsZWFyUnVsZVNldENvbnRlbnRSZXNwb25zZUJ4Cgpjb20uYXBwLnYxQhNSdWxlU2V0U2VydmljZVByb3RvUAFaHGd1aWZvcmNvcmVzL2dlbi9hcHAvdjE7YXBwdjGiAgNBWFiqAgZBcHAuVjHKAgZBcHBcVjHiAhJBcHBcVjFcR1BCTWV0YWRhdGHqAgdBcHA6OlYxYgZwcm90bzM", [file_app_v1_task]);
+  fileDesc("Ch1hcHAvdjEvcnVsZV9zZXRfc2VydmljZS5wcm90bxIGYXBwLnYxIhUKE0xpc3RSdWxlU2V0c1JlcXVlc3QiPwoUTGlzdFJ1bGVTZXRzUmVzcG9uc2USFQoNcnVsZXNldHNfanNvbhgBIAMoCRIQCghodWJfanNvbhgCIAEoCSIsChNTYXZlUnVsZVNldHNSZXF1ZXN0EhUKDXJ1bGVzZXRzX2pzb24YASADKAkiLQoUU2F2ZVJ1bGVTZXRzUmVzcG9uc2USFQoNcnVsZXNldHNfanNvbhgBIAMoCSIsChRVcHNlcnRSdWxlU2V0UmVxdWVzdBIUCgxydWxlc2V0X2pzb24YASABKAkiLQoVVXBzZXJ0UnVsZVNldFJlc3BvbnNlEhQKDHJ1bGVzZXRfanNvbhgBIAEoCSIiChREZWxldGVSdWxlU2V0UmVxdWVzdBIKCgJpZBgBIAEoCSIXChVEZWxldGVSdWxlU2V0UmVzcG9uc2UiIgoUVXBkYXRlUnVsZVNldFJlcXVlc3QSCgoCaWQYASABKAkiPAoVVXBkYXRlUnVsZVNldFJlc3BvbnNlEiMKB3Jlc3VsdHMYASADKAsyEi5hcHAudjEuVGFza1Jlc3VsdCIaChhVcGRhdGVBbGxSdWxlU2V0c1JlcXVlc3QiQAoZVXBkYXRlQWxsUnVsZVNldHNSZXNwb25zZRIjCgdyZXN1bHRzGAEgAygLMhIuYXBwLnYxLlRhc2tSZXN1bHQiGQoXVXBkYXRlUnVsZVNldEh1YlJlcXVlc3QiLAoYVXBkYXRlUnVsZVNldEh1YlJlc3BvbnNlEhAKCGh1Yl9qc29uGAEgASgJIjkKGFByZXZpZXdSdWxlU2V0SHViUmVxdWVzdBINCgVpbmRleBgBIAEoBRIOCgZmb3JtYXQYAiABKAkiLAoZUHJldmlld1J1bGVTZXRIdWJSZXNwb25zZRIPCgdjb250ZW50GAEgASgJIiYKGEdldFJ1bGVTZXRDb250ZW50UmVxdWVzdBIKCgJpZBgBIAEoCSIsChlHZXRSdWxlU2V0Q29udGVudFJlc3BvbnNlEg8KB2NvbnRlbnQYASABKAkiOAoZU2F2ZVJ1bGVTZXRDb250ZW50UmVxdWVzdBIKCgJpZBgBIAEoCRIPCgdjb250ZW50GAIgASgJIjIKGlNhdmVSdWxlU2V0Q29udGVudFJlc3BvbnNlEhQKDHJ1bGVzZXRfanNvbhgBIAEoCSIoChpDbGVhclJ1bGVTZXRDb250ZW50UmVxdWVzdBIKCgJpZBgBIAEoCSIzChtDbGVhclJ1bGVTZXRDb250ZW50UmVzcG9uc2USFAoMcnVsZXNldF9qc29uGAEgASgJMrIHCg5SdWxlU2V0U2VydmljZRJJCgxMaXN0UnVsZVNldHMSGy5hcHAudjEuTGlzdFJ1bGVTZXRzUmVxdWVzdBocLmFwcC52MS5MaXN0UnVsZVNldHNSZXNwb25zZRJJCgxTYXZlUnVsZVNldHMSGy5hcHAudjEuU2F2ZVJ1bGVTZXRzUmVxdWVzdBocLmFwcC52MS5TYXZlUnVsZVNldHNSZXNwb25zZRJMCg1VcHNlcnRSdWxlU2V0EhwuYXBwLnYxLlVwc2VydFJ1bGVTZXRSZXF1ZXN0Gh0uYXBwLnYxLlVwc2VydFJ1bGVTZXRSZXNwb25zZRJMCg1EZWxldGVSdWxlU2V0EhwuYXBwLnYxLkRlbGV0ZVJ1bGVTZXRSZXF1ZXN0Gh0uYXBwLnYxLkRlbGV0ZVJ1bGVTZXRSZXNwb25zZRJMCg1VcGRhdGVSdWxlU2V0EhwuYXBwLnYxLlVwZGF0ZVJ1bGVTZXRSZXF1ZXN0Gh0uYXBwLnYxLlVwZGF0ZVJ1bGVTZXRSZXNwb25zZRJYChFVcGRhdGVBbGxSdWxlU2V0cxIgLmFwcC52MS5VcGRhdGVBbGxSdWxlU2V0c1JlcXVlc3QaIS5hcHAudjEuVXBkYXRlQWxsUnVsZVNldHNSZXNwb25zZRJVChBVcGRhdGVSdWxlU2V0SHViEh8uYXBwLnYxLlVwZGF0ZVJ1bGVTZXRIdWJSZXF1ZXN0GiAuYXBwLnYxLlVwZGF0ZVJ1bGVTZXRIdWJSZXNwb25zZRJYChFQcmV2aWV3UnVsZVNldEh1YhIgLmFwcC52MS5QcmV2aWV3UnVsZVNldEh1YlJlcXVlc3QaIS5hcHAudjEuUHJldmlld1J1bGVTZXRIdWJSZXNwb25zZRJYChFHZXRSdWxlU2V0Q29udGVudBIgLmFwcC52MS5HZXRSdWxlU2V0Q29udGVudFJlcXVlc3QaIS5hcHAudjEuR2V0UnVsZVNldENvbnRlbnRSZXNwb25zZRJbChJTYXZlUnVsZVNldENvbnRlbnQSIS5hcHAudjEuU2F2ZVJ1bGVTZXRDb250ZW50UmVxdWVzdBoiLmFwcC52MS5TYXZlUnVsZVNldENvbnRlbnRSZXNwb25zZRJeChNDbGVhclJ1bGVTZXRDb250ZW50EiIuYXBwLnYxLkNsZWFyUnVsZVNldENvbnRlbnRSZXF1ZXN0GiMuYXBwLnYxLkNsZWFyUnVsZVNldENvbnRlbnRSZXNwb25zZUJ4Cgpjb20uYXBwLnYxQhNSdWxlU2V0U2VydmljZVByb3RvUAFaHGd1aWZvcmNvcmVzL2dlbi9hcHAvdjE7YXBwdjGiAgNBWFiqAgZBcHAuVjHKAgZBcHBcVjHiAhJBcHBcVjFcR1BCTWV0YWRhdGHqAgdBcHA6OlYxYgZwcm90bzM", [file_app_v1_task]);
 
 /**
  * @generated from message app.v1.ListRuleSetsRequest
@@ -242,6 +242,45 @@ export const UpdateRuleSetHubResponseSchema: GenMessage<UpdateRuleSetHubResponse
   messageDesc(file_app_v1_rule_set_service, 13);
 
 /**
+ * @generated from message app.v1.PreviewRuleSetHubRequest
+ */
+export type PreviewRuleSetHubRequest = Message<"app.v1.PreviewRuleSetHubRequest"> & {
+  /**
+   * @generated from field: int32 index = 1;
+   */
+  index: number;
+
+  /**
+   * @generated from field: string format = 2;
+   */
+  format: string;
+};
+
+/**
+ * Describes the message app.v1.PreviewRuleSetHubRequest.
+ * Use `create(PreviewRuleSetHubRequestSchema)` to create a new message.
+ */
+export const PreviewRuleSetHubRequestSchema: GenMessage<PreviewRuleSetHubRequest> = /*@__PURE__*/
+  messageDesc(file_app_v1_rule_set_service, 14);
+
+/**
+ * @generated from message app.v1.PreviewRuleSetHubResponse
+ */
+export type PreviewRuleSetHubResponse = Message<"app.v1.PreviewRuleSetHubResponse"> & {
+  /**
+   * @generated from field: string content = 1;
+   */
+  content: string;
+};
+
+/**
+ * Describes the message app.v1.PreviewRuleSetHubResponse.
+ * Use `create(PreviewRuleSetHubResponseSchema)` to create a new message.
+ */
+export const PreviewRuleSetHubResponseSchema: GenMessage<PreviewRuleSetHubResponse> = /*@__PURE__*/
+  messageDesc(file_app_v1_rule_set_service, 15);
+
+/**
  * @generated from message app.v1.GetRuleSetContentRequest
  */
 export type GetRuleSetContentRequest = Message<"app.v1.GetRuleSetContentRequest"> & {
@@ -256,7 +295,7 @@ export type GetRuleSetContentRequest = Message<"app.v1.GetRuleSetContentRequest"
  * Use `create(GetRuleSetContentRequestSchema)` to create a new message.
  */
 export const GetRuleSetContentRequestSchema: GenMessage<GetRuleSetContentRequest> = /*@__PURE__*/
-  messageDesc(file_app_v1_rule_set_service, 14);
+  messageDesc(file_app_v1_rule_set_service, 16);
 
 /**
  * @generated from message app.v1.GetRuleSetContentResponse
@@ -273,7 +312,7 @@ export type GetRuleSetContentResponse = Message<"app.v1.GetRuleSetContentRespons
  * Use `create(GetRuleSetContentResponseSchema)` to create a new message.
  */
 export const GetRuleSetContentResponseSchema: GenMessage<GetRuleSetContentResponse> = /*@__PURE__*/
-  messageDesc(file_app_v1_rule_set_service, 15);
+  messageDesc(file_app_v1_rule_set_service, 17);
 
 /**
  * @generated from message app.v1.SaveRuleSetContentRequest
@@ -295,7 +334,7 @@ export type SaveRuleSetContentRequest = Message<"app.v1.SaveRuleSetContentReques
  * Use `create(SaveRuleSetContentRequestSchema)` to create a new message.
  */
 export const SaveRuleSetContentRequestSchema: GenMessage<SaveRuleSetContentRequest> = /*@__PURE__*/
-  messageDesc(file_app_v1_rule_set_service, 16);
+  messageDesc(file_app_v1_rule_set_service, 18);
 
 /**
  * @generated from message app.v1.SaveRuleSetContentResponse
@@ -312,7 +351,7 @@ export type SaveRuleSetContentResponse = Message<"app.v1.SaveRuleSetContentRespo
  * Use `create(SaveRuleSetContentResponseSchema)` to create a new message.
  */
 export const SaveRuleSetContentResponseSchema: GenMessage<SaveRuleSetContentResponse> = /*@__PURE__*/
-  messageDesc(file_app_v1_rule_set_service, 17);
+  messageDesc(file_app_v1_rule_set_service, 19);
 
 /**
  * @generated from message app.v1.ClearRuleSetContentRequest
@@ -329,7 +368,7 @@ export type ClearRuleSetContentRequest = Message<"app.v1.ClearRuleSetContentRequ
  * Use `create(ClearRuleSetContentRequestSchema)` to create a new message.
  */
 export const ClearRuleSetContentRequestSchema: GenMessage<ClearRuleSetContentRequest> = /*@__PURE__*/
-  messageDesc(file_app_v1_rule_set_service, 18);
+  messageDesc(file_app_v1_rule_set_service, 20);
 
 /**
  * @generated from message app.v1.ClearRuleSetContentResponse
@@ -346,7 +385,7 @@ export type ClearRuleSetContentResponse = Message<"app.v1.ClearRuleSetContentRes
  * Use `create(ClearRuleSetContentResponseSchema)` to create a new message.
  */
 export const ClearRuleSetContentResponseSchema: GenMessage<ClearRuleSetContentResponse> = /*@__PURE__*/
-  messageDesc(file_app_v1_rule_set_service, 19);
+  messageDesc(file_app_v1_rule_set_service, 21);
 
 /**
  * @generated from service app.v1.RuleSetService
@@ -407,6 +446,14 @@ export const RuleSetService: GenService<{
     methodKind: "unary";
     input: typeof UpdateRuleSetHubRequestSchema;
     output: typeof UpdateRuleSetHubResponseSchema;
+  },
+  /**
+   * @generated from rpc app.v1.RuleSetService.PreviewRuleSetHub
+   */
+  previewRuleSetHub: {
+    methodKind: "unary";
+    input: typeof PreviewRuleSetHubRequestSchema;
+    output: typeof PreviewRuleSetHubResponseSchema;
   },
   /**
    * @generated from rpc app.v1.RuleSetService.GetRuleSetContent

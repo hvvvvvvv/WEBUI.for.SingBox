@@ -3,13 +3,11 @@ import { useI18n } from 'vue-i18n'
 
 import logo from '@/assets/logo'
 import { BrowserOpenURL } from '@/bridge'
-import { useAppStore, useEnvStore } from '@/stores'
-import { APP_TITLE, APP_VERSION, PROJECT_URL } from '@/utils'
+import { useAppStore } from '@/stores'
+import { APP_TITLE, PROJECT_URL } from '@/utils'
 
 const { t } = useI18n()
-const envStore = useEnvStore()
 const appStore = useAppStore()
-
 
 appStore.checkForUpdates()
 </script>
@@ -20,20 +18,28 @@ appStore.checkForUpdates()
     <div class="py-8 font-bold">{{ APP_TITLE }}</div>
     <div class="flex items-center pb-8 my-4">
       <Button
-          :loading="appStore.checkForUpdatesLoading"
-          type="link"
-          size="small"
-          @click="appStore.checkForUpdates(true)"
-        >
-          Bridge: {{ envStore.env.appVersion }} - UI: {{ APP_VERSION }}
-        </Button>
-        <Button
-          v-if="appStore.updatable"
-          :loading="appStore.downloading"
-          size="small"
-          @click="appStore.downloadApp"
-        >
-          {{ t('about.new') }}: {{ appStore.remoteVersion }}
+        :loading="appStore.checkForUpdatesLoading"
+        type="link"
+        size="small"
+        @click="appStore.checkForUpdates(true)"
+      >
+        {{ t('about.currentVersion') }}: {{ appStore.currentVersion }}
+      </Button>
+      <Button
+        v-if="appStore.updateReady"
+        :loading="appStore.downloading"
+        size="small"
+        @click="appStore.applyAppUpdate"
+      >
+        {{ t('about.applyUpdate') }}: {{ appStore.updatedVersion }}
+      </Button>
+      <Button
+        v-if="appStore.updatable"
+        :loading="appStore.downloading"
+        size="small"
+        @click="appStore.downloadApp"
+      >
+        {{ t('about.new') }}: {{ appStore.remoteVersion }}
       </Button>
     </div>
     <div

@@ -8,13 +8,15 @@ import type { CoreStatus } from "./kernel_pb";
 import { file_kernel_v1_kernel } from "./kernel_pb";
 import type { Profile } from "../../profile/v1/profile_pb";
 import { file_profile_v1_profile } from "../../profile/v1/profile_pb";
+import type { KernelBranch } from "../../app/v1/app_pb";
+import { file_app_v1_app } from "../../app/v1/app_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file kernel/v1/kernel_runtime_service.proto.
  */
 export const file_kernel_v1_kernel_runtime_service: GenFile = /*@__PURE__*/
-  fileDesc("CiZrZXJuZWwvdjEva2VybmVsX3J1bnRpbWVfc2VydmljZS5wcm90bxIJa2VybmVsLnYxIiYKEFN0YXJ0Q29yZVJlcXVlc3QSEgoKcHJvZmlsZV9pZBgBIAEoCSIgChFTdGFydENvcmVSZXNwb25zZRILCgNwaWQYASABKAUiQwobU3RhcnRDb3JlV2l0aFByb2ZpbGVSZXF1ZXN0EiQKB3Byb2ZpbGUYASABKAsyEy5wcm9maWxlLnYxLlByb2ZpbGUiKwocU3RhcnRDb3JlV2l0aFByb2ZpbGVSZXNwb25zZRILCgNwaWQYASABKAUiEQoPU3RvcENvcmVSZXF1ZXN0IhIKEFN0b3BDb3JlUmVzcG9uc2UiKAoSUmVzdGFydENvcmVSZXF1ZXN0EhIKCnByb2ZpbGVfaWQYASABKAkiIgoTUmVzdGFydENvcmVSZXNwb25zZRILCgNwaWQYASABKAUiFgoUR2V0Q29yZVN0YXR1c1JlcXVlc3QiSwoVR2V0Q29yZVN0YXR1c1Jlc3BvbnNlEiUKBnN0YXR1cxgBIAEoDjIVLmtlcm5lbC52MS5Db3JlU3RhdHVzEgsKA3BpZBgCIAEoBSIaChhHZXRDdXJyZW50UHJvZmlsZVJlcXVlc3QiaAoZR2V0Q3VycmVudFByb2ZpbGVSZXNwb25zZRIkCgdwcm9maWxlGAEgASgLMhMucHJvZmlsZS52MS5Qcm9maWxlEiUKBnN0YXR1cxgCIAEoDjIVLmtlcm5lbC52MS5Db3JlU3RhdHVzIh0KG0dldEN1cnJlbnRDb3JlTWVtb3J5UmVxdWVzdCIrChxHZXRDdXJyZW50Q29yZU1lbW9yeVJlc3BvbnNlEgsKA3JzcxgBIAEoBDL3BAoUS2VybmVsUnVudGltZVNlcnZpY2USRgoJU3RhcnRDb3JlEhsua2VybmVsLnYxLlN0YXJ0Q29yZVJlcXVlc3QaHC5rZXJuZWwudjEuU3RhcnRDb3JlUmVzcG9uc2USZwoUU3RhcnRDb3JlV2l0aFByb2ZpbGUSJi5rZXJuZWwudjEuU3RhcnRDb3JlV2l0aFByb2ZpbGVSZXF1ZXN0Gicua2VybmVsLnYxLlN0YXJ0Q29yZVdpdGhQcm9maWxlUmVzcG9uc2USQwoIU3RvcENvcmUSGi5rZXJuZWwudjEuU3RvcENvcmVSZXF1ZXN0Ghsua2VybmVsLnYxLlN0b3BDb3JlUmVzcG9uc2USTAoLUmVzdGFydENvcmUSHS5rZXJuZWwudjEuUmVzdGFydENvcmVSZXF1ZXN0Gh4ua2VybmVsLnYxLlJlc3RhcnRDb3JlUmVzcG9uc2USUgoNR2V0Q29yZVN0YXR1cxIfLmtlcm5lbC52MS5HZXRDb3JlU3RhdHVzUmVxdWVzdBogLmtlcm5lbC52MS5HZXRDb3JlU3RhdHVzUmVzcG9uc2USXgoRR2V0Q3VycmVudFByb2ZpbGUSIy5rZXJuZWwudjEuR2V0Q3VycmVudFByb2ZpbGVSZXF1ZXN0GiQua2VybmVsLnYxLkdldEN1cnJlbnRQcm9maWxlUmVzcG9uc2USZwoUR2V0Q3VycmVudENvcmVNZW1vcnkSJi5rZXJuZWwudjEuR2V0Q3VycmVudENvcmVNZW1vcnlSZXF1ZXN0Gicua2VybmVsLnYxLkdldEN1cnJlbnRDb3JlTWVtb3J5UmVzcG9uc2VCkwEKDWNvbS5rZXJuZWwudjFCGUtlcm5lbFJ1bnRpbWVTZXJ2aWNlUHJvdG9QAVoiZ3VpZm9yY29yZXMvZ2VuL2tlcm5lbC92MTtrZXJuZWx2MaICA0tYWKoCCUtlcm5lbC5WMcoCCUtlcm5lbFxWMeICFUtlcm5lbFxWMVxHUEJNZXRhZGF0YeoCCktlcm5lbDo6VjFiBnByb3RvMw", [file_kernel_v1_kernel, file_profile_v1_profile]);
+  fileDesc("CiZrZXJuZWwvdjEva2VybmVsX3J1bnRpbWVfc2VydmljZS5wcm90bxIJa2VybmVsLnYxIiYKEFN0YXJ0Q29yZVJlcXVlc3QSEgoKcHJvZmlsZV9pZBgBIAEoCSIgChFTdGFydENvcmVSZXNwb25zZRILCgNwaWQYASABKAUiQwobU3RhcnRDb3JlV2l0aFByb2ZpbGVSZXF1ZXN0EiQKB3Byb2ZpbGUYASABKAsyEy5wcm9maWxlLnYxLlByb2ZpbGUiKwocU3RhcnRDb3JlV2l0aFByb2ZpbGVSZXNwb25zZRILCgNwaWQYASABKAUiEQoPU3RvcENvcmVSZXF1ZXN0IhIKEFN0b3BDb3JlUmVzcG9uc2UiKAoSUmVzdGFydENvcmVSZXF1ZXN0EhIKCnByb2ZpbGVfaWQYASABKAkiIgoTUmVzdGFydENvcmVSZXNwb25zZRILCgNwaWQYASABKAUiFgoUR2V0Q29yZVN0YXR1c1JlcXVlc3QiSwoVR2V0Q29yZVN0YXR1c1Jlc3BvbnNlEiUKBnN0YXR1cxgBIAEoDjIVLmtlcm5lbC52MS5Db3JlU3RhdHVzEgsKA3BpZBgCIAEoBSIaChhHZXRDdXJyZW50UHJvZmlsZVJlcXVlc3QiaAoZR2V0Q3VycmVudFByb2ZpbGVSZXNwb25zZRIkCgdwcm9maWxlGAEgASgLMhMucHJvZmlsZS52MS5Qcm9maWxlEiUKBnN0YXR1cxgCIAEoDjIVLmtlcm5lbC52MS5Db3JlU3RhdHVzIh0KG0dldEN1cnJlbnRDb3JlTWVtb3J5UmVxdWVzdCIrChxHZXRDdXJyZW50Q29yZU1lbW9yeVJlc3BvbnNlEgsKA3JzcxgBIAEoBCJICiBHZXRDb3JlQnJhbmNoTG9jYWxWZXJzaW9uUmVxdWVzdBIkCgZicmFuY2gYASABKA4yFC5hcHAudjEuS2VybmVsQnJhbmNoImgKIUdldENvcmVCcmFuY2hMb2NhbFZlcnNpb25SZXNwb25zZRIVCg1sb2NhbF92ZXJzaW9uGAEgASgJEhYKDnZlcnNpb25fZGV0YWlsGAIgASgJEhQKDHJvbGxiYWNrYWJsZRgDIAEoCCJJCiFHZXRDb3JlQnJhbmNoUmVtb3RlVmVyc2lvblJlcXVlc3QSJAoGYnJhbmNoGAEgASgOMhQuYXBwLnYxLktlcm5lbEJyYW5jaCKBAQoiR2V0Q29yZUJyYW5jaFJlbW90ZVZlcnNpb25SZXNwb25zZRIWCg5yZW1vdGVfdmVyc2lvbhgBIAEoCRISCgphc3NldF9uYW1lGAIgASgJEhgKEHJlbGVhc2VfcGFnZV91cmwYAyABKAkSFQoNdHJ1c3RlZF9hc3NldBgEIAEoCCJyChNEb3dubG9hZENvcmVSZXF1ZXN0EiQKBmJyYW5jaBgBIAEoDjIULmFwcC52MS5LZXJuZWxCcmFuY2gSFgoOcHJvZ3Jlc3NfZXZlbnQYAiABKAkSHQoVYWxsb3dfdW50cnVzdGVkX2Fzc2V0GAMgASgIIlsKFERvd25sb2FkQ29yZVJlc3BvbnNlEhUKDWxvY2FsX3ZlcnNpb24YASABKAkSFgoOdmVyc2lvbl9kZXRhaWwYAiABKAkSFAoMcm9sbGJhY2thYmxlGAMgASgIIjMKGUNhbmNlbENvcmVEb3dubG9hZFJlcXVlc3QSFgoOcHJvZ3Jlc3NfZXZlbnQYASABKAkiHAoaQ2FuY2VsQ29yZURvd25sb2FkUmVzcG9uc2UiOwoTUm9sbGJhY2tDb3JlUmVxdWVzdBIkCgZicmFuY2gYASABKA4yFC5hcHAudjEuS2VybmVsQnJhbmNoIlsKFFJvbGxiYWNrQ29yZVJlc3BvbnNlEhUKDWxvY2FsX3ZlcnNpb24YASABKAkSFgoOdmVyc2lvbl9kZXRhaWwYAiABKAkSFAoMcm9sbGJhY2thYmxlGAMgASgIIj0KFUNsZWFyQ29yZUNhY2hlUmVxdWVzdBIkCgZicmFuY2gYASABKA4yFC5hcHAudjEuS2VybmVsQnJhbmNoIhgKFkNsZWFyQ29yZUNhY2hlUmVzcG9uc2UyxgkKFEtlcm5lbFJ1bnRpbWVTZXJ2aWNlEkYKCVN0YXJ0Q29yZRIbLmtlcm5lbC52MS5TdGFydENvcmVSZXF1ZXN0Ghwua2VybmVsLnYxLlN0YXJ0Q29yZVJlc3BvbnNlEmcKFFN0YXJ0Q29yZVdpdGhQcm9maWxlEiYua2VybmVsLnYxLlN0YXJ0Q29yZVdpdGhQcm9maWxlUmVxdWVzdBonLmtlcm5lbC52MS5TdGFydENvcmVXaXRoUHJvZmlsZVJlc3BvbnNlEkMKCFN0b3BDb3JlEhoua2VybmVsLnYxLlN0b3BDb3JlUmVxdWVzdBobLmtlcm5lbC52MS5TdG9wQ29yZVJlc3BvbnNlEkwKC1Jlc3RhcnRDb3JlEh0ua2VybmVsLnYxLlJlc3RhcnRDb3JlUmVxdWVzdBoeLmtlcm5lbC52MS5SZXN0YXJ0Q29yZVJlc3BvbnNlElIKDUdldENvcmVTdGF0dXMSHy5rZXJuZWwudjEuR2V0Q29yZVN0YXR1c1JlcXVlc3QaIC5rZXJuZWwudjEuR2V0Q29yZVN0YXR1c1Jlc3BvbnNlEl4KEUdldEN1cnJlbnRQcm9maWxlEiMua2VybmVsLnYxLkdldEN1cnJlbnRQcm9maWxlUmVxdWVzdBokLmtlcm5lbC52MS5HZXRDdXJyZW50UHJvZmlsZVJlc3BvbnNlEmcKFEdldEN1cnJlbnRDb3JlTWVtb3J5EiYua2VybmVsLnYxLkdldEN1cnJlbnRDb3JlTWVtb3J5UmVxdWVzdBonLmtlcm5lbC52MS5HZXRDdXJyZW50Q29yZU1lbW9yeVJlc3BvbnNlEnYKGUdldENvcmVCcmFuY2hMb2NhbFZlcnNpb24SKy5rZXJuZWwudjEuR2V0Q29yZUJyYW5jaExvY2FsVmVyc2lvblJlcXVlc3QaLC5rZXJuZWwudjEuR2V0Q29yZUJyYW5jaExvY2FsVmVyc2lvblJlc3BvbnNlEnkKGkdldENvcmVCcmFuY2hSZW1vdGVWZXJzaW9uEiwua2VybmVsLnYxLkdldENvcmVCcmFuY2hSZW1vdGVWZXJzaW9uUmVxdWVzdBotLmtlcm5lbC52MS5HZXRDb3JlQnJhbmNoUmVtb3RlVmVyc2lvblJlc3BvbnNlEk8KDERvd25sb2FkQ29yZRIeLmtlcm5lbC52MS5Eb3dubG9hZENvcmVSZXF1ZXN0Gh8ua2VybmVsLnYxLkRvd25sb2FkQ29yZVJlc3BvbnNlEmEKEkNhbmNlbENvcmVEb3dubG9hZBIkLmtlcm5lbC52MS5DYW5jZWxDb3JlRG93bmxvYWRSZXF1ZXN0GiUua2VybmVsLnYxLkNhbmNlbENvcmVEb3dubG9hZFJlc3BvbnNlEk8KDFJvbGxiYWNrQ29yZRIeLmtlcm5lbC52MS5Sb2xsYmFja0NvcmVSZXF1ZXN0Gh8ua2VybmVsLnYxLlJvbGxiYWNrQ29yZVJlc3BvbnNlElUKDkNsZWFyQ29yZUNhY2hlEiAua2VybmVsLnYxLkNsZWFyQ29yZUNhY2hlUmVxdWVzdBohLmtlcm5lbC52MS5DbGVhckNvcmVDYWNoZVJlc3BvbnNlQpMBCg1jb20ua2VybmVsLnYxQhlLZXJuZWxSdW50aW1lU2VydmljZVByb3RvUAFaImd1aWZvcmNvcmVzL2dlbi9rZXJuZWwvdjE7a2VybmVsdjGiAgNLWFiqAglLZXJuZWwuVjHKAglLZXJuZWxcVjHiAhVLZXJuZWxcVjFcR1BCTWV0YWRhdGHqAgpLZXJuZWw6OlYxYgZwcm90bzM", [file_kernel_v1_kernel, file_profile_v1_profile, file_app_v1_app]);
 
 /**
  * @generated from message kernel.v1.StartCoreRequest
@@ -245,6 +247,257 @@ export const GetCurrentCoreMemoryResponseSchema: GenMessage<GetCurrentCoreMemory
   messageDesc(file_kernel_v1_kernel_runtime_service, 13);
 
 /**
+ * @generated from message kernel.v1.GetCoreBranchLocalVersionRequest
+ */
+export type GetCoreBranchLocalVersionRequest = Message<"kernel.v1.GetCoreBranchLocalVersionRequest"> & {
+  /**
+   * @generated from field: app.v1.KernelBranch branch = 1;
+   */
+  branch: KernelBranch;
+};
+
+/**
+ * Describes the message kernel.v1.GetCoreBranchLocalVersionRequest.
+ * Use `create(GetCoreBranchLocalVersionRequestSchema)` to create a new message.
+ */
+export const GetCoreBranchLocalVersionRequestSchema: GenMessage<GetCoreBranchLocalVersionRequest> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 14);
+
+/**
+ * @generated from message kernel.v1.GetCoreBranchLocalVersionResponse
+ */
+export type GetCoreBranchLocalVersionResponse = Message<"kernel.v1.GetCoreBranchLocalVersionResponse"> & {
+  /**
+   * @generated from field: string local_version = 1;
+   */
+  localVersion: string;
+
+  /**
+   * @generated from field: string version_detail = 2;
+   */
+  versionDetail: string;
+
+  /**
+   * @generated from field: bool rollbackable = 3;
+   */
+  rollbackable: boolean;
+};
+
+/**
+ * Describes the message kernel.v1.GetCoreBranchLocalVersionResponse.
+ * Use `create(GetCoreBranchLocalVersionResponseSchema)` to create a new message.
+ */
+export const GetCoreBranchLocalVersionResponseSchema: GenMessage<GetCoreBranchLocalVersionResponse> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 15);
+
+/**
+ * @generated from message kernel.v1.GetCoreBranchRemoteVersionRequest
+ */
+export type GetCoreBranchRemoteVersionRequest = Message<"kernel.v1.GetCoreBranchRemoteVersionRequest"> & {
+  /**
+   * @generated from field: app.v1.KernelBranch branch = 1;
+   */
+  branch: KernelBranch;
+};
+
+/**
+ * Describes the message kernel.v1.GetCoreBranchRemoteVersionRequest.
+ * Use `create(GetCoreBranchRemoteVersionRequestSchema)` to create a new message.
+ */
+export const GetCoreBranchRemoteVersionRequestSchema: GenMessage<GetCoreBranchRemoteVersionRequest> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 16);
+
+/**
+ * @generated from message kernel.v1.GetCoreBranchRemoteVersionResponse
+ */
+export type GetCoreBranchRemoteVersionResponse = Message<"kernel.v1.GetCoreBranchRemoteVersionResponse"> & {
+  /**
+   * @generated from field: string remote_version = 1;
+   */
+  remoteVersion: string;
+
+  /**
+   * @generated from field: string asset_name = 2;
+   */
+  assetName: string;
+
+  /**
+   * @generated from field: string release_page_url = 3;
+   */
+  releasePageUrl: string;
+
+  /**
+   * @generated from field: bool trusted_asset = 4;
+   */
+  trustedAsset: boolean;
+};
+
+/**
+ * Describes the message kernel.v1.GetCoreBranchRemoteVersionResponse.
+ * Use `create(GetCoreBranchRemoteVersionResponseSchema)` to create a new message.
+ */
+export const GetCoreBranchRemoteVersionResponseSchema: GenMessage<GetCoreBranchRemoteVersionResponse> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 17);
+
+/**
+ * @generated from message kernel.v1.DownloadCoreRequest
+ */
+export type DownloadCoreRequest = Message<"kernel.v1.DownloadCoreRequest"> & {
+  /**
+   * @generated from field: app.v1.KernelBranch branch = 1;
+   */
+  branch: KernelBranch;
+
+  /**
+   * @generated from field: string progress_event = 2;
+   */
+  progressEvent: string;
+
+  /**
+   * @generated from field: bool allow_untrusted_asset = 3;
+   */
+  allowUntrustedAsset: boolean;
+};
+
+/**
+ * Describes the message kernel.v1.DownloadCoreRequest.
+ * Use `create(DownloadCoreRequestSchema)` to create a new message.
+ */
+export const DownloadCoreRequestSchema: GenMessage<DownloadCoreRequest> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 18);
+
+/**
+ * @generated from message kernel.v1.DownloadCoreResponse
+ */
+export type DownloadCoreResponse = Message<"kernel.v1.DownloadCoreResponse"> & {
+  /**
+   * @generated from field: string local_version = 1;
+   */
+  localVersion: string;
+
+  /**
+   * @generated from field: string version_detail = 2;
+   */
+  versionDetail: string;
+
+  /**
+   * @generated from field: bool rollbackable = 3;
+   */
+  rollbackable: boolean;
+};
+
+/**
+ * Describes the message kernel.v1.DownloadCoreResponse.
+ * Use `create(DownloadCoreResponseSchema)` to create a new message.
+ */
+export const DownloadCoreResponseSchema: GenMessage<DownloadCoreResponse> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 19);
+
+/**
+ * @generated from message kernel.v1.CancelCoreDownloadRequest
+ */
+export type CancelCoreDownloadRequest = Message<"kernel.v1.CancelCoreDownloadRequest"> & {
+  /**
+   * @generated from field: string progress_event = 1;
+   */
+  progressEvent: string;
+};
+
+/**
+ * Describes the message kernel.v1.CancelCoreDownloadRequest.
+ * Use `create(CancelCoreDownloadRequestSchema)` to create a new message.
+ */
+export const CancelCoreDownloadRequestSchema: GenMessage<CancelCoreDownloadRequest> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 20);
+
+/**
+ * @generated from message kernel.v1.CancelCoreDownloadResponse
+ */
+export type CancelCoreDownloadResponse = Message<"kernel.v1.CancelCoreDownloadResponse"> & {
+};
+
+/**
+ * Describes the message kernel.v1.CancelCoreDownloadResponse.
+ * Use `create(CancelCoreDownloadResponseSchema)` to create a new message.
+ */
+export const CancelCoreDownloadResponseSchema: GenMessage<CancelCoreDownloadResponse> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 21);
+
+/**
+ * @generated from message kernel.v1.RollbackCoreRequest
+ */
+export type RollbackCoreRequest = Message<"kernel.v1.RollbackCoreRequest"> & {
+  /**
+   * @generated from field: app.v1.KernelBranch branch = 1;
+   */
+  branch: KernelBranch;
+};
+
+/**
+ * Describes the message kernel.v1.RollbackCoreRequest.
+ * Use `create(RollbackCoreRequestSchema)` to create a new message.
+ */
+export const RollbackCoreRequestSchema: GenMessage<RollbackCoreRequest> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 22);
+
+/**
+ * @generated from message kernel.v1.RollbackCoreResponse
+ */
+export type RollbackCoreResponse = Message<"kernel.v1.RollbackCoreResponse"> & {
+  /**
+   * @generated from field: string local_version = 1;
+   */
+  localVersion: string;
+
+  /**
+   * @generated from field: string version_detail = 2;
+   */
+  versionDetail: string;
+
+  /**
+   * @generated from field: bool rollbackable = 3;
+   */
+  rollbackable: boolean;
+};
+
+/**
+ * Describes the message kernel.v1.RollbackCoreResponse.
+ * Use `create(RollbackCoreResponseSchema)` to create a new message.
+ */
+export const RollbackCoreResponseSchema: GenMessage<RollbackCoreResponse> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 23);
+
+/**
+ * @generated from message kernel.v1.ClearCoreCacheRequest
+ */
+export type ClearCoreCacheRequest = Message<"kernel.v1.ClearCoreCacheRequest"> & {
+  /**
+   * @generated from field: app.v1.KernelBranch branch = 1;
+   */
+  branch: KernelBranch;
+};
+
+/**
+ * Describes the message kernel.v1.ClearCoreCacheRequest.
+ * Use `create(ClearCoreCacheRequestSchema)` to create a new message.
+ */
+export const ClearCoreCacheRequestSchema: GenMessage<ClearCoreCacheRequest> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 24);
+
+/**
+ * @generated from message kernel.v1.ClearCoreCacheResponse
+ */
+export type ClearCoreCacheResponse = Message<"kernel.v1.ClearCoreCacheResponse"> & {
+};
+
+/**
+ * Describes the message kernel.v1.ClearCoreCacheResponse.
+ * Use `create(ClearCoreCacheResponseSchema)` to create a new message.
+ */
+export const ClearCoreCacheResponseSchema: GenMessage<ClearCoreCacheResponse> = /*@__PURE__*/
+  messageDesc(file_kernel_v1_kernel_runtime_service, 25);
+
+/**
  * @generated from service kernel.v1.KernelRuntimeService
  */
 export const KernelRuntimeService: GenService<{
@@ -303,6 +556,54 @@ export const KernelRuntimeService: GenService<{
     methodKind: "unary";
     input: typeof GetCurrentCoreMemoryRequestSchema;
     output: typeof GetCurrentCoreMemoryResponseSchema;
+  },
+  /**
+   * @generated from rpc kernel.v1.KernelRuntimeService.GetCoreBranchLocalVersion
+   */
+  getCoreBranchLocalVersion: {
+    methodKind: "unary";
+    input: typeof GetCoreBranchLocalVersionRequestSchema;
+    output: typeof GetCoreBranchLocalVersionResponseSchema;
+  },
+  /**
+   * @generated from rpc kernel.v1.KernelRuntimeService.GetCoreBranchRemoteVersion
+   */
+  getCoreBranchRemoteVersion: {
+    methodKind: "unary";
+    input: typeof GetCoreBranchRemoteVersionRequestSchema;
+    output: typeof GetCoreBranchRemoteVersionResponseSchema;
+  },
+  /**
+   * @generated from rpc kernel.v1.KernelRuntimeService.DownloadCore
+   */
+  downloadCore: {
+    methodKind: "unary";
+    input: typeof DownloadCoreRequestSchema;
+    output: typeof DownloadCoreResponseSchema;
+  },
+  /**
+   * @generated from rpc kernel.v1.KernelRuntimeService.CancelCoreDownload
+   */
+  cancelCoreDownload: {
+    methodKind: "unary";
+    input: typeof CancelCoreDownloadRequestSchema;
+    output: typeof CancelCoreDownloadResponseSchema;
+  },
+  /**
+   * @generated from rpc kernel.v1.KernelRuntimeService.RollbackCore
+   */
+  rollbackCore: {
+    methodKind: "unary";
+    input: typeof RollbackCoreRequestSchema;
+    output: typeof RollbackCoreResponseSchema;
+  },
+  /**
+   * @generated from rpc kernel.v1.KernelRuntimeService.ClearCoreCache
+   */
+  clearCoreCache: {
+    methodKind: "unary";
+    input: typeof ClearCoreCacheRequestSchema;
+    output: typeof ClearCoreCacheResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_kernel_v1_kernel_runtime_service, 0);

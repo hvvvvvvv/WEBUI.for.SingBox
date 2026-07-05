@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { GetCoreStatusRequest, GetCoreStatusResponse, GetCurrentCoreMemoryRequest, GetCurrentCoreMemoryResponse, GetCurrentProfileRequest, GetCurrentProfileResponse, RestartCoreRequest, RestartCoreResponse, StartCoreRequest, StartCoreResponse, StartCoreWithProfileRequest, StartCoreWithProfileResponse, StopCoreRequest, StopCoreResponse } from "./kernel_runtime_service_pb.js";
+import { CancelCoreDownloadRequest, CancelCoreDownloadResponse, ClearCoreCacheRequest, ClearCoreCacheResponse, DownloadCoreRequest, DownloadCoreResponse, GetCoreBranchLocalVersionRequest, GetCoreBranchLocalVersionResponse, GetCoreBranchRemoteVersionRequest, GetCoreBranchRemoteVersionResponse, GetCoreStatusRequest, GetCoreStatusResponse, GetCurrentCoreMemoryRequest, GetCurrentCoreMemoryResponse, GetCurrentProfileRequest, GetCurrentProfileResponse, RestartCoreRequest, RestartCoreResponse, RollbackCoreRequest, RollbackCoreResponse, StartCoreRequest, StartCoreResponse, StartCoreWithProfileRequest, StartCoreWithProfileResponse, StopCoreRequest, StopCoreResponse } from "./kernel_runtime_service_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -73,6 +73,60 @@ export const KernelRuntimeService = {
       name: "GetCurrentCoreMemory",
       I: GetCurrentCoreMemoryRequest,
       O: GetCurrentCoreMemoryResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc kernel.v1.KernelRuntimeService.GetCoreBranchLocalVersion
+     */
+    getCoreBranchLocalVersion: {
+      name: "GetCoreBranchLocalVersion",
+      I: GetCoreBranchLocalVersionRequest,
+      O: GetCoreBranchLocalVersionResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc kernel.v1.KernelRuntimeService.GetCoreBranchRemoteVersion
+     */
+    getCoreBranchRemoteVersion: {
+      name: "GetCoreBranchRemoteVersion",
+      I: GetCoreBranchRemoteVersionRequest,
+      O: GetCoreBranchRemoteVersionResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc kernel.v1.KernelRuntimeService.DownloadCore
+     */
+    downloadCore: {
+      name: "DownloadCore",
+      I: DownloadCoreRequest,
+      O: DownloadCoreResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc kernel.v1.KernelRuntimeService.CancelCoreDownload
+     */
+    cancelCoreDownload: {
+      name: "CancelCoreDownload",
+      I: CancelCoreDownloadRequest,
+      O: CancelCoreDownloadResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc kernel.v1.KernelRuntimeService.RollbackCore
+     */
+    rollbackCore: {
+      name: "RollbackCore",
+      I: RollbackCoreRequest,
+      O: RollbackCoreResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc kernel.v1.KernelRuntimeService.ClearCoreCache
+     */
+    clearCoreCache: {
+      name: "ClearCoreCache",
+      I: ClearCoreCacheRequest,
+      O: ClearCoreCacheResponse,
       kind: MethodKind.Unary,
     },
   }

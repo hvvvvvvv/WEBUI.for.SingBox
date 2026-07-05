@@ -51,6 +51,12 @@ const (
 	// SubscriptionServiceUpdateAllSubscriptionsProcedure is the fully-qualified name of the
 	// SubscriptionService's UpdateAllSubscriptions RPC.
 	SubscriptionServiceUpdateAllSubscriptionsProcedure = "/app.v1.SubscriptionService/UpdateAllSubscriptions"
+	// SubscriptionServiceGetSubscriptionContentProcedure is the fully-qualified name of the
+	// SubscriptionService's GetSubscriptionContent RPC.
+	SubscriptionServiceGetSubscriptionContentProcedure = "/app.v1.SubscriptionService/GetSubscriptionContent"
+	// SubscriptionServiceSaveSubscriptionContentProcedure is the fully-qualified name of the
+	// SubscriptionService's SaveSubscriptionContent RPC.
+	SubscriptionServiceSaveSubscriptionContentProcedure = "/app.v1.SubscriptionService/SaveSubscriptionContent"
 )
 
 // SubscriptionServiceClient is a client for the app.v1.SubscriptionService service.
@@ -61,6 +67,8 @@ type SubscriptionServiceClient interface {
 	DeleteSubscription(context.Context, *connect.Request[v1.DeleteSubscriptionRequest]) (*connect.Response[v1.DeleteSubscriptionResponse], error)
 	UpdateSubscription(context.Context, *connect.Request[v1.UpdateSubscriptionRequest]) (*connect.Response[v1.UpdateSubscriptionResponse], error)
 	UpdateAllSubscriptions(context.Context, *connect.Request[v1.UpdateAllSubscriptionsRequest]) (*connect.Response[v1.UpdateAllSubscriptionsResponse], error)
+	GetSubscriptionContent(context.Context, *connect.Request[v1.GetSubscriptionContentRequest]) (*connect.Response[v1.GetSubscriptionContentResponse], error)
+	SaveSubscriptionContent(context.Context, *connect.Request[v1.SaveSubscriptionContentRequest]) (*connect.Response[v1.SaveSubscriptionContentResponse], error)
 }
 
 // NewSubscriptionServiceClient constructs a client for the app.v1.SubscriptionService service. By
@@ -110,17 +118,31 @@ func NewSubscriptionServiceClient(httpClient connect.HTTPClient, baseURL string,
 			connect.WithSchema(subscriptionServiceMethods.ByName("UpdateAllSubscriptions")),
 			connect.WithClientOptions(opts...),
 		),
+		getSubscriptionContent: connect.NewClient[v1.GetSubscriptionContentRequest, v1.GetSubscriptionContentResponse](
+			httpClient,
+			baseURL+SubscriptionServiceGetSubscriptionContentProcedure,
+			connect.WithSchema(subscriptionServiceMethods.ByName("GetSubscriptionContent")),
+			connect.WithClientOptions(opts...),
+		),
+		saveSubscriptionContent: connect.NewClient[v1.SaveSubscriptionContentRequest, v1.SaveSubscriptionContentResponse](
+			httpClient,
+			baseURL+SubscriptionServiceSaveSubscriptionContentProcedure,
+			connect.WithSchema(subscriptionServiceMethods.ByName("SaveSubscriptionContent")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // subscriptionServiceClient implements SubscriptionServiceClient.
 type subscriptionServiceClient struct {
-	listSubscriptions      *connect.Client[v1.ListSubscriptionsRequest, v1.ListSubscriptionsResponse]
-	saveSubscriptions      *connect.Client[v1.SaveSubscriptionsRequest, v1.SaveSubscriptionsResponse]
-	upsertSubscription     *connect.Client[v1.UpsertSubscriptionRequest, v1.UpsertSubscriptionResponse]
-	deleteSubscription     *connect.Client[v1.DeleteSubscriptionRequest, v1.DeleteSubscriptionResponse]
-	updateSubscription     *connect.Client[v1.UpdateSubscriptionRequest, v1.UpdateSubscriptionResponse]
-	updateAllSubscriptions *connect.Client[v1.UpdateAllSubscriptionsRequest, v1.UpdateAllSubscriptionsResponse]
+	listSubscriptions       *connect.Client[v1.ListSubscriptionsRequest, v1.ListSubscriptionsResponse]
+	saveSubscriptions       *connect.Client[v1.SaveSubscriptionsRequest, v1.SaveSubscriptionsResponse]
+	upsertSubscription      *connect.Client[v1.UpsertSubscriptionRequest, v1.UpsertSubscriptionResponse]
+	deleteSubscription      *connect.Client[v1.DeleteSubscriptionRequest, v1.DeleteSubscriptionResponse]
+	updateSubscription      *connect.Client[v1.UpdateSubscriptionRequest, v1.UpdateSubscriptionResponse]
+	updateAllSubscriptions  *connect.Client[v1.UpdateAllSubscriptionsRequest, v1.UpdateAllSubscriptionsResponse]
+	getSubscriptionContent  *connect.Client[v1.GetSubscriptionContentRequest, v1.GetSubscriptionContentResponse]
+	saveSubscriptionContent *connect.Client[v1.SaveSubscriptionContentRequest, v1.SaveSubscriptionContentResponse]
 }
 
 // ListSubscriptions calls app.v1.SubscriptionService.ListSubscriptions.
@@ -153,6 +175,16 @@ func (c *subscriptionServiceClient) UpdateAllSubscriptions(ctx context.Context, 
 	return c.updateAllSubscriptions.CallUnary(ctx, req)
 }
 
+// GetSubscriptionContent calls app.v1.SubscriptionService.GetSubscriptionContent.
+func (c *subscriptionServiceClient) GetSubscriptionContent(ctx context.Context, req *connect.Request[v1.GetSubscriptionContentRequest]) (*connect.Response[v1.GetSubscriptionContentResponse], error) {
+	return c.getSubscriptionContent.CallUnary(ctx, req)
+}
+
+// SaveSubscriptionContent calls app.v1.SubscriptionService.SaveSubscriptionContent.
+func (c *subscriptionServiceClient) SaveSubscriptionContent(ctx context.Context, req *connect.Request[v1.SaveSubscriptionContentRequest]) (*connect.Response[v1.SaveSubscriptionContentResponse], error) {
+	return c.saveSubscriptionContent.CallUnary(ctx, req)
+}
+
 // SubscriptionServiceHandler is an implementation of the app.v1.SubscriptionService service.
 type SubscriptionServiceHandler interface {
 	ListSubscriptions(context.Context, *connect.Request[v1.ListSubscriptionsRequest]) (*connect.Response[v1.ListSubscriptionsResponse], error)
@@ -161,6 +193,8 @@ type SubscriptionServiceHandler interface {
 	DeleteSubscription(context.Context, *connect.Request[v1.DeleteSubscriptionRequest]) (*connect.Response[v1.DeleteSubscriptionResponse], error)
 	UpdateSubscription(context.Context, *connect.Request[v1.UpdateSubscriptionRequest]) (*connect.Response[v1.UpdateSubscriptionResponse], error)
 	UpdateAllSubscriptions(context.Context, *connect.Request[v1.UpdateAllSubscriptionsRequest]) (*connect.Response[v1.UpdateAllSubscriptionsResponse], error)
+	GetSubscriptionContent(context.Context, *connect.Request[v1.GetSubscriptionContentRequest]) (*connect.Response[v1.GetSubscriptionContentResponse], error)
+	SaveSubscriptionContent(context.Context, *connect.Request[v1.SaveSubscriptionContentRequest]) (*connect.Response[v1.SaveSubscriptionContentResponse], error)
 }
 
 // NewSubscriptionServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -206,6 +240,18 @@ func NewSubscriptionServiceHandler(svc SubscriptionServiceHandler, opts ...conne
 		connect.WithSchema(subscriptionServiceMethods.ByName("UpdateAllSubscriptions")),
 		connect.WithHandlerOptions(opts...),
 	)
+	subscriptionServiceGetSubscriptionContentHandler := connect.NewUnaryHandler(
+		SubscriptionServiceGetSubscriptionContentProcedure,
+		svc.GetSubscriptionContent,
+		connect.WithSchema(subscriptionServiceMethods.ByName("GetSubscriptionContent")),
+		connect.WithHandlerOptions(opts...),
+	)
+	subscriptionServiceSaveSubscriptionContentHandler := connect.NewUnaryHandler(
+		SubscriptionServiceSaveSubscriptionContentProcedure,
+		svc.SaveSubscriptionContent,
+		connect.WithSchema(subscriptionServiceMethods.ByName("SaveSubscriptionContent")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/app.v1.SubscriptionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case SubscriptionServiceListSubscriptionsProcedure:
@@ -220,6 +266,10 @@ func NewSubscriptionServiceHandler(svc SubscriptionServiceHandler, opts ...conne
 			subscriptionServiceUpdateSubscriptionHandler.ServeHTTP(w, r)
 		case SubscriptionServiceUpdateAllSubscriptionsProcedure:
 			subscriptionServiceUpdateAllSubscriptionsHandler.ServeHTTP(w, r)
+		case SubscriptionServiceGetSubscriptionContentProcedure:
+			subscriptionServiceGetSubscriptionContentHandler.ServeHTTP(w, r)
+		case SubscriptionServiceSaveSubscriptionContentProcedure:
+			subscriptionServiceSaveSubscriptionContentHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -251,4 +301,12 @@ func (UnimplementedSubscriptionServiceHandler) UpdateSubscription(context.Contex
 
 func (UnimplementedSubscriptionServiceHandler) UpdateAllSubscriptions(context.Context, *connect.Request[v1.UpdateAllSubscriptionsRequest]) (*connect.Response[v1.UpdateAllSubscriptionsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.SubscriptionService.UpdateAllSubscriptions is not implemented"))
+}
+
+func (UnimplementedSubscriptionServiceHandler) GetSubscriptionContent(context.Context, *connect.Request[v1.GetSubscriptionContentRequest]) (*connect.Response[v1.GetSubscriptionContentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.SubscriptionService.GetSubscriptionContent is not implemented"))
+}
+
+func (UnimplementedSubscriptionServiceHandler) SaveSubscriptionContent(context.Context, *connect.Request[v1.SaveSubscriptionContentRequest]) (*connect.Response[v1.SaveSubscriptionContentResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.SubscriptionService.SaveSubscriptionContent is not implemented"))
 }

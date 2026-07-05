@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file app/v1/subscription_service.proto.
  */
 export const file_app_v1_subscription_service: GenFile = /*@__PURE__*/
-  fileDesc("CiFhcHAvdjEvc3Vic2NyaXB0aW9uX3NlcnZpY2UucHJvdG8SBmFwcC52MSIaChhMaXN0U3Vic2NyaXB0aW9uc1JlcXVlc3QiNwoZTGlzdFN1YnNjcmlwdGlvbnNSZXNwb25zZRIaChJzdWJzY3JpcHRpb25zX2pzb24YASADKAkiNgoYU2F2ZVN1YnNjcmlwdGlvbnNSZXF1ZXN0EhoKEnN1YnNjcmlwdGlvbnNfanNvbhgBIAMoCSI3ChlTYXZlU3Vic2NyaXB0aW9uc1Jlc3BvbnNlEhoKEnN1YnNjcmlwdGlvbnNfanNvbhgBIAMoCSI2ChlVcHNlcnRTdWJzY3JpcHRpb25SZXF1ZXN0EhkKEXN1YnNjcmlwdGlvbl9qc29uGAEgASgJIjcKGlVwc2VydFN1YnNjcmlwdGlvblJlc3BvbnNlEhkKEXN1YnNjcmlwdGlvbl9qc29uGAEgASgJIicKGURlbGV0ZVN1YnNjcmlwdGlvblJlcXVlc3QSCgoCaWQYASABKAkiHAoaRGVsZXRlU3Vic2NyaXB0aW9uUmVzcG9uc2UiJwoZVXBkYXRlU3Vic2NyaXB0aW9uUmVxdWVzdBIKCgJpZBgBIAEoCSJBChpVcGRhdGVTdWJzY3JpcHRpb25SZXNwb25zZRIjCgdyZXN1bHRzGAEgAygLMhIuYXBwLnYxLlRhc2tSZXN1bHQiHwodVXBkYXRlQWxsU3Vic2NyaXB0aW9uc1JlcXVlc3QiRQoeVXBkYXRlQWxsU3Vic2NyaXB0aW9uc1Jlc3BvbnNlEiMKB3Jlc3VsdHMYASADKAsyEi5hcHAudjEuVGFza1Jlc3VsdDLJBAoTU3Vic2NyaXB0aW9uU2VydmljZRJYChFMaXN0U3Vic2NyaXB0aW9ucxIgLmFwcC52MS5MaXN0U3Vic2NyaXB0aW9uc1JlcXVlc3QaIS5hcHAudjEuTGlzdFN1YnNjcmlwdGlvbnNSZXNwb25zZRJYChFTYXZlU3Vic2NyaXB0aW9ucxIgLmFwcC52MS5TYXZlU3Vic2NyaXB0aW9uc1JlcXVlc3QaIS5hcHAudjEuU2F2ZVN1YnNjcmlwdGlvbnNSZXNwb25zZRJbChJVcHNlcnRTdWJzY3JpcHRpb24SIS5hcHAudjEuVXBzZXJ0U3Vic2NyaXB0aW9uUmVxdWVzdBoiLmFwcC52MS5VcHNlcnRTdWJzY3JpcHRpb25SZXNwb25zZRJbChJEZWxldGVTdWJzY3JpcHRpb24SIS5hcHAudjEuRGVsZXRlU3Vic2NyaXB0aW9uUmVxdWVzdBoiLmFwcC52MS5EZWxldGVTdWJzY3JpcHRpb25SZXNwb25zZRJbChJVcGRhdGVTdWJzY3JpcHRpb24SIS5hcHAudjEuVXBkYXRlU3Vic2NyaXB0aW9uUmVxdWVzdBoiLmFwcC52MS5VcGRhdGVTdWJzY3JpcHRpb25SZXNwb25zZRJnChZVcGRhdGVBbGxTdWJzY3JpcHRpb25zEiUuYXBwLnYxLlVwZGF0ZUFsbFN1YnNjcmlwdGlvbnNSZXF1ZXN0GiYuYXBwLnYxLlVwZGF0ZUFsbFN1YnNjcmlwdGlvbnNSZXNwb25zZUJ9Cgpjb20uYXBwLnYxQhhTdWJzY3JpcHRpb25TZXJ2aWNlUHJvdG9QAVocZ3VpZm9yY29yZXMvZ2VuL2FwcC92MTthcHB2MaICA0FYWKoCBkFwcC5WMcoCBkFwcFxWMeICEkFwcFxWMVxHUEJNZXRhZGF0YeoCB0FwcDo6VjFiBnByb3RvMw", [file_app_v1_task]);
+  fileDesc("CiFhcHAvdjEvc3Vic2NyaXB0aW9uX3NlcnZpY2UucHJvdG8SBmFwcC52MSIaChhMaXN0U3Vic2NyaXB0aW9uc1JlcXVlc3QiNwoZTGlzdFN1YnNjcmlwdGlvbnNSZXNwb25zZRIaChJzdWJzY3JpcHRpb25zX2pzb24YASADKAkiNgoYU2F2ZVN1YnNjcmlwdGlvbnNSZXF1ZXN0EhoKEnN1YnNjcmlwdGlvbnNfanNvbhgBIAMoCSI3ChlTYXZlU3Vic2NyaXB0aW9uc1Jlc3BvbnNlEhoKEnN1YnNjcmlwdGlvbnNfanNvbhgBIAMoCSI2ChlVcHNlcnRTdWJzY3JpcHRpb25SZXF1ZXN0EhkKEXN1YnNjcmlwdGlvbl9qc29uGAEgASgJIjcKGlVwc2VydFN1YnNjcmlwdGlvblJlc3BvbnNlEhkKEXN1YnNjcmlwdGlvbl9qc29uGAEgASgJIicKGURlbGV0ZVN1YnNjcmlwdGlvblJlcXVlc3QSCgoCaWQYASABKAkiHAoaRGVsZXRlU3Vic2NyaXB0aW9uUmVzcG9uc2UiJwoZVXBkYXRlU3Vic2NyaXB0aW9uUmVxdWVzdBIKCgJpZBgBIAEoCSJBChpVcGRhdGVTdWJzY3JpcHRpb25SZXNwb25zZRIjCgdyZXN1bHRzGAEgAygLMhIuYXBwLnYxLlRhc2tSZXN1bHQiHwodVXBkYXRlQWxsU3Vic2NyaXB0aW9uc1JlcXVlc3QiRQoeVXBkYXRlQWxsU3Vic2NyaXB0aW9uc1Jlc3BvbnNlEiMKB3Jlc3VsdHMYASADKAsyEi5hcHAudjEuVGFza1Jlc3VsdCIrCh1HZXRTdWJzY3JpcHRpb25Db250ZW50UmVxdWVzdBIKCgJpZBgBIAEoCSIxCh5HZXRTdWJzY3JpcHRpb25Db250ZW50UmVzcG9uc2USDwoHY29udGVudBgBIAEoCSI9Ch5TYXZlU3Vic2NyaXB0aW9uQ29udGVudFJlcXVlc3QSCgoCaWQYASABKAkSDwoHY29udGVudBgCIAEoCSI8Ch9TYXZlU3Vic2NyaXB0aW9uQ29udGVudFJlc3BvbnNlEhkKEXN1YnNjcmlwdGlvbl9qc29uGAEgASgJMp4GChNTdWJzY3JpcHRpb25TZXJ2aWNlElgKEUxpc3RTdWJzY3JpcHRpb25zEiAuYXBwLnYxLkxpc3RTdWJzY3JpcHRpb25zUmVxdWVzdBohLmFwcC52MS5MaXN0U3Vic2NyaXB0aW9uc1Jlc3BvbnNlElgKEVNhdmVTdWJzY3JpcHRpb25zEiAuYXBwLnYxLlNhdmVTdWJzY3JpcHRpb25zUmVxdWVzdBohLmFwcC52MS5TYXZlU3Vic2NyaXB0aW9uc1Jlc3BvbnNlElsKElVwc2VydFN1YnNjcmlwdGlvbhIhLmFwcC52MS5VcHNlcnRTdWJzY3JpcHRpb25SZXF1ZXN0GiIuYXBwLnYxLlVwc2VydFN1YnNjcmlwdGlvblJlc3BvbnNlElsKEkRlbGV0ZVN1YnNjcmlwdGlvbhIhLmFwcC52MS5EZWxldGVTdWJzY3JpcHRpb25SZXF1ZXN0GiIuYXBwLnYxLkRlbGV0ZVN1YnNjcmlwdGlvblJlc3BvbnNlElsKElVwZGF0ZVN1YnNjcmlwdGlvbhIhLmFwcC52MS5VcGRhdGVTdWJzY3JpcHRpb25SZXF1ZXN0GiIuYXBwLnYxLlVwZGF0ZVN1YnNjcmlwdGlvblJlc3BvbnNlEmcKFlVwZGF0ZUFsbFN1YnNjcmlwdGlvbnMSJS5hcHAudjEuVXBkYXRlQWxsU3Vic2NyaXB0aW9uc1JlcXVlc3QaJi5hcHAudjEuVXBkYXRlQWxsU3Vic2NyaXB0aW9uc1Jlc3BvbnNlEmcKFkdldFN1YnNjcmlwdGlvbkNvbnRlbnQSJS5hcHAudjEuR2V0U3Vic2NyaXB0aW9uQ29udGVudFJlcXVlc3QaJi5hcHAudjEuR2V0U3Vic2NyaXB0aW9uQ29udGVudFJlc3BvbnNlEmoKF1NhdmVTdWJzY3JpcHRpb25Db250ZW50EiYuYXBwLnYxLlNhdmVTdWJzY3JpcHRpb25Db250ZW50UmVxdWVzdBonLmFwcC52MS5TYXZlU3Vic2NyaXB0aW9uQ29udGVudFJlc3BvbnNlQn0KCmNvbS5hcHAudjFCGFN1YnNjcmlwdGlvblNlcnZpY2VQcm90b1ABWhxndWlmb3Jjb3Jlcy9nZW4vYXBwL3YxO2FwcHYxogIDQVhYqgIGQXBwLlYxygIGQXBwXFYx4gISQXBwXFYxXEdQQk1ldGFkYXRh6gIHQXBwOjpWMWIGcHJvdG8z", [file_app_v1_task]);
 
 /**
  * @generated from message app.v1.ListSubscriptionsRequest
@@ -207,6 +207,79 @@ export const UpdateAllSubscriptionsResponseSchema: GenMessage<UpdateAllSubscript
   messageDesc(file_app_v1_subscription_service, 11);
 
 /**
+ * @generated from message app.v1.GetSubscriptionContentRequest
+ */
+export type GetSubscriptionContentRequest = Message<"app.v1.GetSubscriptionContentRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+};
+
+/**
+ * Describes the message app.v1.GetSubscriptionContentRequest.
+ * Use `create(GetSubscriptionContentRequestSchema)` to create a new message.
+ */
+export const GetSubscriptionContentRequestSchema: GenMessage<GetSubscriptionContentRequest> = /*@__PURE__*/
+  messageDesc(file_app_v1_subscription_service, 12);
+
+/**
+ * @generated from message app.v1.GetSubscriptionContentResponse
+ */
+export type GetSubscriptionContentResponse = Message<"app.v1.GetSubscriptionContentResponse"> & {
+  /**
+   * @generated from field: string content = 1;
+   */
+  content: string;
+};
+
+/**
+ * Describes the message app.v1.GetSubscriptionContentResponse.
+ * Use `create(GetSubscriptionContentResponseSchema)` to create a new message.
+ */
+export const GetSubscriptionContentResponseSchema: GenMessage<GetSubscriptionContentResponse> = /*@__PURE__*/
+  messageDesc(file_app_v1_subscription_service, 13);
+
+/**
+ * @generated from message app.v1.SaveSubscriptionContentRequest
+ */
+export type SaveSubscriptionContentRequest = Message<"app.v1.SaveSubscriptionContentRequest"> & {
+  /**
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * @generated from field: string content = 2;
+   */
+  content: string;
+};
+
+/**
+ * Describes the message app.v1.SaveSubscriptionContentRequest.
+ * Use `create(SaveSubscriptionContentRequestSchema)` to create a new message.
+ */
+export const SaveSubscriptionContentRequestSchema: GenMessage<SaveSubscriptionContentRequest> = /*@__PURE__*/
+  messageDesc(file_app_v1_subscription_service, 14);
+
+/**
+ * @generated from message app.v1.SaveSubscriptionContentResponse
+ */
+export type SaveSubscriptionContentResponse = Message<"app.v1.SaveSubscriptionContentResponse"> & {
+  /**
+   * @generated from field: string subscription_json = 1;
+   */
+  subscriptionJson: string;
+};
+
+/**
+ * Describes the message app.v1.SaveSubscriptionContentResponse.
+ * Use `create(SaveSubscriptionContentResponseSchema)` to create a new message.
+ */
+export const SaveSubscriptionContentResponseSchema: GenMessage<SaveSubscriptionContentResponse> = /*@__PURE__*/
+  messageDesc(file_app_v1_subscription_service, 15);
+
+/**
  * @generated from service app.v1.SubscriptionService
  */
 export const SubscriptionService: GenService<{
@@ -257,6 +330,22 @@ export const SubscriptionService: GenService<{
     methodKind: "unary";
     input: typeof UpdateAllSubscriptionsRequestSchema;
     output: typeof UpdateAllSubscriptionsResponseSchema;
+  },
+  /**
+   * @generated from rpc app.v1.SubscriptionService.GetSubscriptionContent
+   */
+  getSubscriptionContent: {
+    methodKind: "unary";
+    input: typeof GetSubscriptionContentRequestSchema;
+    output: typeof GetSubscriptionContentResponseSchema;
+  },
+  /**
+   * @generated from rpc app.v1.SubscriptionService.SaveSubscriptionContent
+   */
+  saveSubscriptionContent: {
+    methodKind: "unary";
+    input: typeof SaveSubscriptionContentRequestSchema;
+    output: typeof SaveSubscriptionContentResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_app_v1_subscription_service, 0);

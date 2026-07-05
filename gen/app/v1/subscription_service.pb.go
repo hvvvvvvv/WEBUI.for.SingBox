@@ -525,6 +525,190 @@ func (x *UpdateAllSubscriptionsResponse) GetResults() []*TaskResult {
 	return nil
 }
 
+type GetSubscriptionContentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSubscriptionContentRequest) Reset() {
+	*x = GetSubscriptionContentRequest{}
+	mi := &file_app_v1_subscription_service_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSubscriptionContentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSubscriptionContentRequest) ProtoMessage() {}
+
+func (x *GetSubscriptionContentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_app_v1_subscription_service_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSubscriptionContentRequest.ProtoReflect.Descriptor instead.
+func (*GetSubscriptionContentRequest) Descriptor() ([]byte, []int) {
+	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *GetSubscriptionContentRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+type GetSubscriptionContentResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Content       string                 `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetSubscriptionContentResponse) Reset() {
+	*x = GetSubscriptionContentResponse{}
+	mi := &file_app_v1_subscription_service_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetSubscriptionContentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetSubscriptionContentResponse) ProtoMessage() {}
+
+func (x *GetSubscriptionContentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_app_v1_subscription_service_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetSubscriptionContentResponse.ProtoReflect.Descriptor instead.
+func (*GetSubscriptionContentResponse) Descriptor() ([]byte, []int) {
+	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *GetSubscriptionContentResponse) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+type SaveSubscriptionContentRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SaveSubscriptionContentRequest) Reset() {
+	*x = SaveSubscriptionContentRequest{}
+	mi := &file_app_v1_subscription_service_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveSubscriptionContentRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveSubscriptionContentRequest) ProtoMessage() {}
+
+func (x *SaveSubscriptionContentRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_app_v1_subscription_service_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveSubscriptionContentRequest.ProtoReflect.Descriptor instead.
+func (*SaveSubscriptionContentRequest) Descriptor() ([]byte, []int) {
+	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *SaveSubscriptionContentRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SaveSubscriptionContentRequest) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
+type SaveSubscriptionContentResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	SubscriptionJson string                 `protobuf:"bytes,1,opt,name=subscription_json,json=subscriptionJson,proto3" json:"subscription_json,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *SaveSubscriptionContentResponse) Reset() {
+	*x = SaveSubscriptionContentResponse{}
+	mi := &file_app_v1_subscription_service_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SaveSubscriptionContentResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SaveSubscriptionContentResponse) ProtoMessage() {}
+
+func (x *SaveSubscriptionContentResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_app_v1_subscription_service_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SaveSubscriptionContentResponse.ProtoReflect.Descriptor instead.
+func (*SaveSubscriptionContentResponse) Descriptor() ([]byte, []int) {
+	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *SaveSubscriptionContentResponse) GetSubscriptionJson() string {
+	if x != nil {
+		return x.SubscriptionJson
+	}
+	return ""
+}
+
 var File_app_v1_subscription_service_proto protoreflect.FileDescriptor
 
 const file_app_v1_subscription_service_proto_rawDesc = "" +
@@ -550,14 +734,25 @@ const file_app_v1_subscription_service_proto_rawDesc = "" +
 	"\aresults\x18\x01 \x03(\v2\x12.app.v1.TaskResultR\aresults\"\x1f\n" +
 	"\x1dUpdateAllSubscriptionsRequest\"N\n" +
 	"\x1eUpdateAllSubscriptionsResponse\x12,\n" +
-	"\aresults\x18\x01 \x03(\v2\x12.app.v1.TaskResultR\aresults2\xc9\x04\n" +
+	"\aresults\x18\x01 \x03(\v2\x12.app.v1.TaskResultR\aresults\"/\n" +
+	"\x1dGetSubscriptionContentRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\":\n" +
+	"\x1eGetSubscriptionContentResponse\x12\x18\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent\"J\n" +
+	"\x1eSaveSubscriptionContentRequest\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\"N\n" +
+	"\x1fSaveSubscriptionContentResponse\x12+\n" +
+	"\x11subscription_json\x18\x01 \x01(\tR\x10subscriptionJson2\x9e\x06\n" +
 	"\x13SubscriptionService\x12X\n" +
 	"\x11ListSubscriptions\x12 .app.v1.ListSubscriptionsRequest\x1a!.app.v1.ListSubscriptionsResponse\x12X\n" +
 	"\x11SaveSubscriptions\x12 .app.v1.SaveSubscriptionsRequest\x1a!.app.v1.SaveSubscriptionsResponse\x12[\n" +
 	"\x12UpsertSubscription\x12!.app.v1.UpsertSubscriptionRequest\x1a\".app.v1.UpsertSubscriptionResponse\x12[\n" +
 	"\x12DeleteSubscription\x12!.app.v1.DeleteSubscriptionRequest\x1a\".app.v1.DeleteSubscriptionResponse\x12[\n" +
 	"\x12UpdateSubscription\x12!.app.v1.UpdateSubscriptionRequest\x1a\".app.v1.UpdateSubscriptionResponse\x12g\n" +
-	"\x16UpdateAllSubscriptions\x12%.app.v1.UpdateAllSubscriptionsRequest\x1a&.app.v1.UpdateAllSubscriptionsResponseB}\n" +
+	"\x16UpdateAllSubscriptions\x12%.app.v1.UpdateAllSubscriptionsRequest\x1a&.app.v1.UpdateAllSubscriptionsResponse\x12g\n" +
+	"\x16GetSubscriptionContent\x12%.app.v1.GetSubscriptionContentRequest\x1a&.app.v1.GetSubscriptionContentResponse\x12j\n" +
+	"\x17SaveSubscriptionContent\x12&.app.v1.SaveSubscriptionContentRequest\x1a'.app.v1.SaveSubscriptionContentResponseB}\n" +
 	"\n" +
 	"com.app.v1B\x18SubscriptionServiceProtoP\x01Z\x1cguiforcores/gen/app/v1;appv1\xa2\x02\x03AXX\xaa\x02\x06App.V1\xca\x02\x06App\\V1\xe2\x02\x12App\\V1\\GPBMetadata\xea\x02\aApp::V1b\x06proto3"
 
@@ -573,39 +768,47 @@ func file_app_v1_subscription_service_proto_rawDescGZIP() []byte {
 	return file_app_v1_subscription_service_proto_rawDescData
 }
 
-var file_app_v1_subscription_service_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
+var file_app_v1_subscription_service_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
 var file_app_v1_subscription_service_proto_goTypes = []any{
-	(*ListSubscriptionsRequest)(nil),       // 0: app.v1.ListSubscriptionsRequest
-	(*ListSubscriptionsResponse)(nil),      // 1: app.v1.ListSubscriptionsResponse
-	(*SaveSubscriptionsRequest)(nil),       // 2: app.v1.SaveSubscriptionsRequest
-	(*SaveSubscriptionsResponse)(nil),      // 3: app.v1.SaveSubscriptionsResponse
-	(*UpsertSubscriptionRequest)(nil),      // 4: app.v1.UpsertSubscriptionRequest
-	(*UpsertSubscriptionResponse)(nil),     // 5: app.v1.UpsertSubscriptionResponse
-	(*DeleteSubscriptionRequest)(nil),      // 6: app.v1.DeleteSubscriptionRequest
-	(*DeleteSubscriptionResponse)(nil),     // 7: app.v1.DeleteSubscriptionResponse
-	(*UpdateSubscriptionRequest)(nil),      // 8: app.v1.UpdateSubscriptionRequest
-	(*UpdateSubscriptionResponse)(nil),     // 9: app.v1.UpdateSubscriptionResponse
-	(*UpdateAllSubscriptionsRequest)(nil),  // 10: app.v1.UpdateAllSubscriptionsRequest
-	(*UpdateAllSubscriptionsResponse)(nil), // 11: app.v1.UpdateAllSubscriptionsResponse
-	(*TaskResult)(nil),                     // 12: app.v1.TaskResult
+	(*ListSubscriptionsRequest)(nil),        // 0: app.v1.ListSubscriptionsRequest
+	(*ListSubscriptionsResponse)(nil),       // 1: app.v1.ListSubscriptionsResponse
+	(*SaveSubscriptionsRequest)(nil),        // 2: app.v1.SaveSubscriptionsRequest
+	(*SaveSubscriptionsResponse)(nil),       // 3: app.v1.SaveSubscriptionsResponse
+	(*UpsertSubscriptionRequest)(nil),       // 4: app.v1.UpsertSubscriptionRequest
+	(*UpsertSubscriptionResponse)(nil),      // 5: app.v1.UpsertSubscriptionResponse
+	(*DeleteSubscriptionRequest)(nil),       // 6: app.v1.DeleteSubscriptionRequest
+	(*DeleteSubscriptionResponse)(nil),      // 7: app.v1.DeleteSubscriptionResponse
+	(*UpdateSubscriptionRequest)(nil),       // 8: app.v1.UpdateSubscriptionRequest
+	(*UpdateSubscriptionResponse)(nil),      // 9: app.v1.UpdateSubscriptionResponse
+	(*UpdateAllSubscriptionsRequest)(nil),   // 10: app.v1.UpdateAllSubscriptionsRequest
+	(*UpdateAllSubscriptionsResponse)(nil),  // 11: app.v1.UpdateAllSubscriptionsResponse
+	(*GetSubscriptionContentRequest)(nil),   // 12: app.v1.GetSubscriptionContentRequest
+	(*GetSubscriptionContentResponse)(nil),  // 13: app.v1.GetSubscriptionContentResponse
+	(*SaveSubscriptionContentRequest)(nil),  // 14: app.v1.SaveSubscriptionContentRequest
+	(*SaveSubscriptionContentResponse)(nil), // 15: app.v1.SaveSubscriptionContentResponse
+	(*TaskResult)(nil),                      // 16: app.v1.TaskResult
 }
 var file_app_v1_subscription_service_proto_depIdxs = []int32{
-	12, // 0: app.v1.UpdateSubscriptionResponse.results:type_name -> app.v1.TaskResult
-	12, // 1: app.v1.UpdateAllSubscriptionsResponse.results:type_name -> app.v1.TaskResult
+	16, // 0: app.v1.UpdateSubscriptionResponse.results:type_name -> app.v1.TaskResult
+	16, // 1: app.v1.UpdateAllSubscriptionsResponse.results:type_name -> app.v1.TaskResult
 	0,  // 2: app.v1.SubscriptionService.ListSubscriptions:input_type -> app.v1.ListSubscriptionsRequest
 	2,  // 3: app.v1.SubscriptionService.SaveSubscriptions:input_type -> app.v1.SaveSubscriptionsRequest
 	4,  // 4: app.v1.SubscriptionService.UpsertSubscription:input_type -> app.v1.UpsertSubscriptionRequest
 	6,  // 5: app.v1.SubscriptionService.DeleteSubscription:input_type -> app.v1.DeleteSubscriptionRequest
 	8,  // 6: app.v1.SubscriptionService.UpdateSubscription:input_type -> app.v1.UpdateSubscriptionRequest
 	10, // 7: app.v1.SubscriptionService.UpdateAllSubscriptions:input_type -> app.v1.UpdateAllSubscriptionsRequest
-	1,  // 8: app.v1.SubscriptionService.ListSubscriptions:output_type -> app.v1.ListSubscriptionsResponse
-	3,  // 9: app.v1.SubscriptionService.SaveSubscriptions:output_type -> app.v1.SaveSubscriptionsResponse
-	5,  // 10: app.v1.SubscriptionService.UpsertSubscription:output_type -> app.v1.UpsertSubscriptionResponse
-	7,  // 11: app.v1.SubscriptionService.DeleteSubscription:output_type -> app.v1.DeleteSubscriptionResponse
-	9,  // 12: app.v1.SubscriptionService.UpdateSubscription:output_type -> app.v1.UpdateSubscriptionResponse
-	11, // 13: app.v1.SubscriptionService.UpdateAllSubscriptions:output_type -> app.v1.UpdateAllSubscriptionsResponse
-	8,  // [8:14] is the sub-list for method output_type
-	2,  // [2:8] is the sub-list for method input_type
+	12, // 8: app.v1.SubscriptionService.GetSubscriptionContent:input_type -> app.v1.GetSubscriptionContentRequest
+	14, // 9: app.v1.SubscriptionService.SaveSubscriptionContent:input_type -> app.v1.SaveSubscriptionContentRequest
+	1,  // 10: app.v1.SubscriptionService.ListSubscriptions:output_type -> app.v1.ListSubscriptionsResponse
+	3,  // 11: app.v1.SubscriptionService.SaveSubscriptions:output_type -> app.v1.SaveSubscriptionsResponse
+	5,  // 12: app.v1.SubscriptionService.UpsertSubscription:output_type -> app.v1.UpsertSubscriptionResponse
+	7,  // 13: app.v1.SubscriptionService.DeleteSubscription:output_type -> app.v1.DeleteSubscriptionResponse
+	9,  // 14: app.v1.SubscriptionService.UpdateSubscription:output_type -> app.v1.UpdateSubscriptionResponse
+	11, // 15: app.v1.SubscriptionService.UpdateAllSubscriptions:output_type -> app.v1.UpdateAllSubscriptionsResponse
+	13, // 16: app.v1.SubscriptionService.GetSubscriptionContent:output_type -> app.v1.GetSubscriptionContentResponse
+	15, // 17: app.v1.SubscriptionService.SaveSubscriptionContent:output_type -> app.v1.SaveSubscriptionContentResponse
+	10, // [10:18] is the sub-list for method output_type
+	2,  // [2:10] is the sub-list for method input_type
 	2,  // [2:2] is the sub-list for extension type_name
 	2,  // [2:2] is the sub-list for extension extendee
 	0,  // [0:2] is the sub-list for field type_name
@@ -623,7 +826,7 @@ func file_app_v1_subscription_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_app_v1_subscription_service_proto_rawDesc), len(file_app_v1_subscription_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   12,
+			NumMessages:   16,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

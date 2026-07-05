@@ -55,6 +55,15 @@ message UpdateRuleSetHubResponse {
   string hub_json = 1;
 }
 
+message PreviewRuleSetHubRequest {
+  int32 index = 1;
+  string format = 2;
+}
+
+message PreviewRuleSetHubResponse {
+  string content = 1;
+}
+
 message GetRuleSetContentRequest {
   string id = 1;
 }
@@ -88,6 +97,7 @@ service RuleSetService {
   rpc UpdateRuleSet(UpdateRuleSetRequest) returns (UpdateRuleSetResponse);
   rpc UpdateAllRuleSets(UpdateAllRuleSetsRequest) returns (UpdateAllRuleSetsResponse);
   rpc UpdateRuleSetHub(UpdateRuleSetHubRequest) returns (UpdateRuleSetHubResponse);
+  rpc PreviewRuleSetHub(PreviewRuleSetHubRequest) returns (PreviewRuleSetHubResponse);
   rpc GetRuleSetContent(GetRuleSetContentRequest) returns (GetRuleSetContentResponse);
   rpc SaveRuleSetContent(SaveRuleSetContentRequest) returns (SaveRuleSetContentResponse);
   rpc ClearRuleSetContent(ClearRuleSetContentRequest) returns (ClearRuleSetContentResponse);

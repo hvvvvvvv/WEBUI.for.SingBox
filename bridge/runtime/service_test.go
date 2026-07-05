@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,6 +15,18 @@ import (
 
 	connect "connectrpc.com/connect"
 )
+
+func writeRuleSetHubCache(hub rulesetHub) error {
+	data, err := json.Marshal(hub)
+	if err != nil {
+		return err
+	}
+	path := GetPath(rulesetHubPath)
+	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
+}
 
 func TestNextCronRunsCoalescesWildcardSecondsPerMinute(t *testing.T) {
 	from := time.Date(2026, 6, 16, 10, 40, 58, 0, time.UTC)
@@ -55,6 +69,78 @@ func TestUpsertRuleSetIgnoresClientPath(t *testing.T) {
 	}
 }
 
+func TestUpsertManualSourceRuleSetCreatesDefaultContent(t *testing.T) {
+	withTempBasePath(t)
+	service := newAppRuntimeService(nil, nil)
+
+	resp, err := service.UpsertRuleSet(context.Background(), connect.NewRequest(&appv1.UpsertRuleSetRequest{
+		RulesetJson: `{"id":"manual","tag":"Manual","type":"Manual","format":"source"}`,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resp.Msg.GetRulesetJson(), `"count":0`) {
+		t.Fatalf("expected default count 0, got %s", resp.Msg.GetRulesetJson())
+	}
+
+	data, err := os.ReadFile(GetPath("data/rulesets/manual.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var content struct {
+		Version int   `json:"version"`
+		Rules   []any `json:"rules"`
+	}
+	if err := json.Unmarshal(data, &content); err != nil {
+		t.Fatal(err)
+	}
+	if content.Version != 2 || len(content.Rules) != 0 {
+		t.Fatalf("expected empty version 2 ruleset, got %s", string(data))
+	}
+}
+
+func TestUpsertHttpSourceRuleSetDoesNotCreateDefaultContent(t *testing.T) {
+	withTempBasePath(t)
+	service := newAppRuntimeService(nil, nil)
+
+	_, err := service.UpsertRuleSet(context.Background(), connect.NewRequest(&appv1.UpsertRuleSetRequest{
+		RulesetJson: `{"id":"http","tag":"HTTP","type":"Http","format":"source","url":"https://example.com/rules.json"}`,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(GetPath("data/rulesets/http.json")); !os.IsNotExist(err) {
+		t.Fatalf("expected no default content for HTTP ruleset, got %v", err)
+	}
+}
+
+func TestUpsertManualSourceRuleSetDoesNotOverwriteExistingContent(t *testing.T) {
+	withTempBasePath(t)
+	service := newAppRuntimeService(nil, nil)
+	path := GetPath("data/rulesets/manual.json")
+	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
+		t.Fatal(err)
+	}
+	existingContent := []byte(`{"version":2,"rules":["keep"]}`)
+	if err := os.WriteFile(path, existingContent, 0644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := service.UpsertRuleSet(context.Background(), connect.NewRequest(&appv1.UpsertRuleSetRequest{
+		RulesetJson: `{"id":"manual","tag":"Manual","type":"Manual","format":"source"}`,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(data) != string(existingContent) {
+		t.Fatalf("expected existing content to remain, got %s", string(data))
+	}
+}
+
 func TestSourceTypeValidationRejectsFile(t *testing.T) {
 	tests := []struct {
 		name string
@@ -64,7 +150,7 @@ func TestSourceTypeValidationRejectsFile(t *testing.T) {
 			name: "upsert subscription",
 			call: func(service *appRuntimeService) error {
 				_, err := service.UpsertSubscription(context.Background(), connect.NewRequest(&appv1.UpsertSubscriptionRequest{
-					SubscriptionJson: `{"id":"file-sub","name":"File","type":"File","url":"data/local/sub.json","path":"data/subscribes/file-sub.json"}`,
+					SubscriptionJson: `{"id":"file-sub","name":"File","type":"File","url":"data/local/sub.json"}`,
 				}))
 				return err
 			},
@@ -73,7 +159,7 @@ func TestSourceTypeValidationRejectsFile(t *testing.T) {
 			name: "save subscriptions",
 			call: func(service *appRuntimeService) error {
 				_, err := service.SaveSubscriptions(context.Background(), connect.NewRequest(&appv1.SaveSubscriptionsRequest{
-					SubscriptionsJson: []string{`{"id":"file-sub","name":"File","type":"File","url":"data/local/sub.json","path":"data/subscribes/file-sub.json"}`},
+					SubscriptionsJson: []string{`{"id":"file-sub","name":"File","type":"File","url":"data/local/sub.json"}`},
 				}))
 				return err
 			},
@@ -114,14 +200,50 @@ func TestSubscriptionSourceTypeValidationAllowsHttpAndManual(t *testing.T) {
 	service := newAppRuntimeService(nil, nil)
 
 	for _, subscriptionJSON := range []string{
-		`{"id":"http-sub","name":"HTTP","type":"Http","url":"https://example.com/sub.json","path":"data/subscribes/http-sub.json"}`,
-		`{"id":"manual-sub","name":"Manual","type":"Manual","path":"data/subscribes/manual-sub.json"}`,
+		`{"id":"http-sub","name":"HTTP","type":"Http","url":"https://example.com/sub.json"}`,
+		`{"id":"manual-sub","name":"Manual","type":"Manual"}`,
 	} {
 		if _, err := service.UpsertSubscription(context.Background(), connect.NewRequest(&appv1.UpsertSubscriptionRequest{
 			SubscriptionJson: subscriptionJSON,
 		})); err != nil {
 			t.Fatalf("expected supported subscription type, got %v", err)
 		}
+	}
+}
+
+func TestSaveSubscriptionContent(t *testing.T) {
+	withTempBasePath(t)
+	service := newAppRuntimeService(nil, nil)
+	_, err := service.UpsertSubscription(context.Background(), connect.NewRequest(&appv1.UpsertSubscriptionRequest{
+		SubscriptionJson: `{"id":"manual","name":"Manual","type":"Manual"}`,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	saveResp, err := service.SaveSubscriptionContent(context.Background(), connect.NewRequest(&appv1.SaveSubscriptionContentRequest{
+		Id:      "manual",
+		Content: `[{"tag":"direct","type":"direct"}]`,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(saveResp.Msg.GetSubscriptionJson(), `"path"`) {
+		t.Fatalf("subscription content response should not include path, got %s", saveResp.Msg.GetSubscriptionJson())
+	}
+	if !strings.Contains(saveResp.Msg.GetSubscriptionJson(), `"tag":"direct"`) {
+		t.Fatalf("expected proxy metadata update, got %s", saveResp.Msg.GetSubscriptionJson())
+	}
+	if _, err := os.Stat(GetPath("data/subscribes/manual.json")); err != nil {
+		t.Fatal(err)
+	}
+
+	contentResp, err := service.GetSubscriptionContent(context.Background(), connect.NewRequest(&appv1.GetSubscriptionContentRequest{Id: "manual"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(contentResp.Msg.GetContent(), `"tag": "direct"`) {
+		t.Fatalf("expected saved content, got %s", contentResp.Msg.GetContent())
 	}
 }
 
@@ -188,6 +310,112 @@ func TestSaveRuleSetContentAndClear(t *testing.T) {
 	}
 	if !strings.Contains(clearResp.Msg.GetRulesetJson(), `"count":0`) {
 		t.Fatalf("expected count 0 after clear, got %s", clearResp.Msg.GetRulesetJson())
+	}
+	contentResp, err = service.GetRuleSetContent(context.Background(), connect.NewRequest(&appv1.GetRuleSetContentRequest{Id: "manual"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(contentResp.Msg.GetContent(), `"version": 2`) {
+		t.Fatalf("expected version 2 after clear, got %s", contentResp.Msg.GetContent())
+	}
+}
+
+func TestPreviewRuleSetHub(t *testing.T) {
+	withTempBasePath(t)
+	previousRequest := ruleSetHubHTTPRequest
+	ruleSetHubHTTPRequest = func(method string, rawURL string, headers map[string]string, body string, insecure bool, timeoutSeconds int) (*http.Response, string, error) {
+		if method != http.MethodGet {
+			t.Fatalf("expected GET, got %s", method)
+		}
+		if rawURL != "https://hub.example/geosite/cn.json" {
+			t.Fatalf("unexpected preview url %s", rawURL)
+		}
+		return &http.Response{StatusCode: http.StatusOK}, `{"version":2,"rules":[{"domain":["example.com"]}]}`, nil
+	}
+	t.Cleanup(func() {
+		ruleSetHubHTTPRequest = previousRequest
+	})
+
+	if err := writeRuleSetHubCache(rulesetHub{
+		Geosite: "https://hub.example/geosite/",
+		Geoip:   "https://hub.example/geoip/",
+		List: []rulesetHubItem{{
+			Name: "cn",
+			Type: "geosite",
+		}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	service := newAppRuntimeService(nil, nil)
+	resp, err := service.PreviewRuleSetHub(context.Background(), connect.NewRequest(&appv1.PreviewRuleSetHubRequest{
+		Index:  0,
+		Format: "source",
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(resp.Msg.GetContent(), `"example.com"`) {
+		t.Fatalf("expected preview content, got %s", resp.Msg.GetContent())
+	}
+}
+
+func TestPreviewRuleSetHubValidation(t *testing.T) {
+	tests := []struct {
+		name    string
+		hub     rulesetHub
+		request appv1.PreviewRuleSetHubRequest
+	}{
+		{
+			name: "index out of range",
+			hub: rulesetHub{
+				Geosite: "https://example.com/geosite/",
+				List:    []rulesetHubItem{{Name: "cn", Type: "geosite"}},
+			},
+			request: appv1.PreviewRuleSetHubRequest{Index: 1, Format: "source"},
+		},
+		{
+			name: "invalid format",
+			hub: rulesetHub{
+				Geosite: "https://example.com/geosite/",
+				List:    []rulesetHubItem{{Name: "cn", Type: "geosite"}},
+			},
+			request: appv1.PreviewRuleSetHubRequest{Index: 0, Format: "other"},
+		},
+		{
+			name: "invalid type",
+			hub: rulesetHub{
+				Geosite: "https://example.com/geosite/",
+				List:    []rulesetHubItem{{Name: "cn", Type: "other"}},
+			},
+			request: appv1.PreviewRuleSetHubRequest{Index: 0, Format: "source"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			withTempBasePath(t)
+			if err := writeRuleSetHubCache(test.hub); err != nil {
+				t.Fatal(err)
+			}
+			service := newAppRuntimeService(nil, nil)
+			_, err := service.PreviewRuleSetHub(context.Background(), connect.NewRequest(&test.request))
+			if connect.CodeOf(err) != connect.CodeInvalidArgument {
+				t.Fatalf("expected invalid argument, got %v", err)
+			}
+		})
+	}
+}
+
+func TestPreviewRuleSetHubMissingCache(t *testing.T) {
+	withTempBasePath(t)
+	service := newAppRuntimeService(nil, nil)
+	_, err := service.PreviewRuleSetHub(context.Background(), connect.NewRequest(&appv1.PreviewRuleSetHubRequest{
+		Index:  0,
+		Format: "source",
+	}))
+	if err == nil {
+		t.Fatal("expected missing cache error")
 	}
 }
 

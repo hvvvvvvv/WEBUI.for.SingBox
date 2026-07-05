@@ -9,6 +9,7 @@ package kernelv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	v11 "guiforcores/gen/app/v1"
 	v1 "guiforcores/gen/profile/v1"
 	reflect "reflect"
 	sync "sync"
@@ -614,11 +615,611 @@ func (x *GetCurrentCoreMemoryResponse) GetRss() uint64 {
 	return 0
 }
 
+type GetCoreBranchLocalVersionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Branch        v11.KernelBranch       `protobuf:"varint,1,opt,name=branch,proto3,enum=app.v1.KernelBranch" json:"branch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCoreBranchLocalVersionRequest) Reset() {
+	*x = GetCoreBranchLocalVersionRequest{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCoreBranchLocalVersionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCoreBranchLocalVersionRequest) ProtoMessage() {}
+
+func (x *GetCoreBranchLocalVersionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCoreBranchLocalVersionRequest.ProtoReflect.Descriptor instead.
+func (*GetCoreBranchLocalVersionRequest) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *GetCoreBranchLocalVersionRequest) GetBranch() v11.KernelBranch {
+	if x != nil {
+		return x.Branch
+	}
+	return v11.KernelBranch(0)
+}
+
+type GetCoreBranchLocalVersionResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	LocalVersion  string                 `protobuf:"bytes,1,opt,name=local_version,json=localVersion,proto3" json:"local_version,omitempty"`
+	VersionDetail string                 `protobuf:"bytes,2,opt,name=version_detail,json=versionDetail,proto3" json:"version_detail,omitempty"`
+	Rollbackable  bool                   `protobuf:"varint,3,opt,name=rollbackable,proto3" json:"rollbackable,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCoreBranchLocalVersionResponse) Reset() {
+	*x = GetCoreBranchLocalVersionResponse{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCoreBranchLocalVersionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCoreBranchLocalVersionResponse) ProtoMessage() {}
+
+func (x *GetCoreBranchLocalVersionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCoreBranchLocalVersionResponse.ProtoReflect.Descriptor instead.
+func (*GetCoreBranchLocalVersionResponse) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *GetCoreBranchLocalVersionResponse) GetLocalVersion() string {
+	if x != nil {
+		return x.LocalVersion
+	}
+	return ""
+}
+
+func (x *GetCoreBranchLocalVersionResponse) GetVersionDetail() string {
+	if x != nil {
+		return x.VersionDetail
+	}
+	return ""
+}
+
+func (x *GetCoreBranchLocalVersionResponse) GetRollbackable() bool {
+	if x != nil {
+		return x.Rollbackable
+	}
+	return false
+}
+
+type GetCoreBranchRemoteVersionRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Branch        v11.KernelBranch       `protobuf:"varint,1,opt,name=branch,proto3,enum=app.v1.KernelBranch" json:"branch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetCoreBranchRemoteVersionRequest) Reset() {
+	*x = GetCoreBranchRemoteVersionRequest{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCoreBranchRemoteVersionRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCoreBranchRemoteVersionRequest) ProtoMessage() {}
+
+func (x *GetCoreBranchRemoteVersionRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCoreBranchRemoteVersionRequest.ProtoReflect.Descriptor instead.
+func (*GetCoreBranchRemoteVersionRequest) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *GetCoreBranchRemoteVersionRequest) GetBranch() v11.KernelBranch {
+	if x != nil {
+		return x.Branch
+	}
+	return v11.KernelBranch(0)
+}
+
+type GetCoreBranchRemoteVersionResponse struct {
+	state          protoimpl.MessageState `protogen:"open.v1"`
+	RemoteVersion  string                 `protobuf:"bytes,1,opt,name=remote_version,json=remoteVersion,proto3" json:"remote_version,omitempty"`
+	AssetName      string                 `protobuf:"bytes,2,opt,name=asset_name,json=assetName,proto3" json:"asset_name,omitempty"`
+	ReleasePageUrl string                 `protobuf:"bytes,3,opt,name=release_page_url,json=releasePageUrl,proto3" json:"release_page_url,omitempty"`
+	TrustedAsset   bool                   `protobuf:"varint,4,opt,name=trusted_asset,json=trustedAsset,proto3" json:"trusted_asset,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
+}
+
+func (x *GetCoreBranchRemoteVersionResponse) Reset() {
+	*x = GetCoreBranchRemoteVersionResponse{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetCoreBranchRemoteVersionResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetCoreBranchRemoteVersionResponse) ProtoMessage() {}
+
+func (x *GetCoreBranchRemoteVersionResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetCoreBranchRemoteVersionResponse.ProtoReflect.Descriptor instead.
+func (*GetCoreBranchRemoteVersionResponse) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *GetCoreBranchRemoteVersionResponse) GetRemoteVersion() string {
+	if x != nil {
+		return x.RemoteVersion
+	}
+	return ""
+}
+
+func (x *GetCoreBranchRemoteVersionResponse) GetAssetName() string {
+	if x != nil {
+		return x.AssetName
+	}
+	return ""
+}
+
+func (x *GetCoreBranchRemoteVersionResponse) GetReleasePageUrl() string {
+	if x != nil {
+		return x.ReleasePageUrl
+	}
+	return ""
+}
+
+func (x *GetCoreBranchRemoteVersionResponse) GetTrustedAsset() bool {
+	if x != nil {
+		return x.TrustedAsset
+	}
+	return false
+}
+
+type DownloadCoreRequest struct {
+	state               protoimpl.MessageState `protogen:"open.v1"`
+	Branch              v11.KernelBranch       `protobuf:"varint,1,opt,name=branch,proto3,enum=app.v1.KernelBranch" json:"branch,omitempty"`
+	ProgressEvent       string                 `protobuf:"bytes,2,opt,name=progress_event,json=progressEvent,proto3" json:"progress_event,omitempty"`
+	AllowUntrustedAsset bool                   `protobuf:"varint,3,opt,name=allow_untrusted_asset,json=allowUntrustedAsset,proto3" json:"allow_untrusted_asset,omitempty"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *DownloadCoreRequest) Reset() {
+	*x = DownloadCoreRequest{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DownloadCoreRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DownloadCoreRequest) ProtoMessage() {}
+
+func (x *DownloadCoreRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DownloadCoreRequest.ProtoReflect.Descriptor instead.
+func (*DownloadCoreRequest) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *DownloadCoreRequest) GetBranch() v11.KernelBranch {
+	if x != nil {
+		return x.Branch
+	}
+	return v11.KernelBranch(0)
+}
+
+func (x *DownloadCoreRequest) GetProgressEvent() string {
+	if x != nil {
+		return x.ProgressEvent
+	}
+	return ""
+}
+
+func (x *DownloadCoreRequest) GetAllowUntrustedAsset() bool {
+	if x != nil {
+		return x.AllowUntrustedAsset
+	}
+	return false
+}
+
+type DownloadCoreResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	LocalVersion  string                 `protobuf:"bytes,1,opt,name=local_version,json=localVersion,proto3" json:"local_version,omitempty"`
+	VersionDetail string                 `protobuf:"bytes,2,opt,name=version_detail,json=versionDetail,proto3" json:"version_detail,omitempty"`
+	Rollbackable  bool                   `protobuf:"varint,3,opt,name=rollbackable,proto3" json:"rollbackable,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DownloadCoreResponse) Reset() {
+	*x = DownloadCoreResponse{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DownloadCoreResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DownloadCoreResponse) ProtoMessage() {}
+
+func (x *DownloadCoreResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DownloadCoreResponse.ProtoReflect.Descriptor instead.
+func (*DownloadCoreResponse) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *DownloadCoreResponse) GetLocalVersion() string {
+	if x != nil {
+		return x.LocalVersion
+	}
+	return ""
+}
+
+func (x *DownloadCoreResponse) GetVersionDetail() string {
+	if x != nil {
+		return x.VersionDetail
+	}
+	return ""
+}
+
+func (x *DownloadCoreResponse) GetRollbackable() bool {
+	if x != nil {
+		return x.Rollbackable
+	}
+	return false
+}
+
+type CancelCoreDownloadRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	ProgressEvent string                 `protobuf:"bytes,1,opt,name=progress_event,json=progressEvent,proto3" json:"progress_event,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelCoreDownloadRequest) Reset() {
+	*x = CancelCoreDownloadRequest{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelCoreDownloadRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelCoreDownloadRequest) ProtoMessage() {}
+
+func (x *CancelCoreDownloadRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelCoreDownloadRequest.ProtoReflect.Descriptor instead.
+func (*CancelCoreDownloadRequest) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *CancelCoreDownloadRequest) GetProgressEvent() string {
+	if x != nil {
+		return x.ProgressEvent
+	}
+	return ""
+}
+
+type CancelCoreDownloadResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CancelCoreDownloadResponse) Reset() {
+	*x = CancelCoreDownloadResponse{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CancelCoreDownloadResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CancelCoreDownloadResponse) ProtoMessage() {}
+
+func (x *CancelCoreDownloadResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CancelCoreDownloadResponse.ProtoReflect.Descriptor instead.
+func (*CancelCoreDownloadResponse) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{21}
+}
+
+type RollbackCoreRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Branch        v11.KernelBranch       `protobuf:"varint,1,opt,name=branch,proto3,enum=app.v1.KernelBranch" json:"branch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RollbackCoreRequest) Reset() {
+	*x = RollbackCoreRequest{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RollbackCoreRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RollbackCoreRequest) ProtoMessage() {}
+
+func (x *RollbackCoreRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RollbackCoreRequest.ProtoReflect.Descriptor instead.
+func (*RollbackCoreRequest) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *RollbackCoreRequest) GetBranch() v11.KernelBranch {
+	if x != nil {
+		return x.Branch
+	}
+	return v11.KernelBranch(0)
+}
+
+type RollbackCoreResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	LocalVersion  string                 `protobuf:"bytes,1,opt,name=local_version,json=localVersion,proto3" json:"local_version,omitempty"`
+	VersionDetail string                 `protobuf:"bytes,2,opt,name=version_detail,json=versionDetail,proto3" json:"version_detail,omitempty"`
+	Rollbackable  bool                   `protobuf:"varint,3,opt,name=rollbackable,proto3" json:"rollbackable,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RollbackCoreResponse) Reset() {
+	*x = RollbackCoreResponse{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[23]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RollbackCoreResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RollbackCoreResponse) ProtoMessage() {}
+
+func (x *RollbackCoreResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[23]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RollbackCoreResponse.ProtoReflect.Descriptor instead.
+func (*RollbackCoreResponse) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{23}
+}
+
+func (x *RollbackCoreResponse) GetLocalVersion() string {
+	if x != nil {
+		return x.LocalVersion
+	}
+	return ""
+}
+
+func (x *RollbackCoreResponse) GetVersionDetail() string {
+	if x != nil {
+		return x.VersionDetail
+	}
+	return ""
+}
+
+func (x *RollbackCoreResponse) GetRollbackable() bool {
+	if x != nil {
+		return x.Rollbackable
+	}
+	return false
+}
+
+type ClearCoreCacheRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Branch        v11.KernelBranch       `protobuf:"varint,1,opt,name=branch,proto3,enum=app.v1.KernelBranch" json:"branch,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClearCoreCacheRequest) Reset() {
+	*x = ClearCoreCacheRequest{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[24]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClearCoreCacheRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClearCoreCacheRequest) ProtoMessage() {}
+
+func (x *ClearCoreCacheRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[24]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClearCoreCacheRequest.ProtoReflect.Descriptor instead.
+func (*ClearCoreCacheRequest) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{24}
+}
+
+func (x *ClearCoreCacheRequest) GetBranch() v11.KernelBranch {
+	if x != nil {
+		return x.Branch
+	}
+	return v11.KernelBranch(0)
+}
+
+type ClearCoreCacheResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ClearCoreCacheResponse) Reset() {
+	*x = ClearCoreCacheResponse{}
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[25]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ClearCoreCacheResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ClearCoreCacheResponse) ProtoMessage() {}
+
+func (x *ClearCoreCacheResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_kernel_v1_kernel_runtime_service_proto_msgTypes[25]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ClearCoreCacheResponse.ProtoReflect.Descriptor instead.
+func (*ClearCoreCacheResponse) Descriptor() ([]byte, []int) {
+	return file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP(), []int{25}
+}
+
 var File_kernel_v1_kernel_runtime_service_proto protoreflect.FileDescriptor
 
 const file_kernel_v1_kernel_runtime_service_proto_rawDesc = "" +
 	"\n" +
-	"&kernel/v1/kernel_runtime_service.proto\x12\tkernel.v1\x1a\x16kernel/v1/kernel.proto\x1a\x18profile/v1/profile.proto\"1\n" +
+	"&kernel/v1/kernel_runtime_service.proto\x12\tkernel.v1\x1a\x16kernel/v1/kernel.proto\x1a\x18profile/v1/profile.proto\x1a\x10app/v1/app.proto\"1\n" +
 	"\x10StartCoreRequest\x12\x1d\n" +
 	"\n" +
 	"profile_id\x18\x01 \x01(\tR\tprofileId\"%\n" +
@@ -645,7 +1246,41 @@ const file_kernel_v1_kernel_runtime_service_proto_rawDesc = "" +
 	"\x06status\x18\x02 \x01(\x0e2\x15.kernel.v1.CoreStatusR\x06status\"\x1d\n" +
 	"\x1bGetCurrentCoreMemoryRequest\"0\n" +
 	"\x1cGetCurrentCoreMemoryResponse\x12\x10\n" +
-	"\x03rss\x18\x01 \x01(\x04R\x03rss2\xf7\x04\n" +
+	"\x03rss\x18\x01 \x01(\x04R\x03rss\"P\n" +
+	" GetCoreBranchLocalVersionRequest\x12,\n" +
+	"\x06branch\x18\x01 \x01(\x0e2\x14.app.v1.KernelBranchR\x06branch\"\x93\x01\n" +
+	"!GetCoreBranchLocalVersionResponse\x12#\n" +
+	"\rlocal_version\x18\x01 \x01(\tR\flocalVersion\x12%\n" +
+	"\x0eversion_detail\x18\x02 \x01(\tR\rversionDetail\x12\"\n" +
+	"\frollbackable\x18\x03 \x01(\bR\frollbackable\"Q\n" +
+	"!GetCoreBranchRemoteVersionRequest\x12,\n" +
+	"\x06branch\x18\x01 \x01(\x0e2\x14.app.v1.KernelBranchR\x06branch\"\xb9\x01\n" +
+	"\"GetCoreBranchRemoteVersionResponse\x12%\n" +
+	"\x0eremote_version\x18\x01 \x01(\tR\rremoteVersion\x12\x1d\n" +
+	"\n" +
+	"asset_name\x18\x02 \x01(\tR\tassetName\x12(\n" +
+	"\x10release_page_url\x18\x03 \x01(\tR\x0ereleasePageUrl\x12#\n" +
+	"\rtrusted_asset\x18\x04 \x01(\bR\ftrustedAsset\"\x9e\x01\n" +
+	"\x13DownloadCoreRequest\x12,\n" +
+	"\x06branch\x18\x01 \x01(\x0e2\x14.app.v1.KernelBranchR\x06branch\x12%\n" +
+	"\x0eprogress_event\x18\x02 \x01(\tR\rprogressEvent\x122\n" +
+	"\x15allow_untrusted_asset\x18\x03 \x01(\bR\x13allowUntrustedAsset\"\x86\x01\n" +
+	"\x14DownloadCoreResponse\x12#\n" +
+	"\rlocal_version\x18\x01 \x01(\tR\flocalVersion\x12%\n" +
+	"\x0eversion_detail\x18\x02 \x01(\tR\rversionDetail\x12\"\n" +
+	"\frollbackable\x18\x03 \x01(\bR\frollbackable\"B\n" +
+	"\x19CancelCoreDownloadRequest\x12%\n" +
+	"\x0eprogress_event\x18\x01 \x01(\tR\rprogressEvent\"\x1c\n" +
+	"\x1aCancelCoreDownloadResponse\"C\n" +
+	"\x13RollbackCoreRequest\x12,\n" +
+	"\x06branch\x18\x01 \x01(\x0e2\x14.app.v1.KernelBranchR\x06branch\"\x86\x01\n" +
+	"\x14RollbackCoreResponse\x12#\n" +
+	"\rlocal_version\x18\x01 \x01(\tR\flocalVersion\x12%\n" +
+	"\x0eversion_detail\x18\x02 \x01(\tR\rversionDetail\x12\"\n" +
+	"\frollbackable\x18\x03 \x01(\bR\frollbackable\"E\n" +
+	"\x15ClearCoreCacheRequest\x12,\n" +
+	"\x06branch\x18\x01 \x01(\x0e2\x14.app.v1.KernelBranchR\x06branch\"\x18\n" +
+	"\x16ClearCoreCacheResponse2\xc6\t\n" +
 	"\x14KernelRuntimeService\x12F\n" +
 	"\tStartCore\x12\x1b.kernel.v1.StartCoreRequest\x1a\x1c.kernel.v1.StartCoreResponse\x12g\n" +
 	"\x14StartCoreWithProfile\x12&.kernel.v1.StartCoreWithProfileRequest\x1a'.kernel.v1.StartCoreWithProfileResponse\x12C\n" +
@@ -653,7 +1288,13 @@ const file_kernel_v1_kernel_runtime_service_proto_rawDesc = "" +
 	"\vRestartCore\x12\x1d.kernel.v1.RestartCoreRequest\x1a\x1e.kernel.v1.RestartCoreResponse\x12R\n" +
 	"\rGetCoreStatus\x12\x1f.kernel.v1.GetCoreStatusRequest\x1a .kernel.v1.GetCoreStatusResponse\x12^\n" +
 	"\x11GetCurrentProfile\x12#.kernel.v1.GetCurrentProfileRequest\x1a$.kernel.v1.GetCurrentProfileResponse\x12g\n" +
-	"\x14GetCurrentCoreMemory\x12&.kernel.v1.GetCurrentCoreMemoryRequest\x1a'.kernel.v1.GetCurrentCoreMemoryResponseB\x93\x01\n" +
+	"\x14GetCurrentCoreMemory\x12&.kernel.v1.GetCurrentCoreMemoryRequest\x1a'.kernel.v1.GetCurrentCoreMemoryResponse\x12v\n" +
+	"\x19GetCoreBranchLocalVersion\x12+.kernel.v1.GetCoreBranchLocalVersionRequest\x1a,.kernel.v1.GetCoreBranchLocalVersionResponse\x12y\n" +
+	"\x1aGetCoreBranchRemoteVersion\x12,.kernel.v1.GetCoreBranchRemoteVersionRequest\x1a-.kernel.v1.GetCoreBranchRemoteVersionResponse\x12O\n" +
+	"\fDownloadCore\x12\x1e.kernel.v1.DownloadCoreRequest\x1a\x1f.kernel.v1.DownloadCoreResponse\x12a\n" +
+	"\x12CancelCoreDownload\x12$.kernel.v1.CancelCoreDownloadRequest\x1a%.kernel.v1.CancelCoreDownloadResponse\x12O\n" +
+	"\fRollbackCore\x12\x1e.kernel.v1.RollbackCoreRequest\x1a\x1f.kernel.v1.RollbackCoreResponse\x12U\n" +
+	"\x0eClearCoreCache\x12 .kernel.v1.ClearCoreCacheRequest\x1a!.kernel.v1.ClearCoreCacheResponseB\x93\x01\n" +
 	"\rcom.kernel.v1B\x19KernelRuntimeServiceProtoP\x01Z\"guiforcores/gen/kernel/v1;kernelv1\xa2\x02\x03KXX\xaa\x02\tKernel.V1\xca\x02\tKernel\\V1\xe2\x02\x15Kernel\\V1\\GPBMetadata\xea\x02\n" +
 	"Kernel::V1b\x06proto3"
 
@@ -669,49 +1310,79 @@ func file_kernel_v1_kernel_runtime_service_proto_rawDescGZIP() []byte {
 	return file_kernel_v1_kernel_runtime_service_proto_rawDescData
 }
 
-var file_kernel_v1_kernel_runtime_service_proto_msgTypes = make([]protoimpl.MessageInfo, 14)
+var file_kernel_v1_kernel_runtime_service_proto_msgTypes = make([]protoimpl.MessageInfo, 26)
 var file_kernel_v1_kernel_runtime_service_proto_goTypes = []any{
-	(*StartCoreRequest)(nil),             // 0: kernel.v1.StartCoreRequest
-	(*StartCoreResponse)(nil),            // 1: kernel.v1.StartCoreResponse
-	(*StartCoreWithProfileRequest)(nil),  // 2: kernel.v1.StartCoreWithProfileRequest
-	(*StartCoreWithProfileResponse)(nil), // 3: kernel.v1.StartCoreWithProfileResponse
-	(*StopCoreRequest)(nil),              // 4: kernel.v1.StopCoreRequest
-	(*StopCoreResponse)(nil),             // 5: kernel.v1.StopCoreResponse
-	(*RestartCoreRequest)(nil),           // 6: kernel.v1.RestartCoreRequest
-	(*RestartCoreResponse)(nil),          // 7: kernel.v1.RestartCoreResponse
-	(*GetCoreStatusRequest)(nil),         // 8: kernel.v1.GetCoreStatusRequest
-	(*GetCoreStatusResponse)(nil),        // 9: kernel.v1.GetCoreStatusResponse
-	(*GetCurrentProfileRequest)(nil),     // 10: kernel.v1.GetCurrentProfileRequest
-	(*GetCurrentProfileResponse)(nil),    // 11: kernel.v1.GetCurrentProfileResponse
-	(*GetCurrentCoreMemoryRequest)(nil),  // 12: kernel.v1.GetCurrentCoreMemoryRequest
-	(*GetCurrentCoreMemoryResponse)(nil), // 13: kernel.v1.GetCurrentCoreMemoryResponse
-	(*v1.Profile)(nil),                   // 14: profile.v1.Profile
-	(CoreStatus)(0),                      // 15: kernel.v1.CoreStatus
+	(*StartCoreRequest)(nil),                   // 0: kernel.v1.StartCoreRequest
+	(*StartCoreResponse)(nil),                  // 1: kernel.v1.StartCoreResponse
+	(*StartCoreWithProfileRequest)(nil),        // 2: kernel.v1.StartCoreWithProfileRequest
+	(*StartCoreWithProfileResponse)(nil),       // 3: kernel.v1.StartCoreWithProfileResponse
+	(*StopCoreRequest)(nil),                    // 4: kernel.v1.StopCoreRequest
+	(*StopCoreResponse)(nil),                   // 5: kernel.v1.StopCoreResponse
+	(*RestartCoreRequest)(nil),                 // 6: kernel.v1.RestartCoreRequest
+	(*RestartCoreResponse)(nil),                // 7: kernel.v1.RestartCoreResponse
+	(*GetCoreStatusRequest)(nil),               // 8: kernel.v1.GetCoreStatusRequest
+	(*GetCoreStatusResponse)(nil),              // 9: kernel.v1.GetCoreStatusResponse
+	(*GetCurrentProfileRequest)(nil),           // 10: kernel.v1.GetCurrentProfileRequest
+	(*GetCurrentProfileResponse)(nil),          // 11: kernel.v1.GetCurrentProfileResponse
+	(*GetCurrentCoreMemoryRequest)(nil),        // 12: kernel.v1.GetCurrentCoreMemoryRequest
+	(*GetCurrentCoreMemoryResponse)(nil),       // 13: kernel.v1.GetCurrentCoreMemoryResponse
+	(*GetCoreBranchLocalVersionRequest)(nil),   // 14: kernel.v1.GetCoreBranchLocalVersionRequest
+	(*GetCoreBranchLocalVersionResponse)(nil),  // 15: kernel.v1.GetCoreBranchLocalVersionResponse
+	(*GetCoreBranchRemoteVersionRequest)(nil),  // 16: kernel.v1.GetCoreBranchRemoteVersionRequest
+	(*GetCoreBranchRemoteVersionResponse)(nil), // 17: kernel.v1.GetCoreBranchRemoteVersionResponse
+	(*DownloadCoreRequest)(nil),                // 18: kernel.v1.DownloadCoreRequest
+	(*DownloadCoreResponse)(nil),               // 19: kernel.v1.DownloadCoreResponse
+	(*CancelCoreDownloadRequest)(nil),          // 20: kernel.v1.CancelCoreDownloadRequest
+	(*CancelCoreDownloadResponse)(nil),         // 21: kernel.v1.CancelCoreDownloadResponse
+	(*RollbackCoreRequest)(nil),                // 22: kernel.v1.RollbackCoreRequest
+	(*RollbackCoreResponse)(nil),               // 23: kernel.v1.RollbackCoreResponse
+	(*ClearCoreCacheRequest)(nil),              // 24: kernel.v1.ClearCoreCacheRequest
+	(*ClearCoreCacheResponse)(nil),             // 25: kernel.v1.ClearCoreCacheResponse
+	(*v1.Profile)(nil),                         // 26: profile.v1.Profile
+	(CoreStatus)(0),                            // 27: kernel.v1.CoreStatus
+	(v11.KernelBranch)(0),                      // 28: app.v1.KernelBranch
 }
 var file_kernel_v1_kernel_runtime_service_proto_depIdxs = []int32{
-	14, // 0: kernel.v1.StartCoreWithProfileRequest.profile:type_name -> profile.v1.Profile
-	15, // 1: kernel.v1.GetCoreStatusResponse.status:type_name -> kernel.v1.CoreStatus
-	14, // 2: kernel.v1.GetCurrentProfileResponse.profile:type_name -> profile.v1.Profile
-	15, // 3: kernel.v1.GetCurrentProfileResponse.status:type_name -> kernel.v1.CoreStatus
-	0,  // 4: kernel.v1.KernelRuntimeService.StartCore:input_type -> kernel.v1.StartCoreRequest
-	2,  // 5: kernel.v1.KernelRuntimeService.StartCoreWithProfile:input_type -> kernel.v1.StartCoreWithProfileRequest
-	4,  // 6: kernel.v1.KernelRuntimeService.StopCore:input_type -> kernel.v1.StopCoreRequest
-	6,  // 7: kernel.v1.KernelRuntimeService.RestartCore:input_type -> kernel.v1.RestartCoreRequest
-	8,  // 8: kernel.v1.KernelRuntimeService.GetCoreStatus:input_type -> kernel.v1.GetCoreStatusRequest
-	10, // 9: kernel.v1.KernelRuntimeService.GetCurrentProfile:input_type -> kernel.v1.GetCurrentProfileRequest
-	12, // 10: kernel.v1.KernelRuntimeService.GetCurrentCoreMemory:input_type -> kernel.v1.GetCurrentCoreMemoryRequest
-	1,  // 11: kernel.v1.KernelRuntimeService.StartCore:output_type -> kernel.v1.StartCoreResponse
-	3,  // 12: kernel.v1.KernelRuntimeService.StartCoreWithProfile:output_type -> kernel.v1.StartCoreWithProfileResponse
-	5,  // 13: kernel.v1.KernelRuntimeService.StopCore:output_type -> kernel.v1.StopCoreResponse
-	7,  // 14: kernel.v1.KernelRuntimeService.RestartCore:output_type -> kernel.v1.RestartCoreResponse
-	9,  // 15: kernel.v1.KernelRuntimeService.GetCoreStatus:output_type -> kernel.v1.GetCoreStatusResponse
-	11, // 16: kernel.v1.KernelRuntimeService.GetCurrentProfile:output_type -> kernel.v1.GetCurrentProfileResponse
-	13, // 17: kernel.v1.KernelRuntimeService.GetCurrentCoreMemory:output_type -> kernel.v1.GetCurrentCoreMemoryResponse
-	11, // [11:18] is the sub-list for method output_type
-	4,  // [4:11] is the sub-list for method input_type
-	4,  // [4:4] is the sub-list for extension type_name
-	4,  // [4:4] is the sub-list for extension extendee
-	0,  // [0:4] is the sub-list for field type_name
+	26, // 0: kernel.v1.StartCoreWithProfileRequest.profile:type_name -> profile.v1.Profile
+	27, // 1: kernel.v1.GetCoreStatusResponse.status:type_name -> kernel.v1.CoreStatus
+	26, // 2: kernel.v1.GetCurrentProfileResponse.profile:type_name -> profile.v1.Profile
+	27, // 3: kernel.v1.GetCurrentProfileResponse.status:type_name -> kernel.v1.CoreStatus
+	28, // 4: kernel.v1.GetCoreBranchLocalVersionRequest.branch:type_name -> app.v1.KernelBranch
+	28, // 5: kernel.v1.GetCoreBranchRemoteVersionRequest.branch:type_name -> app.v1.KernelBranch
+	28, // 6: kernel.v1.DownloadCoreRequest.branch:type_name -> app.v1.KernelBranch
+	28, // 7: kernel.v1.RollbackCoreRequest.branch:type_name -> app.v1.KernelBranch
+	28, // 8: kernel.v1.ClearCoreCacheRequest.branch:type_name -> app.v1.KernelBranch
+	0,  // 9: kernel.v1.KernelRuntimeService.StartCore:input_type -> kernel.v1.StartCoreRequest
+	2,  // 10: kernel.v1.KernelRuntimeService.StartCoreWithProfile:input_type -> kernel.v1.StartCoreWithProfileRequest
+	4,  // 11: kernel.v1.KernelRuntimeService.StopCore:input_type -> kernel.v1.StopCoreRequest
+	6,  // 12: kernel.v1.KernelRuntimeService.RestartCore:input_type -> kernel.v1.RestartCoreRequest
+	8,  // 13: kernel.v1.KernelRuntimeService.GetCoreStatus:input_type -> kernel.v1.GetCoreStatusRequest
+	10, // 14: kernel.v1.KernelRuntimeService.GetCurrentProfile:input_type -> kernel.v1.GetCurrentProfileRequest
+	12, // 15: kernel.v1.KernelRuntimeService.GetCurrentCoreMemory:input_type -> kernel.v1.GetCurrentCoreMemoryRequest
+	14, // 16: kernel.v1.KernelRuntimeService.GetCoreBranchLocalVersion:input_type -> kernel.v1.GetCoreBranchLocalVersionRequest
+	16, // 17: kernel.v1.KernelRuntimeService.GetCoreBranchRemoteVersion:input_type -> kernel.v1.GetCoreBranchRemoteVersionRequest
+	18, // 18: kernel.v1.KernelRuntimeService.DownloadCore:input_type -> kernel.v1.DownloadCoreRequest
+	20, // 19: kernel.v1.KernelRuntimeService.CancelCoreDownload:input_type -> kernel.v1.CancelCoreDownloadRequest
+	22, // 20: kernel.v1.KernelRuntimeService.RollbackCore:input_type -> kernel.v1.RollbackCoreRequest
+	24, // 21: kernel.v1.KernelRuntimeService.ClearCoreCache:input_type -> kernel.v1.ClearCoreCacheRequest
+	1,  // 22: kernel.v1.KernelRuntimeService.StartCore:output_type -> kernel.v1.StartCoreResponse
+	3,  // 23: kernel.v1.KernelRuntimeService.StartCoreWithProfile:output_type -> kernel.v1.StartCoreWithProfileResponse
+	5,  // 24: kernel.v1.KernelRuntimeService.StopCore:output_type -> kernel.v1.StopCoreResponse
+	7,  // 25: kernel.v1.KernelRuntimeService.RestartCore:output_type -> kernel.v1.RestartCoreResponse
+	9,  // 26: kernel.v1.KernelRuntimeService.GetCoreStatus:output_type -> kernel.v1.GetCoreStatusResponse
+	11, // 27: kernel.v1.KernelRuntimeService.GetCurrentProfile:output_type -> kernel.v1.GetCurrentProfileResponse
+	13, // 28: kernel.v1.KernelRuntimeService.GetCurrentCoreMemory:output_type -> kernel.v1.GetCurrentCoreMemoryResponse
+	15, // 29: kernel.v1.KernelRuntimeService.GetCoreBranchLocalVersion:output_type -> kernel.v1.GetCoreBranchLocalVersionResponse
+	17, // 30: kernel.v1.KernelRuntimeService.GetCoreBranchRemoteVersion:output_type -> kernel.v1.GetCoreBranchRemoteVersionResponse
+	19, // 31: kernel.v1.KernelRuntimeService.DownloadCore:output_type -> kernel.v1.DownloadCoreResponse
+	21, // 32: kernel.v1.KernelRuntimeService.CancelCoreDownload:output_type -> kernel.v1.CancelCoreDownloadResponse
+	23, // 33: kernel.v1.KernelRuntimeService.RollbackCore:output_type -> kernel.v1.RollbackCoreResponse
+	25, // 34: kernel.v1.KernelRuntimeService.ClearCoreCache:output_type -> kernel.v1.ClearCoreCacheResponse
+	22, // [22:35] is the sub-list for method output_type
+	9,  // [9:22] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_kernel_v1_kernel_runtime_service_proto_init() }
@@ -726,7 +1397,7 @@ func file_kernel_v1_kernel_runtime_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_kernel_v1_kernel_runtime_service_proto_rawDesc), len(file_kernel_v1_kernel_runtime_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   14,
+			NumMessages:   26,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

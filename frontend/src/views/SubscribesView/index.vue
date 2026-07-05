@@ -2,7 +2,7 @@
 import { computed } from 'vue'
 import { useI18n, I18nT } from 'vue-i18n'
 
-import { BrowserOpenURL, ClipboardSetText, RemoveFile } from '@/bridge'
+import { BrowserOpenURL, ClipboardSetText } from '@/bridge'
 import { DraggableOptions, ViewOptions } from '@/constant/app'
 import { View } from '@/enums/app'
 import { useSubscribesStore, useAppSettingsStore, useAppStore } from '@/stores'
@@ -10,7 +10,6 @@ import {
   formatBytes,
   formatRelativeTime,
   debounce,
-  ignoredError,
   formatDate,
   message,
 } from '@/utils'
@@ -36,8 +35,8 @@ const menuList: Menu[] = [
   {
     label: 'subscribes.copySub',
     handler: async (id: string) => {
-      const sub = subscribeStore.getSubscribeById(id)!
-      if (sub) {
+      const sub = subscribeStore.getSubscribeById(id)
+      if (sub?.type === 'Http') {
         await ClipboardSetText(sub.url)
         message.success('common.copied')
       }
@@ -59,10 +58,12 @@ const subscribeStore = useSubscribesStore()
 const appSettingsStore = useAppSettingsStore()
 
 const generateMenus = (subscription: Subscription) => {
-  return menuList.map((v) => ({
-    ...v,
-    handler: () => v.handler?.(subscription.id),
-  }))
+  return menuList
+    .filter((v) => subscription.type === 'Http' || v.label !== 'subscribes.copySub')
+    .map((v) => ({
+      ...v,
+      handler: () => v.handler?.(subscription.id),
+    }))
 }
 
 const handleShowSubForm = (id?: string) => {
@@ -102,7 +103,6 @@ const handleUpdateSub = async (s: Subscription) => {
 
 const handleDeleteSub = async (s: Subscription) => {
   try {
-    await ignoredError(RemoveFile, s.path)
     await subscribeStore.deleteSubscribe(s.id)
   } catch (error: any) {
     console.error('deleteSubscribe: ', error)

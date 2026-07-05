@@ -13,7 +13,6 @@ const loading = ref(true)
 const percent = ref(0)
 const hasError = ref(false)
 
-const envStore = Stores.useEnvStore()
 const appStore = Stores.useAppStore()
 const profilesStore = Stores.useProfilesStore()
 const rulesetsStore = Stores.useRulesetsStore()
@@ -64,10 +63,9 @@ const initApp = async () => {
   })
 
   try {
-    await envStore.setupEnv()
-
     await Promise.all([
       appSettings.setupAppSettings(),
+      appStore.setupAppVersion(),
       appConfig.setupAppConfig(),
       profilesStore.setupProfiles(),
       subscribesStore.setupSubscribes(),

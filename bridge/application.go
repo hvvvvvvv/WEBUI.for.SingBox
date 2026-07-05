@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"slices"
 
+	"guiforcores/bridge/appsystem"
+	"guiforcores/bridge/appupdate"
 	"guiforcores/bridge/auth"
 	"guiforcores/bridge/config"
 	"guiforcores/bridge/event"
@@ -37,6 +39,8 @@ type Application struct {
 	events    *event.Hub
 	kernel    *kernel.Service
 	scheduler *scheduler.Service
+	update    *appupdate.Service
+	system    *appsystem.Service
 	server    *httptransport.Server
 }
 
@@ -85,6 +89,8 @@ func New(options Options) (*Application, error) {
 	subscriptionService := subscription.NewService(runtimeService)
 	ruleSetService := ruleset.NewService(runtimeService)
 	schedulerService := scheduler.NewService(runtimeService)
+	updateService := appupdate.NewService(platformService, appConfig, events, options.AppVersion)
+	systemService := appsystem.NewService(platformService)
 
 	server, err := httptransport.NewServer(httptransport.Options{
 		Address:       options.Address,
@@ -100,6 +106,8 @@ func New(options Options) (*Application, error) {
 		Subscriptions: subscriptionService,
 		RuleSets:      ruleSetService,
 		Scheduler:     schedulerService,
+		Update:        updateService,
+		System:        systemService,
 		RollingRelease: func() bool {
 			return appConfig.Current().RollingRelease
 		},
@@ -113,6 +121,8 @@ func New(options Options) (*Application, error) {
 		events:    events,
 		kernel:    kernelService,
 		scheduler: schedulerService,
+		update:    updateService,
+		system:    systemService,
 		server:    server,
 	}, nil
 }

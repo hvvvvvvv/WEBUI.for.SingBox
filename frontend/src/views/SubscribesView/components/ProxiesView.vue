@@ -2,11 +2,11 @@
 import { ref, computed, inject, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { ClipboardSetText, ReadFile, WriteFile } from '@/bridge'
+import { ClipboardSetText } from '@/bridge'
 import { DraggableOptions } from '@/constant/app'
 import { useBool } from '@/hooks'
 import { useSubscribesStore } from '@/stores'
-import { buildSmartRegExp, deepClone, ignoredError, message, sampleID } from '@/utils'
+import { buildSmartRegExp, deepClone, message, sampleID } from '@/utils'
 
 import Button from '@/components/Button/index.vue'
 
@@ -111,14 +111,13 @@ const handleSubmit = inject('submit') as any
 const handleSave = async () => {
   loading.value = true
   try {
-    const { path, proxies, id } = sub.value
+    const { proxies, id } = sub.value
     await initAllFieldsProxies()
     const filteredProxies = allFieldsProxies.value.filter((v: any) =>
       proxies.some((vv) => vv.tag === v.tag),
     )
     const sortedArray = proxies.map((v) => filteredProxies.find((vv) => vv.tag === v.tag))
-    await WriteFile(path, JSON.stringify(sortedArray, null, 2))
-    await subscribeStore.editSubscribe(id, sub.value)
+    await subscribeStore.saveSubscriptionContent(id, JSON.stringify(sortedArray, null, 2))
     handleSubmit()
   } catch (error: any) {
     console.log(error)
@@ -171,7 +170,7 @@ const onEditEnd = async () => {
 
 const initAllFieldsProxies = async () => {
   if (allFieldsProxies.value.length) return
-  const content = (await ignoredError(ReadFile, sub.value!.path)) || '[]'
+  const content = (await subscribeStore.getSubscriptionContent(sub.value!.id)) || '[]'
   allFieldsProxies.value = JSON.parse(content)
 }
 

@@ -3,7 +3,8 @@ import { marked } from 'marked'
 import { h, onMounted, ref, render, type VNode } from 'vue'
 
 import useI18n from '@/lang'
-import { APP_TITLE, APP_VERSION, sampleID } from '@/utils'
+import { useAppStore } from '@/stores'
+import { APP_TITLE, sampleID } from '@/utils'
 
 import CodeViewer from '@/components/CodeViewer/index.vue'
 import Divider from '@/components/Divider/index.vue'
@@ -36,6 +37,7 @@ const content = ref<string | Record<string, any>>('')
 const domContainers: (() => void)[] = []
 
 const { t } = useI18n.global
+const appStore = useAppStore()
 
 marked.setOptions({ async: true })
 
@@ -65,7 +67,7 @@ marked.use({
     },
     hr() {
       const containerId = 'Divider_' + sampleID()
-      const comp = h(Divider, () => APP_TITLE + '/' + APP_VERSION)
+      const comp = h(Divider, () => APP_TITLE + '/' + appStore.currentVersion)
       mountCustomComp(containerId, comp)
       return `<div id="${containerId}"></div>`
     },

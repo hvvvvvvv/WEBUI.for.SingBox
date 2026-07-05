@@ -1,60 +1,38 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import {
-  Download,
-  HttpCancel,
-  UnzipZIPFile,
-  UnzipTarGZFile,
-  HttpGet,
-  Exec,
-  MoveFile,
-  RemoveFile,
-  AbsolutePath,
-  BrowserOpenURL,
-  MakeDir,
-  FileExists,
-} from '@/bridge'
-import { CoreWorkingDirectory } from '@/constant/kernel'
-import { Branch, OS } from '@/enums/app'
-import { useAppConfigStore, useEnvStore, useKernelApiStore } from '@/stores'
-import {
-  getGitHubApiAuthorization,
-  GrantTUNPermission,
-  ignoredError,
-  confirm,
-  message,
-  debounce,
-  getKernelFileName,
-  getKernelAssetFileName,
-} from '@/utils'
-
-const StableUrl = 'https://api.github.com/repos/SagerNet/sing-box/releases/latest'
-const AlphaUrl = 'https://api.github.com/repos/SagerNet/sing-box/releases?per_page=3'
+import { BrowserOpenURL, createRpcClient, EventsOff, EventsOn } from '@/bridge'
+import { Branch } from '@/enums/app'
+import { useAppConfigStore, useKernelApiStore } from '@/stores'
+import { confirm, message, sampleID } from '@/utils'
+import { KernelBranch } from '../../gen/app/v1/app_pb'
+import { KernelRuntimeService } from '../../gen/kernel/v1/kernel_runtime_service_pb'
 
 const StablePage = 'https://github.com/SagerNet/sing-box/releases/latest'
 const AlphaPage = 'https://github.com/SagerNet/sing-box/releases'
 
 export const useCoreBranch = (isAlpha = false) => {
-  const releaseUrl = isAlpha ? AlphaUrl : StableUrl
+  const branch = isAlpha ? KernelBranch.ALPHA : KernelBranch.MAIN
 
   const localVersion = ref('')
   const remoteVersion = ref('')
   const versionDetail = ref('')
+  const releasePageUrl = ref(isAlpha ? AlphaPage : StablePage)
+  const remoteAssetTrusted = ref(true)
 
   const localVersionLoading = ref(false)
   const remoteVersionLoading = ref(false)
   const downloading = ref(false)
   const downloadCompleted = ref(false)
   const downloadProgress = ref('')
-  const cancelDownload = ref<() => void>()
+  const cancelDownload = ref<() => void | Promise<void>>()
 
   const rollbackable = ref(false)
 
   const { t } = useI18n()
-  const envStore = useEnvStore()
   const appConfig = useAppConfigStore()
   const kernelApiStore = useKernelApiStore()
+  const kernelService = createRpcClient(KernelRuntimeService)
 
   const restartable = computed(() => {
     const { branch } = appConfig.config
@@ -66,94 +44,22 @@ export const useCoreBranch = (isAlpha = false) => {
     () => remoteVersion.value && localVersion.value !== remoteVersion.value,
   )
 
-  const grantable = computed(() => localVersion.value && envStore.env.os !== OS.Windows)
-
-  const CoreFilePath = `${CoreWorkingDirectory}/${getKernelFileName(isAlpha)}`
-  const CoreBakFilePath = `${CoreFilePath}.bak`
-
-  const downloadCore = async () => {
-    downloading.value = true
-    downloadProgress.value = ''
-    cancelDownload.value = undefined
-    try {
-      const { body } = await HttpGet<Record<string, any>>(releaseUrl, {
-        Authorization: getGitHubApiAuthorization(),
-      })
-      if (body.message) throw body.message
-
-      const release = isAlpha ? body.find((v: any) => v.prerelease === true) : body
-      if (!release) throw 'Not Found'
-      const { assets, tag_name } = release
-      const assetName = getKernelAssetFileName(tag_name.replace('v', ''))
-      const asset = assets.find((v: any) => v.name === assetName)
-      if (!asset) throw 'Asset Not Found:' + assetName
-      if (asset.uploader.type !== 'Bot') {
-        await confirm('common.warning', 'settings.kernel.risk', {
-          type: 'text',
-          okText: 'settings.kernel.stillDownload',
-        })
-      }
-
-      const downloadCacheFile = `data/.cache/${assetName}`
-
-      cancelDownload.value = () => {
-        HttpCancel(downloadCacheFile)
-        setTimeout(() => RemoveFile(downloadCacheFile), 1000)
-        cancelDownload.value = undefined
-      }
-
-      await MakeDir(CoreWorkingDirectory)
-
-      await Download(
-        asset.browser_download_url,
-        downloadCacheFile,
-        undefined,
-        (progress, total) => {
-          const txt = t('common.downloading') + ((progress / total) * 100).toFixed(2) + '%'
-          downloadProgress.value = txt
-        },
-        { CancelId: downloadCacheFile },
-      )
-
-      const stableFileName = getKernelFileName()
-
-      await ignoredError(MoveFile, CoreFilePath, CoreBakFilePath)
-
-      if (assetName.endsWith('.zip')) {
-        await UnzipZIPFile(downloadCacheFile, 'data/.cache')
-        const tmpPath = `data/.cache/${assetName.replace('.zip', '')}`
-        await MoveFile(`${tmpPath}/${stableFileName}`, CoreFilePath)
-        await RemoveFile(tmpPath)
-      } else if (assetName.endsWith('.tar.gz')) {
-        await UnzipTarGZFile(downloadCacheFile, 'data/.cache')
-        const tmpPath = `data/.cache/${assetName.replace('.tar.gz', '')}`
-        await MoveFile(`${tmpPath}/${stableFileName}`, CoreFilePath)
-        await RemoveFile(tmpPath)
-      }
-
-      await RemoveFile(downloadCacheFile)
-
-      if (!CoreFilePath.endsWith('.exe')) {
-        await ignoredError(Exec, 'chmod', ['+x', await AbsolutePath(CoreFilePath)])
-      }
-
-      refreshLocalVersion()
-      downloadCompleted.value = true
-      message.success('common.success')
-    } catch (error: any) {
-      console.log(error)
-      message.error(error.message || error)
-      downloadCompleted.value = false
-    }
-    downloading.value = false
+  const applyLocalVersion = (value: {
+    localVersion: string
+    versionDetail: string
+    rollbackable: boolean
+  }) => {
+    localVersion.value = value.localVersion
+    versionDetail.value = value.versionDetail
+    rollbackable.value = value.rollbackable
   }
 
   const getLocalVersion = async (showTips = false) => {
     localVersionLoading.value = true
     try {
-      const res = await Exec(CoreFilePath, ['version'])
-      versionDetail.value = res.trim()
-      return res.match(/version (\S+)/)?.[1] || ''
+      const res = await kernelService.getCoreBranchLocalVersion({ branch })
+      applyLocalVersion(res)
+      return res.localVersion
     } catch (error: any) {
       console.log(error)
       showTips && message.error(error)
@@ -166,13 +72,10 @@ export const useCoreBranch = (isAlpha = false) => {
   const getRemoteVersion = async (showTips = false) => {
     remoteVersionLoading.value = true
     try {
-      const { body } = await HttpGet<Record<string, any>>(releaseUrl, {
-        Authorization: getGitHubApiAuthorization(),
-      })
-      const release = isAlpha ? body.find((v: any) => v.prerelease === true) : body
-      if (!release) throw 'Not Found'
-      const { tag_name } = release
-      return tag_name.replace('v', '') as string
+      const res = await kernelService.getCoreBranchRemoteVersion({ branch })
+      releasePageUrl.value = res.releasePageUrl || releasePageUrl.value
+      remoteAssetTrusted.value = res.trustedAsset
+      return res.remoteVersion
     } catch (error: any) {
       console.log(error)
       showTips && message.error(error)
@@ -180,6 +83,59 @@ export const useCoreBranch = (isAlpha = false) => {
       remoteVersionLoading.value = false
     }
     return ''
+  }
+
+  const downloadCore = async (allowUntrustedAsset = false) => {
+    let allowUntrusted = allowUntrustedAsset === true
+    downloading.value = true
+    downloadProgress.value = ''
+    cancelDownload.value = undefined
+    let canceled = false
+    const progressEvent = sampleID()
+
+    try {
+      if (!allowUntrusted) {
+        await refreshRemoteVersion()
+        if (!remoteAssetTrusted.value) {
+          await confirm('common.warning', 'settings.kernel.risk', {
+            type: 'text',
+            okText: 'settings.kernel.stillDownload',
+          })
+          allowUntrusted = true
+        }
+      }
+
+      EventsOn(progressEvent, (progress: number, total: number) => {
+        if (total <= 0) {
+          downloadProgress.value = t('common.downloading')
+          return
+        }
+        downloadProgress.value = t('common.downloading') + ((progress / total) * 100).toFixed(2) + '%'
+      })
+
+      cancelDownload.value = async () => {
+        canceled = true
+        await kernelService.cancelCoreDownload({ progressEvent })
+        cancelDownload.value = undefined
+      }
+
+      const res = await kernelService.downloadCore({
+        branch,
+        progressEvent,
+        allowUntrustedAsset: allowUntrusted,
+      })
+      applyLocalVersion(res)
+      downloadCompleted.value = true
+      message.success('common.success')
+    } catch (error: any) {
+      console.log(error)
+      if (!canceled) message.error(error.message || error)
+      downloadCompleted.value = false
+    } finally {
+      EventsOff(progressEvent)
+      downloading.value = false
+      cancelDownload.value = undefined
+    }
   }
 
   const restartCore = async () => {
@@ -200,41 +156,25 @@ export const useCoreBranch = (isAlpha = false) => {
     remoteVersion.value = await getRemoteVersion(showTips)
   }
 
-  const grantCorePermission = async () => {
-    await GrantTUNPermission(CoreFilePath)
+  const rollbackCore = async () => {
+    await confirm('common.warning', 'settings.kernel.rollback')
+    const res = await kernelService.rollbackCore({ branch })
+    applyLocalVersion(res)
     message.success('common.success')
   }
 
-  const rollbackCore = async () => {
-    await confirm('common.warning', 'settings.kernel.rollback')
-
-    const doRollback = () => MoveFile(CoreBakFilePath, CoreFilePath)
-
-    const { branch } = appConfig.config
-    const isCurrentRunning = kernelApiStore.running && (branch === Branch.Alpha) === isAlpha
-    if (isCurrentRunning) {
-      await kernelApiStore.restartCore(doRollback)
-    } else {
-      await doRollback()
-    }
-    refreshLocalVersion()
+  const clearCoreCache = async () => {
+    await kernelService.clearCoreCache({ branch })
     message.success('common.success')
   }
 
   const openReleasePage = () => {
-    BrowserOpenURL(isAlpha ? AlphaPage : StablePage)
+    BrowserOpenURL(releasePageUrl.value || (isAlpha ? AlphaPage : StablePage))
   }
 
   watch(
     () => appConfig.config.branch,
     () => (downloadCompleted.value = false),
-  )
-
-  watch(
-    [localVersion, downloadCompleted],
-    debounce(async () => {
-      rollbackable.value = await FileExists(CoreBakFilePath)
-    }, 500),
   )
 
   refreshLocalVersion()
@@ -243,7 +183,6 @@ export const useCoreBranch = (isAlpha = false) => {
   return {
     restartable,
     updatable,
-    grantable,
     rollbackable,
     versionDetail,
     localVersion,
@@ -258,7 +197,7 @@ export const useCoreBranch = (isAlpha = false) => {
     cancelDownload,
     restartCore,
     rollbackCore,
-    grantCorePermission,
+    clearCoreCache,
     openReleasePage,
   }
 }

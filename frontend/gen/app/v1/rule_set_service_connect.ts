@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { ClearRuleSetContentRequest, ClearRuleSetContentResponse, DeleteRuleSetRequest, DeleteRuleSetResponse, GetRuleSetContentRequest, GetRuleSetContentResponse, ListRuleSetsRequest, ListRuleSetsResponse, SaveRuleSetContentRequest, SaveRuleSetContentResponse, SaveRuleSetsRequest, SaveRuleSetsResponse, UpdateAllRuleSetsRequest, UpdateAllRuleSetsResponse, UpdateRuleSetHubRequest, UpdateRuleSetHubResponse, UpdateRuleSetRequest, UpdateRuleSetResponse, UpsertRuleSetRequest, UpsertRuleSetResponse } from "./rule_set_service_pb.js";
+import { ClearRuleSetContentRequest, ClearRuleSetContentResponse, DeleteRuleSetRequest, DeleteRuleSetResponse, GetRuleSetContentRequest, GetRuleSetContentResponse, ListRuleSetsRequest, ListRuleSetsResponse, PreviewRuleSetHubRequest, PreviewRuleSetHubResponse, SaveRuleSetContentRequest, SaveRuleSetContentResponse, SaveRuleSetsRequest, SaveRuleSetsResponse, UpdateAllRuleSetsRequest, UpdateAllRuleSetsResponse, UpdateRuleSetHubRequest, UpdateRuleSetHubResponse, UpdateRuleSetRequest, UpdateRuleSetResponse, UpsertRuleSetRequest, UpsertRuleSetResponse } from "./rule_set_service_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -73,6 +73,15 @@ export const RuleSetService = {
       name: "UpdateRuleSetHub",
       I: UpdateRuleSetHubRequest,
       O: UpdateRuleSetHubResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc app.v1.RuleSetService.PreviewRuleSetHub
+     */
+    previewRuleSetHub: {
+      name: "PreviewRuleSetHub",
+      I: PreviewRuleSetHubRequest,
+      O: PreviewRuleSetHubResponse,
       kind: MethodKind.Unary,
     },
     /**

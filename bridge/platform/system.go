@@ -2,7 +2,6 @@ package platform
 
 import (
 	"net"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
@@ -22,13 +21,6 @@ func DetectLibc() string {
 		return "musl"
 	}
 	return "glibc"
-}
-
-func (s *Service) GetEnv(key string) any {
-	if key != "" {
-		return os.Getenv(key)
-	}
-	return s.environment
 }
 
 func (s *Service) GetInterfaces() Result {

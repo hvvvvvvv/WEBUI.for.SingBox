@@ -90,8 +90,7 @@ type configGenerator struct {
 }
 
 type subscriptionMeta struct {
-	ID   string `yaml:"id"`
-	Path string `yaml:"path"`
+	ID string `yaml:"id"`
 }
 
 type rulesetMeta struct {
@@ -179,6 +178,20 @@ func readYAMLFile(paths *storage.Paths, path string, target any) error {
 		return nil
 	}
 	return yaml.Unmarshal(bytes, target)
+}
+
+func subscriptionContentPath(id string) string {
+	return "data/subscribes/" + safeFileName(id, "subscription") + ".json"
+}
+
+func safeFileName(id string, fallback string) string {
+	replacer := strings.NewReplacer("/", "_", "\\", "_", ":", "_", "*", "_", "?", "_", "\"", "_", "<", "_", ">", "_", "|", "_", " ", "_")
+	safe := replacer.Replace(id)
+	safe = strings.Trim(safe, "._")
+	if safe == "" {
+		return fallback
+	}
+	return safe
 }
 
 func generateLog(log *configv1.Log) map[string]any {
@@ -763,12 +776,12 @@ func (g *configGenerator) subscriptionEntries(id string) ([]map[string]any, erro
 		return entries, nil
 	}
 
-	meta, ok := g.subscriptions[id]
+	_, ok := g.subscriptions[id]
 	if !ok {
 		return nil, invalidArgumentError{message: fmt.Sprintf("subscription %q not found", id)}
 	}
 
-	bytes, err := os.ReadFile(g.paths.Resolve(meta.Path))
+	bytes, err := os.ReadFile(g.paths.Resolve(subscriptionContentPath(id)))
 	if err != nil {
 		return nil, fmt.Errorf("read subscription %s: %w", id, err)
 	}

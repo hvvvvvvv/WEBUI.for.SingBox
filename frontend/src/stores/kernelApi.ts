@@ -18,7 +18,6 @@ import { Inbound, RulesetType, TunStack } from '@/enums/kernel'
 import {
   useProfilesStore,
   useLogsStore,
-  useEnvStore,
   useSubscribesStore,
   useRulesetsStore,
   useAppConfigStore,
@@ -70,7 +69,6 @@ const normalizeCoreError = (error: unknown): string => {
 }
 
 export const useKernelApiStore = defineStore('kernelApi', () => {
-  const envStore = useEnvStore()
   const logsStore = useLogsStore()
   const profilesStore = useProfilesStore()
   const subscribesStore = useSubscribesStore()
@@ -252,7 +250,6 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     if (shouldRestart) {
       await restartCore(undefined, true)
       syncConfigFromRuntimeProfile()
-      await envStore.updateSystemProxyStatus()
     }
   }
 
@@ -266,7 +263,6 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     inbound.enable = enable
     await restartCore(undefined, true)
     syncConfigFromRuntimeProfile()
-    await envStore.updateSystemProxyStatus()
   }
 
   const refreshProviderProxies = async () => {
@@ -301,7 +297,6 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     if (running.value) {
       initWebsocket()
       await Promise.all([refreshConfig(), refreshProviderProxies()])
-      await envStore.updateSystemProxyStatus()
     }
   }
 
@@ -312,8 +307,6 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
 
     initWebsocket()
     await Promise.all([refreshConfig(), refreshProviderProxies()])
-
-    await envStore.updateSystemProxyStatus()
   }
 
   const onCoreStopped = async () => {
@@ -324,11 +317,6 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     syncRuntimeInbounds()
 
     destroyWebsocket()
-
-    await envStore.updateSystemProxyStatus()
-    if (envStore.systemProxy) {
-      await envStore.clearSystemProxy()
-    }
   }
 
   const markCoreStoppedForRestart = () => {

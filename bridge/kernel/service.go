@@ -76,6 +76,7 @@ type Service struct {
 	activeProfileID string
 	corePID         int
 	currentProfile  *profilev1.Profile
+	downloads       map[string]context.CancelFunc
 }
 
 var waitKernelAPIReadyFunc = waitKernelAPIReady
@@ -89,6 +90,7 @@ func NewService(processes ProcessRunner, configService ConfigGenerator, appConfi
 		events:    events,
 		status:    kernelv1.CoreStatus_CORE_STATUS_STOPPED,
 		corePID:   -1,
+		downloads: map[string]context.CancelFunc{},
 	}
 }
 

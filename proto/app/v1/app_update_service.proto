@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package app.v1;
+
+option go_package = "guiforcores/proto/app/v1";
+
+message GetAppVersionRequest {}
+
+message GetAppVersionResponse {
+  string current_version = 1;
+  string updated_version = 2;
+}
+
+message CheckAppUpdateRequest {}
+
+message CheckAppUpdateResponse {
+  string current_version = 1;
+  string updated_version = 2;
+  string latest_version = 3;
+  bool updatable = 4;
+  bool downloaded_update_available = 5;
+}
+
+message DownloadAppUpdateRequest {
+  string progress_event = 1;
+}
+
+message DownloadAppUpdateResponse {
+  string current_version = 1;
+  string updated_version = 2;
+  string latest_version = 3;
+  bool downloaded_update_available = 4;
+}
+
+message CancelAppUpdateRequest {
+  string progress_event = 1;
+}
+
+message CancelAppUpdateResponse {}
+
+message ApplyAppUpdateRequest {}
+
+message ApplyAppUpdateResponse {}
+
+service AppUpdateService {
+  rpc GetAppVersion(GetAppVersionRequest) returns (GetAppVersionResponse);
+  rpc CheckAppUpdate(CheckAppUpdateRequest) returns (CheckAppUpdateResponse);
+  rpc DownloadAppUpdate(DownloadAppUpdateRequest) returns (DownloadAppUpdateResponse);
+  rpc CancelAppUpdate(CancelAppUpdateRequest) returns (CancelAppUpdateResponse);
+  rpc ApplyAppUpdate(ApplyAppUpdateRequest) returns (ApplyAppUpdateResponse);
+}

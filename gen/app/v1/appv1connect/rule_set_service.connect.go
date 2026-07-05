@@ -54,6 +54,9 @@ const (
 	// RuleSetServiceUpdateRuleSetHubProcedure is the fully-qualified name of the RuleSetService's
 	// UpdateRuleSetHub RPC.
 	RuleSetServiceUpdateRuleSetHubProcedure = "/app.v1.RuleSetService/UpdateRuleSetHub"
+	// RuleSetServicePreviewRuleSetHubProcedure is the fully-qualified name of the RuleSetService's
+	// PreviewRuleSetHub RPC.
+	RuleSetServicePreviewRuleSetHubProcedure = "/app.v1.RuleSetService/PreviewRuleSetHub"
 	// RuleSetServiceGetRuleSetContentProcedure is the fully-qualified name of the RuleSetService's
 	// GetRuleSetContent RPC.
 	RuleSetServiceGetRuleSetContentProcedure = "/app.v1.RuleSetService/GetRuleSetContent"
@@ -74,6 +77,7 @@ type RuleSetServiceClient interface {
 	UpdateRuleSet(context.Context, *connect.Request[v1.UpdateRuleSetRequest]) (*connect.Response[v1.UpdateRuleSetResponse], error)
 	UpdateAllRuleSets(context.Context, *connect.Request[v1.UpdateAllRuleSetsRequest]) (*connect.Response[v1.UpdateAllRuleSetsResponse], error)
 	UpdateRuleSetHub(context.Context, *connect.Request[v1.UpdateRuleSetHubRequest]) (*connect.Response[v1.UpdateRuleSetHubResponse], error)
+	PreviewRuleSetHub(context.Context, *connect.Request[v1.PreviewRuleSetHubRequest]) (*connect.Response[v1.PreviewRuleSetHubResponse], error)
 	GetRuleSetContent(context.Context, *connect.Request[v1.GetRuleSetContentRequest]) (*connect.Response[v1.GetRuleSetContentResponse], error)
 	SaveRuleSetContent(context.Context, *connect.Request[v1.SaveRuleSetContentRequest]) (*connect.Response[v1.SaveRuleSetContentResponse], error)
 	ClearRuleSetContent(context.Context, *connect.Request[v1.ClearRuleSetContentRequest]) (*connect.Response[v1.ClearRuleSetContentResponse], error)
@@ -132,6 +136,12 @@ func NewRuleSetServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(ruleSetServiceMethods.ByName("UpdateRuleSetHub")),
 			connect.WithClientOptions(opts...),
 		),
+		previewRuleSetHub: connect.NewClient[v1.PreviewRuleSetHubRequest, v1.PreviewRuleSetHubResponse](
+			httpClient,
+			baseURL+RuleSetServicePreviewRuleSetHubProcedure,
+			connect.WithSchema(ruleSetServiceMethods.ByName("PreviewRuleSetHub")),
+			connect.WithClientOptions(opts...),
+		),
 		getRuleSetContent: connect.NewClient[v1.GetRuleSetContentRequest, v1.GetRuleSetContentResponse](
 			httpClient,
 			baseURL+RuleSetServiceGetRuleSetContentProcedure,
@@ -162,6 +172,7 @@ type ruleSetServiceClient struct {
 	updateRuleSet       *connect.Client[v1.UpdateRuleSetRequest, v1.UpdateRuleSetResponse]
 	updateAllRuleSets   *connect.Client[v1.UpdateAllRuleSetsRequest, v1.UpdateAllRuleSetsResponse]
 	updateRuleSetHub    *connect.Client[v1.UpdateRuleSetHubRequest, v1.UpdateRuleSetHubResponse]
+	previewRuleSetHub   *connect.Client[v1.PreviewRuleSetHubRequest, v1.PreviewRuleSetHubResponse]
 	getRuleSetContent   *connect.Client[v1.GetRuleSetContentRequest, v1.GetRuleSetContentResponse]
 	saveRuleSetContent  *connect.Client[v1.SaveRuleSetContentRequest, v1.SaveRuleSetContentResponse]
 	clearRuleSetContent *connect.Client[v1.ClearRuleSetContentRequest, v1.ClearRuleSetContentResponse]
@@ -202,6 +213,11 @@ func (c *ruleSetServiceClient) UpdateRuleSetHub(ctx context.Context, req *connec
 	return c.updateRuleSetHub.CallUnary(ctx, req)
 }
 
+// PreviewRuleSetHub calls app.v1.RuleSetService.PreviewRuleSetHub.
+func (c *ruleSetServiceClient) PreviewRuleSetHub(ctx context.Context, req *connect.Request[v1.PreviewRuleSetHubRequest]) (*connect.Response[v1.PreviewRuleSetHubResponse], error) {
+	return c.previewRuleSetHub.CallUnary(ctx, req)
+}
+
 // GetRuleSetContent calls app.v1.RuleSetService.GetRuleSetContent.
 func (c *ruleSetServiceClient) GetRuleSetContent(ctx context.Context, req *connect.Request[v1.GetRuleSetContentRequest]) (*connect.Response[v1.GetRuleSetContentResponse], error) {
 	return c.getRuleSetContent.CallUnary(ctx, req)
@@ -226,6 +242,7 @@ type RuleSetServiceHandler interface {
 	UpdateRuleSet(context.Context, *connect.Request[v1.UpdateRuleSetRequest]) (*connect.Response[v1.UpdateRuleSetResponse], error)
 	UpdateAllRuleSets(context.Context, *connect.Request[v1.UpdateAllRuleSetsRequest]) (*connect.Response[v1.UpdateAllRuleSetsResponse], error)
 	UpdateRuleSetHub(context.Context, *connect.Request[v1.UpdateRuleSetHubRequest]) (*connect.Response[v1.UpdateRuleSetHubResponse], error)
+	PreviewRuleSetHub(context.Context, *connect.Request[v1.PreviewRuleSetHubRequest]) (*connect.Response[v1.PreviewRuleSetHubResponse], error)
 	GetRuleSetContent(context.Context, *connect.Request[v1.GetRuleSetContentRequest]) (*connect.Response[v1.GetRuleSetContentResponse], error)
 	SaveRuleSetContent(context.Context, *connect.Request[v1.SaveRuleSetContentRequest]) (*connect.Response[v1.SaveRuleSetContentResponse], error)
 	ClearRuleSetContent(context.Context, *connect.Request[v1.ClearRuleSetContentRequest]) (*connect.Response[v1.ClearRuleSetContentResponse], error)
@@ -280,6 +297,12 @@ func NewRuleSetServiceHandler(svc RuleSetServiceHandler, opts ...connect.Handler
 		connect.WithSchema(ruleSetServiceMethods.ByName("UpdateRuleSetHub")),
 		connect.WithHandlerOptions(opts...),
 	)
+	ruleSetServicePreviewRuleSetHubHandler := connect.NewUnaryHandler(
+		RuleSetServicePreviewRuleSetHubProcedure,
+		svc.PreviewRuleSetHub,
+		connect.WithSchema(ruleSetServiceMethods.ByName("PreviewRuleSetHub")),
+		connect.WithHandlerOptions(opts...),
+	)
 	ruleSetServiceGetRuleSetContentHandler := connect.NewUnaryHandler(
 		RuleSetServiceGetRuleSetContentProcedure,
 		svc.GetRuleSetContent,
@@ -314,6 +337,8 @@ func NewRuleSetServiceHandler(svc RuleSetServiceHandler, opts ...connect.Handler
 			ruleSetServiceUpdateAllRuleSetsHandler.ServeHTTP(w, r)
 		case RuleSetServiceUpdateRuleSetHubProcedure:
 			ruleSetServiceUpdateRuleSetHubHandler.ServeHTTP(w, r)
+		case RuleSetServicePreviewRuleSetHubProcedure:
+			ruleSetServicePreviewRuleSetHubHandler.ServeHTTP(w, r)
 		case RuleSetServiceGetRuleSetContentProcedure:
 			ruleSetServiceGetRuleSetContentHandler.ServeHTTP(w, r)
 		case RuleSetServiceSaveRuleSetContentProcedure:
@@ -355,6 +380,10 @@ func (UnimplementedRuleSetServiceHandler) UpdateAllRuleSets(context.Context, *co
 
 func (UnimplementedRuleSetServiceHandler) UpdateRuleSetHub(context.Context, *connect.Request[v1.UpdateRuleSetHubRequest]) (*connect.Response[v1.UpdateRuleSetHubResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.RuleSetService.UpdateRuleSetHub is not implemented"))
+}
+
+func (UnimplementedRuleSetServiceHandler) PreviewRuleSetHub(context.Context, *connect.Request[v1.PreviewRuleSetHubRequest]) (*connect.Response[v1.PreviewRuleSetHubResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.RuleSetService.PreviewRuleSetHub is not implemented"))
 }
 
 func (UnimplementedRuleSetServiceHandler) GetRuleSetContent(context.Context, *connect.Request[v1.GetRuleSetContentRequest]) (*connect.Response[v1.GetRuleSetContentResponse], error) {

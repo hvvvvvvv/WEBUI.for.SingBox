@@ -613,6 +613,102 @@ func (x *UpdateRuleSetHubResponse) GetHubJson() string {
 	return ""
 }
 
+type PreviewRuleSetHubRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Index         int32                  `protobuf:"varint,1,opt,name=index,proto3" json:"index,omitempty"`
+	Format        string                 `protobuf:"bytes,2,opt,name=format,proto3" json:"format,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PreviewRuleSetHubRequest) Reset() {
+	*x = PreviewRuleSetHubRequest{}
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PreviewRuleSetHubRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PreviewRuleSetHubRequest) ProtoMessage() {}
+
+func (x *PreviewRuleSetHubRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PreviewRuleSetHubRequest.ProtoReflect.Descriptor instead.
+func (*PreviewRuleSetHubRequest) Descriptor() ([]byte, []int) {
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{14}
+}
+
+func (x *PreviewRuleSetHubRequest) GetIndex() int32 {
+	if x != nil {
+		return x.Index
+	}
+	return 0
+}
+
+func (x *PreviewRuleSetHubRequest) GetFormat() string {
+	if x != nil {
+		return x.Format
+	}
+	return ""
+}
+
+type PreviewRuleSetHubResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Content       string                 `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PreviewRuleSetHubResponse) Reset() {
+	*x = PreviewRuleSetHubResponse{}
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PreviewRuleSetHubResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PreviewRuleSetHubResponse) ProtoMessage() {}
+
+func (x *PreviewRuleSetHubResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PreviewRuleSetHubResponse.ProtoReflect.Descriptor instead.
+func (*PreviewRuleSetHubResponse) Descriptor() ([]byte, []int) {
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{15}
+}
+
+func (x *PreviewRuleSetHubResponse) GetContent() string {
+	if x != nil {
+		return x.Content
+	}
+	return ""
+}
+
 type GetRuleSetContentRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -622,7 +718,7 @@ type GetRuleSetContentRequest struct {
 
 func (x *GetRuleSetContentRequest) Reset() {
 	*x = GetRuleSetContentRequest{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[14]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -634,7 +730,7 @@ func (x *GetRuleSetContentRequest) String() string {
 func (*GetRuleSetContentRequest) ProtoMessage() {}
 
 func (x *GetRuleSetContentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[14]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -647,7 +743,7 @@ func (x *GetRuleSetContentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRuleSetContentRequest.ProtoReflect.Descriptor instead.
 func (*GetRuleSetContentRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{14}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetRuleSetContentRequest) GetId() string {
@@ -666,7 +762,7 @@ type GetRuleSetContentResponse struct {
 
 func (x *GetRuleSetContentResponse) Reset() {
 	*x = GetRuleSetContentResponse{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[15]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -678,7 +774,7 @@ func (x *GetRuleSetContentResponse) String() string {
 func (*GetRuleSetContentResponse) ProtoMessage() {}
 
 func (x *GetRuleSetContentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[15]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -691,7 +787,7 @@ func (x *GetRuleSetContentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRuleSetContentResponse.ProtoReflect.Descriptor instead.
 func (*GetRuleSetContentResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{15}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *GetRuleSetContentResponse) GetContent() string {
@@ -711,7 +807,7 @@ type SaveRuleSetContentRequest struct {
 
 func (x *SaveRuleSetContentRequest) Reset() {
 	*x = SaveRuleSetContentRequest{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[16]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -723,7 +819,7 @@ func (x *SaveRuleSetContentRequest) String() string {
 func (*SaveRuleSetContentRequest) ProtoMessage() {}
 
 func (x *SaveRuleSetContentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[16]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -736,7 +832,7 @@ func (x *SaveRuleSetContentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveRuleSetContentRequest.ProtoReflect.Descriptor instead.
 func (*SaveRuleSetContentRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{16}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *SaveRuleSetContentRequest) GetId() string {
@@ -762,7 +858,7 @@ type SaveRuleSetContentResponse struct {
 
 func (x *SaveRuleSetContentResponse) Reset() {
 	*x = SaveRuleSetContentResponse{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[17]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -774,7 +870,7 @@ func (x *SaveRuleSetContentResponse) String() string {
 func (*SaveRuleSetContentResponse) ProtoMessage() {}
 
 func (x *SaveRuleSetContentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[17]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -787,7 +883,7 @@ func (x *SaveRuleSetContentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveRuleSetContentResponse.ProtoReflect.Descriptor instead.
 func (*SaveRuleSetContentResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{17}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *SaveRuleSetContentResponse) GetRulesetJson() string {
@@ -806,7 +902,7 @@ type ClearRuleSetContentRequest struct {
 
 func (x *ClearRuleSetContentRequest) Reset() {
 	*x = ClearRuleSetContentRequest{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[18]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -818,7 +914,7 @@ func (x *ClearRuleSetContentRequest) String() string {
 func (*ClearRuleSetContentRequest) ProtoMessage() {}
 
 func (x *ClearRuleSetContentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[18]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -831,7 +927,7 @@ func (x *ClearRuleSetContentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearRuleSetContentRequest.ProtoReflect.Descriptor instead.
 func (*ClearRuleSetContentRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{18}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ClearRuleSetContentRequest) GetId() string {
@@ -850,7 +946,7 @@ type ClearRuleSetContentResponse struct {
 
 func (x *ClearRuleSetContentResponse) Reset() {
 	*x = ClearRuleSetContentResponse{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[19]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -862,7 +958,7 @@ func (x *ClearRuleSetContentResponse) String() string {
 func (*ClearRuleSetContentResponse) ProtoMessage() {}
 
 func (x *ClearRuleSetContentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[19]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -875,7 +971,7 @@ func (x *ClearRuleSetContentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearRuleSetContentResponse.ProtoReflect.Descriptor instead.
 func (*ClearRuleSetContentResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{19}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *ClearRuleSetContentResponse) GetRulesetJson() string {
@@ -914,7 +1010,12 @@ const file_app_v1_rule_set_service_proto_rawDesc = "" +
 	"\aresults\x18\x01 \x03(\v2\x12.app.v1.TaskResultR\aresults\"\x19\n" +
 	"\x17UpdateRuleSetHubRequest\"5\n" +
 	"\x18UpdateRuleSetHubResponse\x12\x19\n" +
-	"\bhub_json\x18\x01 \x01(\tR\ahubJson\"*\n" +
+	"\bhub_json\x18\x01 \x01(\tR\ahubJson\"H\n" +
+	"\x18PreviewRuleSetHubRequest\x12\x14\n" +
+	"\x05index\x18\x01 \x01(\x05R\x05index\x12\x16\n" +
+	"\x06format\x18\x02 \x01(\tR\x06format\"5\n" +
+	"\x19PreviewRuleSetHubResponse\x12\x18\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent\"*\n" +
 	"\x18GetRuleSetContentRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"5\n" +
 	"\x19GetRuleSetContentResponse\x12\x18\n" +
@@ -927,7 +1028,7 @@ const file_app_v1_rule_set_service_proto_rawDesc = "" +
 	"\x1aClearRuleSetContentRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"@\n" +
 	"\x1bClearRuleSetContentResponse\x12!\n" +
-	"\fruleset_json\x18\x01 \x01(\tR\vrulesetJson2\xd8\x06\n" +
+	"\fruleset_json\x18\x01 \x01(\tR\vrulesetJson2\xb2\a\n" +
 	"\x0eRuleSetService\x12I\n" +
 	"\fListRuleSets\x12\x1b.app.v1.ListRuleSetsRequest\x1a\x1c.app.v1.ListRuleSetsResponse\x12I\n" +
 	"\fSaveRuleSets\x12\x1b.app.v1.SaveRuleSetsRequest\x1a\x1c.app.v1.SaveRuleSetsResponse\x12L\n" +
@@ -936,6 +1037,7 @@ const file_app_v1_rule_set_service_proto_rawDesc = "" +
 	"\rUpdateRuleSet\x12\x1c.app.v1.UpdateRuleSetRequest\x1a\x1d.app.v1.UpdateRuleSetResponse\x12X\n" +
 	"\x11UpdateAllRuleSets\x12 .app.v1.UpdateAllRuleSetsRequest\x1a!.app.v1.UpdateAllRuleSetsResponse\x12U\n" +
 	"\x10UpdateRuleSetHub\x12\x1f.app.v1.UpdateRuleSetHubRequest\x1a .app.v1.UpdateRuleSetHubResponse\x12X\n" +
+	"\x11PreviewRuleSetHub\x12 .app.v1.PreviewRuleSetHubRequest\x1a!.app.v1.PreviewRuleSetHubResponse\x12X\n" +
 	"\x11GetRuleSetContent\x12 .app.v1.GetRuleSetContentRequest\x1a!.app.v1.GetRuleSetContentResponse\x12[\n" +
 	"\x12SaveRuleSetContent\x12!.app.v1.SaveRuleSetContentRequest\x1a\".app.v1.SaveRuleSetContentResponse\x12^\n" +
 	"\x13ClearRuleSetContent\x12\".app.v1.ClearRuleSetContentRequest\x1a#.app.v1.ClearRuleSetContentResponseBx\n" +
@@ -954,7 +1056,7 @@ func file_app_v1_rule_set_service_proto_rawDescGZIP() []byte {
 	return file_app_v1_rule_set_service_proto_rawDescData
 }
 
-var file_app_v1_rule_set_service_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
+var file_app_v1_rule_set_service_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_app_v1_rule_set_service_proto_goTypes = []any{
 	(*ListRuleSetsRequest)(nil),         // 0: app.v1.ListRuleSetsRequest
 	(*ListRuleSetsResponse)(nil),        // 1: app.v1.ListRuleSetsResponse
@@ -970,17 +1072,19 @@ var file_app_v1_rule_set_service_proto_goTypes = []any{
 	(*UpdateAllRuleSetsResponse)(nil),   // 11: app.v1.UpdateAllRuleSetsResponse
 	(*UpdateRuleSetHubRequest)(nil),     // 12: app.v1.UpdateRuleSetHubRequest
 	(*UpdateRuleSetHubResponse)(nil),    // 13: app.v1.UpdateRuleSetHubResponse
-	(*GetRuleSetContentRequest)(nil),    // 14: app.v1.GetRuleSetContentRequest
-	(*GetRuleSetContentResponse)(nil),   // 15: app.v1.GetRuleSetContentResponse
-	(*SaveRuleSetContentRequest)(nil),   // 16: app.v1.SaveRuleSetContentRequest
-	(*SaveRuleSetContentResponse)(nil),  // 17: app.v1.SaveRuleSetContentResponse
-	(*ClearRuleSetContentRequest)(nil),  // 18: app.v1.ClearRuleSetContentRequest
-	(*ClearRuleSetContentResponse)(nil), // 19: app.v1.ClearRuleSetContentResponse
-	(*TaskResult)(nil),                  // 20: app.v1.TaskResult
+	(*PreviewRuleSetHubRequest)(nil),    // 14: app.v1.PreviewRuleSetHubRequest
+	(*PreviewRuleSetHubResponse)(nil),   // 15: app.v1.PreviewRuleSetHubResponse
+	(*GetRuleSetContentRequest)(nil),    // 16: app.v1.GetRuleSetContentRequest
+	(*GetRuleSetContentResponse)(nil),   // 17: app.v1.GetRuleSetContentResponse
+	(*SaveRuleSetContentRequest)(nil),   // 18: app.v1.SaveRuleSetContentRequest
+	(*SaveRuleSetContentResponse)(nil),  // 19: app.v1.SaveRuleSetContentResponse
+	(*ClearRuleSetContentRequest)(nil),  // 20: app.v1.ClearRuleSetContentRequest
+	(*ClearRuleSetContentResponse)(nil), // 21: app.v1.ClearRuleSetContentResponse
+	(*TaskResult)(nil),                  // 22: app.v1.TaskResult
 }
 var file_app_v1_rule_set_service_proto_depIdxs = []int32{
-	20, // 0: app.v1.UpdateRuleSetResponse.results:type_name -> app.v1.TaskResult
-	20, // 1: app.v1.UpdateAllRuleSetsResponse.results:type_name -> app.v1.TaskResult
+	22, // 0: app.v1.UpdateRuleSetResponse.results:type_name -> app.v1.TaskResult
+	22, // 1: app.v1.UpdateAllRuleSetsResponse.results:type_name -> app.v1.TaskResult
 	0,  // 2: app.v1.RuleSetService.ListRuleSets:input_type -> app.v1.ListRuleSetsRequest
 	2,  // 3: app.v1.RuleSetService.SaveRuleSets:input_type -> app.v1.SaveRuleSetsRequest
 	4,  // 4: app.v1.RuleSetService.UpsertRuleSet:input_type -> app.v1.UpsertRuleSetRequest
@@ -988,21 +1092,23 @@ var file_app_v1_rule_set_service_proto_depIdxs = []int32{
 	8,  // 6: app.v1.RuleSetService.UpdateRuleSet:input_type -> app.v1.UpdateRuleSetRequest
 	10, // 7: app.v1.RuleSetService.UpdateAllRuleSets:input_type -> app.v1.UpdateAllRuleSetsRequest
 	12, // 8: app.v1.RuleSetService.UpdateRuleSetHub:input_type -> app.v1.UpdateRuleSetHubRequest
-	14, // 9: app.v1.RuleSetService.GetRuleSetContent:input_type -> app.v1.GetRuleSetContentRequest
-	16, // 10: app.v1.RuleSetService.SaveRuleSetContent:input_type -> app.v1.SaveRuleSetContentRequest
-	18, // 11: app.v1.RuleSetService.ClearRuleSetContent:input_type -> app.v1.ClearRuleSetContentRequest
-	1,  // 12: app.v1.RuleSetService.ListRuleSets:output_type -> app.v1.ListRuleSetsResponse
-	3,  // 13: app.v1.RuleSetService.SaveRuleSets:output_type -> app.v1.SaveRuleSetsResponse
-	5,  // 14: app.v1.RuleSetService.UpsertRuleSet:output_type -> app.v1.UpsertRuleSetResponse
-	7,  // 15: app.v1.RuleSetService.DeleteRuleSet:output_type -> app.v1.DeleteRuleSetResponse
-	9,  // 16: app.v1.RuleSetService.UpdateRuleSet:output_type -> app.v1.UpdateRuleSetResponse
-	11, // 17: app.v1.RuleSetService.UpdateAllRuleSets:output_type -> app.v1.UpdateAllRuleSetsResponse
-	13, // 18: app.v1.RuleSetService.UpdateRuleSetHub:output_type -> app.v1.UpdateRuleSetHubResponse
-	15, // 19: app.v1.RuleSetService.GetRuleSetContent:output_type -> app.v1.GetRuleSetContentResponse
-	17, // 20: app.v1.RuleSetService.SaveRuleSetContent:output_type -> app.v1.SaveRuleSetContentResponse
-	19, // 21: app.v1.RuleSetService.ClearRuleSetContent:output_type -> app.v1.ClearRuleSetContentResponse
-	12, // [12:22] is the sub-list for method output_type
-	2,  // [2:12] is the sub-list for method input_type
+	14, // 9: app.v1.RuleSetService.PreviewRuleSetHub:input_type -> app.v1.PreviewRuleSetHubRequest
+	16, // 10: app.v1.RuleSetService.GetRuleSetContent:input_type -> app.v1.GetRuleSetContentRequest
+	18, // 11: app.v1.RuleSetService.SaveRuleSetContent:input_type -> app.v1.SaveRuleSetContentRequest
+	20, // 12: app.v1.RuleSetService.ClearRuleSetContent:input_type -> app.v1.ClearRuleSetContentRequest
+	1,  // 13: app.v1.RuleSetService.ListRuleSets:output_type -> app.v1.ListRuleSetsResponse
+	3,  // 14: app.v1.RuleSetService.SaveRuleSets:output_type -> app.v1.SaveRuleSetsResponse
+	5,  // 15: app.v1.RuleSetService.UpsertRuleSet:output_type -> app.v1.UpsertRuleSetResponse
+	7,  // 16: app.v1.RuleSetService.DeleteRuleSet:output_type -> app.v1.DeleteRuleSetResponse
+	9,  // 17: app.v1.RuleSetService.UpdateRuleSet:output_type -> app.v1.UpdateRuleSetResponse
+	11, // 18: app.v1.RuleSetService.UpdateAllRuleSets:output_type -> app.v1.UpdateAllRuleSetsResponse
+	13, // 19: app.v1.RuleSetService.UpdateRuleSetHub:output_type -> app.v1.UpdateRuleSetHubResponse
+	15, // 20: app.v1.RuleSetService.PreviewRuleSetHub:output_type -> app.v1.PreviewRuleSetHubResponse
+	17, // 21: app.v1.RuleSetService.GetRuleSetContent:output_type -> app.v1.GetRuleSetContentResponse
+	19, // 22: app.v1.RuleSetService.SaveRuleSetContent:output_type -> app.v1.SaveRuleSetContentResponse
+	21, // 23: app.v1.RuleSetService.ClearRuleSetContent:output_type -> app.v1.ClearRuleSetContentResponse
+	13, // [13:24] is the sub-list for method output_type
+	2,  // [2:13] is the sub-list for method input_type
 	2,  // [2:2] is the sub-list for extension type_name
 	2,  // [2:2] is the sub-list for extension extendee
 	0,  // [0:2] is the sub-list for field type_name
@@ -1020,7 +1126,7 @@ func file_app_v1_rule_set_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_app_v1_rule_set_service_proto_rawDesc), len(file_app_v1_rule_set_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   20,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

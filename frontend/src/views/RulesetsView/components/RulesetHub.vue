@@ -2,7 +2,6 @@
 import { computed, h, inject, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { HttpGet } from '@/bridge'
 import { RulesetFormat } from '@/enums/kernel'
 import { useRulesetsStore, type RuleSetHub } from '@/stores'
 import { message, alert } from '@/utils'
@@ -42,6 +41,10 @@ const getRulesetUrlAndSuffix = (ruleset: RuleSetHub['list'][number], format: Rul
   return [basrUrl + ruleset.name + suffix, suffix] as const
 }
 
+const getRulesetHubIndex = (ruleset: RuleSetHub['list'][number]) => {
+  return rulesetsStore.rulesetHub.list.indexOf(ruleset)
+}
+
 const handleAddRuleset = async (ruleset: RuleSetHub['list'][number], format: RulesetFormat) => {
   const [url, suffix] = getRulesetUrlAndSuffix(ruleset, format)
   const id = ruleset.type + '_' + ruleset.name + '.' + format
@@ -66,12 +69,16 @@ const handleAddRuleset = async (ruleset: RuleSetHub['list'][number], format: Rul
   }
 }
 
-const handlePreview = async (ruleset: RuleSetHub['list'][number], format: RulesetFormat) => {
+const handlePreview = async (
+  index: number,
+  ruleset: RuleSetHub['list'][number],
+  format: RulesetFormat,
+) => {
   const { destroy, error } = message.info('rulesets.fetching', 15_000)
   try {
-    const { body } = await HttpGet(getRulesetUrlAndSuffix(ruleset, format)[0])
+    const content = await rulesetsStore.previewRuleSetHub(index, format)
     destroy()
-    await alert(ruleset.name, JSON.stringify(body, null, 2))
+    await alert(ruleset.name, JSON.stringify(JSON.parse(content), null, 2))
   } catch (err: any) {
     error(err.message || err)
     setTimeout(destroy, 2000)
@@ -157,7 +164,7 @@ defineExpose({ modalSlots })
                 icon="preview"
                 size="small"
                 type="text"
-                @click="handlePreview(ruleset, RulesetFormat.Source)"
+                @click="handlePreview(getRulesetHubIndex(ruleset), ruleset, RulesetFormat.Source)"
               />
             </div>
             <!-- <div v-tips="ruleset.description" class="flex-1 line-clamp-2">

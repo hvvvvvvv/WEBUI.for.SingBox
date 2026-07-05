@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 
-import { RemoveFile } from '@/bridge'
-import { CoreCacheFilePath } from '@/constant/kernel'
 import { useCoreBranch } from '@/hooks/useCoreBranch'
 import { useKernelApiStore } from '@/stores'
 import { message } from '@/utils'
@@ -21,7 +19,6 @@ const kernelApiStore = useKernelApiStore()
 const {
   restartable,
   updatable,
-  grantable,
   rollbackable,
   versionDetail,
   localVersion,
@@ -36,18 +33,13 @@ const {
   downloadCore,
   restartCore,
   rollbackCore,
-  grantCorePermission,
+  clearCoreCache,
   openReleasePage,
 } = useCoreBranch(props.isAlpha)
 
 const handleClearCoreCache = async () => {
   try {
-    if (kernelApiStore.running) {
-      await kernelApiStore.restartCore(() => RemoveFile(CoreCacheFilePath))
-    } else {
-      await RemoveFile(CoreCacheFilePath)
-    }
-    message.success('common.success')
+    await clearCoreCache()
   } catch (error: any) {
     message.error(error)
     console.log(error)
@@ -74,14 +66,6 @@ const handleClearCoreCache = async () => {
       size="small"
       icon="clear3"
       @click="handleClearCoreCache"
-    />
-    <Button
-      v-if="grantable"
-      v-tips="'settings.kernel.grant'"
-      type="text"
-      size="small"
-      icon="grant"
-      @click="grantCorePermission"
     />
     <Button
       v-tips="'settings.kernel.linkTip'"
@@ -128,7 +112,7 @@ const handleClearCoreCache = async () => {
         size="small"
         type="primary"
         class="ml-auto"
-        @click="downloadCore"
+        @click="() => downloadCore()"
       >
         {{ downloading ? downloadProgress : t('settings.kernel.update') }}
       </Button>

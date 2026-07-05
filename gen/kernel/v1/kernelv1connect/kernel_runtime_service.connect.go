@@ -54,6 +54,24 @@ const (
 	// KernelRuntimeServiceGetCurrentCoreMemoryProcedure is the fully-qualified name of the
 	// KernelRuntimeService's GetCurrentCoreMemory RPC.
 	KernelRuntimeServiceGetCurrentCoreMemoryProcedure = "/kernel.v1.KernelRuntimeService/GetCurrentCoreMemory"
+	// KernelRuntimeServiceGetCoreBranchLocalVersionProcedure is the fully-qualified name of the
+	// KernelRuntimeService's GetCoreBranchLocalVersion RPC.
+	KernelRuntimeServiceGetCoreBranchLocalVersionProcedure = "/kernel.v1.KernelRuntimeService/GetCoreBranchLocalVersion"
+	// KernelRuntimeServiceGetCoreBranchRemoteVersionProcedure is the fully-qualified name of the
+	// KernelRuntimeService's GetCoreBranchRemoteVersion RPC.
+	KernelRuntimeServiceGetCoreBranchRemoteVersionProcedure = "/kernel.v1.KernelRuntimeService/GetCoreBranchRemoteVersion"
+	// KernelRuntimeServiceDownloadCoreProcedure is the fully-qualified name of the
+	// KernelRuntimeService's DownloadCore RPC.
+	KernelRuntimeServiceDownloadCoreProcedure = "/kernel.v1.KernelRuntimeService/DownloadCore"
+	// KernelRuntimeServiceCancelCoreDownloadProcedure is the fully-qualified name of the
+	// KernelRuntimeService's CancelCoreDownload RPC.
+	KernelRuntimeServiceCancelCoreDownloadProcedure = "/kernel.v1.KernelRuntimeService/CancelCoreDownload"
+	// KernelRuntimeServiceRollbackCoreProcedure is the fully-qualified name of the
+	// KernelRuntimeService's RollbackCore RPC.
+	KernelRuntimeServiceRollbackCoreProcedure = "/kernel.v1.KernelRuntimeService/RollbackCore"
+	// KernelRuntimeServiceClearCoreCacheProcedure is the fully-qualified name of the
+	// KernelRuntimeService's ClearCoreCache RPC.
+	KernelRuntimeServiceClearCoreCacheProcedure = "/kernel.v1.KernelRuntimeService/ClearCoreCache"
 )
 
 // KernelRuntimeServiceClient is a client for the kernel.v1.KernelRuntimeService service.
@@ -65,6 +83,12 @@ type KernelRuntimeServiceClient interface {
 	GetCoreStatus(context.Context, *connect.Request[v1.GetCoreStatusRequest]) (*connect.Response[v1.GetCoreStatusResponse], error)
 	GetCurrentProfile(context.Context, *connect.Request[v1.GetCurrentProfileRequest]) (*connect.Response[v1.GetCurrentProfileResponse], error)
 	GetCurrentCoreMemory(context.Context, *connect.Request[v1.GetCurrentCoreMemoryRequest]) (*connect.Response[v1.GetCurrentCoreMemoryResponse], error)
+	GetCoreBranchLocalVersion(context.Context, *connect.Request[v1.GetCoreBranchLocalVersionRequest]) (*connect.Response[v1.GetCoreBranchLocalVersionResponse], error)
+	GetCoreBranchRemoteVersion(context.Context, *connect.Request[v1.GetCoreBranchRemoteVersionRequest]) (*connect.Response[v1.GetCoreBranchRemoteVersionResponse], error)
+	DownloadCore(context.Context, *connect.Request[v1.DownloadCoreRequest]) (*connect.Response[v1.DownloadCoreResponse], error)
+	CancelCoreDownload(context.Context, *connect.Request[v1.CancelCoreDownloadRequest]) (*connect.Response[v1.CancelCoreDownloadResponse], error)
+	RollbackCore(context.Context, *connect.Request[v1.RollbackCoreRequest]) (*connect.Response[v1.RollbackCoreResponse], error)
+	ClearCoreCache(context.Context, *connect.Request[v1.ClearCoreCacheRequest]) (*connect.Response[v1.ClearCoreCacheResponse], error)
 }
 
 // NewKernelRuntimeServiceClient constructs a client for the kernel.v1.KernelRuntimeService service.
@@ -120,18 +144,60 @@ func NewKernelRuntimeServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(kernelRuntimeServiceMethods.ByName("GetCurrentCoreMemory")),
 			connect.WithClientOptions(opts...),
 		),
+		getCoreBranchLocalVersion: connect.NewClient[v1.GetCoreBranchLocalVersionRequest, v1.GetCoreBranchLocalVersionResponse](
+			httpClient,
+			baseURL+KernelRuntimeServiceGetCoreBranchLocalVersionProcedure,
+			connect.WithSchema(kernelRuntimeServiceMethods.ByName("GetCoreBranchLocalVersion")),
+			connect.WithClientOptions(opts...),
+		),
+		getCoreBranchRemoteVersion: connect.NewClient[v1.GetCoreBranchRemoteVersionRequest, v1.GetCoreBranchRemoteVersionResponse](
+			httpClient,
+			baseURL+KernelRuntimeServiceGetCoreBranchRemoteVersionProcedure,
+			connect.WithSchema(kernelRuntimeServiceMethods.ByName("GetCoreBranchRemoteVersion")),
+			connect.WithClientOptions(opts...),
+		),
+		downloadCore: connect.NewClient[v1.DownloadCoreRequest, v1.DownloadCoreResponse](
+			httpClient,
+			baseURL+KernelRuntimeServiceDownloadCoreProcedure,
+			connect.WithSchema(kernelRuntimeServiceMethods.ByName("DownloadCore")),
+			connect.WithClientOptions(opts...),
+		),
+		cancelCoreDownload: connect.NewClient[v1.CancelCoreDownloadRequest, v1.CancelCoreDownloadResponse](
+			httpClient,
+			baseURL+KernelRuntimeServiceCancelCoreDownloadProcedure,
+			connect.WithSchema(kernelRuntimeServiceMethods.ByName("CancelCoreDownload")),
+			connect.WithClientOptions(opts...),
+		),
+		rollbackCore: connect.NewClient[v1.RollbackCoreRequest, v1.RollbackCoreResponse](
+			httpClient,
+			baseURL+KernelRuntimeServiceRollbackCoreProcedure,
+			connect.WithSchema(kernelRuntimeServiceMethods.ByName("RollbackCore")),
+			connect.WithClientOptions(opts...),
+		),
+		clearCoreCache: connect.NewClient[v1.ClearCoreCacheRequest, v1.ClearCoreCacheResponse](
+			httpClient,
+			baseURL+KernelRuntimeServiceClearCoreCacheProcedure,
+			connect.WithSchema(kernelRuntimeServiceMethods.ByName("ClearCoreCache")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // kernelRuntimeServiceClient implements KernelRuntimeServiceClient.
 type kernelRuntimeServiceClient struct {
-	startCore            *connect.Client[v1.StartCoreRequest, v1.StartCoreResponse]
-	startCoreWithProfile *connect.Client[v1.StartCoreWithProfileRequest, v1.StartCoreWithProfileResponse]
-	stopCore             *connect.Client[v1.StopCoreRequest, v1.StopCoreResponse]
-	restartCore          *connect.Client[v1.RestartCoreRequest, v1.RestartCoreResponse]
-	getCoreStatus        *connect.Client[v1.GetCoreStatusRequest, v1.GetCoreStatusResponse]
-	getCurrentProfile    *connect.Client[v1.GetCurrentProfileRequest, v1.GetCurrentProfileResponse]
-	getCurrentCoreMemory *connect.Client[v1.GetCurrentCoreMemoryRequest, v1.GetCurrentCoreMemoryResponse]
+	startCore                  *connect.Client[v1.StartCoreRequest, v1.StartCoreResponse]
+	startCoreWithProfile       *connect.Client[v1.StartCoreWithProfileRequest, v1.StartCoreWithProfileResponse]
+	stopCore                   *connect.Client[v1.StopCoreRequest, v1.StopCoreResponse]
+	restartCore                *connect.Client[v1.RestartCoreRequest, v1.RestartCoreResponse]
+	getCoreStatus              *connect.Client[v1.GetCoreStatusRequest, v1.GetCoreStatusResponse]
+	getCurrentProfile          *connect.Client[v1.GetCurrentProfileRequest, v1.GetCurrentProfileResponse]
+	getCurrentCoreMemory       *connect.Client[v1.GetCurrentCoreMemoryRequest, v1.GetCurrentCoreMemoryResponse]
+	getCoreBranchLocalVersion  *connect.Client[v1.GetCoreBranchLocalVersionRequest, v1.GetCoreBranchLocalVersionResponse]
+	getCoreBranchRemoteVersion *connect.Client[v1.GetCoreBranchRemoteVersionRequest, v1.GetCoreBranchRemoteVersionResponse]
+	downloadCore               *connect.Client[v1.DownloadCoreRequest, v1.DownloadCoreResponse]
+	cancelCoreDownload         *connect.Client[v1.CancelCoreDownloadRequest, v1.CancelCoreDownloadResponse]
+	rollbackCore               *connect.Client[v1.RollbackCoreRequest, v1.RollbackCoreResponse]
+	clearCoreCache             *connect.Client[v1.ClearCoreCacheRequest, v1.ClearCoreCacheResponse]
 }
 
 // StartCore calls kernel.v1.KernelRuntimeService.StartCore.
@@ -169,6 +235,36 @@ func (c *kernelRuntimeServiceClient) GetCurrentCoreMemory(ctx context.Context, r
 	return c.getCurrentCoreMemory.CallUnary(ctx, req)
 }
 
+// GetCoreBranchLocalVersion calls kernel.v1.KernelRuntimeService.GetCoreBranchLocalVersion.
+func (c *kernelRuntimeServiceClient) GetCoreBranchLocalVersion(ctx context.Context, req *connect.Request[v1.GetCoreBranchLocalVersionRequest]) (*connect.Response[v1.GetCoreBranchLocalVersionResponse], error) {
+	return c.getCoreBranchLocalVersion.CallUnary(ctx, req)
+}
+
+// GetCoreBranchRemoteVersion calls kernel.v1.KernelRuntimeService.GetCoreBranchRemoteVersion.
+func (c *kernelRuntimeServiceClient) GetCoreBranchRemoteVersion(ctx context.Context, req *connect.Request[v1.GetCoreBranchRemoteVersionRequest]) (*connect.Response[v1.GetCoreBranchRemoteVersionResponse], error) {
+	return c.getCoreBranchRemoteVersion.CallUnary(ctx, req)
+}
+
+// DownloadCore calls kernel.v1.KernelRuntimeService.DownloadCore.
+func (c *kernelRuntimeServiceClient) DownloadCore(ctx context.Context, req *connect.Request[v1.DownloadCoreRequest]) (*connect.Response[v1.DownloadCoreResponse], error) {
+	return c.downloadCore.CallUnary(ctx, req)
+}
+
+// CancelCoreDownload calls kernel.v1.KernelRuntimeService.CancelCoreDownload.
+func (c *kernelRuntimeServiceClient) CancelCoreDownload(ctx context.Context, req *connect.Request[v1.CancelCoreDownloadRequest]) (*connect.Response[v1.CancelCoreDownloadResponse], error) {
+	return c.cancelCoreDownload.CallUnary(ctx, req)
+}
+
+// RollbackCore calls kernel.v1.KernelRuntimeService.RollbackCore.
+func (c *kernelRuntimeServiceClient) RollbackCore(ctx context.Context, req *connect.Request[v1.RollbackCoreRequest]) (*connect.Response[v1.RollbackCoreResponse], error) {
+	return c.rollbackCore.CallUnary(ctx, req)
+}
+
+// ClearCoreCache calls kernel.v1.KernelRuntimeService.ClearCoreCache.
+func (c *kernelRuntimeServiceClient) ClearCoreCache(ctx context.Context, req *connect.Request[v1.ClearCoreCacheRequest]) (*connect.Response[v1.ClearCoreCacheResponse], error) {
+	return c.clearCoreCache.CallUnary(ctx, req)
+}
+
 // KernelRuntimeServiceHandler is an implementation of the kernel.v1.KernelRuntimeService service.
 type KernelRuntimeServiceHandler interface {
 	StartCore(context.Context, *connect.Request[v1.StartCoreRequest]) (*connect.Response[v1.StartCoreResponse], error)
@@ -178,6 +274,12 @@ type KernelRuntimeServiceHandler interface {
 	GetCoreStatus(context.Context, *connect.Request[v1.GetCoreStatusRequest]) (*connect.Response[v1.GetCoreStatusResponse], error)
 	GetCurrentProfile(context.Context, *connect.Request[v1.GetCurrentProfileRequest]) (*connect.Response[v1.GetCurrentProfileResponse], error)
 	GetCurrentCoreMemory(context.Context, *connect.Request[v1.GetCurrentCoreMemoryRequest]) (*connect.Response[v1.GetCurrentCoreMemoryResponse], error)
+	GetCoreBranchLocalVersion(context.Context, *connect.Request[v1.GetCoreBranchLocalVersionRequest]) (*connect.Response[v1.GetCoreBranchLocalVersionResponse], error)
+	GetCoreBranchRemoteVersion(context.Context, *connect.Request[v1.GetCoreBranchRemoteVersionRequest]) (*connect.Response[v1.GetCoreBranchRemoteVersionResponse], error)
+	DownloadCore(context.Context, *connect.Request[v1.DownloadCoreRequest]) (*connect.Response[v1.DownloadCoreResponse], error)
+	CancelCoreDownload(context.Context, *connect.Request[v1.CancelCoreDownloadRequest]) (*connect.Response[v1.CancelCoreDownloadResponse], error)
+	RollbackCore(context.Context, *connect.Request[v1.RollbackCoreRequest]) (*connect.Response[v1.RollbackCoreResponse], error)
+	ClearCoreCache(context.Context, *connect.Request[v1.ClearCoreCacheRequest]) (*connect.Response[v1.ClearCoreCacheResponse], error)
 }
 
 // NewKernelRuntimeServiceHandler builds an HTTP handler from the service implementation. It returns
@@ -229,6 +331,42 @@ func NewKernelRuntimeServiceHandler(svc KernelRuntimeServiceHandler, opts ...con
 		connect.WithSchema(kernelRuntimeServiceMethods.ByName("GetCurrentCoreMemory")),
 		connect.WithHandlerOptions(opts...),
 	)
+	kernelRuntimeServiceGetCoreBranchLocalVersionHandler := connect.NewUnaryHandler(
+		KernelRuntimeServiceGetCoreBranchLocalVersionProcedure,
+		svc.GetCoreBranchLocalVersion,
+		connect.WithSchema(kernelRuntimeServiceMethods.ByName("GetCoreBranchLocalVersion")),
+		connect.WithHandlerOptions(opts...),
+	)
+	kernelRuntimeServiceGetCoreBranchRemoteVersionHandler := connect.NewUnaryHandler(
+		KernelRuntimeServiceGetCoreBranchRemoteVersionProcedure,
+		svc.GetCoreBranchRemoteVersion,
+		connect.WithSchema(kernelRuntimeServiceMethods.ByName("GetCoreBranchRemoteVersion")),
+		connect.WithHandlerOptions(opts...),
+	)
+	kernelRuntimeServiceDownloadCoreHandler := connect.NewUnaryHandler(
+		KernelRuntimeServiceDownloadCoreProcedure,
+		svc.DownloadCore,
+		connect.WithSchema(kernelRuntimeServiceMethods.ByName("DownloadCore")),
+		connect.WithHandlerOptions(opts...),
+	)
+	kernelRuntimeServiceCancelCoreDownloadHandler := connect.NewUnaryHandler(
+		KernelRuntimeServiceCancelCoreDownloadProcedure,
+		svc.CancelCoreDownload,
+		connect.WithSchema(kernelRuntimeServiceMethods.ByName("CancelCoreDownload")),
+		connect.WithHandlerOptions(opts...),
+	)
+	kernelRuntimeServiceRollbackCoreHandler := connect.NewUnaryHandler(
+		KernelRuntimeServiceRollbackCoreProcedure,
+		svc.RollbackCore,
+		connect.WithSchema(kernelRuntimeServiceMethods.ByName("RollbackCore")),
+		connect.WithHandlerOptions(opts...),
+	)
+	kernelRuntimeServiceClearCoreCacheHandler := connect.NewUnaryHandler(
+		KernelRuntimeServiceClearCoreCacheProcedure,
+		svc.ClearCoreCache,
+		connect.WithSchema(kernelRuntimeServiceMethods.ByName("ClearCoreCache")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/kernel.v1.KernelRuntimeService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case KernelRuntimeServiceStartCoreProcedure:
@@ -245,6 +383,18 @@ func NewKernelRuntimeServiceHandler(svc KernelRuntimeServiceHandler, opts ...con
 			kernelRuntimeServiceGetCurrentProfileHandler.ServeHTTP(w, r)
 		case KernelRuntimeServiceGetCurrentCoreMemoryProcedure:
 			kernelRuntimeServiceGetCurrentCoreMemoryHandler.ServeHTTP(w, r)
+		case KernelRuntimeServiceGetCoreBranchLocalVersionProcedure:
+			kernelRuntimeServiceGetCoreBranchLocalVersionHandler.ServeHTTP(w, r)
+		case KernelRuntimeServiceGetCoreBranchRemoteVersionProcedure:
+			kernelRuntimeServiceGetCoreBranchRemoteVersionHandler.ServeHTTP(w, r)
+		case KernelRuntimeServiceDownloadCoreProcedure:
+			kernelRuntimeServiceDownloadCoreHandler.ServeHTTP(w, r)
+		case KernelRuntimeServiceCancelCoreDownloadProcedure:
+			kernelRuntimeServiceCancelCoreDownloadHandler.ServeHTTP(w, r)
+		case KernelRuntimeServiceRollbackCoreProcedure:
+			kernelRuntimeServiceRollbackCoreHandler.ServeHTTP(w, r)
+		case KernelRuntimeServiceClearCoreCacheProcedure:
+			kernelRuntimeServiceClearCoreCacheHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -280,4 +430,28 @@ func (UnimplementedKernelRuntimeServiceHandler) GetCurrentProfile(context.Contex
 
 func (UnimplementedKernelRuntimeServiceHandler) GetCurrentCoreMemory(context.Context, *connect.Request[v1.GetCurrentCoreMemoryRequest]) (*connect.Response[v1.GetCurrentCoreMemoryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kernel.v1.KernelRuntimeService.GetCurrentCoreMemory is not implemented"))
+}
+
+func (UnimplementedKernelRuntimeServiceHandler) GetCoreBranchLocalVersion(context.Context, *connect.Request[v1.GetCoreBranchLocalVersionRequest]) (*connect.Response[v1.GetCoreBranchLocalVersionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kernel.v1.KernelRuntimeService.GetCoreBranchLocalVersion is not implemented"))
+}
+
+func (UnimplementedKernelRuntimeServiceHandler) GetCoreBranchRemoteVersion(context.Context, *connect.Request[v1.GetCoreBranchRemoteVersionRequest]) (*connect.Response[v1.GetCoreBranchRemoteVersionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kernel.v1.KernelRuntimeService.GetCoreBranchRemoteVersion is not implemented"))
+}
+
+func (UnimplementedKernelRuntimeServiceHandler) DownloadCore(context.Context, *connect.Request[v1.DownloadCoreRequest]) (*connect.Response[v1.DownloadCoreResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kernel.v1.KernelRuntimeService.DownloadCore is not implemented"))
+}
+
+func (UnimplementedKernelRuntimeServiceHandler) CancelCoreDownload(context.Context, *connect.Request[v1.CancelCoreDownloadRequest]) (*connect.Response[v1.CancelCoreDownloadResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kernel.v1.KernelRuntimeService.CancelCoreDownload is not implemented"))
+}
+
+func (UnimplementedKernelRuntimeServiceHandler) RollbackCore(context.Context, *connect.Request[v1.RollbackCoreRequest]) (*connect.Response[v1.RollbackCoreResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kernel.v1.KernelRuntimeService.RollbackCore is not implemented"))
+}
+
+func (UnimplementedKernelRuntimeServiceHandler) ClearCoreCache(context.Context, *connect.Request[v1.ClearCoreCacheRequest]) (*connect.Response[v1.ClearCoreCacheResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kernel.v1.KernelRuntimeService.ClearCoreCache is not implemented"))
 }

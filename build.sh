@@ -6,6 +6,7 @@ FRONTEND_DIR="${ROOT_DIR}/frontend"
 OUTPUT_DIR="${ROOT_DIR}/build/bin"
 BINARY_NAME="${BINARY_NAME:-webui.for.singbox.server}"
 OUTPUT_PATH="${OUTPUT_DIR}/${BINARY_NAME}"
+APP_VERSION="${APP_VERSION:-1.0.0}"
 
 if ! command -v go >/dev/null 2>&1; then
   echo "go is required but was not found in PATH." >&2
@@ -25,6 +26,6 @@ pnpm --dir "${FRONTEND_DIR}" build
 
 echo "==> Building backend"
 mkdir -p "${OUTPUT_DIR}"
-go build -trimpath -ldflags="-s -w" -o "${OUTPUT_PATH}" "${ROOT_DIR}"
+go build -trimpath -ldflags="-s -w -X main.version=${APP_VERSION}" -o "${OUTPUT_PATH}" "${ROOT_DIR}"
 
 echo "==> Built ${OUTPUT_PATH}"

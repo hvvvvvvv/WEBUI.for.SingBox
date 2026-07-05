@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"guiforcores/bridge"
+	"guiforcores/bridge/appupdate"
 	"os"
 	"os/signal"
 	"syscall"
@@ -15,14 +16,30 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
+var version = "1.0.0"
+
 func main() {
+	if appupdate.IsHelperMode(os.Args[1:]) {
+		opts, err := appupdate.ParseHelperOptions(os.Args[1:])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Invalid updater helper arguments: %v\n", err)
+			os.Exit(1)
+		}
+		if err := appupdate.RunHelper(opts); err != nil {
+			fmt.Fprintf(os.Stderr, "Updater helper failed: %v\n", err)
+			os.Exit(1)
+		}
+		return
+	}
+
 	addr := flag.String("addr", "0.0.0.0:9090", "HTTP server listen address")
 	resetAuth := flag.String("reset-auth", "", "Reset auth secret (provide new secret, or 'clear' to remove)")
 	flag.Parse()
 
 	app, err := bridge.New(bridge.Options{
-		Address: *addr,
-		Assets:  assets,
+		Address:    *addr,
+		Assets:     assets,
+		AppVersion: version,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to initialize application: %v\n", err)

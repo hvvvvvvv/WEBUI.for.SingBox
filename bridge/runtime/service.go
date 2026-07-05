@@ -38,6 +38,7 @@ const (
 	scheduledTaskLogsPath        = "data/scheduledtasklogs.yaml"
 	defaultScheduledTaskLogLimit = 20
 	rulesetHubPath               = "data/.cache/ruleset-list.json"
+	defaultSourceRuleSetContent  = `{"version":2,"rules":[]}`
 )
 
 type KernelController interface {
@@ -47,6 +48,17 @@ type KernelController interface {
 
 type AppConfigReader interface {
 	Current() config.AppConfig
+}
+
+type rulesetHub struct {
+	Geosite string           `json:"geosite"`
+	Geoip   string           `json:"geoip"`
+	List    []rulesetHubItem `json:"list"`
+}
+
+type rulesetHubItem struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
 }
 
 type appRuntimeService struct {
@@ -65,6 +77,8 @@ type appRuntimeService struct {
 type Service = appRuntimeService
 
 var runtimePaths atomic.Pointer[storage.Paths]
+
+var ruleSetHubHTTPRequest = httpRequest
 
 func setRuntimePaths(paths *storage.Paths) {
 	runtimePaths.Store(paths)
@@ -243,76 +257,6 @@ func saveUserSettingsJSON(settingsJSON string) (string, error) {
 	return userSettingsJSON(incoming)
 }
 
-func jsonListFromYAML(path string) ([]string, error) {
-	items, err := readRuntimeYAMLFile[[]map[string]any](path)
-	if err != nil {
-		return nil, err
-	}
-	out := make([]string, 0, len(items))
-	for _, item := range items {
-		data, err := json.Marshal(item)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, string(data))
-	}
-	return out, nil
-}
-
-func saveJSONListAsYAML(path string, itemsJSON []string) ([]string, error) {
-	items := make([]map[string]any, 0, len(itemsJSON))
-	for _, raw := range itemsJSON {
-		var item map[string]any
-		if err := json.Unmarshal([]byte(raw), &item); err != nil {
-			return nil, err
-		}
-		if err := validateSourceType(item["type"], "subscription"); err != nil {
-			return nil, err
-		}
-		delete(item, "updating")
-		items = append(items, item)
-	}
-	if err := writeRuntimeYAMLFile(path, items); err != nil {
-		return nil, err
-	}
-	return jsonListFromYAML(path)
-}
-
-func upsertJSONItem(path string, itemJSON string) (string, error) {
-	var item map[string]any
-	if err := json.Unmarshal([]byte(itemJSON), &item); err != nil {
-		return "", err
-	}
-	id, _ := item["id"].(string)
-	if id == "" {
-		return "", fmt.Errorf("id is required")
-	}
-	if err := validateSourceType(item["type"], "subscription"); err != nil {
-		return "", err
-	}
-	delete(item, "updating")
-	items, err := readRuntimeYAMLFile[[]map[string]any](path)
-	if err != nil {
-		return "", err
-	}
-	found := false
-	for i := range items {
-		if existingID, _ := items[i]["id"].(string); existingID == id {
-			items[i] = item
-			found = true
-			break
-		}
-	}
-	if !found {
-		items = append(items, item)
-	}
-	if err := writeRuntimeYAMLFile(path, items); err != nil {
-		return "", err
-	}
-	data, _ := json.Marshal(item)
-	return string(data), nil
-}
-
 func validateSourceType(value any, resource string) error {
 	sourceType, _ := value.(string)
 	if sourceType == "Http" || sourceType == "Manual" {
@@ -401,7 +345,14 @@ func upsertScheduledTaskJSON(itemJSON string) (string, error) {
 }
 
 func loadSubscriptions() ([]subscription, error) {
-	return readRuntimeYAMLFile[[]subscription](subscriptionsFilePath)
+	items, err := readRuntimeYAMLFile[[]subscription](subscriptionsFilePath)
+	if err != nil {
+		return nil, err
+	}
+	if items == nil {
+		items = []subscription{}
+	}
+	return items, nil
 }
 
 func saveSubscriptions(items []subscription) error {
@@ -409,6 +360,135 @@ func saveSubscriptions(items []subscription) error {
 		items[i].Updating = false
 	}
 	return writeRuntimeYAMLFile(subscriptionsFilePath, items)
+}
+
+func subscriptionsToJSON(items []subscription) ([]string, error) {
+	out := make([]string, 0, len(items))
+	for _, item := range items {
+		item.Updating = false
+		data, err := json.Marshal(item)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, string(data))
+	}
+	return out, nil
+}
+
+func saveSubscriptionsJSON(itemsJSON []string) ([]string, error) {
+	items := make([]subscription, 0, len(itemsJSON))
+	for _, raw := range itemsJSON {
+		var item subscription
+		if err := json.Unmarshal([]byte(raw), &item); err != nil {
+			return nil, err
+		}
+		if item.ID == "" {
+			return nil, fmt.Errorf("id is required")
+		}
+		if err := validateSourceType(item.Type, "subscription"); err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err := saveSubscriptions(items); err != nil {
+		return nil, err
+	}
+	return subscriptionsToJSON(items)
+}
+
+func upsertSubscriptionJSON(itemJSON string) (string, error) {
+	var item subscription
+	if err := json.Unmarshal([]byte(itemJSON), &item); err != nil {
+		return "", err
+	}
+	if item.ID == "" {
+		return "", fmt.Errorf("id is required")
+	}
+	if err := validateSourceType(item.Type, "subscription"); err != nil {
+		return "", err
+	}
+	items, err := loadSubscriptions()
+	if err != nil {
+		return "", err
+	}
+	found := false
+	for i := range items {
+		if items[i].ID == item.ID {
+			items[i] = item
+			found = true
+			break
+		}
+	}
+	if !found {
+		items = append(items, item)
+	}
+	if err := saveSubscriptions(items); err != nil {
+		return "", err
+	}
+	item.Updating = false
+	data, err := json.Marshal(item)
+	return string(data), err
+}
+
+func deleteSubscription(id string) error {
+	items, err := loadSubscriptions()
+	if err != nil {
+		return err
+	}
+	next := items[:0]
+	for _, item := range items {
+		if item.ID == id {
+			_ = os.Remove(GetPath(subscriptionContentPath(id)))
+			continue
+		}
+		next = append(next, item)
+	}
+	return saveSubscriptions(next)
+}
+
+func saveSubscriptionContent(id string, content string) (string, error) {
+	sub, items, err := findSubscription(id)
+	if err != nil {
+		return "", err
+	}
+	if strings.TrimSpace(content) == "" {
+		content = "[]"
+	}
+	var proxies []map[string]any
+	if err := json.Unmarshal([]byte(content), &proxies); err != nil {
+		return "", invalidArgumentError{message: "not a valid subscription json: " + err.Error()}
+	}
+	data, err := json.MarshalIndent(proxies, "", "  ")
+	if err != nil {
+		return "", err
+	}
+	path := subscriptionContentPath(id)
+	if err := os.MkdirAll(filepath.Dir(GetPath(path)), os.ModePerm); err != nil {
+		return "", err
+	}
+	if err := os.WriteFile(GetPath(path), data, 0644); err != nil {
+		return "", err
+	}
+	sub.Proxies = proxyRefsFromOutbounds(proxies, sub.Proxies)
+	sub.UpdateTime = time.Now().UnixMilli()
+	if err := saveSubscriptions(items); err != nil {
+		return "", err
+	}
+	result, err := json.Marshal(sub)
+	return string(result), err
+}
+
+func findSubscription(id string) (*subscription, []subscription, error) {
+	items, err := loadSubscriptions()
+	if err != nil {
+		return nil, nil, err
+	}
+	for i := range items {
+		if items[i].ID == id {
+			return &items[i], items, nil
+		}
+	}
+	return nil, items, fmt.Errorf("subscription %q not found", id)
 }
 
 func loadRulesets() ([]ruleset, error) {
@@ -515,6 +595,13 @@ func upsertRulesetJSON(itemJSON string) (string, error) {
 	}
 	if !found {
 		item.Path = managedRulesetPath(item.ID, item.Format)
+		created, err := ensureDefaultManualRuleSetContent(item)
+		if err != nil {
+			return "", err
+		}
+		if created {
+			item.Count = 0
+		}
 		items = append(items, item)
 	}
 	if err := saveRulesets(items); err != nil {
@@ -551,7 +638,7 @@ func saveRuleSetContent(id string, content string) (string, error) {
 		return "", invalidArgumentError{message: "only source rulesets have editable content"}
 	}
 	if strings.TrimSpace(content) == "" {
-		content = `{"version":1,"rules":[]}`
+		content = defaultSourceRuleSetContent
 	}
 	var parsed map[string]any
 	if err := json.Unmarshal([]byte(content), &parsed); err != nil {
@@ -577,6 +664,35 @@ func saveRuleSetContent(id string, content string) (string, error) {
 	}
 	result, err := json.Marshal(r)
 	return string(result), err
+}
+
+func ensureDefaultManualRuleSetContent(item ruleset) (bool, error) {
+	if item.Type != "Manual" || item.Format != "source" || item.Path == "" {
+		return false, nil
+	}
+
+	path := GetPath(item.Path)
+	if _, err := os.Stat(path); err == nil {
+		return false, nil
+	} else if !os.IsNotExist(err) {
+		return false, err
+	}
+
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(defaultSourceRuleSetContent), &parsed); err != nil {
+		return false, err
+	}
+	data, err := json.MarshalIndent(parsed, "", "  ")
+	if err != nil {
+		return false, err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
+		return false, err
+	}
+	if err := os.WriteFile(path, data, 0644); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func findRuleset(id string) (*ruleset, []ruleset, error) {
@@ -620,17 +736,29 @@ func managedRulesetPath(id string, format string) string {
 	return "data/rulesets/" + safeRulesetFileName(id) + ext
 }
 
+func subscriptionContentPath(id string) string {
+	return "data/subscribes/" + safeFileName(id, "subscription") + ".json"
+}
+
 func safeRulesetFileName(id string) string {
+	return safeFileName(id, "ruleset")
+}
+
+func safeFileName(id string, fallback string) string {
 	replacer := strings.NewReplacer("/", "_", "\\", "_", ":", "_", "*", "_", "?", "_", "\"", "_", "<", "_", ">", "_", "|", "_", " ", "_")
 	safe := replacer.Replace(id)
 	safe = strings.Trim(safe, "._")
 	if safe == "" {
-		return "ruleset"
+		return fallback
 	}
 	return safe
 }
 
 func migrateRulesetFile(from string, to string) {
+	migrateManagedFile(from, to)
+}
+
+func migrateManagedFile(from string, to string) {
 	if from == "" || to == "" || from == to {
 		return
 	}
@@ -909,7 +1037,7 @@ func updateSubscriptionAt(items []subscription, idx int) (*appv1.TaskResult, boo
 
 	switch sub.Type {
 	case "Manual":
-		body, err = readText(sub.Path)
+		body, err = readText(subscriptionContentPath(sub.ID))
 	case "Http":
 		resp, text, reqErr := httpRequest(sub.RequestMethod, sub.URL, sub.Header.Request, "", sub.InSecure, sub.RequestTimeout)
 		err = reqErr
@@ -1031,10 +1159,11 @@ func updateSubscriptionAt(items []subscription, idx int) (*appv1.TaskResult, boo
 		if err != nil {
 			return taskResult(false, sub.ID, sub.Name, err.Error()), false
 		}
-		if err := os.MkdirAll(filepath.Dir(GetPath(sub.Path)), os.ModePerm); err != nil {
+		contentPath := subscriptionContentPath(sub.ID)
+		if err := os.MkdirAll(filepath.Dir(GetPath(contentPath)), os.ModePerm); err != nil {
 			return taskResult(false, sub.ID, sub.Name, err.Error()), false
 		}
-		if err := os.WriteFile(GetPath(sub.Path), data, 0644); err != nil {
+		if err := os.WriteFile(GetPath(contentPath), data, 0644); err != nil {
 			return taskResult(false, sub.ID, sub.Name, err.Error()), false
 		}
 	}
@@ -1355,7 +1484,11 @@ func (s *appRuntimeService) SaveAppSettings(ctx context.Context, req *connect.Re
 }
 
 func (s *appRuntimeService) ListSubscriptions(ctx context.Context, req *connect.Request[appv1.ListSubscriptionsRequest]) (*connect.Response[appv1.ListSubscriptionsResponse], error) {
-	items, err := jsonListFromYAML(subscriptionsFilePath)
+	subscriptions, err := loadSubscriptions()
+	if err != nil {
+		return nil, asConnectError(err)
+	}
+	items, err := subscriptionsToJSON(subscriptions)
 	if err != nil {
 		return nil, asConnectError(err)
 	}
@@ -1363,7 +1496,7 @@ func (s *appRuntimeService) ListSubscriptions(ctx context.Context, req *connect.
 }
 
 func (s *appRuntimeService) SaveSubscriptions(ctx context.Context, req *connect.Request[appv1.SaveSubscriptionsRequest]) (*connect.Response[appv1.SaveSubscriptionsResponse], error) {
-	items, err := saveJSONListAsYAML(subscriptionsFilePath, req.Msg.GetSubscriptionsJson())
+	items, err := saveSubscriptionsJSON(req.Msg.GetSubscriptionsJson())
 	if err != nil {
 		return nil, asConnectError(err)
 	}
@@ -1372,7 +1505,7 @@ func (s *appRuntimeService) SaveSubscriptions(ctx context.Context, req *connect.
 }
 
 func (s *appRuntimeService) UpsertSubscription(ctx context.Context, req *connect.Request[appv1.UpsertSubscriptionRequest]) (*connect.Response[appv1.UpsertSubscriptionResponse], error) {
-	item, err := upsertJSONItem(subscriptionsFilePath, req.Msg.GetSubscriptionJson())
+	item, err := upsertSubscriptionJSON(req.Msg.GetSubscriptionJson())
 	if err != nil {
 		return nil, asConnectError(err)
 	}
@@ -1384,7 +1517,7 @@ func (s *appRuntimeService) UpsertSubscription(ctx context.Context, req *connect
 }
 
 func (s *appRuntimeService) DeleteSubscription(ctx context.Context, req *connect.Request[appv1.DeleteSubscriptionRequest]) (*connect.Response[appv1.DeleteSubscriptionResponse], error) {
-	if err := deleteJSONItem(subscriptionsFilePath, req.Msg.GetId()); err != nil {
+	if err := deleteSubscription(req.Msg.GetId()); err != nil {
 		return nil, asConnectError(err)
 	}
 	s.markRuntimeChanged("subscription", req.Msg.GetId())
@@ -1405,6 +1538,30 @@ func (s *appRuntimeService) UpdateAllSubscriptions(ctx context.Context, req *con
 		return nil, asConnectError(err)
 	}
 	return connect.NewResponse(&appv1.UpdateAllSubscriptionsResponse{Results: results}), nil
+}
+
+func (s *appRuntimeService) GetSubscriptionContent(ctx context.Context, req *connect.Request[appv1.GetSubscriptionContentRequest]) (*connect.Response[appv1.GetSubscriptionContentResponse], error) {
+	if _, _, err := findSubscription(req.Msg.GetId()); err != nil {
+		return nil, asConnectError(err)
+	}
+	content, err := readText(subscriptionContentPath(req.Msg.GetId()))
+	if os.IsNotExist(err) {
+		content = ""
+		err = nil
+	}
+	if err != nil {
+		return nil, asConnectError(err)
+	}
+	return connect.NewResponse(&appv1.GetSubscriptionContentResponse{Content: content}), nil
+}
+
+func (s *appRuntimeService) SaveSubscriptionContent(ctx context.Context, req *connect.Request[appv1.SaveSubscriptionContentRequest]) (*connect.Response[appv1.SaveSubscriptionContentResponse], error) {
+	item, err := saveSubscriptionContent(req.Msg.GetId(), req.Msg.GetContent())
+	if err != nil {
+		return nil, asConnectError(err)
+	}
+	s.markRuntimeChanged("subscription", req.Msg.GetId())
+	return connect.NewResponse(&appv1.SaveSubscriptionContentResponse{SubscriptionJson: item}), nil
 }
 
 func (s *appRuntimeService) ListRuleSets(ctx context.Context, req *connect.Request[appv1.ListRuleSetsRequest]) (*connect.Response[appv1.ListRuleSetsResponse], error) {
@@ -1483,6 +1640,66 @@ func (s *appRuntimeService) UpdateRuleSetHub(ctx context.Context, req *connect.R
 	return connect.NewResponse(&appv1.UpdateRuleSetHubResponse{HubJson: body}), nil
 }
 
+func loadRuleSetHubCache() (rulesetHub, error) {
+	var hub rulesetHub
+	data, err := os.ReadFile(GetPath(rulesetHubPath))
+	if err != nil {
+		return hub, err
+	}
+	if err := json.Unmarshal(data, &hub); err != nil {
+		return hub, err
+	}
+	return hub, nil
+}
+
+func previewRuleSetHub(index int, format string) (string, error) {
+	if index < 0 {
+		return "", invalidArgumentError{message: "ruleset hub index is out of range"}
+	}
+	hub, err := loadRuleSetHubCache()
+	if err != nil {
+		return "", err
+	}
+	if index >= len(hub.List) {
+		return "", invalidArgumentError{message: "ruleset hub index is out of range"}
+	}
+
+	suffix := ""
+	switch format {
+	case "source":
+		suffix = ".json"
+	case "binary":
+		suffix = ".srs"
+	default:
+		return "", invalidArgumentError{message: fmt.Sprintf("unsupported ruleset format %q", format)}
+	}
+
+	item := hub.List[index]
+	baseURL := ""
+	switch item.Type {
+	case "geosite":
+		baseURL = hub.Geosite
+	case "geoip":
+		baseURL = hub.Geoip
+	default:
+		return "", invalidArgumentError{message: fmt.Sprintf("unsupported ruleset hub type %q", item.Type)}
+	}
+	if item.Name == "" || baseURL == "" {
+		return "", invalidArgumentError{message: "invalid ruleset hub item"}
+	}
+
+	_, body, err := ruleSetHubHTTPRequest(http.MethodGet, baseURL+item.Name+suffix, nil, "", false, 15)
+	return body, err
+}
+
+func (s *appRuntimeService) PreviewRuleSetHub(ctx context.Context, req *connect.Request[appv1.PreviewRuleSetHubRequest]) (*connect.Response[appv1.PreviewRuleSetHubResponse], error) {
+	content, err := previewRuleSetHub(int(req.Msg.GetIndex()), req.Msg.GetFormat())
+	if err != nil {
+		return nil, asConnectError(err)
+	}
+	return connect.NewResponse(&appv1.PreviewRuleSetHubResponse{Content: content}), nil
+}
+
 func (s *appRuntimeService) GetRuleSetContent(ctx context.Context, req *connect.Request[appv1.GetRuleSetContentRequest]) (*connect.Response[appv1.GetRuleSetContentResponse], error) {
 	r, _, err := findRuleset(req.Msg.GetId())
 	if err != nil {
@@ -1512,7 +1729,7 @@ func (s *appRuntimeService) SaveRuleSetContent(ctx context.Context, req *connect
 }
 
 func (s *appRuntimeService) ClearRuleSetContent(ctx context.Context, req *connect.Request[appv1.ClearRuleSetContentRequest]) (*connect.Response[appv1.ClearRuleSetContentResponse], error) {
-	item, err := saveRuleSetContent(req.Msg.GetId(), `{"version":1,"rules":[]}`)
+	item, err := saveRuleSetContent(req.Msg.GetId(), defaultSourceRuleSetContent)
 	if err != nil {
 		return nil, asConnectError(err)
 	}

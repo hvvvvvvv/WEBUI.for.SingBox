@@ -73,7 +73,6 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       debugOutline: defaults.debugOutline,
       debugNoAnimation: defaults.debugNoAnimation,
       debugNoRounded: defaults.debugNoRounded,
-      debugBorder: defaults.debugBorder,
       pages: defaults.pages,
     } as any
     ;[
@@ -90,7 +89,6 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       'debugOutline',
       'debugNoAnimation',
       'debugNoRounded',
-      'debugBorder',
       'pages',
     ].forEach((key) => {
       if (key in raw) {
@@ -178,7 +176,6 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     debugOutline: false,
     debugNoAnimation: false,
     debugNoRounded: false,
-    debugBorder: false,
     pages: ['Overview', 'Profiles', 'Subscriptions']
   })
 
@@ -222,11 +219,10 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       document.documentElement.style.setProperty('--primary-color', primary)
       document.documentElement.style.setProperty('--secondary-color', secondary)
     },
-    feature(outline: boolean, noAnimation: boolean, noRounded: boolean, border: boolean) {
+    feature(outline: boolean, noAnimation: boolean, noRounded: boolean) {
       document.body.setAttribute('feature-outline', String(outline))
       document.body.setAttribute('feature-no-animation', String(noAnimation))
       document.body.setAttribute('feature-no-rounded', String(noRounded))
-      document.body.setAttribute('feature-border', String(border))
     },
     fontFamily(fontFamily: string) {
       document.body.style.fontFamily = fontFamily
@@ -243,7 +239,6 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       settings.debugOutline,
       settings.debugNoAnimation,
       settings.debugNoRounded,
-      settings.debugBorder,
     )
     const normalizedSettings = normalizeSettings(settings, deepClone(app.value))
     const lastModifiedSettings = stableStringify(normalizedSettings)

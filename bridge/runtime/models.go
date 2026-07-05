@@ -22,7 +22,6 @@ type subscription struct {
 	Type            string             `json:"type" yaml:"type"`
 	URL             string             `json:"url" yaml:"url"`
 	Website         string             `json:"website" yaml:"website"`
-	Path            string             `json:"path" yaml:"path"`
 	Include         string             `json:"include" yaml:"include"`
 	Exclude         string             `json:"exclude" yaml:"exclude"`
 	IncludeProtocol string             `json:"includeProtocol" yaml:"includeProtocol"`

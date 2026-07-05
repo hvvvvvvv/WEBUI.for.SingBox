@@ -5,7 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { LogLevelOptions } from '@/constant/kernel'
 import { useBool } from '@/hooks'
 import { useKernelApiStore } from '@/stores'
-import { addToRuleSet, buildSmartRegExp, isValidIPv4, isValidIPv6, message, picker } from '@/utils'
+import { addToRuleSet, buildSmartRegExp, message, picker } from '@/utils'
 
 import type { PickerItem } from '@/components/Picker/index.vue'
 import type { Menu } from '@/types/app'
@@ -32,6 +32,16 @@ const filteredLogs = computed(() => {
   })
 })
 
+const isIPv6Address = (address: string) => {
+  if (!address.includes(':') || (address.match(/::/g) || []).length > 1) return false
+
+  const parts = address.split(':')
+  if (!address.includes('::') && parts.length !== 8) return false
+  if (address.includes('::') && parts.filter(Boolean).length >= 8) return false
+
+  return parts.every((part) => part === '' || /^[\da-fA-F]{1,4}$/.test(part))
+}
+
 const menus: Menu[] = (
   [
     ['home.connections.addToDirect', 'direct'],
@@ -46,37 +56,51 @@ const menus: Menu[] = (
         message.error('Not Support')
         return
       }
-      const regex = /(\b((?:[a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}|(?:\d{1,3}\.){3}\d{1,3})(:\d+)?\b)/g
-      const matches = payload.match(regex)
-      if (!matches) {
+      const options: PickerItem<Record<string, any>[]>[] = []
+      const existed = new Set<string>()
+
+      const pushOption = (type: 'domain' | 'ip_cidr', value: string, description: string) => {
+        const key = `${type}:${value}`
+        if (existed.has(key)) return
+        existed.add(key)
+        options.push({
+          label: t(`kernel.rules.type.${type}`),
+          value: { [type]: value } as any,
+          description,
+        })
+      }
+
+      const ipv4Regex =
+        /(^|[^\d.])((?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d))(?::\d{1,5})?(?=$|[^\d.])/g
+      const ipv6Regex =
+        /(^|[^\da-fA-F:])(?:\[([0-9a-fA-F:]+)\](?::\d{1,5})?|([0-9a-fA-F]{0,4}(?::[0-9a-fA-F]{0,4}){2,7}))(?=$|[^\da-fA-F:])/g
+      const domainRegex =
+        /(^|[^\w.-])((?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)(?:\.)?(?::\d{1,5})?(?=$|[^\w.-])/g
+
+      for (const match of payload.matchAll(ipv4Regex)) {
+        const address = match[2]
+        address && pushOption('ip_cidr', `${address}/32`, address)
+      }
+
+      for (const match of payload.matchAll(ipv6Regex)) {
+        const address = match[2] || match[3]
+        if (address && isIPv6Address(address)) {
+          pushOption('ip_cidr', `${address}/128`, address)
+        }
+      }
+
+      for (const match of payload.matchAll(domainRegex)) {
+        const domain = match[2]
+        domain && pushOption('domain', domain, domain)
+      }
+
+      if (options.length === 0) {
         message.error('Not Matched')
         return
       }
 
-      const options: PickerItem<Record<string, any>[]>[] = []
-
-      matches.forEach((match: string) => {
-        // FIXME: IPv6
-        const address = match.split(':')[0]
-        if (!address) return
-        if (isValidIPv4(address) || isValidIPv6(address)) {
-          options.push({
-            label: t('kernel.rules.type.ip_cidr'),
-            value: { ip_cidr: address + '/32' } as any,
-            description: address,
-          })
-        } else {
-          options.push({
-            label: t('kernel.rules.type.domain'),
-            value: { domain: address } as any,
-            description: address,
-          })
-        }
-      })
-
-      const payloads = await picker.multi('rulesets.selectRuleType', options)
-
       try {
+        const payloads = await picker.multi('rulesets.selectRuleType', options)
         await addToRuleSet(ruleset, payloads)
         message.success('common.success')
       } catch (error: any) {

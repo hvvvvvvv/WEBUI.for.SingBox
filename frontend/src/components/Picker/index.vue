@@ -1,5 +1,5 @@
 <script setup lang="ts" generic="ValueType = any, PickerType extends 'single' | 'multi' = 'single'">
-import { ref, toRaw, type Ref } from 'vue'
+import { computed, ref, toRaw, type Ref } from 'vue'
 
 import useI18n from '@/lang'
 
@@ -41,8 +41,11 @@ const selected = ref(
 ) as Ref<Set<ValueType>>
 
 const { t } = useI18n.global
+const canConfirm = computed(() => selected.value.size > 0)
 
 const handleConfirm = () => {
+  if (!canConfirm.value) return
+
   const res: any = Array.from(selected.value).map((v) => toRaw(v))
   if (props.type === 'single') {
     emit('confirm', res[0])
@@ -118,7 +121,7 @@ const handleSelectAll = () => {
           {{ selected.size }} / {{ options.length }}
         </Button>
         <Button size="small" @click="handleCancel">{{ t('common.cancel') }}</Button>
-        <Button size="small" type="primary" @click="handleConfirm">
+        <Button size="small" type="primary" :disabled="!canConfirm" @click="handleConfirm">
           {{ t('common.confirm') }}
         </Button>
       </div>

@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package app.v1;
+
+option go_package = "guiforcores/proto/app/v1";
+
+message GetInterfacesRequest {}
+
+message GetInterfacesResponse {
+  repeated string interfaces = 1;
+}
+
+service AppSystemService {
+  rpc GetInterfaces(GetInterfacesRequest) returns (GetInterfacesResponse);
+}

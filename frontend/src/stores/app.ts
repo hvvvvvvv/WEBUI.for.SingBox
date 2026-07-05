@@ -2,32 +2,15 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import {
-  Download,
-  HttpGet,
-  MoveFile,
-  UnzipZIPFile,
-  RemoveFile,
-  HttpCancel,
-  Exec,
-} from '@/bridge'
-import { LanguageOptions, RollingReleaseDirectory } from '@/constant/app'
-import {
-  APP_TITLE,
-  APP_VERSION,
-  APP_VERSION_API,
-  getGitHubApiAuthorization,
-  ignoredError,
-  message,
-  sampleID,
-} from '@/utils'
-
-import { useEnvStore } from './env'
+import { createRpcClient, EventsOff, EventsOn } from '@/bridge'
+import { LanguageOptions } from '@/constant/app'
+import { message, sampleID } from '@/utils'
 
 import type { CustomAction, CustomActionFn, Menu } from '@/types/app'
-import { OS } from '@/enums/app'
+import { AppUpdateService } from '../../gen/app/v1/app_update_service_pb'
 
 export const useAppStore = defineStore('app', () => {
+  const updateService = createRpcClient(AppUpdateService)
   const isAppReloading = ref(false)
 
   /* Global Menu */
@@ -82,89 +65,85 @@ export const useAppStore = defineStore('app', () => {
   }
 
   const { t } = useI18n()
-  const envStore = useEnvStore()
 
   /* About Page */
   const showAbout = ref(false)
   const checkForUpdatesLoading = ref(false)
-  const restartable = ref(false)
   const downloading = ref(false)
-  const downloadUrl = ref('')
-  const remoteVersion = ref(APP_VERSION)
-  const updatable = computed(() => downloadUrl.value && APP_VERSION !== remoteVersion.value)
+  const currentVersion = ref('')
+  const updatedVersion = ref('')
+  const remoteVersion = ref('')
+  const updatable = ref(false)
+  const updateReady = computed(
+    () =>
+      currentVersion.value !== '' &&
+      updatedVersion.value !== '' &&
+      currentVersion.value !== updatedVersion.value,
+  )
+
+  const applyVersionState = (value: {
+    currentVersion: string
+    updatedVersion: string
+    latestVersion?: string
+    updatable?: boolean
+  }) => {
+    currentVersion.value = value.currentVersion
+    updatedVersion.value = value.updatedVersion
+    if (value.latestVersion !== undefined) {
+      remoteVersion.value = value.latestVersion
+    }
+    if (value.updatable !== undefined) {
+      updatable.value = value.updatable
+    }
+  }
+
+  const setupAppVersion = async () => {
+    const res = await updateService.getAppVersion({})
+    applyVersionState(res)
+    if (!remoteVersion.value) {
+      remoteVersion.value = res.updatedVersion || res.currentVersion
+    }
+  }
 
   const downloadApp = async () => {
     downloading.value = true
+    const progressEvent = sampleID()
     try {
-      const downloadCacheFile = 'data/.cache/gui.zip'
-
       const { update, destroy } = message.info('common.downloading', 10 * 60 * 1_000, () => {
-        HttpCancel(downloadCacheFile)
-        setTimeout(() => RemoveFile(downloadCacheFile), 1000)
+        updateService.cancelAppUpdate({ progressEvent })
       })
 
-      await Download(
-        downloadUrl.value,
-        downloadCacheFile,
-        undefined,
-        (progress, total) => {
-          update(t('common.downloading') + ((progress / total) * 100).toFixed(2) + '%')
-        },
-        {
-          CancelId: downloadCacheFile,
-        },
-      ).finally(destroy)
+      EventsOn(progressEvent, (progress: number, total: number) => {
+        if (total <= 0) {
+          update(t('common.downloading'))
+          return
+        }
+        update(t('common.downloading') + ((progress / total) * 100).toFixed(2) + '%')
+      })
 
-      const { appName, os, basePath } = envStore.env
-
-      if (os === OS.Darwin) {
-        const cur_pkg = basePath.replace('/Contents/MacOS', '')
-        const tmp_dir = cur_pkg + '_tmp'
-        const cur_pkg_bak = cur_pkg + '.bak'
-        await UnzipZIPFile(downloadCacheFile, tmp_dir)
-        await Exec('xattr', ['-rd', 'com.apple.quarantine', tmp_dir])
-        await MoveFile(cur_pkg, cur_pkg_bak)
-        await MoveFile(`${tmp_dir}/${APP_TITLE}.app`, cur_pkg)
-        await RemoveFile(tmp_dir)
-        await RemoveFile(cur_pkg_bak)
-      } else {
-        const suffix = { [OS.Windows]: '.exe', [OS.Linux]: '' }[os]
-        await MoveFile(appName, appName + '.bak')
-        await UnzipZIPFile(downloadCacheFile, '.')
-        await MoveFile(APP_TITLE + suffix, appName)
-      }
+      const res = await updateService.downloadAppUpdate({ progressEvent }).finally(destroy)
+      applyVersionState({
+        currentVersion: res.currentVersion,
+        updatedVersion: res.updatedVersion,
+        latestVersion: res.latestVersion,
+        updatable: false,
+      })
       message.success('about.updateSuccessfulRestart')
-      restartable.value = true
-
-      await RemoveFile(downloadCacheFile)
-      await ignoredError(RemoveFile, RollingReleaseDirectory)
     } catch (error: any) {
       console.log(error)
       message.error(error.message || error, 5_000)
+    } finally {
+      EventsOff(progressEvent)
+      downloading.value = false
     }
-    downloading.value = false
   }
 
   const checkForUpdates = async (showTips = false) => {
     if (checkForUpdatesLoading.value || downloading.value) return
     checkForUpdatesLoading.value = true
-    remoteVersion.value = APP_VERSION
     try {
-      const { body } = await HttpGet<Record<string, any>>(APP_VERSION_API, {
-        Authorization: getGitHubApiAuthorization(),
-      })
-      if (body.message) throw body.message
-
-      const { tag_name, assets } = body
-
-      const { os, arch } = envStore.env
-      const assetName = `${APP_TITLE}-${os}-${arch}.zip`
-
-      const asset = assets.find((v: any) => v.name === assetName)
-      if (!asset) throw 'Asset Not Found:' + assetName
-
-      remoteVersion.value = tag_name
-      downloadUrl.value = asset.browser_download_url
+      const res = await updateService.checkAppUpdate({})
+      applyVersionState(res)
 
       if (showTips) {
         message.info(updatable.value ? 'about.newVersion' : 'about.latestVersion')
@@ -174,6 +153,16 @@ export const useAppStore = defineStore('app', () => {
       message.error(error.message || error)
     }
     checkForUpdatesLoading.value = false
+  }
+
+  const applyAppUpdate = async () => {
+    try {
+      await updateService.applyAppUpdate({})
+      message.info('about.updateSuccessfulRestart', 10_000)
+    } catch (error: any) {
+      console.error(error)
+      message.error(error.message || error, 5_000)
+    }
   }
 
   return {
@@ -188,12 +177,16 @@ export const useAppStore = defineStore('app', () => {
     modalZIndexCounter,
     showAbout,
     checkForUpdatesLoading,
-    restartable,
     downloading,
+    currentVersion,
+    updatedVersion,
     remoteVersion,
     updatable,
+    updateReady,
+    setupAppVersion,
     checkForUpdates,
     downloadApp,
+    applyAppUpdate,
     customActions,
     addCustomActions,
     removeCustomActions,

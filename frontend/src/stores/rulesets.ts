@@ -36,9 +36,13 @@ export const useRulesetsStore = defineStore('rulesets', () => {
   const rulesetHubLoading = ref(false)
   const service = createRpcClient(RuleSetService)
 
+  const replaceRulesets = (items: RuleSet[]) => {
+    rulesets.value.splice(0, rulesets.value.length, ...items)
+  }
+
   const setupRulesets = async () => {
     const { rulesetsJson, hubJson } = await service.listRuleSets({})
-    rulesets.value = parseList<RuleSet>(rulesetsJson)
+    replaceRulesets(parseList<RuleSet>(rulesetsJson))
     rulesetHub.value = hubJson ? JSON.parse(hubJson) : emptyHub()
   }
 
@@ -46,7 +50,7 @@ export const useRulesetsStore = defineStore('rulesets', () => {
     const { rulesetsJson } = await service.saveRuleSets({
       rulesetsJson: rulesets.value.map((v) => JSON.stringify(v)),
     })
-    rulesets.value = parseList<RuleSet>(rulesetsJson)
+    replaceRulesets(parseList<RuleSet>(rulesetsJson))
     eventBus.emit('rulesetsChange', undefined)
   }
 
@@ -113,6 +117,11 @@ export const useRulesetsStore = defineStore('rulesets', () => {
     }
   }
 
+  const previewRuleSetHub = async (index: number, format: RulesetFormat) => {
+    const { content } = await service.previewRuleSetHub({ index, format })
+    return content
+  }
+
   const getRulesetContent = async (id: string) => {
     const { content } = await service.getRuleSetContent({ id })
     return content
@@ -159,5 +168,6 @@ export const useRulesetsStore = defineStore('rulesets', () => {
     rulesetHub,
     rulesetHubLoading,
     updateRulesetHub,
+    previewRuleSetHub,
   }
 })

@@ -4,7 +4,6 @@ import useI18n from '@/lang'
 import {
   useAppSettingsStore,
   useAppStore,
-  useEnvStore,
   useKernelApiStore,
   useRulesetsStore,
   useSubscribesStore,
@@ -41,7 +40,6 @@ const processCommands = (commands: Command[], parentLabel = '', parentCmd = '') 
 export const getCommands = () => {
   const kernelStore = useKernelApiStore()
   const appSettings = useAppSettingsStore()
-  const envStore = useEnvStore()
   const appStore = useAppStore()
   const subscriptionsStore = useSubscribesStore()
   const rulesetsStore = useRulesetsStore()
@@ -94,22 +92,6 @@ export const getCommands = () => {
             cmd: mode.value,
             handler: () => handleChangeMode(mode.value),
           })),
-        },
-      ],
-    },
-    {
-      label: 'commands.proxy',
-      cmd: 'System Proxy',
-      children: [
-        {
-          label: 'commands.setSystemProxy',
-          cmd: 'Set System Proxy',
-          handler: envStore.setSystemProxy,
-        },
-        {
-          label: 'commands.clearSystemProxy',
-          cmd: 'Clear System Proxy',
-          handler: envStore.clearSystemProxy,
         },
       ],
     },

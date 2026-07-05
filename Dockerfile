@@ -9,12 +9,13 @@ RUN pnpm build
 
 # Stage 2: Build Go binary
 FROM golang:1.26-alpine AS backend
+ARG APP_VERSION=1.0.0
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 COPY --from=frontend /src/frontend/dist ./frontend/dist
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /webui.for.singbox.server .
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${APP_VERSION}" -o /webui.for.singbox.server .
 
 # Stage 3: Runtime
 FROM alpine:3.21

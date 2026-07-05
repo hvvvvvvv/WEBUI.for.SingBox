@@ -71,7 +71,7 @@ const modalSlots = {
       {
         type: 'primary',
         loading: loading.value,
-        disabled: !sub.value.name || !sub.value.path || (!sub.value.url && !isManual.value),
+        disabled: !sub.value.name || (!sub.value.url && !isManual.value),
         onClick: handleSave,
       },
       () => t('common.save'),
@@ -108,12 +108,6 @@ defineExpose({ modalSlots })
           allow-paste
           class="w-full"
         />
-      </div>
-    </div>
-    <div class="form-item">
-      {{ t('subscribe.path') }} *
-      <div class="min-w-[75%]">
-        <Input v-model="sub.path" placeholder="data/subscribes/{filename}.json" class="w-full" />
       </div>
     </div>
     <Divider v-if="!isManual">

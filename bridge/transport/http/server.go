@@ -1,6 +1,7 @@
 package httptransport
 
 import (
+	"bytes"
 	"context"
 	"embed"
 	"encoding/json"
@@ -8,12 +9,17 @@ import (
 	"io"
 	"io/fs"
 	"log"
+	"mime"
 	"net/http"
 	"os"
+	"path"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
+	"guiforcores/bridge/appsystem"
+	"guiforcores/bridge/appupdate"
 	"guiforcores/bridge/auth"
 	"guiforcores/bridge/config"
 	"guiforcores/bridge/event"
@@ -45,6 +51,8 @@ type Options struct {
 	Subscriptions  *subscription.Service
 	RuleSets       *ruleset.Service
 	Scheduler      *scheduler.Service
+	Update         *appupdate.Service
+	System         *appsystem.Service
 	RollingRelease func() bool
 }
 
@@ -54,9 +62,6 @@ type Server struct {
 }
 
 type FlagResult = platform.Result
-type IOOptions = platform.IOOptions
-type RequestOptions = platform.RequestOptions
-type ExecOptions = platform.ExecOptions
 
 var websocketUpgrader = websocket.Upgrader{
 	CheckOrigin: func(*http.Request) bool { return true },
@@ -64,7 +69,7 @@ var websocketUpgrader = websocket.Upgrader{
 
 func NewServer(options Options) (*Server, error) {
 	server := &Server{options: options}
-	handler, err := server.handler()
+	handler, err := server.buildHandler()
 	if err != nil {
 		return nil, err
 	}
@@ -72,41 +77,12 @@ func NewServer(options Options) (*Server, error) {
 	return server, nil
 }
 
-func isPublicPath(r *http.Request, authService *auth.Service) bool {
-	if !strings.HasPrefix(r.URL.Path, "/api/") && !strings.HasPrefix(r.URL.Path, "/ws") {
-		return true
-	}
-	if r.URL.Path == "/api/auth/login" {
-		return true
-	}
-	if r.URL.Path == "/api/auth/setup" && authService.SecretHash() == "" {
-		return true
-	}
-	return false
-}
-
-func requestAuthToken(r *http.Request) string {
+func authTokenFromRequest(r *http.Request) string {
 	if strings.HasPrefix(r.URL.Path, "/ws") {
 		return strings.TrimSpace(r.URL.Query().Get("auth"))
 	}
 	auth := r.Header.Get("Authorization")
 	return strings.TrimSpace(strings.TrimPrefix(auth, "Bearer "))
-}
-
-func authMiddleware(authService *auth.Service, next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if isPublicPath(r, authService) {
-			next.ServeHTTP(w, r)
-			return
-		}
-
-		if !authService.ValidateSession(requestAuthToken(r)) {
-			http.Error(w, "Unauthorized", http.StatusUnauthorized)
-			return
-		}
-
-		next.ServeHTTP(w, r)
-	})
 }
 
 type apiRequest struct {
@@ -144,42 +120,92 @@ func unmarshalArg[T any](args []json.RawMessage, index int) (T, bool) {
 	return zero, true
 }
 
-func (s *Server) handler() (http.Handler, error) {
-	mux := http.NewServeMux()
-
-	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
-		s.options.Events.ServeWebSocket(w, r, requestAuthToken(r))
-	})
-
-	mux.HandleFunc("/api/kernel/", s.handleKernelProxy)
-	mux.HandleFunc("/ws/kernel/", s.handleKernelWebSocketProxy)
-	s.registerRPCRoutes(mux)
-	registerAPIRoutes(mux, s.options.Platform, s.options.Auth)
-
+func (s *Server) buildHandler() (http.Handler, error) {
 	distFS, err := fs.Sub(s.options.Assets, "frontend/dist")
 	if err != nil {
 		return nil, fmt.Errorf("access embedded frontend: %w", err)
 	}
 
-	fileServer := http.FileServer(http.FS(distFS))
-	rollingHandler := s.rollingReleaseHandler(fileServer)
+	frontendHandler := s.buildFrontendHandler(distFS)
 
-	mux.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/" && r.URL.Path != "/index.html" {
-			rollingHandler.ServeHTTP(w, r)
+	return s.buildRootHandler(frontendHandler, s.buildProtectedMux()), nil
+}
+
+func (s *Server) buildRootHandler(frontendHandler http.Handler, protectedHandlerMux *http.ServeMux) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		handler, pattern := protectedHandlerMux.Handler(r)
+		if pattern != "" {
+			if r.URL.Path != "/api/auth/login" {
+				token := authTokenFromRequest(r)
+				if !s.options.Auth.ValidateSession(token) {
+					http.Error(w, "Unauthorized", http.StatusUnauthorized)
+					return
+				}
+			}
+			handler.ServeHTTP(w, r)
 			return
 		}
-		f, err := fs.ReadFile(distFS, "index.html")
+		frontendHandler.ServeHTTP(w, r)
+	})
+}
+
+func (s *Server) buildProtectedMux() *http.ServeMux {
+	mux := http.NewServeMux()
+
+	mux.HandleFunc("/ws", func(w http.ResponseWriter, r *http.Request) {
+		s.options.Events.ServeWebSocket(w, r, authTokenFromRequest(r))
+	})
+
+	mux.HandleFunc("/api/kernel/", s.handleKernelProxy)
+	mux.HandleFunc("/ws/kernel/", s.handleKernelWebSocketProxy)
+	s.registerRPCRoutes(mux)
+	registerAPIRoutes(mux, s.options.Auth)
+
+	return mux
+}
+
+func (s *Server) buildFrontendHandler(distFS fs.FS) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			http.NotFound(w, r)
+			return
+		}
+
+		requestPath := cleanFrontendRequestPath(r.URL.Path)
+		if s.serveRollingReleaseAsset(w, r, requestPath) {
+			return
+		}
+
+		assetPath := frontendAssetPath(requestPath)
+		info, err := fs.Stat(distFS, assetPath)
 		if err != nil {
-			rollingHandler.ServeHTTP(w, r)
+			http.NotFound(w, r)
 			return
 		}
-		html := string(f)
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		_, _ = w.Write([]byte(html))
-	}))
+		if info.IsDir() {
+			indexPath := path.Join(assetPath, "index.html")
+			if assetPath == "." {
+				indexPath = "index.html"
+			}
+			info, err = fs.Stat(distFS, indexPath)
+			if err != nil || info.IsDir() {
+				http.NotFound(w, r)
+				return
+			}
+			assetPath = indexPath
+		}
 
-	return authMiddleware(s.options.Auth, mux), nil
+		setFrontendCacheHeader(w, assetPath)
+		data, err := fs.ReadFile(distFS, assetPath)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		if contentType := mime.TypeByExtension(filepath.Ext(assetPath)); contentType != "" {
+			w.Header().Set("Content-Type", contentType)
+		}
+		http.ServeContent(w, r, assetPath, time.Time{}, bytes.NewReader(data))
+	})
 }
 
 func (s *Server) registerRPCRoutes(mux *http.ServeMux) {
@@ -203,35 +229,74 @@ func (s *Server) registerRPCRoutes(mux *http.ServeMux) {
 	register(path, handler)
 	path, handler = appv1connect.NewScheduledTaskServiceHandler(s.options.Scheduler)
 	register(path, handler)
+	path, handler = appv1connect.NewAppUpdateServiceHandler(s.options.Update)
+	register(path, handler)
+	path, handler = appv1connect.NewAppSystemServiceHandler(s.options.System)
+	register(path, handler)
 }
 
-func (s *Server) rollingReleaseHandler(next http.Handler) http.Handler {
-	environment := s.options.Platform.Environment()
-	isDevelopment := strings.Contains(environment.AppVersion, "dev")
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		requestPath := r.URL.Path
-		isIndex := requestPath == "/"
-		if isIndex {
-			w.Header().Set("Cache-Control", "no-cache")
-		} else {
-			w.Header().Set("Cache-Control", "max-age=31536000, immutable")
-		}
+func cleanFrontendRequestPath(requestPath string) string {
+	cleaned := path.Clean("/" + strings.TrimPrefix(requestPath, "/"))
+	if cleaned == "." {
+		return "/"
+	}
+	return cleaned
+}
 
-		rollingRelease := s.options.RollingRelease != nil && s.options.RollingRelease()
-		if isDevelopment || !rollingRelease {
-			next.ServeHTTP(w, r)
-			return
-		}
-		if isIndex {
-			requestPath = "/index.html"
-		}
-		filePath := s.options.Platform.ResolvePath("data/rolling-release" + requestPath)
-		if _, err := os.Stat(filePath); err != nil {
-			next.ServeHTTP(w, r)
-			return
-		}
+func frontendAssetPath(requestPath string) string {
+	assetPath := strings.TrimPrefix(cleanFrontendRequestPath(requestPath), "/")
+	if assetPath == "" {
+		return "."
+	}
+	return assetPath
+}
+
+func indexFileName(filePath string) bool {
+	return filepath.Base(filePath) == "index.html"
+}
+
+func setFrontendCacheHeader(w http.ResponseWriter, filePath string) {
+	if indexFileName(filePath) {
+		w.Header().Set("Cache-Control", "no-cache")
+	} else {
+		w.Header().Set("Cache-Control", "max-age=31536000, immutable")
+	}
+}
+
+func (s *Server) serveRollingReleaseAsset(w http.ResponseWriter, r *http.Request, requestPath string) bool {
+	rollingRelease := s.options.RollingRelease != nil && s.options.RollingRelease()
+	if !rollingRelease {
+		return false
+	}
+
+	filePath := s.rollingReleaseFilePath(requestPath)
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return false
+	}
+	if !info.IsDir() {
+		setFrontendCacheHeader(w, filePath)
 		http.ServeFile(w, r, filePath)
-	})
+		return true
+	}
+
+	indexPath := filepath.Join(filePath, "index.html")
+	if info, err := os.Stat(indexPath); err == nil && !info.IsDir() {
+		setFrontendCacheHeader(w, indexPath)
+		http.ServeFile(w, r, indexPath)
+		return true
+	}
+
+	return false
+}
+
+func (s *Server) rollingReleaseFilePath(requestPath string) string {
+	root := s.options.Platform.ResolvePath("data/rolling-release")
+	assetPath := frontendAssetPath(requestPath)
+	if assetPath == "." {
+		return root
+	}
+	return filepath.Join(root, filepath.FromSlash(assetPath))
 }
 
 func (s *Server) Run(ctx context.Context) error {
@@ -253,7 +318,7 @@ func (s *Server) Close(ctx context.Context) error {
 	return s.server.Shutdown(ctx)
 }
 
-func registerAPIRoutes(mux *http.ServeMux, app *platform.Service, authService *auth.Service) {
+func registerAPIRoutes(mux *http.ServeMux, authService *auth.Service) {
 	apiRouteWithRequest(mux, "/api/auth/login", func(r *http.Request, args []json.RawMessage) any {
 		if authService.IsLoginRateLimited(r.RemoteAddr) {
 			return FlagResult{Flag: false, Data: "Too many failed attempts, try again later"}
@@ -274,7 +339,7 @@ func registerAPIRoutes(mux *http.ServeMux, app *platform.Service, authService *a
 	})
 
 	apiRouteWithRequest(mux, "/api/auth/logout", func(r *http.Request, args []json.RawMessage) any {
-		token := requestAuthToken(r)
+		token := authTokenFromRequest(r)
 		if token != "" {
 			authService.RemoveSession(token)
 		}
@@ -306,97 +371,6 @@ func registerAPIRoutes(mux *http.ServeMux, app *platform.Service, authService *a
 		return FlagResult{Flag: true, Data: ""}
 	})
 
-	// App
-	apiRoute(mux, "/api/app/env", func(args []json.RawMessage) any {
-		key, _ := unmarshalArg[string](args, 0)
-		return app.GetEnv(key)
-	})
-	apiRoute(mux, "/api/app/interfaces", func(args []json.RawMessage) any {
-		return app.GetInterfaces()
-	})
-
-	// IO
-	apiRoute(mux, "/api/file/write", func(args []json.RawMessage) any {
-		path, _ := unmarshalArg[string](args, 0)
-		content, _ := unmarshalArg[string](args, 1)
-		options, _ := unmarshalArg[IOOptions](args, 2)
-		return app.WriteFile(path, content, options)
-	})
-	apiRoute(mux, "/api/file/read", func(args []json.RawMessage) any {
-		path, _ := unmarshalArg[string](args, 0)
-		options, _ := unmarshalArg[IOOptions](args, 1)
-		return app.ReadFile(path, options)
-	})
-	apiRoute(mux, "/api/file/move", func(args []json.RawMessage) any {
-		source, _ := unmarshalArg[string](args, 0)
-		target, _ := unmarshalArg[string](args, 1)
-		return app.MoveFile(source, target)
-	})
-	apiRoute(mux, "/api/file/remove", func(args []json.RawMessage) any {
-		path, _ := unmarshalArg[string](args, 0)
-		return app.RemoveFile(path)
-	})
-	apiRoute(mux, "/api/file/makeDir", func(args []json.RawMessage) any {
-		path, _ := unmarshalArg[string](args, 0)
-		return app.MakeDir(path)
-	})
-	apiRoute(mux, "/api/file/readDir", func(args []json.RawMessage) any {
-		path, _ := unmarshalArg[string](args, 0)
-		return app.ReadDir(path)
-	})
-	apiRoute(mux, "/api/file/openDir", func(args []json.RawMessage) any {
-		path, _ := unmarshalArg[string](args, 0)
-		return app.OpenDir(path)
-	})
-	apiRoute(mux, "/api/file/openURI", func(args []json.RawMessage) any {
-		uri, _ := unmarshalArg[string](args, 0)
-		return app.OpenURI(uri)
-	})
-	apiRoute(mux, "/api/file/absolutePath", func(args []json.RawMessage) any {
-		path, _ := unmarshalArg[string](args, 0)
-		return app.AbsolutePath(path)
-	})
-	apiRoute(mux, "/api/file/exists", func(args []json.RawMessage) any {
-		path, _ := unmarshalArg[string](args, 0)
-		return app.FileExists(path)
-	})
-	apiRoute(mux, "/api/file/unzipZIP", func(args []json.RawMessage) any {
-		path, _ := unmarshalArg[string](args, 0)
-		output, _ := unmarshalArg[string](args, 1)
-		return app.UnzipZIPFile(path, output)
-	})
-	apiRoute(mux, "/api/file/unzipTarGZ", func(args []json.RawMessage) any {
-		path, _ := unmarshalArg[string](args, 0)
-		output, _ := unmarshalArg[string](args, 1)
-		return app.UnzipTarGZFile(path, output)
-	})
-
-	// Net
-	apiRoute(mux, "/api/net/requests", func(args []json.RawMessage) any {
-		method, _ := unmarshalArg[string](args, 0)
-		url, _ := unmarshalArg[string](args, 1)
-		headers, _ := unmarshalArg[map[string]string](args, 2)
-		body, _ := unmarshalArg[string](args, 3)
-		options, _ := unmarshalArg[RequestOptions](args, 4)
-		return app.Requests(method, url, headers, body, options)
-	})
-	apiRoute(mux, "/api/net/download", func(args []json.RawMessage) any {
-		method, _ := unmarshalArg[string](args, 0)
-		url, _ := unmarshalArg[string](args, 1)
-		path, _ := unmarshalArg[string](args, 2)
-		headers, _ := unmarshalArg[map[string]string](args, 3)
-		event, _ := unmarshalArg[string](args, 4)
-		options, _ := unmarshalArg[RequestOptions](args, 5)
-		return app.Download(method, url, path, headers, event, options)
-	})
-
-	// Exec
-	apiRoute(mux, "/api/exec/run", func(args []json.RawMessage) any {
-		path, _ := unmarshalArg[string](args, 0)
-		execArgs, _ := unmarshalArg[[]string](args, 1)
-		options, _ := unmarshalArg[ExecOptions](args, 2)
-		return app.Exec(path, execArgs, options)
-	})
 }
 
 func apiRoute(mux *http.ServeMux, path string, handler func(args []json.RawMessage) any) {

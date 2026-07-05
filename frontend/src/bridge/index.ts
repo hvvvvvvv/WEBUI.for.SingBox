@@ -1,7 +1,4 @@
 export { EventsOn, EventsOff, EventsEmit, initWebSocket } from './ws'
-export * from './io'
-export * from './net'
-export * from './exec'
 export * from './app'
 export * from './rpc'
 export { loadAuthToken } from './http'

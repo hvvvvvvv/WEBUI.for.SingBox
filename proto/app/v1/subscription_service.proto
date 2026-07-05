@@ -48,6 +48,23 @@ message UpdateAllSubscriptionsResponse {
   repeated TaskResult results = 1;
 }
 
+message GetSubscriptionContentRequest {
+  string id = 1;
+}
+
+message GetSubscriptionContentResponse {
+  string content = 1;
+}
+
+message SaveSubscriptionContentRequest {
+  string id = 1;
+  string content = 2;
+}
+
+message SaveSubscriptionContentResponse {
+  string subscription_json = 1;
+}
+
 service SubscriptionService {
   rpc ListSubscriptions(ListSubscriptionsRequest) returns (ListSubscriptionsResponse);
   rpc SaveSubscriptions(SaveSubscriptionsRequest) returns (SaveSubscriptionsResponse);
@@ -55,4 +72,6 @@ service SubscriptionService {
   rpc DeleteSubscription(DeleteSubscriptionRequest) returns (DeleteSubscriptionResponse);
   rpc UpdateSubscription(UpdateSubscriptionRequest) returns (UpdateSubscriptionResponse);
   rpc UpdateAllSubscriptions(UpdateAllSubscriptionsRequest) returns (UpdateAllSubscriptionsResponse);
+  rpc GetSubscriptionContent(GetSubscriptionContentRequest) returns (GetSubscriptionContentResponse);
+  rpc SaveSubscriptionContent(SaveSubscriptionContentRequest) returns (SaveSubscriptionContentResponse);
 }

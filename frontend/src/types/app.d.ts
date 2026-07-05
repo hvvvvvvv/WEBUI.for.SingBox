@@ -9,19 +9,7 @@ import type {
   ControllerCloseMode,
   ScheduledTasksType,
   RequestMethod,
-  OS,
 } from '@/enums/app'
-
-export interface AppEnv {
-  appName: string
-  appVersion: string
-  basePath: string
-  appPath: string
-  os: OS
-  arch: string
-  libc: string
-  isPrivileged: boolean
-}
 
 export interface Menu {
   label: string
@@ -71,7 +59,6 @@ export interface AppSettings {
   debugOutline: boolean
   debugNoAnimation: boolean
   debugNoRounded: false
-  debugBorder: boolean
   pages: string[]
 }
 
@@ -123,7 +110,6 @@ export interface Subscription {
   type: 'Http' | 'Manual'
   url: string
   website: string
-  path: string
   include: string
   exclude: string
   includeProtocol: string

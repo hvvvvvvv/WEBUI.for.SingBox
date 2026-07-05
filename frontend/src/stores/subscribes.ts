@@ -17,6 +17,15 @@ export const useSubscribesStore = defineStore('subscribes', () => {
   const subscribes = ref<Subscription[]>([])
   const service = createRpcClient(SubscriptionService)
 
+  const upsertLocalSubscribe = (item: Subscription) => {
+    const idx = subscribes.value.findIndex((v) => v.id === item.id)
+    if (idx === -1) {
+      subscribes.value.push(item)
+    } else {
+      subscribes.value.splice(idx, 1, item)
+    }
+  }
+
   const setupSubscribes = async () => {
     const { subscriptionsJson } = await service.listSubscriptions({})
     subscribes.value = parseList<Subscription>(subscriptionsJson)
@@ -54,12 +63,7 @@ export const useSubscribesStore = defineStore('subscribes', () => {
       subscriptionJson: JSON.stringify({ ...s, id }),
     })
     const item = JSON.parse(subscriptionJson) as Subscription
-    const idx = subscribes.value.findIndex((v) => v.id === id)
-    if (idx === -1) {
-      subscribes.value.push(item)
-    } else {
-      subscribes.value.splice(idx, 1, item)
-    }
+    upsertLocalSubscribe(item)
     eventBus.emit('subscriptionChange', { id })
   }
 
@@ -91,6 +95,19 @@ export const useSubscribesStore = defineStore('subscribes', () => {
 
   const getSubscribeById = (id: string) => subscribes.value.find((v) => v.id === id)
 
+  const getSubscriptionContent = async (id: string) => {
+    const { content } = await service.getSubscriptionContent({ id })
+    return content
+  }
+
+  const saveSubscriptionContent = async (id: string, content: string) => {
+    const { subscriptionJson } = await service.saveSubscriptionContent({ id, content })
+    const item = JSON.parse(subscriptionJson) as Subscription
+    upsertLocalSubscribe(item)
+    eventBus.emit('subscriptionChange', { id })
+    return item
+  }
+
   const getSubscribeTemplate = (name = '', options: { url?: string } = {}): Subscription => {
     const id = sampleID()
     return {
@@ -104,7 +121,6 @@ export const useSubscribesStore = defineStore('subscribes', () => {
       type: 'Http',
       url: options.url || '',
       website: '',
-      path: `data/subscribes/${id}.json`,
       include: '',
       exclude: '',
       includeProtocol: '',
@@ -133,6 +149,8 @@ export const useSubscribesStore = defineStore('subscribes', () => {
     updateSubscribe,
     updateSubscribes,
     getSubscribeById,
+    getSubscriptionContent,
+    saveSubscriptionContent,
     importSubscribe,
     getSubscribeTemplate,
   }

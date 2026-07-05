@@ -322,7 +322,6 @@ export default {
       viewlog: 'view log',
       start: 'Click to Start',
       noLogs: 'Log is empty',
-      systemProxy: 'System Proxy',
       tunMode: 'TUN Mode',
       traffic: 'Traffic',
       realtimeTraffic: 'Real-time Traffic',
@@ -386,7 +385,6 @@ export default {
     name: 'Name',
     url: 'Remote Url',
     website: 'Website',
-    path: 'Save Path',
     include: 'Include Keywords',
     exclude: 'Exclude Keywords',
     includeProtocol: 'Include Protocol',
@@ -567,13 +565,11 @@ export default {
     debugOutline: 'Show component outlines',
     debugNoAnimation: 'Disable animations',
     debugNoRounded: 'Disable rounded corners',
-    debugBorder: 'Show window border',
     kernel: {
       name: 'sing-box',
       version: 'Switch version',
       stable: 'Stable version',
       alpha: 'Alpha version',
-      grant: 'Grant Privileges',
       openTip: 'Open File Location',
       linkTip: 'View on GitHub Releases',
       local: 'Local',
@@ -602,6 +598,8 @@ export default {
     },
   },
   about: {
+    currentVersion: 'Current version',
+    applyUpdate: 'Apply update',
     new: 'New',
     restart: 'Restart APP',
     noDownloadLink: 'No download link found',
@@ -611,13 +609,7 @@ export default {
     latestVersion: 'Already the latest version',
   },
   titlebar: {
-    resetSize: 'Reset Window',
-    reload: 'Reload Window',
     restart: 'Restart App',
-    reloadPending: 'Waiting for the program to reload...',
-    reloadTimeout: 'The reload timed out. Do you want to force reload?',
-    reloadError:
-      'An error occurred during reload. Do you want to force reload?\n\nReason: {reason}',
   },
   outbound: {
     select: '🚀 Select',
@@ -629,14 +621,11 @@ export default {
   commands: {
     noMatching: 'No matching commands',
     kernel: 'Core',
-    proxy: 'System Proxy',
     startKernel: 'Start Core',
     stopKernel: 'Stop Core',
     restartKernel: 'Restart Core',
     enableTunMode: 'Enable Tun Mode',
     disableTunMode: 'Disable Tun Mode',
-    setSystemProxy: 'Set System Proxy',
-    clearSystemProxy: 'Clear System Proxy',
     restartApp: 'Restart App',
   },
   auth: {

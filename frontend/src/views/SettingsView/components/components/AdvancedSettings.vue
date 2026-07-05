@@ -3,12 +3,13 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { apiCall } from '@/bridge/http'
-import { useAppConfigStore, useAppSettingsStore } from '@/stores'
-import { APP_TITLE, APP_VERSION, message } from '@/utils'
+import { useAppConfigStore, useAppSettingsStore, useAppStore } from '@/stores'
+import { APP_TITLE, message } from '@/utils'
 
 const { t } = useI18n()
 const appSettings = useAppSettingsStore()
 const appConfig = useAppConfigStore()
+const appStore = useAppStore()
 
 const authSecret = ref('')
 const authSecretConfirm = ref('')
@@ -119,7 +120,7 @@ const handleClearAuth = async () => {
       </div>
       <Input
         v-model.lazy="appConfig.config.userAgent"
-        :placeholder="APP_TITLE + '/' + APP_VERSION"
+        :placeholder="APP_TITLE + '/' + appStore.currentVersion"
         editable
         class="text-14"
       >
