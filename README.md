@@ -30,6 +30,7 @@
 - pnpm
 - Go
 - Buf，仅在重新生成 protobuf 代码时需要
+- make。Linux/macOS 可使用系统包管理器安装；Windows 需要安装可用的 make，并确保 PowerShell 可用
 
 构建前端和后端：
 
@@ -37,18 +38,24 @@
 git clone https://github.com/hvvvvvvv/WEBUI.for.SingBox.git
 cd WEBUI.for.SingBox
 
-cd frontend
-pnpm install --frozen-lockfile
-pnpm build
-
-cd ..
-go build -trimpath -ldflags="-s -w" -o webui.for.singbox.server .
+make build
 ```
+
+`make build` 支持 Linux、macOS 和安装了 make 的 Windows 环境。Windows 下默认输出 `webui.for.singbox.server.exe`。
+
+应用版本默认取自 `Makefile` 中的 `APP_VERSION`。本地临时构建时也可显式覆盖版本：
+
+```bash
+make build VERSION=1.2.3
+APP_VERSION=1.2.3 make build
+```
+
+计划发布新版本前，请先修改 `Makefile` 中的 `APP_VERSION`。Git tag 可使用 `1.2.3` 或 `v1.2.3`，但 `APP_VERSION` 请保持无 `v` 前缀，例如 `1.2.3`。
 
 运行：
 
 ```bash
-./webui.for.singbox.server --addr 0.0.0.0:9090
+./build/bin/webui.for.singbox.server --addr 0.0.0.0:9090
 ```
 
 然后在浏览器打开：
@@ -74,5 +81,11 @@ docker run --rm -p 9090:9090 -v webui-for-singbox-data:/app/data webui.for.singb
 ## Proto 代码生成
 
 ```bash
-buf generate
+make proto
+```
+
+仅检查 proto：
+
+```bash
+make proto-check
 ```

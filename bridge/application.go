@@ -60,7 +60,7 @@ func New(options Options) (*Application, error) {
 		options.AppName = filepath.Base(executable)
 	}
 	if options.AppVersion == "" {
-		options.AppVersion = "1.0.0"
+		options.AppVersion = "unknown"
 	}
 
 	paths := storage.NewPaths(options.BaseDir)

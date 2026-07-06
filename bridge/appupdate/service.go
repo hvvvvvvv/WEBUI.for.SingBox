@@ -66,7 +66,7 @@ type githubAsset struct {
 func NewService(platformService *platform.Service, appConfig AppConfigReader, events EventPublisher, currentVersion string) *Service {
 	currentVersion = strings.TrimSpace(currentVersion)
 	if currentVersion == "" {
-		currentVersion = "1.0.0"
+		currentVersion = "unknown"
 	}
 	return &Service{
 		platform:       platformService,

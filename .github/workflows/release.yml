@@ -10,7 +10,39 @@ permissions:
   contents: write
 
 jobs:
+  Prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      app_version: ${{ steps.version.outputs.app_version }}
+      release_tag: ${{ steps.version.outputs.release_tag }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Read release version
+        id: version
+        run: |
+          app_version="$(make print-version)"
+          if [ -z "$app_version" ]; then
+            echo "APP_VERSION in Makefile must not be empty." >&2
+            exit 1
+          fi
+
+          release_tag="$app_version"
+          if [ "${{ github.ref_type }}" = "tag" ]; then
+            tag="${{ github.ref_name }}"
+            normalized_tag="${tag#v}"
+            if [ "$normalized_tag" != "$app_version" ]; then
+              echo "Git tag ($tag) does not match Makefile APP_VERSION ($app_version)." >&2
+              echo "Use APP_VERSION without a leading v; tags may be either 1.2.3 or v1.2.3." >&2
+              exit 1
+            fi
+            release_tag="$tag"
+          fi
+
+          echo "app_version=$app_version" >> "$GITHUB_OUTPUT"
+          echo "release_tag=$release_tag" >> "$GITHUB_OUTPUT"
+
   Build-Frontend:
+    needs: Prepare
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -22,10 +54,7 @@ jobs:
           node-version: "latest"
           cache: "pnpm"
           cache-dependency-path: frontend/pnpm-lock.yaml
-      - run: |
-          cd frontend
-          pnpm install --frozen-lockfile
-          pnpm build-only
+      - run: make frontend
       - uses: actions/upload-artifact@v6
         with:
           name: frontend-dist
@@ -46,6 +75,12 @@ jobs:
         with:
           name: frontend-dist
           path: frontend/dist
+      - name: Ensure make is available
+        shell: pwsh
+        run: |
+          if (-not (Get-Command make -ErrorAction SilentlyContinue)) {
+            choco install make -y --no-progress
+          }
 
       - name: Build & Pack Windows
         shell: pwsh
@@ -56,8 +91,7 @@ jobs:
             $env:GOARCH=$arch
 
             Write-Host "==> Building Windows $arch..."
-            New-Item -ItemType Directory -Force -Path build/bin | Out-Null
-            go build -trimpath -ldflags="-s -w" -o "build/bin/$($env:APP_NAME).exe" .
+            make backend "BINARY_NAME=$($env:APP_NAME).exe"
 
             cd build/bin
             $zipName = "$env:APP_NAME-windows-$arch.zip"
@@ -96,8 +130,7 @@ jobs:
             export GOOS=darwin GOARCH=$arch
 
             echo "==> Building macOS $arch..."
-            mkdir -p build/bin
-            go build -trimpath -ldflags="-s -w" -o build/bin/$APP_NAME .
+            make backend BINARY_NAME=$APP_NAME
 
             cd build/bin
             zip -q $APP_NAME-darwin-$arch.zip $APP_NAME
@@ -134,8 +167,7 @@ jobs:
             export GOOS=linux GOARCH=$arch
 
             echo "==> Building Linux $arch..."
-            mkdir -p build/bin
-            go build -trimpath -ldflags="-s -w" -o build/bin/$APP_NAME .
+            make backend BINARY_NAME=$APP_NAME
 
             cd build/bin
             zip $APP_NAME-linux-$arch.zip $APP_NAME
@@ -150,7 +182,7 @@ jobs:
           path: build/bin/*.zip
 
   Release:
-    needs: [Build-Windows, Build-macOS, Build-Linux]
+    needs: [Prepare, Build-Windows, Build-macOS, Build-Linux]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/download-artifact@v8
@@ -159,10 +191,10 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: ${{ needs.Prepare.outputs.release_tag }}
+          name: ${{ needs.Prepare.outputs.release_tag }}
           files: release-assets/**/*.zip
           draft: false
-          prerelease: ${{ contains(github.ref_name, 'dev') }}
+          prerelease: ${{ contains(needs.Prepare.outputs.release_tag, 'dev') }}
           body: |
             Auto-generated release from GitHub Actions.

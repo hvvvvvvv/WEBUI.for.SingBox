@@ -16,7 +16,7 @@ import (
 //go:embed all:frontend/dist
 var assets embed.FS
 
-var version = "1.0.0"
+var version = "unknown"
 
 func main() {
 	if appupdate.IsHelperMode(os.Args[1:]) {
