@@ -10,17 +10,9 @@
 
 - 将应用调整为由 Go HTTP 后端提供服务的 Web UI。
 - 移除了 Wails 桌面端、托盘和插件相关代码。
-- 增加了 HTTP 和 Connect RPC 桥接服务，用于前后端交互。
-- 增加了 protobuf 生成代码，包括 Go 服务端代码和前端 TypeScript 客户端代码。
 - 更新了项目名称、发布信息和检查更新地址，使其指向当前仓库。
 - 更适合透明代理部署场景，可作为远程管理界面运行在网关、旁路由或服务器上。
 
-## 技术栈
-
-- 前端：Vue 3、TypeScript、Vite、Pinia
-- 后端：Go
-- RPC / 代码生成：Buf、Protocol Buffers、Connect
-- 运行形态：独立 Web 服务二进制文件
 
 ## 构建
 
@@ -32,7 +24,7 @@
 - Buf，仅在重新生成 protobuf 代码时需要
 - make。Linux/macOS 可使用系统包管理器安装；Windows 需要安装可用的 make，并确保 PowerShell 可用
 
-构建前端和后端：
+构建二进制执行文件：
 
 ```bash
 git clone https://github.com/hvvvvvvv/WEBUI.for.SingBox.git
@@ -41,51 +33,8 @@ cd WEBUI.for.SingBox
 make build
 ```
 
-`make build` 支持 Linux、macOS 和安装了 make 的 Windows 环境。Windows 下默认输出 `webui.for.singbox.server.exe`。
-
-应用版本默认取自 `Makefile` 中的 `APP_VERSION`。本地临时构建时也可显式覆盖版本：
-
-```bash
-make build VERSION=1.2.3
-APP_VERSION=1.2.3 make build
-```
-
-计划发布新版本前，请先修改 `Makefile` 中的 `APP_VERSION`。Git tag 可使用 `1.2.3` 或 `v1.2.3`，但 `APP_VERSION` 请保持无 `v` 前缀，例如 `1.2.3`。
-
 运行：
 
 ```bash
 ./build/bin/webui.for.singbox.server --addr 0.0.0.0:9090
-```
-
-然后在浏览器打开：
-
-```text
-http://127.0.0.1:9090
-```
-
-## Docker
-
-构建镜像：
-
-```bash
-docker build -t webui.for.singbox .
-```
-
-运行容器：
-
-```bash
-docker run --rm -p 9090:9090 -v webui-for-singbox-data:/app/data webui.for.singbox
-```
-
-## Proto 代码生成
-
-```bash
-make proto
-```
-
-仅检查 proto：
-
-```bash
-make proto-check
 ```
