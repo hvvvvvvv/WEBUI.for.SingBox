@@ -106,72 +106,82 @@ if (!appSettings.sessionInfo.requireLogin) {
 
 <template>
   <LoginView v-if="appSettings.sessionInfo.requireLogin" @authenticated="handleAuthenticated" />
-  <div v-else class="app-zoomed">
-    <SplashView v-if="loading">
-      <Progress
-        :percent="percent"
-        :status="hasError ? 'danger' : 'primary'"
-        :radius="10"
-        type="circle"
-      />
-    </SplashView>
-    <template v-else>
-      <TitleBar />
-      <div class="flex-1 overflow-y-auto flex flex-col p-8">
-        <NavigationBar />
-        <div class="flex flex-col overflow-y-auto mt-8 px-8 h-full">
-          <RouterView #="{ Component }">
-            <KeepAlive>
-              <component :is="Component" />
-            </KeepAlive>
-          </RouterView>
+  <div v-else class="app-shell">
+    <div class="app-zoomed">
+      <SplashView v-if="loading">
+        <Progress
+          :percent="percent"
+          :status="hasError ? 'danger' : 'primary'"
+          :radius="10"
+          type="circle"
+        />
+      </SplashView>
+      <template v-else>
+        <TitleBar />
+        <div class="flex-1 overflow-y-auto flex flex-col p-8">
+          <NavigationBar />
+          <div class="flex flex-col overflow-y-auto mt-8 px-8 h-full">
+            <RouterView #="{ Component }">
+              <KeepAlive>
+                <component :is="Component" />
+              </KeepAlive>
+            </RouterView>
+          </div>
         </div>
-      </div>
-    </template>
+      </template>
 
-    <Modal
-      v-model:open="appStore.showAbout"
-      :cancel="false"
-      :submit="false"
-      mask-closable
-      min-width="50"
-    >
-      <AboutView />
-    </Modal>
+      <Modal
+        v-model:open="appStore.showAbout"
+        :cancel="false"
+        :submit="false"
+        mask-closable
+        min-width="50"
+      >
+        <AboutView />
+      </Modal>
 
-    <Menu
-      v-model="appStore.menuShow"
-      :position="appStore.menuPosition"
-      :menu-list="appStore.menuList"
-    />
-
-    <Tips
-      v-model="appStore.tipsShow"
-      :position="appStore.tipsPosition"
-      :message="appStore.tipsMessage"
-    />
-
-    <CommandView v-if="!loading" />
-
-    <div
-      v-if="kernelApiStore.needRestart || kernelApiStore.restarting"
-      class="fixed right-32 bottom-32"
-    >
-      <Button
-        v-tips="'home.overview.restart'"
-        :loading="kernelApiStore.restarting"
-        icon="restart"
-        class="rounded-full w-42 h-42 shadow"
-        @click="handleRestartCore"
+      <Menu
+        v-model="appStore.menuShow"
+        :position="appStore.menuPosition"
+        :menu-list="appStore.menuList"
       />
+
+      <Tips
+        v-model="appStore.tipsShow"
+        :position="appStore.tipsPosition"
+        :message="appStore.tipsMessage"
+      />
+
+      <CommandView v-if="!loading" />
+
+      <div
+        v-if="kernelApiStore.needRestart || kernelApiStore.restarting"
+        class="fixed right-32 bottom-32"
+      >
+        <Button
+          v-tips="'home.overview.restart'"
+          :loading="kernelApiStore.restarting"
+          icon="restart"
+          class="rounded-full w-42 h-42 shadow"
+          @click="handleRestartCore"
+        />
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
+.app-shell {
+  height: 100vh;
+  overflow: hidden;
+  background:
+    linear-gradient(90deg, rgba(0, 89, 214, 0.16), transparent 24% 76%, rgba(5, 62, 142, 0.16)),
+    var(--bg-color);
+}
+
 .app-zoomed {
   zoom: 1.25;
-  width: 80vw;
+  width: 64vw;
   height: 80vh;
   margin: 0 auto;
   overflow: hidden;
