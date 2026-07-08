@@ -181,7 +181,7 @@ if (!appSettings.sessionInfo.requireLogin) {
 
 .app-zoomed {
   zoom: 1.25;
-  width: 64vw;
+  width: 80vw;
   height: 80vh;
   margin: 0 auto;
   overflow: hidden;
