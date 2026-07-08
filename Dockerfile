@@ -1,27 +1,20 @@
-# Stage 1: Build frontend
-FROM node:22-alpine AS frontend
-WORKDIR /src/frontend
-RUN corepack enable && corepack prepare pnpm@latest --activate
-COPY frontend/package.json frontend/pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
-COPY frontend/ ./
-RUN pnpm build
-
-# Stage 2: Build Go binary
-FROM golang:1.26-alpine AS backend
-ARG APP_VERSION=unknown
+# Stage 1: Build application
+FROM golang:1.26-alpine AS builder
 WORKDIR /src
-COPY go.mod go.sum ./
+RUN apk add --no-cache make nodejs npm \
+  && npm install --global pnpm@latest
+COPY go.mod go.sum Makefile ./
+COPY frontend/package.json frontend/pnpm-lock.yaml ./frontend/
 RUN go mod download
+RUN pnpm --dir frontend install --frozen-lockfile
 COPY . .
-COPY --from=frontend /src/frontend/dist ./frontend/dist
-RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w -X main.version=${APP_VERSION}" -o /webui.for.singbox.server .
+RUN CGO_ENABLED=0 make build OUTPUT_DIR=/out
 
-# Stage 3: Runtime
+# Stage 2: Runtime
 FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
-COPY --from=backend /webui.for.singbox.server ./
+COPY --from=builder /out/webui.for.singbox.server ./
 
 VOLUME /app/data
 
