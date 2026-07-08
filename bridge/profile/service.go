@@ -480,16 +480,23 @@ func convertInbounds(profile map[string]any) {
 			continue
 		}
 		convertEnumString(m, "type", map[string]string{
-			"mixed": "INBOUND_TYPE_MIXED",
-			"socks": "INBOUND_TYPE_SOCKS",
-			"http":  "INBOUND_TYPE_HTTP",
-			"tun":   "INBOUND_TYPE_TUN",
+			"mixed":  "INBOUND_TYPE_MIXED",
+			"socks":  "INBOUND_TYPE_SOCKS",
+			"http":   "INBOUND_TYPE_HTTP",
+			"tun":    "INBOUND_TYPE_TUN",
+			"direct": "INBOUND_TYPE_DIRECT",
 		})
 		if tun, ok := m["tun"].(map[string]any); ok {
 			convertEnumString(tun, "stack", map[string]string{
 				"system": "TUN_STACK_SYSTEM",
 				"gvisor": "TUN_STACK_GVISOR",
 				"mixed":  "TUN_STACK_MIXED",
+			})
+		}
+		if direct, ok := m["direct"].(map[string]any); ok {
+			convertEnumString(direct, "network", map[string]string{
+				"tcp": "INBOUND_NETWORK_TCP",
+				"udp": "INBOUND_NETWORK_UDP",
 			})
 		}
 	}
@@ -702,7 +709,8 @@ func convertEnumString(node map[string]any, key string, mapping map[string]strin
 		return
 	}
 	if strings.HasPrefix(text, "LOG_LEVEL_") || strings.HasPrefix(text, "INBOUND_TYPE_") ||
-		strings.HasPrefix(text, "OUTBOUND_TYPE_") || strings.HasPrefix(text, "TUN_STACK_") ||
+		strings.HasPrefix(text, "INBOUND_NETWORK_") || strings.HasPrefix(text, "OUTBOUND_TYPE_") ||
+		strings.HasPrefix(text, "TUN_STACK_") ||
 		strings.HasPrefix(text, "RULESET_TYPE_") || strings.HasPrefix(text, "RULESET_FORMAT_") ||
 		strings.HasPrefix(text, "RULE_TYPE_") || strings.HasPrefix(text, "STRATEGY_") ||
 		strings.HasPrefix(text, "DNS_SERVER_TYPE_") || strings.HasPrefix(text, "RULE_ACTION_") ||

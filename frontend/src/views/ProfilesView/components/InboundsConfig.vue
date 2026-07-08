@@ -2,8 +2,9 @@
 import { useI18n } from 'vue-i18n'
 
 import { DraggableOptions } from '@/constant/app'
-import { TunStackOptions } from '@/constant/kernel'
+import { InboundNetworkOptions, TunStackOptions } from '@/constant/kernel'
 import {
+  DefaultInboundDirect,
   DefaultInboundMixed,
   DefaultInboundHttp,
   DefaultInboundSocks,
@@ -58,6 +59,18 @@ const inbounds = [
     },
   },
   {
+    label: 'Direct',
+    value: () => {
+      model.value.push({
+        id: sampleID(),
+        tag: 'direct-in',
+        type: Inbound.Direct,
+        enable: true,
+        direct: DefaultInboundDirect(),
+      })
+    },
+  },
+  {
     label: 'Tun',
     value: () => {
       model.value.push({
@@ -105,7 +118,13 @@ defineExpose({ handleAdd })
         {{ t('kernel.inbounds.tag') }}
         <Input v-model="inbound.tag" />
       </div>
-      <div v-if="inbound.type !== Inbound.Tun && inbound[inbound.type]">
+      <div
+        v-if="
+          inbound.type !== Inbound.Tun &&
+          inbound.type !== Inbound.Direct &&
+          inbound[inbound.type]
+        "
+      >
         <div class="form-item">
           {{ t('kernel.inbounds.listen.listen') }}
           <Input v-model="inbound[inbound.type]!.listen.listen" />
@@ -129,6 +148,32 @@ defineExpose({ handleAdd })
         <div class="form-item">
           {{ t('kernel.inbounds.listen.udp_fragment') }}
           <Switch v-model="inbound[inbound.type]!.listen.udp_fragment" />
+        </div>
+      </div>
+      <div v-else-if="inbound.type === Inbound.Direct && inbound.direct">
+        <div class="form-item">
+          {{ t('kernel.inbounds.listen.listen') }}
+          <Input v-model="inbound.direct.listen.listen" />
+        </div>
+        <div class="form-item">
+          {{ t('kernel.inbounds.listen.listen_port') }}
+          <Input v-model="inbound.direct.listen.listen_port" type="number" />
+        </div>
+        <div class="form-item">
+          {{ t('kernel.inbounds.network') }}
+          <Radio v-model="inbound.direct.network" :options="InboundNetworkOptions" />
+        </div>
+        <div class="form-item">
+          {{ t('kernel.inbounds.listen.tcp_fast_open') }}
+          <Switch v-model="inbound.direct.listen.tcp_fast_open" />
+        </div>
+        <div class="form-item">
+          {{ t('kernel.inbounds.listen.tcp_multi_path') }}
+          <Switch v-model="inbound.direct.listen.tcp_multi_path" />
+        </div>
+        <div class="form-item">
+          {{ t('kernel.inbounds.listen.udp_fragment') }}
+          <Switch v-model="inbound.direct.listen.udp_fragment" />
         </div>
       </div>
       <div v-else-if="inbound.type === Inbound.Tun && inbound.tun">

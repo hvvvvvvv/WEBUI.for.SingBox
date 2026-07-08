@@ -1,6 +1,7 @@
 import {
   ClashMode,
   Inbound,
+  InboundNetwork,
   Outbound,
   TunStack,
   LogLevel,
@@ -71,6 +72,12 @@ export const InboundOptions = [
   { label: 'socks', value: Inbound.Socks },
   { label: 'http', value: Inbound.Http },
   { label: 'tun', value: Inbound.Tun },
+  { label: 'direct', value: Inbound.Direct },
+]
+
+export const InboundNetworkOptions = [
+  { label: 'tcp', value: InboundNetwork.Tcp },
+  { label: 'udp', value: InboundNetwork.Udp },
 ]
 
 export const OutboundOptions = [

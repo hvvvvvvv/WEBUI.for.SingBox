@@ -38,3 +38,73 @@ func TestGenerateExperimentalUsesManagedCoreAPI(t *testing.T) {
 		t.Fatalf("expected profile cache_file values to be preserved, got %#v", cacheFile)
 	}
 }
+
+func TestGenerateInboundsDirectNetwork(t *testing.T) {
+	tests := []struct {
+		name    string
+		network profilev1.InboundNetwork
+		want    string
+	}{
+		{
+			name:    "tcp",
+			network: profilev1.InboundNetwork_INBOUND_NETWORK_TCP,
+			want:    "tcp",
+		},
+		{
+			name:    "udp",
+			network: profilev1.InboundNetwork_INBOUND_NETWORK_UDP,
+			want:    "udp",
+		},
+		{
+			name:    "unspecified defaults to udp",
+			network: profilev1.InboundNetwork_INBOUND_NETWORK_UNSPECIFIED,
+			want:    "udp",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			inbounds := generateInbounds([]*profilev1.Inbound{
+				{
+					Id:     "direct-in",
+					Type:   profilev1.InboundType_INBOUND_TYPE_DIRECT,
+					Tag:    "direct-in",
+					Enable: true,
+					Direct: &profilev1.DirectInboundConfig{
+						Listen: &profilev1.InboundListen{
+							Listen:       "127.0.0.1",
+							ListenPort:   20123,
+							TcpFastOpen:  true,
+							TcpMultiPath: true,
+							UdpFragment:  true,
+						},
+						Network: tt.network,
+					},
+				},
+			})
+
+			if len(inbounds) != 1 {
+				t.Fatalf("expected one inbound, got %#v", inbounds)
+			}
+			item, ok := inbounds[0].(map[string]any)
+			if !ok {
+				t.Fatalf("expected inbound map, got %#v", inbounds[0])
+			}
+			if item["type"] != "direct" || item["tag"] != "direct-in" {
+				t.Fatalf("expected direct inbound metadata, got %#v", item)
+			}
+			if item["network"] != tt.want {
+				t.Fatalf("expected network %q, got %#v", tt.want, item["network"])
+			}
+			if _, ok := item["users"]; ok {
+				t.Fatalf("direct inbound should not include users, got %#v", item)
+			}
+			if item["listen"] != "127.0.0.1" || item["listen_port"] != int32(20123) {
+				t.Fatalf("expected listen fields to be preserved, got %#v", item)
+			}
+			if item["tcp_fast_open"] != true || item["tcp_multi_path"] != true || item["udp_fragment"] != true {
+				t.Fatalf("expected listen options to be preserved, got %#v", item)
+			}
+		})
+	}
+}

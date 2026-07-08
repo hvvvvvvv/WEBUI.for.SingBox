@@ -21,6 +21,13 @@ enum InboundType {
   INBOUND_TYPE_SOCKS = 2;
   INBOUND_TYPE_HTTP = 3;
   INBOUND_TYPE_TUN = 4;
+  INBOUND_TYPE_DIRECT = 5;
+}
+
+enum InboundNetwork {
+  INBOUND_NETWORK_UNSPECIFIED = 0;
+  INBOUND_NETWORK_TCP = 1;
+  INBOUND_NETWORK_UDP = 2;
 }
 
 enum OutboundType {
@@ -183,6 +190,11 @@ message InboundUserConfig {
   repeated string users = 2;
 }
 
+message DirectInboundConfig {
+  InboundListen listen = 1;
+  InboundNetwork network = 2;
+}
+
 message TunInboundConfig {
   string interface_name = 1;
   repeated string address = 2;
@@ -204,6 +216,7 @@ message Inbound {
   InboundUserConfig socks = 6;
   InboundUserConfig http = 7;
   TunInboundConfig tun = 8;
+  DirectInboundConfig direct = 9;
 }
 
 message Outbound {

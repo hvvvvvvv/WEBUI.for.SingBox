@@ -79,6 +79,7 @@ export default {
     inbounds: {
       enable: '启用',
       tag: '名称',
+      network: '网络',
       users: 'Http/Socks验证用户',
       listen: {
         listen: '监听地址',

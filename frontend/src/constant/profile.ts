@@ -1,6 +1,7 @@
 import {
   LogLevel,
   Inbound,
+  InboundNetwork,
   Outbound,
   TunStack,
   RulesetType,
@@ -98,6 +99,17 @@ export const DefaultInboundMixed = (): NonNullable<IInbound['mixed']> => ({
     udp_fragment: false,
   },
   users: [],
+})
+
+export const DefaultInboundDirect = (): NonNullable<IInbound['direct']> => ({
+  listen: {
+    listen: '127.0.0.1',
+    listen_port: 53,
+    tcp_fast_open: false,
+    tcp_multi_path: false,
+    udp_fragment: false,
+  },
+  network: InboundNetwork.Udp,
 })
 
 export const DefaultInboundTun = (): NonNullable<IInbound['tun']> => ({

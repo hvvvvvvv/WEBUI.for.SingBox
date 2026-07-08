@@ -173,6 +173,7 @@ if (!appSettings.sessionInfo.requireLogin) {
   zoom: 1.25;
   width: 80vw;
   height: 80vh;
+  margin: 0 auto;
   overflow: hidden;
   display: flex;
   flex-direction: column;

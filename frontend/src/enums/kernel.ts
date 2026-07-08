@@ -19,6 +19,12 @@ export enum Inbound {
   Socks = 'socks',
   Http = 'http',
   Tun = 'tun',
+  Direct = 'direct',
+}
+
+export enum InboundNetwork {
+  Tcp = 'tcp',
+  Udp = 'udp',
 }
 
 export enum Outbound {

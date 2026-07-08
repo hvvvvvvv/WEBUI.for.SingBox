@@ -7,7 +7,8 @@ import type { Profile } from '../../gen/profile/v1/profile_pb'
 const LOG_LEVEL: Record<string, number> = {
   trace: 1, debug: 2, info: 3, warn: 4, error: 5, fatal: 6, panic: 7,
 }
-const INBOUND_TYPE: Record<string, number> = { mixed: 1, socks: 2, http: 3, tun: 4 }
+const INBOUND_TYPE: Record<string, number> = { mixed: 1, socks: 2, http: 3, tun: 4, direct: 5 }
+const INBOUND_NETWORK: Record<string, number> = { tcp: 1, udp: 2 }
 const OUTBOUND_TYPE: Record<string, number> = { direct: 1, block: 2, selector: 3, urltest: 4 }
 const TUN_STACK: Record<string, number> = { system: 1, gvisor: 2, mixed: 3 }
 const RULESET_TYPE: Record<string, number> = { inline: 1, local: 2, remote: 3 }
@@ -125,6 +126,7 @@ export function iProfileToProto(p: IProfile): Profile {
   if (profile.log) profile.log.level = toNum(LOG_LEVEL, profile.log.level)
   for (const inbound of profile.inbounds ?? []) {
     inbound.type = toNum(INBOUND_TYPE, inbound.type)
+    if (inbound.direct) inbound.direct.network = toNum(INBOUND_NETWORK, inbound.direct.network)
     if (inbound.tun) inbound.tun.stack = toNum(TUN_STACK, inbound.tun.stack)
   }
   for (const outbound of profile.outbounds ?? []) {
@@ -212,6 +214,7 @@ const normalizeInbounds = (inbounds: any[], fallback: IInbound[]): IInbound[] =>
     const mixed = item?.mixed || {}
     const socks = item?.socks || {}
     const http = item?.http || {}
+    const direct = item?.direct || {}
     const tun = item?.tun || {}
 
     return {
@@ -220,6 +223,7 @@ const normalizeInbounds = (inbounds: any[], fallback: IInbound[]): IInbound[] =>
       mixed: normalizeInboundUser(mixed),
       socks: normalizeInboundUser(socks),
       http: normalizeInboundUser(http),
+      direct: normalizeInboundDirect(direct),
       tun: tun
         ? {
           ...tun,
@@ -235,6 +239,15 @@ const normalizeInbounds = (inbounds: any[], fallback: IInbound[]): IInbound[] =>
         : undefined,
     }
   })
+}
+
+const normalizeInboundDirect = (raw: any) => {
+  const normalized = normalizeInboundUser(raw)
+  if (!normalized || typeof normalized !== 'object') return normalized
+  return {
+    ...normalized,
+    network: normalizeInboundNetwork(normalized.network),
+  }
 }
 
 const normalizeInboundUser = (raw: any) => {
@@ -354,7 +367,8 @@ const mapEnum = (value: any, mapping: Record<number, string>, fallback: string) 
 const normalizeLogLevel = (v: any) =>
   mapEnum(v, { 1: 'trace', 2: 'debug', 3: 'info', 4: 'warn', 5: 'error', 6: 'fatal', 7: 'panic' }, 'info')
 const normalizeInboundType = (v: any) =>
-  mapEnum(v, { 1: 'mixed', 2: 'socks', 3: 'http', 4: 'tun' }, 'mixed')
+  mapEnum(v, { 1: 'mixed', 2: 'socks', 3: 'http', 4: 'tun', 5: 'direct' }, 'mixed')
+const normalizeInboundNetwork = (v: any) => mapEnum(v, { 1: 'tcp', 2: 'udp' }, 'udp')
 const normalizeOutboundType = (v: any) =>
   mapEnum(v, { 1: 'direct', 2: 'block', 3: 'selector', 4: 'urltest' }, 'selector')
 const normalizeTunStack = (v: any) => mapEnum(v, { 1: 'system', 2: 'gvisor', 3: 'mixed' }, 'mixed')

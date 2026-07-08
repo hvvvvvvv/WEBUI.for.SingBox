@@ -4,16 +4,19 @@ import { onMounted, onUnmounted, ref, watch, nextTick, useTemplateRef } from 'vu
 import { debounce, getZoomLevel } from '@/utils'
 
 type TriggerType = 'click' | 'hover'
+type CoordinateType = 'zoomed' | 'viewport'
 
 interface Props {
   trigger?: TriggerType[]
   placement?: 'bottom' | 'top'
+  coordinate?: CoordinateType
   delay?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
   trigger: () => ['hover'],
   placement: 'bottom',
+  coordinate: 'zoomed',
   delay: 0,
 })
 
@@ -26,7 +29,7 @@ const transformOrigin = ref(props.placement === 'top' ? 'bottom' : 'top')
 const updatePosition = () => {
   if (!domRef.value || !overlayRef.value || !show.value) return
 
-  const zoom = getZoomLevel()
+  const zoom = props.coordinate === 'zoomed' ? getZoomLevel() : 1
   const rawRect = domRef.value.getBoundingClientRect()
   const triggerRect = {
     top: rawRect.top / zoom,

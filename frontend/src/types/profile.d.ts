@@ -41,7 +41,8 @@ interface IRuleSet {
   format: RuleSetFormat
 }
 
-type InboundType = 'mixed' | 'socks' | 'http' | 'tun'
+type InboundType = 'mixed' | 'socks' | 'http' | 'tun' | 'direct'
+type InboundNetworkType = 'tcp' | 'udp'
 type InboundListen = {
   listen: string
   listen_port: number
@@ -66,6 +67,10 @@ interface IInbound {
   http?: {
     listen: InboundListen
     users: string[]
+  }
+  direct?: {
+    listen: InboundListen
+    network: InboundNetworkType
   }
   tun?: {
     interface_name: string

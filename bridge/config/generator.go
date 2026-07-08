@@ -50,7 +50,11 @@ const (
 	outboundTypeSelector = "selector"
 	outboundTypeURLTest  = "urltest"
 
-	inboundTypeTun = "tun"
+	inboundTypeDirect = "direct"
+	inboundTypeTun    = "tun"
+
+	inboundNetworkTCP = "tcp"
+	inboundNetworkUDP = "udp"
 
 	dnsServerLocal     = "local"
 	dnsServerHosts     = "hosts"
@@ -247,6 +251,25 @@ func generateInbounds(inbounds []*configv1.Inbound) []any {
 
 		inboundType, err := inboundTypeString(inbound.GetType())
 		if err != nil {
+			continue
+		}
+
+		if inboundType == inboundTypeDirect {
+			config := inbound.GetDirect()
+			if config == nil {
+				continue
+			}
+			listen := config.GetListen()
+			result = append(result, map[string]any{
+				"type":           inboundType,
+				"tag":            inbound.GetTag(),
+				"listen":         listen.GetListen(),
+				"listen_port":    listen.GetListenPort(),
+				"tcp_fast_open":  listen.GetTcpFastOpen(),
+				"tcp_multi_path": listen.GetTcpMultiPath(),
+				"udp_fragment":   listen.GetUdpFragment(),
+				"network":        inboundNetworkString(config.GetNetwork()),
+			})
 			continue
 		}
 
@@ -1187,8 +1210,21 @@ func inboundTypeString(inboundType configv1.InboundType) (string, error) {
 		return "http", nil
 	case configv1.InboundType_INBOUND_TYPE_TUN:
 		return inboundTypeTun, nil
+	case configv1.InboundType_INBOUND_TYPE_DIRECT:
+		return inboundTypeDirect, nil
 	default:
 		return "", invalidArgumentError{message: fmt.Sprintf("unsupported inbound type: %v", inboundType)}
+	}
+}
+
+func inboundNetworkString(network configv1.InboundNetwork) string {
+	switch network {
+	case configv1.InboundNetwork_INBOUND_NETWORK_TCP:
+		return inboundNetworkTCP
+	case configv1.InboundNetwork_INBOUND_NETWORK_UDP:
+		return inboundNetworkUDP
+	default:
+		return inboundNetworkUDP
 	}
 }
 

@@ -27,7 +27,7 @@ const handleLogout = async () => {
       }"
       class="font-bold w-full h-full flex items-center text-14"
     >
-      {{ APP_TITLE }} {{ appStore.currentVersion }}
+      {{ APP_TITLE }}
       <CustomAction :actions="appStore.customActions.title_bar" />
       <Icon
         v-if="kernelApiStore.starting || kernelApiStore.stopping || kernelApiStore.restarting"

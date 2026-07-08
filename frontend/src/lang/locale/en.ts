@@ -79,6 +79,7 @@ export default {
     inbounds: {
       enable: 'Enable',
       tag: 'Tag',
+      network: 'Network',
       users: 'Http/Socks users',
       listen: {
         listen: 'Listen',
