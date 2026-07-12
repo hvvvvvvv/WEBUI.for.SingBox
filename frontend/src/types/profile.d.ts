@@ -87,8 +87,8 @@ interface IInbound {
 
 type OutboundType = 'direct' | 'block' | 'selector' | 'urltest'
 
-type RuleAction = 'route' | 'route-options' | 'reject' | 'hijack-dns' | 'sniff' | 'resolve'
-type DnsRuleAction = 'route' | 'route-options' | 'reject' | 'predefined'
+type RuleAction = 'route' | 'route-options' | 'reject' | 'hijack-dns' | 'sniff' | 'resolve' | 'inline'
+type DnsRuleAction = 'route' | 'route-options' | 'reject' | 'predefined' | 'inline'
 
 interface IOutbound {
   id: string
@@ -204,7 +204,7 @@ interface IDNSRule {
   invert: boolean
   // route
   server: string
-  strategy: Strategy
+  query_type: string[]
   // route/route-options
   disable_cache: boolean
   client_subnet: string

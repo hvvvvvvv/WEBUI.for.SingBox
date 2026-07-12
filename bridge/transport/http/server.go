@@ -326,7 +326,9 @@ func registerAPIRoutes(mux *http.ServeMux, authService *auth.Service) {
 
 		plainSecret, _ := unmarshalArg[string](args, 0)
 		if !authService.VerifySecret(plainSecret) {
-			authService.RecordLoginFailure(r.RemoteAddr)
+			if plainSecret != "" {
+				authService.RecordLoginFailure(r.RemoteAddr)
+			}
 			return FlagResult{Flag: false, Data: "Invalid secret"}
 		}
 		token, err := authService.GenerateToken()

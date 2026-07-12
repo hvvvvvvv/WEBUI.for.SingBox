@@ -7,7 +7,6 @@ import {
   DnsRuleTypeOptions,
   DnsRuleActionOptions,
   DnsRuleActionRejectOptions,
-  DomainStrategyOptions,
 } from '@/constant/kernel'
 import { DefaultDnsRule } from '@/constant/profile'
 import {
@@ -17,10 +16,9 @@ import {
   RulesetFormat,
   RuleAction,
   RuleActionReject,
-  Strategy,
 } from '@/enums/kernel'
-import { useBool } from '@/hooks'
-import { deepClone, isValidJson, message } from '@/utils'
+import { useBool, useInlineRuleActionOptions } from '@/hooks'
+import { deepClone, isValidJson, message, validateInlineRulePayload } from '@/utils'
 
 interface Props {
   inboundOptions: { label: string; value: string }[]
@@ -35,6 +33,11 @@ const model = defineModel<IDNSRule[]>({ required: true })
 
 let ruleId = 0
 const fields = ref<IDNSRule>(DefaultDnsRule())
+
+const { actionOptions, handleRuleTypeChange } = useInlineRuleActionOptions(
+  fields,
+  DnsRuleActionOptions,
+)
 
 const isInsertionPointMissing = computed(
   () => model.value.findIndex((rule) => rule.type === RuleType.InsertionPoint) === -1,
@@ -52,6 +55,15 @@ const handleAdd = () => {
 defineExpose({ handleAdd })
 
 const handleAddEnd = () => {
+  const validationError = validateInlineRulePayload(
+    fields.value.type,
+    fields.value.action,
+    fields.value.payload,
+  )
+  if (validationError) {
+    message.error(validationError)
+    return false
+  }
   if (ruleId !== -1) {
     model.value[ruleId] = fields.value
   } else {
@@ -62,6 +74,7 @@ const handleAddEnd = () => {
       model.value.unshift(fields.value)
     }
   }
+  return true
 }
 
 const handleEdit = (index: number) => {
@@ -79,7 +92,7 @@ const handleAddInsertionPoint = () => {
     action: RuleAction.Route,
     server: '',
     invert: false,
-    strategy: Strategy.Default,
+    query_type: [],
     disable_cache: false,
     client_subnet: '',
   })
@@ -221,11 +234,11 @@ const renderRule = (rule: IDNSRule) => {
   >
     <div class="form-item">
       {{ t('kernel.dns.rules.type') }}
-      <Select v-model="fields.type" :options="DnsRuleTypeOptions" />
+      <Select v-model="fields.type" :options="DnsRuleTypeOptions" @change="handleRuleTypeChange" />
     </div>
     <div class="form-item">
       {{ t('kernel.dns.rules.action') }}
-      <Radio v-model="fields.action" :options="DnsRuleActionOptions" />
+      <Radio v-model="fields.action" :options="actionOptions" />
     </div>
     <div v-if="fields.type !== RuleType.RuleSet" class="form-item">
       {{ t('kernel.dns.rules.payload') }}
@@ -266,15 +279,15 @@ const renderRule = (rule: IDNSRule) => {
       {{ t('kernel.route.rules.invert') }}
       <Switch v-model="fields.invert" />
     </div>
-    <Card class="mt-4 mb-16">
+    <div class="form-item">
+      {{ t('kernel.dns.rules.query_type') }}
+      <InputList v-model="fields.query_type" />
+    </div>
+    <Card v-if="fields.action !== RuleAction.Inline" class="mt-4 mb-16">
       <template v-if="fields.action === RuleAction.Route">
         <div class="form-item">
           {{ t('kernel.dns.rules.server') }}
           <Select v-model="fields.server" :options="serversOptions" />
-        </div>
-        <div class="form-item">
-          {{ t('kernel.route.rules.strategy') }}
-          <Select v-model="fields.strategy" :options="DomainStrategyOptions" />
         </div>
       </template>
       <template v-else-if="fields.action === RuleAction.RouteOptions">

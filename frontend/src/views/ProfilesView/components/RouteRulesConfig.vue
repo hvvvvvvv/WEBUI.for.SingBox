@@ -19,8 +19,8 @@ import {
   ClashMode,
   Strategy,
 } from '@/enums/kernel'
-import { useBool } from '@/hooks'
-import { deepClone, message } from '@/utils'
+import { useBool, useInlineRuleActionOptions } from '@/hooks'
+import { deepClone, message, validateInlineRulePayload } from '@/utils'
 
 interface Props {
   inboundOptions: { label: string; value: string }[]
@@ -35,6 +35,8 @@ const model = defineModel<IRule[]>({ required: true })
 
 let ruleId = 0
 const fields = ref<IRule>(DefaultRouteRule())
+
+const { actionOptions, handleRuleTypeChange } = useInlineRuleActionOptions(fields, RuleActionOptions)
 
 const { t } = useI18n()
 const [showEditModal] = useBool(false)
@@ -63,6 +65,15 @@ const handleAddInsertionPoint = () => {
 }
 
 const handleAddEnd = () => {
+  const validationError = validateInlineRulePayload(
+    fields.value.type,
+    fields.value.action,
+    fields.value.payload,
+  )
+  if (validationError) {
+    message.error(validationError)
+    return false
+  }
   if (ruleId !== -1) {
     model.value[ruleId] = fields.value
   } else {
@@ -73,6 +84,7 @@ const handleAddEnd = () => {
       model.value.unshift(fields.value)
     }
   }
+  return true
 }
 
 const handleEdit = (index: number) => {
@@ -226,11 +238,11 @@ const renderRule = (rule: IRule) => {
   >
     <div class="form-item">
       {{ t('kernel.route.rules.type') }}
-      <Select v-model="fields.type" :options="RulesTypeOptions" />
+      <Select v-model="fields.type" :options="RulesTypeOptions" @change="handleRuleTypeChange" />
     </div>
     <div class="form-item">
       {{ t('kernel.route.rules.action.name') }}
-      <Radio v-model="fields.action" :options="RuleActionOptions" class="ml-8" />
+      <Radio v-model="fields.action" :options="actionOptions" class="ml-8" />
     </div>
     <div v-if="isSupportPayload" class="form-item">
       {{ t('kernel.route.rules.payload') }}
@@ -271,7 +283,7 @@ const renderRule = (rule: IRule) => {
       {{ t('kernel.route.rules.invert') }}
       <Switch v-model="fields.invert" />
     </div>
-    <Card class="mt-4 mb-16">
+    <Card v-if="fields.action !== RuleAction.Inline" class="mt-4 mb-16">
       <template v-if="fields.action === RuleAction.Route">
         <div class="form-item">
           {{ t('kernel.route.rules.outbound') }}

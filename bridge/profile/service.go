@@ -365,7 +365,7 @@ func migrateLegacyProfilesYAML(raw []byte) ([]*profilev1.Profile, error) {
 		}
 
 		profile := &profilev1.Profile{}
-		if err := protojson.Unmarshal(jsonBytes, profile); err != nil {
+		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(jsonBytes, profile); err != nil {
 			return nil, fmt.Errorf("unmarshal migrated profile to protobuf: %w", err)
 		}
 		result = append(result, profile)
@@ -564,6 +564,7 @@ func convertRoute(profile map[string]any) {
 			"hijack-dns":    "RULE_ACTION_HIJACK_DNS",
 			"sniff":         "RULE_ACTION_SNIFF",
 			"resolve":       "RULE_ACTION_RESOLVE",
+			"inline":        "RULE_ACTION_INLINE",
 		})
 		convertEnumString(m, "strategy", map[string]string{
 			"default":     "STRATEGY_DEFAULT",
@@ -662,13 +663,7 @@ func convertDNS(profile map[string]any) {
 			"route-options": "DNS_RULE_ACTION_ROUTE_OPTIONS",
 			"reject":        "DNS_RULE_ACTION_REJECT",
 			"predefined":    "DNS_RULE_ACTION_PREDEFINED",
-		})
-		convertEnumString(m, "strategy", map[string]string{
-			"default":     "STRATEGY_DEFAULT",
-			"prefer_ipv4": "STRATEGY_PREFER_IPV4",
-			"prefer_ipv6": "STRATEGY_PREFER_IPV6",
-			"ipv4_only":   "STRATEGY_IPV4_ONLY",
-			"ipv6_only":   "STRATEGY_IPV6_ONLY",
+			"inline":        "DNS_RULE_ACTION_INLINE",
 		})
 	}
 }

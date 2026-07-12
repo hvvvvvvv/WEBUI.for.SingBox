@@ -27,10 +27,10 @@ const DNS_SERVER_TYPE: Record<string, number> = {
   local: 1, hosts: 2, tcp: 3, udp: 4, tls: 5, https: 6, quic: 7, h3: 8, dhcp: 9, fakeip: 10, tailscale: 11,
 }
 const RULE_ACTION: Record<string, number> = {
-  route: 1, 'route-options': 2, reject: 3, 'hijack-dns': 4, sniff: 5, resolve: 6,
+  route: 1, 'route-options': 2, reject: 3, 'hijack-dns': 4, sniff: 5, resolve: 6, inline: 7,
 }
 const DNS_RULE_ACTION: Record<string, number> = {
-  route: 1, 'route-options': 2, reject: 3, predefined: 4,
+  route: 1, 'route-options': 2, reject: 3, predefined: 4, inline: 5,
 }
 const MIXIN_PRIORITY: Record<string, number> = { mixin: 1, gui: 2 }
 const MIXIN_FORMAT: Record<string, number> = { json: 1, yaml: 2 }
@@ -56,6 +56,7 @@ const protoFieldNames: Record<string, string> = {
   interface_name: 'interfaceName',
   interrupt_exist_connections: 'interruptExistConnections',
   listen_port: 'listenPort',
+  query_type: 'queryType',
   rdrc_timeout: 'rdrcTimeout',
   route_address: 'routeAddress',
   route_exclude_address: 'routeExcludeAddress',
@@ -147,7 +148,6 @@ export function iProfileToProto(p: IProfile): Profile {
   for (const rule of profile.dns?.rules ?? []) {
     rule.type = toNum(RULE_TYPE, rule.type)
     rule.action = toNum(DNS_RULE_ACTION, rule.action)
-    if (rule.strategy) rule.strategy = toNum(STRATEGY, rule.strategy)
   }
   if (profile.dns?.strategy) profile.dns.strategy = toNum(STRATEGY, profile.dns.strategy)
   if (profile.mixin) {
@@ -338,7 +338,11 @@ const normalizeDns = (dns: any, fallback: IDNS): IDNS => {
         ...item,
         type: normalizeRuleType(item?.type),
         action: normalizeDnsRuleAction(item?.action),
-        strategy: normalizeStrategy(item?.strategy),
+        query_type: Array.isArray(item?.query_type)
+          ? item.query_type
+          : Array.isArray(item?.querytype)
+            ? item.querytype
+            : [],
         disable_cache: item?.disable_cache ?? item?.disablecache ?? false,
         client_subnet: item?.client_subnet ?? item?.clientsubnet ?? '',
       }))
@@ -375,9 +379,9 @@ const normalizeTunStack = (v: any) => mapEnum(v, { 1: 'system', 2: 'gvisor', 3: 
 const normalizeRulesetType = (v: any) => mapEnum(v, { 1: 'inline', 2: 'local', 3: 'remote' }, 'inline')
 const normalizeRulesetFormat = (v: any) => mapEnum(v, { 1: 'source', 2: 'binary' }, 'source')
 const normalizeRuleAction = (v: any) =>
-  mapEnum(v, { 1: 'route', 2: 'route-options', 3: 'reject', 4: 'hijack-dns', 5: 'sniff', 6: 'resolve' }, 'route')
+  mapEnum(v, { 1: 'route', 2: 'route-options', 3: 'reject', 4: 'hijack-dns', 5: 'sniff', 6: 'resolve', 7: 'inline' }, 'route')
 const normalizeDnsRuleAction = (v: any) =>
-  mapEnum(v, { 1: 'route', 2: 'route-options', 3: 'reject', 4: 'predefined' }, 'route')
+  mapEnum(v, { 1: 'route', 2: 'route-options', 3: 'reject', 4: 'predefined', 5: 'inline' }, 'route')
 const normalizeStrategy = (v: any) =>
   mapEnum(v, { 1: 'default', 2: 'prefer_ipv4', 3: 'prefer_ipv6', 4: 'ipv4_only', 5: 'ipv6_only' }, 'default')
 const normalizeDnsServerType = (v: any) =>

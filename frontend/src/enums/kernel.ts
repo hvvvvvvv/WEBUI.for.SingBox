@@ -106,6 +106,7 @@ export enum RuleAction {
   Sniff = 'sniff',
   Resolve = 'resolve',
   Predefined = 'predefined',
+  Inline = 'inline',
 }
 
 export enum RuleActionReject {

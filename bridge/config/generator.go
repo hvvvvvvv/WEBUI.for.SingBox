@@ -44,6 +44,7 @@ const (
 	ruleActionSniff        = "sniff"
 	ruleActionResolve      = "resolve"
 	ruleActionPredefined   = "predefined"
+	ruleActionInline       = "inline"
 
 	outboundTypeDirect   = "direct"
 	outboundTypeBlock    = "block"
@@ -472,39 +473,45 @@ func (g *configGenerator) generateRoute(
 			return nil, err
 		}
 
-		item, err := generateBaseRule(rule.GetType(), rule.GetPayload(), route.GetRuleSet(), inbounds, rule.GetInvert(), action)
+		ruleFields, err := generateRuleFields(ruleType, rule.GetPayload(), route.GetRuleSet(), inbounds)
 		if err != nil {
 			return nil, err
 		}
-
-		switch action {
-		case ruleActionRoute:
-			if outbound := getOutboundTag(outbounds, rule.GetOutbound()); outbound != "" {
-				item["outbound"] = outbound
-			}
-		case ruleActionRouteOptions:
-			parsed, err := parseJSONObject(rule.GetOutbound())
-			if err != nil {
-				return nil, err
-			}
-			deepAssign(item, parsed)
-		case ruleActionReject:
-			item["method"] = rule.GetOutbound()
-		case ruleActionSniff:
-			if len(rule.GetSniffer()) > 0 {
-				item["sniffer"] = stringsToAnySlice(rule.GetSniffer())
-			}
-		case ruleActionResolve:
-			if strategy := strategyString(rule.GetStrategy()); strategy != strategyDefault && strategy != "" {
-				item["strategy"] = strategy
-			}
-			if server := getDNSServerTag(dns.GetServers(), rule.GetServer()); server != "" {
-				item["server"] = server
-			}
-		}
+		item := map[string]any{}
 		if rule.GetInvert() {
 			item["invert"] = true
 		}
+		deepAssign(item, ruleFields)
+
+		if action != ruleActionInline {
+			item["action"] = action
+			switch action {
+			case ruleActionRoute:
+				if outbound := getOutboundTag(outbounds, rule.GetOutbound()); outbound != "" {
+					item["outbound"] = outbound
+				}
+			case ruleActionRouteOptions:
+				parsed, err := parseJSONObject(rule.GetOutbound())
+				if err != nil {
+					return nil, err
+				}
+				deepAssign(item, parsed)
+			case ruleActionReject:
+				item["method"] = rule.GetOutbound()
+			case ruleActionSniff:
+				if len(rule.GetSniffer()) > 0 {
+					item["sniffer"] = stringsToAnySlice(rule.GetSniffer())
+				}
+			case ruleActionResolve:
+				if strategy := strategyString(rule.GetStrategy()); strategy != strategyDefault && strategy != "" {
+					item["strategy"] = strategy
+				}
+				if server := getDNSServerTag(dns.GetServers(), rule.GetServer()); server != "" {
+					item["server"] = server
+				}
+			}
+		}
+		applyInlineInvert(item, ruleType, ruleFields)
 		result["rules"] = append(result["rules"].([]any), item)
 	}
 
@@ -686,45 +693,56 @@ func (g *configGenerator) generateDNS(
 		if err != nil {
 			return nil, err
 		}
-		item, err := generateBaseRule(rule.GetType(), rule.GetPayload(), ruleSet, inbounds, rule.GetInvert(), action)
+		ruleFields, err := generateRuleFields(ruleType, rule.GetPayload(), ruleSet, inbounds)
 		if err != nil {
 			return nil, err
 		}
+		item := map[string]any{}
+		if rule.GetInvert() {
+			item["invert"] = true
+		}
+		if len(rule.GetQueryType()) > 0 {
+			item["query_type"] = stringsToAnySlice(rule.GetQueryType())
+		}
+		deepAssign(item, ruleFields)
 
-		if ruleType == ruleTypeInline && strings.Contains(rule.GetPayload(), "__is_fake_ip") {
-			if !hasFakeIP {
+		if ruleType == ruleTypeInline {
+			_, isFakeIPRule := ruleFields["__is_fake_ip"]
+			if isFakeIPRule && !hasFakeIP {
 				continue
 			}
+		}
+		if action != ruleActionInline {
+			item["action"] = action
+			if action == ruleActionRoute || action == ruleActionRouteOptions {
+				if rule.GetDisableCache() {
+					item["disable_cache"] = true
+				}
+				if rule.GetClientSubnet() != "" {
+					item["client_subnet"] = rule.GetClientSubnet()
+				}
+				if action == ruleActionRoute {
+					if server := getDNSServerTag(dns.GetServers(), rule.GetServer()); server != "" {
+						item["server"] = server
+					}
+				}
+			}
+
+			if action == ruleActionRouteOptions || action == ruleActionPredefined {
+				parsed, err := parseJSONObject(rule.GetServer())
+				if err != nil {
+					return nil, err
+				}
+				deepAssign(item, parsed)
+			}
+
+			if action == ruleActionReject {
+				item["method"] = rule.GetServer()
+			}
+		}
+		applyInlineInvert(item, ruleType, ruleFields)
+		if ruleType == ruleTypeInline {
 			delete(item, "__is_fake_ip")
-		}
-
-		if action == ruleActionRoute || action == ruleActionRouteOptions {
-			if rule.GetDisableCache() {
-				item["disable_cache"] = true
-			}
-			if rule.GetClientSubnet() != "" {
-				item["client_subnet"] = rule.GetClientSubnet()
-			}
-			if action == ruleActionRoute {
-				if server := getDNSServerTag(dns.GetServers(), rule.GetServer()); server != "" {
-					item["server"] = server
-				}
-				if strategy := strategyString(rule.GetStrategy()); strategy != strategyDefault && strategy != "" {
-					item["strategy"] = strategy
-				}
-			}
-		}
-
-		if action == ruleActionRouteOptions || action == ruleActionPredefined {
-			parsed, err := parseJSONObject(rule.GetServer())
-			if err != nil {
-				return nil, err
-			}
-			deepAssign(item, parsed)
-		}
-
-		if action == ruleActionReject {
-			item["method"] = rule.GetServer()
 		}
 
 		result["rules"] = append(result["rules"].([]any), item)
@@ -733,23 +751,13 @@ func (g *configGenerator) generateDNS(
 	return result, nil
 }
 
-func generateBaseRule(
-	ruleTypeEnum configv1.RuleType,
+func generateRuleFields(
+	ruleType string,
 	payload string,
 	ruleSets []*configv1.RuleSet,
 	inbounds []*configv1.Inbound,
-	invert bool,
-	action string,
 ) (map[string]any, error) {
-	ruleType, err := ruleTypeString(ruleTypeEnum)
-	if err != nil {
-		return nil, err
-	}
-
-	result := map[string]any{"action": action}
-	if invert {
-		result["invert"] = true
-	}
+	result := map[string]any{}
 
 	switch ruleType {
 	case ruleTypeInline:
@@ -757,7 +765,7 @@ func generateBaseRule(
 		if err != nil {
 			return nil, err
 		}
-		deepAssign(result, parsed)
+		return parsed, nil
 	case ruleTypeRuleSet:
 		entries := make([]any, 0)
 		for _, id := range strings.Split(payload, ",") {
@@ -792,6 +800,15 @@ func generateBaseRule(
 	}
 
 	return result, nil
+}
+
+func applyInlineInvert(item map[string]any, ruleType string, ruleFields map[string]any) {
+	if ruleType != ruleTypeInline {
+		return
+	}
+	if inlineInvert, ok := ruleFields["invert"]; ok {
+		item["invert"] = deepCopyValue(inlineInvert)
+	}
 }
 
 func (g *configGenerator) subscriptionEntries(id string) ([]map[string]any, error) {
@@ -1391,6 +1408,8 @@ func ruleActionString(action configv1.RuleAction) (string, error) {
 		return ruleActionSniff, nil
 	case configv1.RuleAction_RULE_ACTION_RESOLVE:
 		return ruleActionResolve, nil
+	case configv1.RuleAction_RULE_ACTION_INLINE:
+		return ruleActionInline, nil
 	default:
 		return "", invalidArgumentError{message: fmt.Sprintf("unsupported rule action: %v", action)}
 	}
@@ -1406,6 +1425,8 @@ func dnsRuleActionString(action configv1.DnsRuleAction) (string, error) {
 		return ruleActionReject, nil
 	case configv1.DnsRuleAction_DNS_RULE_ACTION_PREDEFINED:
 		return ruleActionPredefined, nil
+	case configv1.DnsRuleAction_DNS_RULE_ACTION_INLINE:
+		return ruleActionInline, nil
 	default:
 		return "", invalidArgumentError{message: fmt.Sprintf("unsupported dns rule action: %v", action)}
 	}

@@ -116,6 +116,7 @@ enum RuleAction {
   RULE_ACTION_HIJACK_DNS = 4;
   RULE_ACTION_SNIFF = 5;
   RULE_ACTION_RESOLVE = 6;
+  RULE_ACTION_INLINE = 7;
 }
 
 enum DnsRuleAction {
@@ -124,6 +125,7 @@ enum DnsRuleAction {
   DNS_RULE_ACTION_ROUTE_OPTIONS = 2;
   DNS_RULE_ACTION_REJECT = 3;
   DNS_RULE_ACTION_PREDEFINED = 4;
+  DNS_RULE_ACTION_INLINE = 5;
 }
 
 enum MixinPriority {
@@ -279,6 +281,9 @@ message DnsServer {
 }
 
 message DnsRule {
+  reserved 8;
+  reserved "strategy";
+
   string id = 1;
   RuleType type = 2;
   bool enable = 3;
@@ -286,9 +291,9 @@ message DnsRule {
   DnsRuleAction action = 5;
   bool invert = 6;
   string server = 7;
-  Strategy strategy = 8;
   bool disable_cache = 9;
   string client_subnet = 10;
+  repeated string query_type = 11;
 }
 
 message Dns {

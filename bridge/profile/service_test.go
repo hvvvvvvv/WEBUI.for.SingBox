@@ -2,6 +2,7 @@ package profile
 
 import (
 	"context"
+	"os"
 	"testing"
 
 	"guiforcores/bridge/storage"
@@ -10,6 +11,81 @@ import (
 	connect "connectrpc.com/connect"
 	"gopkg.in/yaml.v3"
 )
+
+func TestProfilesIgnoreUnknownFieldsOnReadAndWrite(t *testing.T) {
+	paths := storage.NewPaths(t.TempDir())
+	service := NewService(paths, nil)
+	legacy := `
+- id: profile
+  name: Profile
+  dns:
+    rules:
+      - id: rule
+        type: 4
+        enable: true
+        payload: example.com
+        action: 1
+        strategy: 2
+        querytype:
+          - A
+          - AAAA
+`
+	if err := os.MkdirAll(paths.Resolve("data"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(paths.Resolve(profilesFilePath), []byte(legacy), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	profiles, err := service.loadProfiles()
+	if err != nil {
+		t.Fatalf("load legacy profile: %v", err)
+	}
+	got := profiles[0].GetDns().GetRules()[0].GetQueryType()
+	if len(got) != 2 || got[0] != "A" || got[1] != "AAAA" {
+		t.Fatalf("unexpected query types: %#v", got)
+	}
+	if err := service.saveProfiles(profiles); err != nil {
+		t.Fatalf("save profiles: %v", err)
+	}
+	written, err := os.ReadFile(paths.Resolve(profilesFilePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var persisted []map[string]any
+	if err := yaml.Unmarshal(written, &persisted); err != nil {
+		t.Fatalf("decode written profiles: %v", err)
+	}
+	dns := persisted[0]["dns"].(map[string]any)
+	rules := dns["rules"].([]any)
+	if _, ok := rules[0].(map[string]any)["strategy"]; ok {
+		t.Fatalf("legacy DNS rule strategy was written back:\n%s", written)
+	}
+}
+
+func TestLegacyMigrationDiscardsUnknownFields(t *testing.T) {
+	raw := []byte(`
+- id: profile
+  name: Profile
+  dns:
+    strategy: default
+    rules:
+      - id: rule
+        type: domain
+        enable: true
+        payload: example.com
+        action: route
+        strategy: prefer_ipv4
+        future_field: ignored
+`)
+	profiles, err := migrateLegacyProfilesYAML(raw)
+	if err != nil {
+		t.Fatalf("migrate legacy profile: %v", err)
+	}
+	if len(profiles) != 1 || len(profiles[0].GetDns().GetRules()) != 1 {
+		t.Fatalf("valid profile data was not retained: %#v", profiles)
+	}
+}
 
 func TestNormalizeProfilePayloadsForYAMLKeepsMarshaledProfilesParseable(t *testing.T) {
 	profiles := []*profilev1.Profile{

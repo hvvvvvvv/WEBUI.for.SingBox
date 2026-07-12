@@ -653,6 +653,7 @@ const (
 	RuleAction_RULE_ACTION_HIJACK_DNS    RuleAction = 4
 	RuleAction_RULE_ACTION_SNIFF         RuleAction = 5
 	RuleAction_RULE_ACTION_RESOLVE       RuleAction = 6
+	RuleAction_RULE_ACTION_INLINE        RuleAction = 7
 )
 
 // Enum value maps for RuleAction.
@@ -665,6 +666,7 @@ var (
 		4: "RULE_ACTION_HIJACK_DNS",
 		5: "RULE_ACTION_SNIFF",
 		6: "RULE_ACTION_RESOLVE",
+		7: "RULE_ACTION_INLINE",
 	}
 	RuleAction_value = map[string]int32{
 		"RULE_ACTION_UNSPECIFIED":   0,
@@ -674,6 +676,7 @@ var (
 		"RULE_ACTION_HIJACK_DNS":    4,
 		"RULE_ACTION_SNIFF":         5,
 		"RULE_ACTION_RESOLVE":       6,
+		"RULE_ACTION_INLINE":        7,
 	}
 )
 
@@ -712,6 +715,7 @@ const (
 	DnsRuleAction_DNS_RULE_ACTION_ROUTE_OPTIONS DnsRuleAction = 2
 	DnsRuleAction_DNS_RULE_ACTION_REJECT        DnsRuleAction = 3
 	DnsRuleAction_DNS_RULE_ACTION_PREDEFINED    DnsRuleAction = 4
+	DnsRuleAction_DNS_RULE_ACTION_INLINE        DnsRuleAction = 5
 )
 
 // Enum value maps for DnsRuleAction.
@@ -722,6 +726,7 @@ var (
 		2: "DNS_RULE_ACTION_ROUTE_OPTIONS",
 		3: "DNS_RULE_ACTION_REJECT",
 		4: "DNS_RULE_ACTION_PREDEFINED",
+		5: "DNS_RULE_ACTION_INLINE",
 	}
 	DnsRuleAction_value = map[string]int32{
 		"DNS_RULE_ACTION_UNSPECIFIED":   0,
@@ -729,6 +734,7 @@ var (
 		"DNS_RULE_ACTION_ROUTE_OPTIONS": 2,
 		"DNS_RULE_ACTION_REJECT":        3,
 		"DNS_RULE_ACTION_PREDEFINED":    4,
+		"DNS_RULE_ACTION_INLINE":        5,
 	}
 )
 
@@ -2158,9 +2164,9 @@ type DnsRule struct {
 	Action        DnsRuleAction          `protobuf:"varint,5,opt,name=action,proto3,enum=profile.v1.DnsRuleAction" json:"action,omitempty"`
 	Invert        bool                   `protobuf:"varint,6,opt,name=invert,proto3" json:"invert,omitempty"`
 	Server        string                 `protobuf:"bytes,7,opt,name=server,proto3" json:"server,omitempty"`
-	Strategy      Strategy               `protobuf:"varint,8,opt,name=strategy,proto3,enum=profile.v1.Strategy" json:"strategy,omitempty"`
 	DisableCache  bool                   `protobuf:"varint,9,opt,name=disable_cache,json=disableCache,proto3" json:"disable_cache,omitempty"`
 	ClientSubnet  string                 `protobuf:"bytes,10,opt,name=client_subnet,json=clientSubnet,proto3" json:"client_subnet,omitempty"`
+	QueryType     []string               `protobuf:"bytes,11,rep,name=query_type,json=queryType,proto3" json:"query_type,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -2244,13 +2250,6 @@ func (x *DnsRule) GetServer() string {
 	return ""
 }
 
-func (x *DnsRule) GetStrategy() Strategy {
-	if x != nil {
-		return x.Strategy
-	}
-	return Strategy_STRATEGY_UNSPECIFIED
-}
-
 func (x *DnsRule) GetDisableCache() bool {
 	if x != nil {
 		return x.DisableCache
@@ -2263,6 +2262,13 @@ func (x *DnsRule) GetClientSubnet() string {
 		return x.ClientSubnet
 	}
 	return ""
+}
+
+func (x *DnsRule) GetQueryType() []string {
+	if x != nil {
+		return x.QueryType
+	}
+	return nil
 }
 
 type Dns struct {
@@ -2715,7 +2721,7 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"inet6Range\x1a=\n" +
 	"\x0fPredefinedEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xd4\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xd1\x02\n" +
 	"\aDnsRule\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12(\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x14.profile.v1.RuleTypeR\x04type\x12\x16\n" +
@@ -2723,11 +2729,12 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\apayload\x18\x04 \x01(\tR\apayload\x121\n" +
 	"\x06action\x18\x05 \x01(\x0e2\x19.profile.v1.DnsRuleActionR\x06action\x12\x16\n" +
 	"\x06invert\x18\x06 \x01(\bR\x06invert\x12\x16\n" +
-	"\x06server\x18\a \x01(\tR\x06server\x120\n" +
-	"\bstrategy\x18\b \x01(\x0e2\x14.profile.v1.StrategyR\bstrategy\x12#\n" +
+	"\x06server\x18\a \x01(\tR\x06server\x12#\n" +
 	"\rdisable_cache\x18\t \x01(\bR\fdisableCache\x12#\n" +
 	"\rclient_subnet\x18\n" +
-	" \x01(\tR\fclientSubnet\"\xc7\x02\n" +
+	" \x01(\tR\fclientSubnet\x12\x1d\n" +
+	"\n" +
+	"query_type\x18\v \x03(\tR\tqueryTypeJ\x04\b\b\x10\tR\bstrategy\"\xc7\x02\n" +
 	"\x03Dns\x12/\n" +
 	"\aservers\x18\x01 \x03(\v2\x15.profile.v1.DnsServerR\aservers\x12)\n" +
 	"\x05rules\x18\x02 \x03(\v2\x13.profile.v1.DnsRuleR\x05rules\x12#\n" +
@@ -2840,7 +2847,7 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\x14DNS_SERVER_TYPE_DHCP\x10\t\x12\x1a\n" +
 	"\x16DNS_SERVER_TYPE_FAKEIP\x10\n" +
 	"\x12\x1d\n" +
-	"\x19DNS_SERVER_TYPE_TAILSCALE\x10\v*\xc3\x01\n" +
+	"\x19DNS_SERVER_TYPE_TAILSCALE\x10\v*\xdb\x01\n" +
 	"\n" +
 	"RuleAction\x12\x1b\n" +
 	"\x17RULE_ACTION_UNSPECIFIED\x10\x00\x12\x15\n" +
@@ -2849,13 +2856,15 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\x12RULE_ACTION_REJECT\x10\x03\x12\x1a\n" +
 	"\x16RULE_ACTION_HIJACK_DNS\x10\x04\x12\x15\n" +
 	"\x11RULE_ACTION_SNIFF\x10\x05\x12\x17\n" +
-	"\x13RULE_ACTION_RESOLVE\x10\x06*\xaa\x01\n" +
+	"\x13RULE_ACTION_RESOLVE\x10\x06\x12\x16\n" +
+	"\x12RULE_ACTION_INLINE\x10\a*\xc6\x01\n" +
 	"\rDnsRuleAction\x12\x1f\n" +
 	"\x1bDNS_RULE_ACTION_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15DNS_RULE_ACTION_ROUTE\x10\x01\x12!\n" +
 	"\x1dDNS_RULE_ACTION_ROUTE_OPTIONS\x10\x02\x12\x1a\n" +
 	"\x16DNS_RULE_ACTION_REJECT\x10\x03\x12\x1e\n" +
-	"\x1aDNS_RULE_ACTION_PREDEFINED\x10\x04*a\n" +
+	"\x1aDNS_RULE_ACTION_PREDEFINED\x10\x04\x12\x1a\n" +
+	"\x16DNS_RULE_ACTION_INLINE\x10\x05*a\n" +
 	"\rMixinPriority\x12\x1e\n" +
 	"\x1aMIXIN_PRIORITY_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14MIXIN_PRIORITY_MIXIN\x10\x01\x12\x16\n" +
@@ -2946,25 +2955,24 @@ var file_profile_v1_profile_proto_depIdxs = []int32{
 	34, // 23: profile.v1.DnsServer.predefined:type_name -> profile.v1.DnsServer.PredefinedEntry
 	7,  // 24: profile.v1.DnsRule.type:type_name -> profile.v1.RuleType
 	11, // 25: profile.v1.DnsRule.action:type_name -> profile.v1.DnsRuleAction
-	8,  // 26: profile.v1.DnsRule.strategy:type_name -> profile.v1.Strategy
-	28, // 27: profile.v1.Dns.servers:type_name -> profile.v1.DnsServer
-	29, // 28: profile.v1.Dns.rules:type_name -> profile.v1.DnsRule
-	8,  // 29: profile.v1.Dns.strategy:type_name -> profile.v1.Strategy
-	12, // 30: profile.v1.Mixin.priority:type_name -> profile.v1.MixinPriority
-	13, // 31: profile.v1.Mixin.format:type_name -> profile.v1.MixinFormat
-	14, // 32: profile.v1.Profile.log:type_name -> profile.v1.Log
-	16, // 33: profile.v1.Profile.experimental:type_name -> profile.v1.Experimental
-	23, // 34: profile.v1.Profile.inbounds:type_name -> profile.v1.Inbound
-	24, // 35: profile.v1.Profile.outbounds:type_name -> profile.v1.Outbound
-	27, // 36: profile.v1.Profile.route:type_name -> profile.v1.Route
-	30, // 37: profile.v1.Profile.dns:type_name -> profile.v1.Dns
-	31, // 38: profile.v1.Profile.mixin:type_name -> profile.v1.Mixin
-	32, // 39: profile.v1.Profile.script:type_name -> profile.v1.Script
-	40, // [40:40] is the sub-list for method output_type
-	40, // [40:40] is the sub-list for method input_type
-	40, // [40:40] is the sub-list for extension type_name
-	40, // [40:40] is the sub-list for extension extendee
-	0,  // [0:40] is the sub-list for field type_name
+	28, // 26: profile.v1.Dns.servers:type_name -> profile.v1.DnsServer
+	29, // 27: profile.v1.Dns.rules:type_name -> profile.v1.DnsRule
+	8,  // 28: profile.v1.Dns.strategy:type_name -> profile.v1.Strategy
+	12, // 29: profile.v1.Mixin.priority:type_name -> profile.v1.MixinPriority
+	13, // 30: profile.v1.Mixin.format:type_name -> profile.v1.MixinFormat
+	14, // 31: profile.v1.Profile.log:type_name -> profile.v1.Log
+	16, // 32: profile.v1.Profile.experimental:type_name -> profile.v1.Experimental
+	23, // 33: profile.v1.Profile.inbounds:type_name -> profile.v1.Inbound
+	24, // 34: profile.v1.Profile.outbounds:type_name -> profile.v1.Outbound
+	27, // 35: profile.v1.Profile.route:type_name -> profile.v1.Route
+	30, // 36: profile.v1.Profile.dns:type_name -> profile.v1.Dns
+	31, // 37: profile.v1.Profile.mixin:type_name -> profile.v1.Mixin
+	32, // 38: profile.v1.Profile.script:type_name -> profile.v1.Script
+	39, // [39:39] is the sub-list for method output_type
+	39, // [39:39] is the sub-list for method input_type
+	39, // [39:39] is the sub-list for extension type_name
+	39, // [39:39] is the sub-list for extension extendee
+	0,  // [0:39] is the sub-list for field type_name
 }
 
 func init() { file_profile_v1_profile_proto_init() }

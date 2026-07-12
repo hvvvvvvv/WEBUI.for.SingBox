@@ -517,7 +517,7 @@ const restoreDnsRules = (
           invert: undefined,
           client_subnet: undefined,
           disable_cache: undefined,
-          strategy: undefined,
+          query_type: undefined,
           server: undefined,
         },
         null,
@@ -538,9 +538,6 @@ const restoreDnsRules = (
       if ('server' in raw) {
         rule.server = DnsServersIds[raw.server]
       }
-      if ('strategy' in raw) {
-        rule.strategy = raw.strategy
-      }
     } else if (RuleAction.Reject === raw.action) {
       if ('method' in raw) {
         rule.server = raw.method
@@ -553,7 +550,7 @@ const restoreDnsRules = (
           invert: undefined,
           disable_cache: undefined,
           client_subnet: undefined,
-          strategy: undefined,
+          query_type: undefined,
           server: undefined,
           ...supportedRuleTypes.reduce((p, c) => ((p[c] = undefined), p), {} as Recordable),
         },
@@ -568,6 +565,9 @@ const restoreDnsRules = (
       if ('client_subnet' in raw) {
         rule.client_subnet = raw.client_subnet
       }
+    }
+    if ('query_type' in raw) {
+      rule.query_type = Array.isArray(raw.query_type) ? raw.query_type : [String(raw.query_type)]
     }
     if ('invert' in raw) {
       rule.invert = raw.invert

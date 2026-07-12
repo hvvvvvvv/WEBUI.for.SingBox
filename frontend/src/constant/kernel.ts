@@ -209,6 +209,7 @@ export const RuleActionOptions = [
   { label: 'kernel.route.rules.action.hijack-dns', value: RuleAction.HijackDNS },
   { label: 'kernel.route.rules.action.sniff', value: RuleAction.Sniff },
   { label: 'kernel.route.rules.action.resolve', value: RuleAction.Resolve },
+  { label: 'kernel.route.rules.action.inline', value: RuleAction.Inline },
 ]
 
 export const RuleActionRejectOptions = [
@@ -235,6 +236,7 @@ export const DnsRuleActionOptions = [
   { label: 'kernel.route.rules.action.route-options', value: RuleAction.RouteOptions },
   { label: 'kernel.route.rules.action.reject', value: RuleAction.Reject },
   { label: 'kernel.route.rules.action.predefined', value: RuleAction.Predefined },
+  { label: 'kernel.route.rules.action.inline', value: RuleAction.Inline },
 ]
 
 export const DnsRuleActionRejectOptions = [
