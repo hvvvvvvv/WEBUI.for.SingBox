@@ -148,6 +148,65 @@ func TestSaveProfilesPersistsRequestedOrder(t *testing.T) {
 	}
 }
 
+func TestSaveProfilesPersistsTunAutoRedirect(t *testing.T) {
+	paths := storage.NewPaths(t.TempDir())
+	service := NewService(paths, nil)
+	profiles := []*profilev1.Profile{
+		{
+			Id: "profile",
+			Inbounds: []*profilev1.Inbound{
+				{
+					Type:   profilev1.InboundType_INBOUND_TYPE_TUN,
+					Enable: true,
+					Tun:    &profilev1.TunInboundConfig{AutoRoute: true, AutoRedirect: true},
+				},
+			},
+		},
+	}
+
+	if err := service.saveProfiles(profiles); err != nil {
+		t.Fatalf("save profiles: %v", err)
+	}
+	loaded, err := service.loadProfiles()
+	if err != nil {
+		t.Fatalf("load profiles: %v", err)
+	}
+	if !loaded[0].GetInbounds()[0].GetTun().GetAutoRedirect() {
+		t.Fatal("TUN auto_redirect was not persisted")
+	}
+}
+
+func TestSaveProfilesPersistsBridgeOutbound(t *testing.T) {
+	paths := storage.NewPaths(t.TempDir())
+	service := NewService(paths, nil)
+	profiles := []*profilev1.Profile{
+		{
+			Id: "profile",
+			Outbounds: []*profilev1.Outbound{
+				{
+					Type:       profilev1.OutboundType_OUTBOUND_TYPE_BRIDGE,
+					Tag:        "bridge-out",
+					Interface:  "eth0",
+					BridgeName: "custom-bridge",
+				},
+			},
+		},
+	}
+
+	if err := service.saveProfiles(profiles); err != nil {
+		t.Fatalf("save profiles: %v", err)
+	}
+	loaded, err := service.loadProfiles()
+	if err != nil {
+		t.Fatalf("load profiles: %v", err)
+	}
+	bridge := loaded[0].GetOutbounds()[0]
+	if bridge.GetType() != profilev1.OutboundType_OUTBOUND_TYPE_BRIDGE ||
+		bridge.GetInterface() != "eth0" || bridge.GetBridgeName() != "custom-bridge" {
+		t.Fatalf("Bridge outbound was not persisted: %#v", bridge)
+	}
+}
+
 func TestSaveProfilesRejectsDuplicateIDs(t *testing.T) {
 	paths := storage.NewPaths(t.TempDir())
 

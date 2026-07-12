@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file app/v1/app_system_service.proto.
  */
 export const file_app_v1_app_system_service: GenFile = /*@__PURE__*/
-  fileDesc("Ch9hcHAvdjEvYXBwX3N5c3RlbV9zZXJ2aWNlLnByb3RvEgZhcHAudjEiFgoUR2V0SW50ZXJmYWNlc1JlcXVlc3QiKwoVR2V0SW50ZXJmYWNlc1Jlc3BvbnNlEhIKCmludGVyZmFjZXMYASADKAkyYAoQQXBwU3lzdGVtU2VydmljZRJMCg1HZXRJbnRlcmZhY2VzEhwuYXBwLnYxLkdldEludGVyZmFjZXNSZXF1ZXN0Gh0uYXBwLnYxLkdldEludGVyZmFjZXNSZXNwb25zZUJ6Cgpjb20uYXBwLnYxQhVBcHBTeXN0ZW1TZXJ2aWNlUHJvdG9QAVocZ3VpZm9yY29yZXMvZ2VuL2FwcC92MTthcHB2MaICA0FYWKoCBkFwcC5WMcoCBkFwcFxWMeICEkFwcFxWMVxHUEJNZXRhZGF0YeoCB0FwcDo6VjFiBnByb3RvMw");
+  fileDesc("Ch9hcHAvdjEvYXBwX3N5c3RlbV9zZXJ2aWNlLnByb3RvEgZhcHAudjEiFgoUR2V0SW50ZXJmYWNlc1JlcXVlc3QiKwoVR2V0SW50ZXJmYWNlc1Jlc3BvbnNlEhIKCmludGVyZmFjZXMYASADKAkiFAoSR2V0UGxhdGZvcm1SZXF1ZXN0IiEKE0dldFBsYXRmb3JtUmVzcG9uc2USCgoCb3MYASABKAkyqAEKEEFwcFN5c3RlbVNlcnZpY2USTAoNR2V0SW50ZXJmYWNlcxIcLmFwcC52MS5HZXRJbnRlcmZhY2VzUmVxdWVzdBodLmFwcC52MS5HZXRJbnRlcmZhY2VzUmVzcG9uc2USRgoLR2V0UGxhdGZvcm0SGi5hcHAudjEuR2V0UGxhdGZvcm1SZXF1ZXN0GhsuYXBwLnYxLkdldFBsYXRmb3JtUmVzcG9uc2VCegoKY29tLmFwcC52MUIVQXBwU3lzdGVtU2VydmljZVByb3RvUAFaHGd1aWZvcmNvcmVzL2dlbi9hcHAvdjE7YXBwdjGiAgNBWFiqAgZBcHAuVjHKAgZBcHBcVjHiAhJBcHBcVjFcR1BCTWV0YWRhdGHqAgdBcHA6OlYxYgZwcm90bzM");
 
 /**
  * @generated from message app.v1.GetInterfacesRequest
@@ -43,6 +43,36 @@ export const GetInterfacesResponseSchema: GenMessage<GetInterfacesResponse> = /*
   messageDesc(file_app_v1_app_system_service, 1);
 
 /**
+ * @generated from message app.v1.GetPlatformRequest
+ */
+export type GetPlatformRequest = Message<"app.v1.GetPlatformRequest"> & {
+};
+
+/**
+ * Describes the message app.v1.GetPlatformRequest.
+ * Use `create(GetPlatformRequestSchema)` to create a new message.
+ */
+export const GetPlatformRequestSchema: GenMessage<GetPlatformRequest> = /*@__PURE__*/
+  messageDesc(file_app_v1_app_system_service, 2);
+
+/**
+ * @generated from message app.v1.GetPlatformResponse
+ */
+export type GetPlatformResponse = Message<"app.v1.GetPlatformResponse"> & {
+  /**
+   * @generated from field: string os = 1;
+   */
+  os: string;
+};
+
+/**
+ * Describes the message app.v1.GetPlatformResponse.
+ * Use `create(GetPlatformResponseSchema)` to create a new message.
+ */
+export const GetPlatformResponseSchema: GenMessage<GetPlatformResponse> = /*@__PURE__*/
+  messageDesc(file_app_v1_app_system_service, 3);
+
+/**
  * @generated from service app.v1.AppSystemService
  */
 export const AppSystemService: GenService<{
@@ -53,6 +83,14 @@ export const AppSystemService: GenService<{
     methodKind: "unary";
     input: typeof GetInterfacesRequestSchema;
     output: typeof GetInterfacesResponseSchema;
+  },
+  /**
+   * @generated from rpc app.v1.AppSystemService.GetPlatform
+   */
+  getPlatform: {
+    methodKind: "unary";
+    input: typeof GetPlatformRequestSchema;
+    output: typeof GetPlatformResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_app_v1_app_system_service, 0);

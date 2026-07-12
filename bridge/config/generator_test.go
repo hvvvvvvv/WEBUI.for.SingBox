@@ -270,7 +270,7 @@ func TestGenerateInboundsDirectNetwork(t *testing.T) {
 						Network: tt.network,
 					},
 				},
-			})
+			}, "linux")
 
 			if len(inbounds) != 1 {
 				t.Fatalf("expected one inbound, got %#v", inbounds)
@@ -295,5 +295,85 @@ func TestGenerateInboundsDirectNetwork(t *testing.T) {
 				t.Fatalf("expected listen options to be preserved, got %#v", item)
 			}
 		})
+	}
+}
+
+func TestGenerateTunAutoRedirectByPlatformAndAutoRoute(t *testing.T) {
+	tests := []struct {
+		name         string
+		platformOS   string
+		autoRoute    bool
+		autoRedirect bool
+		wantField    bool
+	}{
+		{name: "linux enabled true", platformOS: "linux", autoRoute: true, autoRedirect: true, wantField: true},
+		{name: "linux enabled false", platformOS: "linux", autoRoute: true, autoRedirect: false, wantField: true},
+		{name: "linux auto route disabled", platformOS: "linux", autoRoute: false, autoRedirect: true},
+		{name: "windows", platformOS: "windows", autoRoute: true, autoRedirect: true},
+		{name: "darwin", platformOS: "darwin", autoRoute: true, autoRedirect: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			generated := generateInbounds([]*profilev1.Inbound{
+				{
+					Type:   profilev1.InboundType_INBOUND_TYPE_TUN,
+					Tag:    "tun-in",
+					Enable: true,
+					Tun: &profilev1.TunInboundConfig{
+						AutoRoute:    tt.autoRoute,
+						AutoRedirect: tt.autoRedirect,
+					},
+				},
+			}, tt.platformOS)
+			item := generated[0].(map[string]any)
+			got, ok := item["auto_redirect"]
+			if ok != tt.wantField {
+				t.Fatalf("auto_redirect presence = %v, want %v: %#v", ok, tt.wantField, item)
+			}
+			if ok && got != tt.autoRedirect {
+				t.Fatalf("auto_redirect = %#v, want %v", got, tt.autoRedirect)
+			}
+		})
+	}
+}
+
+func TestGenerateBridgeOutbound(t *testing.T) {
+	generator := &configGenerator{}
+	generated, err := generator.generateOutbounds([]*profilev1.Outbound{
+		{
+			Type:       profilev1.OutboundType_OUTBOUND_TYPE_BRIDGE,
+			Tag:        "bridge-out",
+			Interface:  "eth0",
+			BridgeName: "custom-bridge",
+		},
+		{
+			Type: profilev1.OutboundType_OUTBOUND_TYPE_BRIDGE,
+			Tag:  "bridge-defaults",
+		},
+	})
+	if err != nil {
+		t.Fatalf("generate bridge outbounds: %v", err)
+	}
+
+	configured := generated[0].(map[string]any)
+	if configured["type"] != "bridge" || configured["tag"] != "bridge-out" {
+		t.Fatalf("unexpected bridge metadata: %#v", configured)
+	}
+	if configured["interface"] != "eth0" || configured["bridge_name"] != "custom-bridge" {
+		t.Fatalf("bridge fields were not generated: %#v", configured)
+	}
+	for _, key := range []string{"iproute2_table_index", "iproute2_rule_index"} {
+		if _, ok := configured[key]; ok {
+			t.Fatalf("unsupported field %q was generated: %#v", key, configured)
+		}
+	}
+
+	defaults := generated[1].(map[string]any)
+	if _, ok := defaults["interface"]; ok {
+		t.Fatalf("empty interface should be omitted: %#v", defaults)
+	}
+	if _, ok := defaults["bridge_name"]; ok {
+		t.Fatalf("empty bridge_name should be omitted: %#v", defaults)
 	}
 }

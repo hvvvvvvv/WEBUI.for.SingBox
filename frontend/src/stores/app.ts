@@ -2,7 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { createRpcClient, EventsOff, EventsOn } from '@/bridge'
+import { createRpcClient, EventsOff, EventsOn, GetPlatform } from '@/bridge'
 import { LanguageOptions } from '@/constant/app'
 import { message, sampleID } from '@/utils'
 
@@ -12,6 +12,11 @@ import { AppUpdateService } from '../../gen/app/v1/app_update_service_pb'
 export const useAppStore = defineStore('app', () => {
   const updateService = createRpcClient(AppUpdateService)
   const isAppReloading = ref(false)
+  const platformOS = ref('')
+
+  const setupPlatform = async () => {
+    platformOS.value = await GetPlatform()
+  }
 
   /* Global Menu */
   const menuShow = ref(false)
@@ -167,6 +172,8 @@ export const useAppStore = defineStore('app', () => {
 
   return {
     isAppReloading,
+    platformOS,
+    setupPlatform,
     menuShow,
     menuPosition,
     menuList,

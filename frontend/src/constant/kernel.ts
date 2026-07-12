@@ -82,6 +82,7 @@ export const InboundNetworkOptions = [
 
 export const OutboundOptions = [
   { label: 'kernel.outbounds.direct', value: Outbound.Direct },
+  { label: 'kernel.outbounds.bridge', value: Outbound.Bridge },
   { label: 'kernel.outbounds.block', value: Outbound.Block },
   { label: 'kernel.outbounds.selector', value: Outbound.Selector },
   { label: 'kernel.outbounds.urltest', value: Outbound.Urltest },

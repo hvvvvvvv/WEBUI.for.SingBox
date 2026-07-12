@@ -36,6 +36,7 @@ enum OutboundType {
   OUTBOUND_TYPE_BLOCK = 2;
   OUTBOUND_TYPE_SELECTOR = 3;
   OUTBOUND_TYPE_URLTEST = 4;
+  OUTBOUND_TYPE_BRIDGE = 5;
 }
 
 enum TunStack {
@@ -207,6 +208,7 @@ message TunInboundConfig {
   repeated string route_exclude_address = 7;
   bool endpoint_independent_nat = 8;
   TunStack stack = 9;
+  bool auto_redirect = 10;
 }
 
 message Inbound {
@@ -234,6 +236,8 @@ message Outbound {
   string exclude = 10;
   string icon = 11;
   bool hidden = 12;
+  string interface = 13;
+  string bridge_name = 14;
 }
 
 message RouteRule {

@@ -514,6 +514,7 @@ func convertOutbounds(profile map[string]any) {
 		}
 		convertEnumString(m, "type", map[string]string{
 			"direct":   "OUTBOUND_TYPE_DIRECT",
+			"bridge":   "OUTBOUND_TYPE_BRIDGE",
 			"block":    "OUTBOUND_TYPE_BLOCK",
 			"selector": "OUTBOUND_TYPE_SELECTOR",
 			"urltest":  "OUTBOUND_TYPE_URLTEST",

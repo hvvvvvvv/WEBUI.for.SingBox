@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
 	"time"
@@ -47,6 +48,7 @@ const (
 	ruleActionInline       = "inline"
 
 	outboundTypeDirect   = "direct"
+	outboundTypeBridge   = "bridge"
 	outboundTypeBlock    = "block"
 	outboundTypeSelector = "selector"
 	outboundTypeURLTest  = "urltest"
@@ -125,7 +127,7 @@ func (g *configGenerator) GenerateConfig(profile *configv1.Profile) (map[string]
 	config := map[string]any{
 		"log":          generateLog(profile.GetLog()),
 		"experimental": generateExperimental(profile.GetExperimental(), profile.GetOutbounds()),
-		"inbounds":     generateInbounds(profile.GetInbounds()),
+		"inbounds":     generateInbounds(profile.GetInbounds(), runtime.GOOS),
 	}
 
 	outbounds, err := g.generateOutbounds(profile.GetOutbounds())
@@ -243,7 +245,7 @@ func generateCoreAPISecret() string {
 	return hex.EncodeToString(buffer)
 }
 
-func generateInbounds(inbounds []*configv1.Inbound) []any {
+func generateInbounds(inbounds []*configv1.Inbound, platformOS string) []any {
 	result := make([]any, 0, len(inbounds))
 	for _, inbound := range inbounds {
 		if inbound == nil || !inbound.GetEnable() {
@@ -310,6 +312,9 @@ func generateInbounds(inbounds []*configv1.Inbound) []any {
 			"endpoint_independent_nat": tun.GetEndpointIndependentNat(),
 			"stack":                    tunStackString(tun.GetStack()),
 		}
+		if platformOS == "linux" && tun.GetAutoRoute() {
+			item["auto_redirect"] = tun.GetAutoRedirect()
+		}
 		if len(tun.GetRouteAddress()) > 0 {
 			item["route_address"] = stringsToAnySlice(tun.GetRouteAddress())
 		}
@@ -347,6 +352,14 @@ func (g *configGenerator) generateOutbounds(outbounds []*configv1.Outbound) ([]a
 			item["url"] = outbound.GetUrl()
 			item["interval"] = outbound.GetInterval()
 			item["tolerance"] = outbound.GetTolerance()
+		}
+		if outboundType == outboundTypeBridge {
+			if outbound.GetInterface() != "" {
+				item["interface"] = outbound.GetInterface()
+			}
+			if outbound.GetBridgeName() != "" {
+				item["bridge_name"] = outbound.GetBridgeName()
+			}
 		}
 
 		if outboundType == outboundTypeSelector || outboundType == outboundTypeURLTest {
@@ -1249,6 +1262,8 @@ func outboundTypeString(outboundType configv1.OutboundType) (string, error) {
 	switch outboundType {
 	case configv1.OutboundType_OUTBOUND_TYPE_DIRECT:
 		return outboundTypeDirect, nil
+	case configv1.OutboundType_OUTBOUND_TYPE_BRIDGE:
+		return outboundTypeBridge, nil
 	case configv1.OutboundType_OUTBOUND_TYPE_BLOCK:
 		return outboundTypeBlock, nil
 	case configv1.OutboundType_OUTBOUND_TYPE_SELECTOR:

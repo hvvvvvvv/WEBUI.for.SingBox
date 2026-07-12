@@ -9,7 +9,7 @@ const LOG_LEVEL: Record<string, number> = {
 }
 const INBOUND_TYPE: Record<string, number> = { mixed: 1, socks: 2, http: 3, tun: 4, direct: 5 }
 const INBOUND_NETWORK: Record<string, number> = { tcp: 1, udp: 2 }
-const OUTBOUND_TYPE: Record<string, number> = { direct: 1, block: 2, selector: 3, urltest: 4 }
+const OUTBOUND_TYPE: Record<string, number> = { direct: 1, block: 2, selector: 3, urltest: 4, bridge: 5 }
 const TUN_STACK: Record<string, number> = { system: 1, gvisor: 2, mixed: 3 }
 const RULESET_TYPE: Record<string, number> = { inline: 1, local: 2, remote: 3 }
 const RULESET_FORMAT: Record<string, number> = { source: 1, binary: 2 }
@@ -38,6 +38,8 @@ const MIXIN_FORMAT: Record<string, number> = { json: 1, yaml: 2 }
 const protoFieldNames: Record<string, string> = {
   auto_detect_interface: 'autoDetectInterface',
   auto_route: 'autoRoute',
+  auto_redirect: 'autoRedirect',
+  bridge_name: 'bridgeName',
   cache_file: 'cacheFile',
   cache_id: 'cacheId',
   client_subnet: 'clientSubnet',
@@ -229,6 +231,7 @@ const normalizeInbounds = (inbounds: any[], fallback: IInbound[]): IInbound[] =>
           ...tun,
           interface_name: tun.interface_name ?? tun.interfacename ?? '',
           auto_route: tun.auto_route ?? tun.autoroute ?? false,
+          auto_redirect: tun.auto_redirect ?? tun.autoredirect ?? false,
           strict_route: tun.strict_route ?? tun.strictroute ?? false,
           route_address: tun.route_address ?? tun.routeaddress ?? [],
           route_exclude_address: tun.route_exclude_address ?? tun.routeexcludeaddress ?? [],
@@ -272,6 +275,8 @@ const normalizeOutbounds = (outbounds: any[], fallback: IOutbound[]): IOutbound[
     type: normalizeOutboundType(item?.type),
     interrupt_exist_connections:
       item?.interrupt_exist_connections ?? item?.interruptexistconnections ?? false,
+    interface: item?.interface ?? '',
+    bridge_name: item?.bridge_name ?? item?.bridgename ?? '',
   }))
 }
 
@@ -374,7 +379,7 @@ const normalizeInboundType = (v: any) =>
   mapEnum(v, { 1: 'mixed', 2: 'socks', 3: 'http', 4: 'tun', 5: 'direct' }, 'mixed')
 const normalizeInboundNetwork = (v: any) => mapEnum(v, { 1: 'tcp', 2: 'udp' }, 'udp')
 const normalizeOutboundType = (v: any) =>
-  mapEnum(v, { 1: 'direct', 2: 'block', 3: 'selector', 4: 'urltest' }, 'selector')
+  mapEnum(v, { 1: 'direct', 2: 'block', 3: 'selector', 4: 'urltest', 5: 'bridge' }, 'selector')
 const normalizeTunStack = (v: any) => mapEnum(v, { 1: 'system', 2: 'gvisor', 3: 'mixed' }, 'mixed')
 const normalizeRulesetType = (v: any) => mapEnum(v, { 1: 'inline', 2: 'local', 3: 'remote' }, 'inline')
 const normalizeRulesetFormat = (v: any) => mapEnum(v, { 1: 'source', 2: 'binary' }, 'source')

@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { GetInterfacesRequest, GetInterfacesResponse } from "./app_system_service_pb.js";
+import { GetInterfacesRequest, GetInterfacesResponse, GetPlatformRequest, GetPlatformResponse } from "./app_system_service_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -19,6 +19,15 @@ export const AppSystemService = {
       name: "GetInterfaces",
       I: GetInterfacesRequest,
       O: GetInterfacesResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc app.v1.AppSystemService.GetPlatform
+     */
+    getPlatform: {
+      name: "GetPlatform",
+      I: GetPlatformRequest,
+      O: GetPlatformResponse,
       kind: MethodKind.Unary,
     },
   }

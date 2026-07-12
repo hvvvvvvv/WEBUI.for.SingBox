@@ -36,11 +36,15 @@ const (
 	// AppSystemServiceGetInterfacesProcedure is the fully-qualified name of the AppSystemService's
 	// GetInterfaces RPC.
 	AppSystemServiceGetInterfacesProcedure = "/app.v1.AppSystemService/GetInterfaces"
+	// AppSystemServiceGetPlatformProcedure is the fully-qualified name of the AppSystemService's
+	// GetPlatform RPC.
+	AppSystemServiceGetPlatformProcedure = "/app.v1.AppSystemService/GetPlatform"
 )
 
 // AppSystemServiceClient is a client for the app.v1.AppSystemService service.
 type AppSystemServiceClient interface {
 	GetInterfaces(context.Context, *connect.Request[v1.GetInterfacesRequest]) (*connect.Response[v1.GetInterfacesResponse], error)
+	GetPlatform(context.Context, *connect.Request[v1.GetPlatformRequest]) (*connect.Response[v1.GetPlatformResponse], error)
 }
 
 // NewAppSystemServiceClient constructs a client for the app.v1.AppSystemService service. By
@@ -60,12 +64,19 @@ func NewAppSystemServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(appSystemServiceMethods.ByName("GetInterfaces")),
 			connect.WithClientOptions(opts...),
 		),
+		getPlatform: connect.NewClient[v1.GetPlatformRequest, v1.GetPlatformResponse](
+			httpClient,
+			baseURL+AppSystemServiceGetPlatformProcedure,
+			connect.WithSchema(appSystemServiceMethods.ByName("GetPlatform")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // appSystemServiceClient implements AppSystemServiceClient.
 type appSystemServiceClient struct {
 	getInterfaces *connect.Client[v1.GetInterfacesRequest, v1.GetInterfacesResponse]
+	getPlatform   *connect.Client[v1.GetPlatformRequest, v1.GetPlatformResponse]
 }
 
 // GetInterfaces calls app.v1.AppSystemService.GetInterfaces.
@@ -73,9 +84,15 @@ func (c *appSystemServiceClient) GetInterfaces(ctx context.Context, req *connect
 	return c.getInterfaces.CallUnary(ctx, req)
 }
 
+// GetPlatform calls app.v1.AppSystemService.GetPlatform.
+func (c *appSystemServiceClient) GetPlatform(ctx context.Context, req *connect.Request[v1.GetPlatformRequest]) (*connect.Response[v1.GetPlatformResponse], error) {
+	return c.getPlatform.CallUnary(ctx, req)
+}
+
 // AppSystemServiceHandler is an implementation of the app.v1.AppSystemService service.
 type AppSystemServiceHandler interface {
 	GetInterfaces(context.Context, *connect.Request[v1.GetInterfacesRequest]) (*connect.Response[v1.GetInterfacesResponse], error)
+	GetPlatform(context.Context, *connect.Request[v1.GetPlatformRequest]) (*connect.Response[v1.GetPlatformResponse], error)
 }
 
 // NewAppSystemServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -91,10 +108,18 @@ func NewAppSystemServiceHandler(svc AppSystemServiceHandler, opts ...connect.Han
 		connect.WithSchema(appSystemServiceMethods.ByName("GetInterfaces")),
 		connect.WithHandlerOptions(opts...),
 	)
+	appSystemServiceGetPlatformHandler := connect.NewUnaryHandler(
+		AppSystemServiceGetPlatformProcedure,
+		svc.GetPlatform,
+		connect.WithSchema(appSystemServiceMethods.ByName("GetPlatform")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/app.v1.AppSystemService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case AppSystemServiceGetInterfacesProcedure:
 			appSystemServiceGetInterfacesHandler.ServeHTTP(w, r)
+		case AppSystemServiceGetPlatformProcedure:
+			appSystemServiceGetPlatformHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -106,4 +131,8 @@ type UnimplementedAppSystemServiceHandler struct{}
 
 func (UnimplementedAppSystemServiceHandler) GetInterfaces(context.Context, *connect.Request[v1.GetInterfacesRequest]) (*connect.Response[v1.GetInterfacesResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.AppSystemService.GetInterfaces is not implemented"))
+}
+
+func (UnimplementedAppSystemServiceHandler) GetPlatform(context.Context, *connect.Request[v1.GetPlatformRequest]) (*connect.Response[v1.GetPlatformResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.AppSystemService.GetPlatform is not implemented"))
 }

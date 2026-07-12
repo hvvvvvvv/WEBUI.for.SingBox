@@ -29,6 +29,7 @@ export enum InboundNetwork {
 
 export enum Outbound {
   Direct = 'direct',
+  Bridge = 'bridge',
   Block = 'block',
   Selector = 'selector',
   Urltest = 'urltest',

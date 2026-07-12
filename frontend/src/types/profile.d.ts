@@ -77,6 +77,7 @@ interface IInbound {
     address: string[]
     mtu: number
     auto_route: boolean
+    auto_redirect: boolean
     strict_route: boolean
     route_address: string[]
     route_exclude_address: string[]
@@ -85,7 +86,7 @@ interface IInbound {
   }
 }
 
-type OutboundType = 'direct' | 'block' | 'selector' | 'urltest'
+type OutboundType = 'direct' | 'bridge' | 'block' | 'selector' | 'urltest'
 
 type RuleAction = 'route' | 'route-options' | 'reject' | 'hijack-dns' | 'sniff' | 'resolve' | 'inline'
 type DnsRuleAction = 'route' | 'route-options' | 'reject' | 'predefined' | 'inline'
@@ -104,6 +105,8 @@ interface IOutbound {
   exclude: string
   icon: string
   hidden: boolean
+  interface: string
+  bridge_name: string
 }
 
 type RuleType =

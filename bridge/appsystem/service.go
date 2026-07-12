@@ -33,3 +33,10 @@ func (s *Service) GetInterfaces(
 	}
 	return connect.NewResponse(&appv1.GetInterfacesResponse{Interfaces: interfaces}), nil
 }
+
+func (s *Service) GetPlatform(
+	_ context.Context,
+	_ *connect.Request[appv1.GetPlatformRequest],
+) (*connect.Response[appv1.GetPlatformResponse], error) {
+	return connect.NewResponse(&appv1.GetPlatformResponse{Os: s.platform.Environment().OS}), nil
+}

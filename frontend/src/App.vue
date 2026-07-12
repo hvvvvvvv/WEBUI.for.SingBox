@@ -66,6 +66,7 @@ const initApp = async () => {
     await Promise.all([
       appSettings.setupAppSettings(),
       appStore.setupAppVersion(),
+      appStore.setupPlatform(),
       appConfig.setupAppConfig(),
       profilesStore.setupProfiles(),
       subscribesStore.setupSubscribes(),

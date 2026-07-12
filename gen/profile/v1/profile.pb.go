@@ -200,6 +200,7 @@ const (
 	OutboundType_OUTBOUND_TYPE_BLOCK       OutboundType = 2
 	OutboundType_OUTBOUND_TYPE_SELECTOR    OutboundType = 3
 	OutboundType_OUTBOUND_TYPE_URLTEST     OutboundType = 4
+	OutboundType_OUTBOUND_TYPE_BRIDGE      OutboundType = 5
 )
 
 // Enum value maps for OutboundType.
@@ -210,6 +211,7 @@ var (
 		2: "OUTBOUND_TYPE_BLOCK",
 		3: "OUTBOUND_TYPE_SELECTOR",
 		4: "OUTBOUND_TYPE_URLTEST",
+		5: "OUTBOUND_TYPE_BRIDGE",
 	}
 	OutboundType_value = map[string]int32{
 		"OUTBOUND_TYPE_UNSPECIFIED": 0,
@@ -217,6 +219,7 @@ var (
 		"OUTBOUND_TYPE_BLOCK":       2,
 		"OUTBOUND_TYPE_SELECTOR":    3,
 		"OUTBOUND_TYPE_URLTEST":     4,
+		"OUTBOUND_TYPE_BRIDGE":      5,
 	}
 )
 
@@ -1418,6 +1421,7 @@ type TunInboundConfig struct {
 	RouteExcludeAddress    []string               `protobuf:"bytes,7,rep,name=route_exclude_address,json=routeExcludeAddress,proto3" json:"route_exclude_address,omitempty"`
 	EndpointIndependentNat bool                   `protobuf:"varint,8,opt,name=endpoint_independent_nat,json=endpointIndependentNat,proto3" json:"endpoint_independent_nat,omitempty"`
 	Stack                  TunStack               `protobuf:"varint,9,opt,name=stack,proto3,enum=profile.v1.TunStack" json:"stack,omitempty"`
+	AutoRedirect           bool                   `protobuf:"varint,10,opt,name=auto_redirect,json=autoRedirect,proto3" json:"auto_redirect,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -1513,6 +1517,13 @@ func (x *TunInboundConfig) GetStack() TunStack {
 		return x.Stack
 	}
 	return TunStack_TUN_STACK_UNSPECIFIED
+}
+
+func (x *TunInboundConfig) GetAutoRedirect() bool {
+	if x != nil {
+		return x.AutoRedirect
+	}
+	return false
 }
 
 type Inbound struct {
@@ -1637,6 +1648,8 @@ type Outbound struct {
 	Exclude                   string                 `protobuf:"bytes,10,opt,name=exclude,proto3" json:"exclude,omitempty"`
 	Icon                      string                 `protobuf:"bytes,11,opt,name=icon,proto3" json:"icon,omitempty"`
 	Hidden                    bool                   `protobuf:"varint,12,opt,name=hidden,proto3" json:"hidden,omitempty"`
+	Interface                 string                 `protobuf:"bytes,13,opt,name=interface,proto3" json:"interface,omitempty"`
+	BridgeName                string                 `protobuf:"bytes,14,opt,name=bridge_name,json=bridgeName,proto3" json:"bridge_name,omitempty"`
 	unknownFields             protoimpl.UnknownFields
 	sizeCache                 protoimpl.SizeCache
 }
@@ -1753,6 +1766,20 @@ func (x *Outbound) GetHidden() bool {
 		return x.Hidden
 	}
 	return false
+}
+
+func (x *Outbound) GetInterface() string {
+	if x != nil {
+		return x.Interface
+	}
+	return ""
+}
+
+func (x *Outbound) GetBridgeName() string {
+	if x != nil {
+		return x.BridgeName
+	}
+	return ""
 }
 
 type RouteRule struct {
@@ -2639,7 +2666,7 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\x05users\x18\x02 \x03(\tR\x05users\"~\n" +
 	"\x13DirectInboundConfig\x121\n" +
 	"\x06listen\x18\x01 \x01(\v2\x19.profile.v1.InboundListenR\x06listen\x124\n" +
-	"\anetwork\x18\x02 \x01(\x0e2\x1a.profile.v1.InboundNetworkR\anetwork\"\xe6\x02\n" +
+	"\anetwork\x18\x02 \x01(\x0e2\x1a.profile.v1.InboundNetworkR\anetwork\"\x8b\x03\n" +
 	"\x10TunInboundConfig\x12%\n" +
 	"\x0einterface_name\x18\x01 \x01(\tR\rinterfaceName\x12\x18\n" +
 	"\aaddress\x18\x02 \x03(\tR\aaddress\x12\x10\n" +
@@ -2650,7 +2677,9 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\rroute_address\x18\x06 \x03(\tR\frouteAddress\x122\n" +
 	"\x15route_exclude_address\x18\a \x03(\tR\x13routeExcludeAddress\x128\n" +
 	"\x18endpoint_independent_nat\x18\b \x01(\bR\x16endpointIndependentNat\x12*\n" +
-	"\x05stack\x18\t \x01(\x0e2\x14.profile.v1.TunStackR\x05stack\"\xf6\x02\n" +
+	"\x05stack\x18\t \x01(\x0e2\x14.profile.v1.TunStackR\x05stack\x12#\n" +
+	"\rauto_redirect\x18\n" +
+	" \x01(\bR\fautoRedirect\"\xf6\x02\n" +
 	"\aInbound\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12+\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x17.profile.v1.InboundTypeR\x04type\x12\x10\n" +
@@ -2660,7 +2689,7 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\x05socks\x18\x06 \x01(\v2\x1d.profile.v1.InboundUserConfigR\x05socks\x121\n" +
 	"\x04http\x18\a \x01(\v2\x1d.profile.v1.InboundUserConfigR\x04http\x12.\n" +
 	"\x03tun\x18\b \x01(\v2\x1c.profile.v1.TunInboundConfigR\x03tun\x127\n" +
-	"\x06direct\x18\t \x01(\v2\x1f.profile.v1.DirectInboundConfigR\x06direct\"\xfa\x02\n" +
+	"\x06direct\x18\t \x01(\v2\x1f.profile.v1.DirectInboundConfigR\x06direct\"\xb9\x03\n" +
 	"\bOutbound\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x10\n" +
 	"\x03tag\x18\x02 \x01(\tR\x03tag\x12,\n" +
@@ -2674,7 +2703,10 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\aexclude\x18\n" +
 	" \x01(\tR\aexclude\x12\x12\n" +
 	"\x04icon\x18\v \x01(\tR\x04icon\x12\x16\n" +
-	"\x06hidden\x18\f \x01(\bR\x06hidden\"\xbf\x02\n" +
+	"\x06hidden\x18\f \x01(\bR\x06hidden\x12\x1c\n" +
+	"\tinterface\x18\r \x01(\tR\tinterface\x12\x1f\n" +
+	"\vbridge_name\x18\x0e \x01(\tR\n" +
+	"bridgeName\"\xbf\x02\n" +
 	"\tRouteRule\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12(\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x14.profile.v1.RuleTypeR\x04type\x12\x16\n" +
@@ -2781,13 +2813,14 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\x0eInboundNetwork\x12\x1f\n" +
 	"\x1bINBOUND_NETWORK_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13INBOUND_NETWORK_TCP\x10\x01\x12\x17\n" +
-	"\x13INBOUND_NETWORK_UDP\x10\x02*\x97\x01\n" +
+	"\x13INBOUND_NETWORK_UDP\x10\x02*\xb1\x01\n" +
 	"\fOutboundType\x12\x1d\n" +
 	"\x19OUTBOUND_TYPE_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14OUTBOUND_TYPE_DIRECT\x10\x01\x12\x17\n" +
 	"\x13OUTBOUND_TYPE_BLOCK\x10\x02\x12\x1a\n" +
 	"\x16OUTBOUND_TYPE_SELECTOR\x10\x03\x12\x19\n" +
-	"\x15OUTBOUND_TYPE_URLTEST\x10\x04*f\n" +
+	"\x15OUTBOUND_TYPE_URLTEST\x10\x04\x12\x18\n" +
+	"\x14OUTBOUND_TYPE_BRIDGE\x10\x05*f\n" +
 	"\bTunStack\x12\x19\n" +
 	"\x15TUN_STACK_UNSPECIFIED\x10\x00\x12\x14\n" +
 	"\x10TUN_STACK_SYSTEM\x10\x01\x12\x14\n" +

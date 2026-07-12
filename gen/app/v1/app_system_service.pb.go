@@ -101,6 +101,86 @@ func (x *GetInterfacesResponse) GetInterfaces() []string {
 	return nil
 }
 
+type GetPlatformRequest struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPlatformRequest) Reset() {
+	*x = GetPlatformRequest{}
+	mi := &file_app_v1_app_system_service_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPlatformRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPlatformRequest) ProtoMessage() {}
+
+func (x *GetPlatformRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_app_v1_app_system_service_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPlatformRequest.ProtoReflect.Descriptor instead.
+func (*GetPlatformRequest) Descriptor() ([]byte, []int) {
+	return file_app_v1_app_system_service_proto_rawDescGZIP(), []int{2}
+}
+
+type GetPlatformResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Os            string                 `protobuf:"bytes,1,opt,name=os,proto3" json:"os,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetPlatformResponse) Reset() {
+	*x = GetPlatformResponse{}
+	mi := &file_app_v1_app_system_service_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetPlatformResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetPlatformResponse) ProtoMessage() {}
+
+func (x *GetPlatformResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_app_v1_app_system_service_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetPlatformResponse.ProtoReflect.Descriptor instead.
+func (*GetPlatformResponse) Descriptor() ([]byte, []int) {
+	return file_app_v1_app_system_service_proto_rawDescGZIP(), []int{3}
+}
+
+func (x *GetPlatformResponse) GetOs() string {
+	if x != nil {
+		return x.Os
+	}
+	return ""
+}
+
 var File_app_v1_app_system_service_proto protoreflect.FileDescriptor
 
 const file_app_v1_app_system_service_proto_rawDesc = "" +
@@ -110,9 +190,13 @@ const file_app_v1_app_system_service_proto_rawDesc = "" +
 	"\x15GetInterfacesResponse\x12\x1e\n" +
 	"\n" +
 	"interfaces\x18\x01 \x03(\tR\n" +
-	"interfaces2`\n" +
+	"interfaces\"\x14\n" +
+	"\x12GetPlatformRequest\"%\n" +
+	"\x13GetPlatformResponse\x12\x0e\n" +
+	"\x02os\x18\x01 \x01(\tR\x02os2\xa8\x01\n" +
 	"\x10AppSystemService\x12L\n" +
-	"\rGetInterfaces\x12\x1c.app.v1.GetInterfacesRequest\x1a\x1d.app.v1.GetInterfacesResponseBz\n" +
+	"\rGetInterfaces\x12\x1c.app.v1.GetInterfacesRequest\x1a\x1d.app.v1.GetInterfacesResponse\x12F\n" +
+	"\vGetPlatform\x12\x1a.app.v1.GetPlatformRequest\x1a\x1b.app.v1.GetPlatformResponseBz\n" +
 	"\n" +
 	"com.app.v1B\x15AppSystemServiceProtoP\x01Z\x1cguiforcores/gen/app/v1;appv1\xa2\x02\x03AXX\xaa\x02\x06App.V1\xca\x02\x06App\\V1\xe2\x02\x12App\\V1\\GPBMetadata\xea\x02\aApp::V1b\x06proto3"
 
@@ -128,16 +212,20 @@ func file_app_v1_app_system_service_proto_rawDescGZIP() []byte {
 	return file_app_v1_app_system_service_proto_rawDescData
 }
 
-var file_app_v1_app_system_service_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_app_v1_app_system_service_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_app_v1_app_system_service_proto_goTypes = []any{
 	(*GetInterfacesRequest)(nil),  // 0: app.v1.GetInterfacesRequest
 	(*GetInterfacesResponse)(nil), // 1: app.v1.GetInterfacesResponse
+	(*GetPlatformRequest)(nil),    // 2: app.v1.GetPlatformRequest
+	(*GetPlatformResponse)(nil),   // 3: app.v1.GetPlatformResponse
 }
 var file_app_v1_app_system_service_proto_depIdxs = []int32{
 	0, // 0: app.v1.AppSystemService.GetInterfaces:input_type -> app.v1.GetInterfacesRequest
-	1, // 1: app.v1.AppSystemService.GetInterfaces:output_type -> app.v1.GetInterfacesResponse
-	1, // [1:2] is the sub-list for method output_type
-	0, // [0:1] is the sub-list for method input_type
+	2, // 1: app.v1.AppSystemService.GetPlatform:input_type -> app.v1.GetPlatformRequest
+	1, // 2: app.v1.AppSystemService.GetInterfaces:output_type -> app.v1.GetInterfacesResponse
+	3, // 3: app.v1.AppSystemService.GetPlatform:output_type -> app.v1.GetPlatformResponse
+	2, // [2:4] is the sub-list for method output_type
+	0, // [0:2] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name
@@ -154,7 +242,7 @@ func file_app_v1_app_system_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_app_v1_app_system_service_proto_rawDesc), len(file_app_v1_app_system_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

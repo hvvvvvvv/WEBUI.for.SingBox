@@ -8,6 +8,11 @@ export const GetInterfaces = async () => {
   return interfaces
 }
 
+export const GetPlatform = async () => {
+  const { os } = await appSystemService.getPlatform({})
+  return os
+}
+
 export const Notify = async (title: string, body: string) => {
   if (!('Notification' in window)) {
     throw new Error('Notifications not available in this browser')

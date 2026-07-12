@@ -296,6 +296,16 @@ subscribesStore.subscribes.forEach(async ({ id, name, proxies }) => {
     <template v-if="Outbound.Direct === fields.type || Outbound.Block === fields.type">
       <Empty :description="t('kernel.outbounds.directDesc')" />
     </template>
+    <template v-else-if="Outbound.Bridge === fields.type">
+      <div class="form-item">
+        {{ t('kernel.outbounds.interface') }}
+        <InterfaceSelect v-model="fields.interface" clearable />
+      </div>
+      <div class="form-item">
+        {{ t('kernel.outbounds.bridge_name') }}
+        <Input v-model="fields.bridge_name" placeholder="bridge" />
+      </div>
+    </template>
     <template v-else-if="fields.type === Outbound.Urltest">
       <div class="form-item">
         {{ t('kernel.outbounds.url') }}

@@ -117,6 +117,7 @@ export const DefaultInboundTun = (): NonNullable<IInbound['tun']> => ({
   address: ['172.18.0.1/30', 'fdfe:dcba:9876::1/126'],
   mtu: 0,
   auto_route: true,
+  auto_redirect: false,
   strict_route: true,
   route_address: [],
   route_exclude_address: [],
@@ -154,6 +155,8 @@ export const DefaultOutbound = (): IOutbound => ({
   exclude: '',
   icon: '',
   hidden: false,
+  interface: '',
+  bridge_name: '',
 })
 
 export const DefaultOutbounds = (): IOutbound[] => [
@@ -170,6 +173,8 @@ export const DefaultOutbounds = (): IOutbound[] => [
     exclude: '',
     icon: '',
     hidden: false,
+    interface: '',
+    bridge_name: '',
   },
   {
     id: DefaultOutboundIds.Urltest,
@@ -184,6 +189,8 @@ export const DefaultOutbounds = (): IOutbound[] => [
     exclude: '',
     icon: '',
     hidden: false,
+    interface: '',
+    bridge_name: '',
   },
   {
     id: DefaultOutboundIds.Direct,
@@ -201,6 +208,8 @@ export const DefaultOutbounds = (): IOutbound[] => [
     exclude: '',
     icon: '',
     hidden: false,
+    interface: '',
+    bridge_name: '',
   },
   {
     id: DefaultOutboundIds.Block,
@@ -218,6 +227,8 @@ export const DefaultOutbounds = (): IOutbound[] => [
     exclude: '',
     icon: '',
     hidden: false,
+    interface: '',
+    bridge_name: '',
   },
   {
     id: DefaultOutboundIds.Fallback,
@@ -235,6 +246,8 @@ export const DefaultOutbounds = (): IOutbound[] => [
     exclude: '',
     icon: '',
     hidden: false,
+    interface: '',
+    bridge_name: '',
   },
   {
     id: DefaultOutboundIds.Global,
@@ -255,6 +268,8 @@ export const DefaultOutbounds = (): IOutbound[] => [
     exclude: '',
     icon: '',
     hidden: false,
+    interface: '',
+    bridge_name: '',
   },
 ]
 

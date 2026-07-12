@@ -133,6 +133,7 @@ const restoreInbounds = (inbounds: Recordable[], InboundsIds: Recordable): IInbo
         address: raw.address ?? template.address,
         mtu: raw.mtu ?? template.mtu,
         auto_route: raw.auto_route ?? template.auto_route,
+        auto_redirect: raw.auto_redirect ?? template.auto_redirect,
         strict_route: raw.strict_route ?? template.strict_route,
         route_address: raw.route_address ?? template.route_address,
         route_exclude_address: raw.route_exclude_address ?? template.route_exclude_address,
@@ -203,6 +204,15 @@ const restoreOutbounds = (
   })
 
   return outbounds.flatMap((raw) => {
+    if (raw.type === Outbound.Bridge) {
+      const outbound = Defaults.DefaultOutbound()
+      outbound.id = OutboundsIds[raw.tag]
+      outbound.tag = raw.tag
+      outbound.type = Outbound.Bridge
+      outbound.interface = raw.interface ?? ''
+      outbound.bridge_name = raw.bridge_name ?? ''
+      return outbound
+    }
     if (![Outbound.Selector, Outbound.Urltest].includes(raw.type)) {
       return []
     }

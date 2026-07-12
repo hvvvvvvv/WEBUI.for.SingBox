@@ -10,6 +10,13 @@ message GetInterfacesResponse {
   repeated string interfaces = 1;
 }
 
+message GetPlatformRequest {}
+
+message GetPlatformResponse {
+  string os = 1;
+}
+
 service AppSystemService {
   rpc GetInterfaces(GetInterfacesRequest) returns (GetInterfacesResponse);
+  rpc GetPlatform(GetPlatformRequest) returns (GetPlatformResponse);
 }

@@ -11,11 +11,13 @@ import {
   DefaultInboundTun,
 } from '@/constant/profile'
 import { Inbound } from '@/enums/kernel'
+import { useAppStore } from '@/stores'
 import { picker, sampleID } from '@/utils'
 
 const model = defineModel<IProfile['inbounds']>({ required: true })
 
 const { t } = useI18n()
+const appStore = useAppStore()
 
 const handleDelete = (index: number) => {
   model.value.splice(index, 1)
@@ -188,6 +190,10 @@ defineExpose({ handleAdd })
         <div class="form-item">
           {{ t('kernel.inbounds.tun.auto_route') }}
           <Switch v-model="inbound.tun.auto_route" />
+        </div>
+        <div v-if="appStore.platformOS === 'linux' && inbound.tun.auto_route" class="form-item">
+          {{ t('kernel.inbounds.tun.auto_redirect') }}
+          <Switch v-model="inbound.tun.auto_redirect" />
         </div>
         <div class="form-item">
           {{ t('kernel.inbounds.tun.strict_route') }}
