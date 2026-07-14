@@ -166,6 +166,10 @@ defineExpose({ modalSlots })
           <Switch v-model="sub.inSecure" />
         </div>
         <div class="form-item">
+          {{ t('subscribe.enableNodeConversion') }}
+          <Switch v-model="sub.enableNodeConversion" />
+        </div>
+        <div class="form-item">
           {{ t('subscribe.requestTimeout') }}
           <Input v-model="sub.requestTimeout" type="number" :min="3" :max="180" />
         </div>

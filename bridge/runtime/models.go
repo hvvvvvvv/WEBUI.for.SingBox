@@ -12,29 +12,30 @@ type subscriptionHeader struct {
 }
 
 type subscription struct {
-	ID              string             `json:"id" yaml:"id"`
-	Name            string             `json:"name" yaml:"name"`
-	Upload          int64              `json:"upload" yaml:"upload"`
-	Download        int64              `json:"download" yaml:"download"`
-	Total           int64              `json:"total" yaml:"total"`
-	Expire          int64              `json:"expire" yaml:"expire"`
-	UpdateTime      int64              `json:"updateTime" yaml:"updateTime"`
-	Type            string             `json:"type" yaml:"type"`
-	URL             string             `json:"url" yaml:"url"`
-	Website         string             `json:"website" yaml:"website"`
-	Include         string             `json:"include" yaml:"include"`
-	Exclude         string             `json:"exclude" yaml:"exclude"`
-	IncludeProtocol string             `json:"includeProtocol" yaml:"includeProtocol"`
-	ExcludeProtocol string             `json:"excludeProtocol" yaml:"excludeProtocol"`
-	ProxyPrefix     string             `json:"proxyPrefix" yaml:"proxyPrefix"`
-	Disabled        bool               `json:"disabled" yaml:"disabled"`
-	InSecure        bool               `json:"inSecure" yaml:"inSecure"`
-	RequestMethod   string             `json:"requestMethod" yaml:"requestMethod"`
-	RequestTimeout  int                `json:"requestTimeout" yaml:"requestTimeout"`
-	Header          subscriptionHeader `json:"header" yaml:"header"`
-	Proxies         []proxyRef         `json:"proxies" yaml:"proxies"`
-	Script          string             `json:"script" yaml:"script"`
-	Updating        bool               `json:"updating,omitempty" yaml:"-"`
+	ID                   string             `json:"id" yaml:"id"`
+	Name                 string             `json:"name" yaml:"name"`
+	Upload               int64              `json:"upload" yaml:"upload"`
+	Download             int64              `json:"download" yaml:"download"`
+	Total                int64              `json:"total" yaml:"total"`
+	Expire               int64              `json:"expire" yaml:"expire"`
+	UpdateTime           int64              `json:"updateTime" yaml:"updateTime"`
+	Type                 string             `json:"type" yaml:"type"`
+	URL                  string             `json:"url" yaml:"url"`
+	Website              string             `json:"website" yaml:"website"`
+	Include              string             `json:"include" yaml:"include"`
+	Exclude              string             `json:"exclude" yaml:"exclude"`
+	IncludeProtocol      string             `json:"includeProtocol" yaml:"includeProtocol"`
+	ExcludeProtocol      string             `json:"excludeProtocol" yaml:"excludeProtocol"`
+	ProxyPrefix          string             `json:"proxyPrefix" yaml:"proxyPrefix"`
+	Disabled             bool               `json:"disabled" yaml:"disabled"`
+	InSecure             bool               `json:"inSecure" yaml:"inSecure"`
+	EnableNodeConversion bool               `json:"enableNodeConversion" yaml:"enableNodeConversion"`
+	RequestMethod        string             `json:"requestMethod" yaml:"requestMethod"`
+	RequestTimeout       int                `json:"requestTimeout" yaml:"requestTimeout"`
+	Header               subscriptionHeader `json:"header" yaml:"header"`
+	Proxies              []proxyRef         `json:"proxies" yaml:"proxies"`
+	Script               string             `json:"script" yaml:"script"`
+	Updating             bool               `json:"updating,omitempty" yaml:"-"`
 }
 
 type ruleset struct {

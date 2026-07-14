@@ -117,6 +117,7 @@ export interface Subscription {
   proxyPrefix: string
   disabled: boolean
   inSecure: boolean
+  enableNodeConversion: boolean
   proxies: { id: string; tag: string; type: string }[]
   requestMethod: RequestMethod
   requestTimeout: number

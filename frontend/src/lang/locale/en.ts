@@ -402,6 +402,7 @@ export default {
     updating: 'Updating',
     useragent: 'User-Agent',
     inSecure: 'Skip TLS Verification',
+    enableNodeConversion: 'Enable Node Conversion',
     requestMethod: 'Request Method',
     requestTimeout: 'Request Timeout (seconds)',
     header: {

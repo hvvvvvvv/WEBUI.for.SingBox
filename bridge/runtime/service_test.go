@@ -6,10 +6,12 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 	"time"
 
+	"guiforcores/bridge/config"
 	"guiforcores/bridge/storage"
 	appv1 "guiforcores/gen/app/v1"
 
@@ -48,6 +50,104 @@ func TestNextCronRunsCoalescesWildcardSecondsPerMinute(t *testing.T) {
 	}
 	if second.Sub(first) < time.Hour-time.Minute {
 		t.Fatalf("expected wildcard seconds to be coalesced per matching minute, got %s then %s", first, second)
+	}
+}
+
+func TestSubscriptionRequestUserAgentPriority(t *testing.T) {
+	tests := []struct {
+		name              string
+		requestHeaders    map[string]string
+		defaultUserAgent  string
+		expectedUserAgent string
+	}{
+		{
+			name:              "subscription user agent takes priority",
+			requestHeaders:    map[string]string{"User-Agent": "Subscription/1.0"},
+			defaultUserAgent:  "Global/1.0",
+			expectedUserAgent: "Subscription/1.0",
+		},
+		{
+			name:              "global user agent is the fallback",
+			requestHeaders:    map[string]string{},
+			defaultUserAgent:  "Global/1.0",
+			expectedUserAgent: "Global/1.0",
+		},
+		{
+			name:              "subscription header is case insensitive",
+			requestHeaders:    map[string]string{"user-agent": "Lowercase/1.0"},
+			defaultUserAgent:  "Global/1.0",
+			expectedUserAgent: "Lowercase/1.0",
+		},
+		{
+			name:              "blank subscription user agent uses global fallback",
+			requestHeaders:    map[string]string{"USER-AGENT": "  "},
+			defaultUserAgent:  "Global/1.0",
+			expectedUserAgent: "Global/1.0",
+		},
+		{
+			name:              "http client default is the final fallback",
+			requestHeaders:    map[string]string{"User-Agent": "  "},
+			defaultUserAgent:  "  ",
+			expectedUserAgent: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			withTempBasePath(t)
+			previousRequest := subscriptionHTTPRequest
+			actualUserAgent := ""
+			subscriptionHTTPRequest = func(method string, rawURL string, headers map[string]string, body string, insecure bool, timeoutSeconds int) (*http.Response, string, error) {
+				requestHeader := make(http.Header, len(headers))
+				for key, value := range headers {
+					requestHeader.Set(key, value)
+				}
+				actualUserAgent = requestHeader.Get("User-Agent")
+				return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header)}, `{"outbounds":[{"type":"direct","tag":"direct"}]}`, nil
+			}
+			defer func() {
+				subscriptionHTTPRequest = previousRequest
+			}()
+
+			requestHeaders := make(map[string]string, len(tt.requestHeaders))
+			for key, value := range tt.requestHeaders {
+				requestHeaders[key] = value
+			}
+			if err := saveSubscriptions([]subscription{{
+				ID:   "http-subscription",
+				Name: "HTTP subscription",
+				Type: "Http",
+				URL:  "https://example.com/subscription",
+				Header: subscriptionHeader{
+					Request: requestHeaders,
+				},
+			}}); err != nil {
+				t.Fatal(err)
+			}
+
+			service := &appRuntimeService{
+				config: staticAppConfig{value: config.AppConfig{UserAgent: tt.defaultUserAgent}},
+			}
+			if _, err := service.UpdateSubscription(context.Background(), connect.NewRequest(&appv1.UpdateSubscriptionRequest{
+				Id: "http-subscription",
+			})); err != nil {
+				t.Fatal(err)
+			}
+
+			if actualUserAgent != tt.expectedUserAgent {
+				t.Fatalf("expected user agent %q, got %q", tt.expectedUserAgent, actualUserAgent)
+			}
+			items, err := loadSubscriptions()
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(items) != 1 {
+				t.Fatalf("expected one subscription, got %d", len(items))
+			}
+			if !reflect.DeepEqual(items[0].Header.Request, tt.requestHeaders) {
+				t.Fatalf("subscription request headers were modified: got %#v, want %#v", items[0].Header.Request, tt.requestHeaders)
+			}
+		})
 	}
 }
 
@@ -208,6 +308,65 @@ func TestSubscriptionSourceTypeValidationAllowsHttpAndManual(t *testing.T) {
 		})); err != nil {
 			t.Fatalf("expected supported subscription type, got %v", err)
 		}
+	}
+}
+
+func TestSubscriptionNodeConversionFieldDefaultsAndRoundTrips(t *testing.T) {
+	withTempBasePath(t)
+	service := newAppRuntimeService(nil, nil)
+
+	upsert := func(raw string) subscription {
+		t.Helper()
+		response, err := service.UpsertSubscription(context.Background(), connect.NewRequest(&appv1.UpsertSubscriptionRequest{
+			SubscriptionJson: raw,
+		}))
+		if err != nil {
+			t.Fatal(err)
+		}
+		var item subscription
+		if err := json.Unmarshal([]byte(response.Msg.GetSubscriptionJson()), &item); err != nil {
+			t.Fatal(err)
+		}
+		return item
+	}
+
+	missing := upsert(`{"id":"missing","name":"Missing","type":"Http","url":"https://example.com/sub"}`)
+	if missing.EnableNodeConversion {
+		t.Fatal("missing enableNodeConversion field must default to false")
+	}
+
+	enabled := upsert(`{"id":"enabled","name":"Enabled","type":"Http","url":"https://example.com/sub","enableNodeConversion":true}`)
+	if !enabled.EnableNodeConversion {
+		t.Fatal("explicit enableNodeConversion=true was not preserved")
+	}
+
+	disabled := upsert(`{"id":"disabled","name":"Disabled","type":"Http","url":"https://example.com/sub","enableNodeConversion":false}`)
+	if disabled.EnableNodeConversion {
+		t.Fatal("explicit enableNodeConversion=false was not preserved")
+	}
+
+	items, err := loadSubscriptions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	values := make(map[string]bool, len(items))
+	for _, item := range items {
+		values[item.ID] = item.EnableNodeConversion
+	}
+	if values["missing"] || !values["enabled"] || values["disabled"] {
+		t.Fatalf("persisted node conversion values = %#v", values)
+	}
+
+	legacyYAML := "- id: legacy\n  name: Legacy\n  type: Http\n  url: https://example.com/sub\n"
+	if err := os.WriteFile(GetPath(subscriptionsFilePath), []byte(legacyYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+	legacy, err := loadSubscriptions()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(legacy) != 1 || legacy[0].EnableNodeConversion {
+		t.Fatalf("legacy subscription without field = %#v, want conversion disabled", legacy)
 	}
 }
 

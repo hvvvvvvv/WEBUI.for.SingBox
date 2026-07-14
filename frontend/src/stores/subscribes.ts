@@ -128,6 +128,7 @@ export const useSubscribesStore = defineStore('subscribes', () => {
       proxyPrefix: '',
       disabled: false,
       inSecure: false,
+      enableNodeConversion: true,
       requestMethod: RequestMethod.Get,
       requestTimeout: 15,
       header: {

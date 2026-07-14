@@ -401,6 +401,7 @@ export default {
     updating: '更新中',
     useragent: '用户代理',
     inSecure: '跳过证书验证',
+    enableNodeConversion: '启用节点转换',
     requestMethod: '请求方式',
     requestTimeout: '请求超时时间(秒)',
     header: {

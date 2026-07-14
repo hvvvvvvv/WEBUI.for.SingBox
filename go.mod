@@ -6,6 +6,7 @@ require (
 	github.com/gorilla/websocket v1.5.3
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/shirou/gopsutil/v3 v3.24.5
+	github.com/titanous/json5 v1.0.0
 	golang.org/x/sys v0.41.0
 	golang.org/x/text v0.34.0
 	gopkg.in/yaml.v3 v3.0.1

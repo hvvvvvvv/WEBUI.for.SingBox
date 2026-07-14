@@ -3,8 +3,8 @@ package runtime
 import (
 	"context"
 	"crypto/tls"
-	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,6 +37,7 @@ const (
 	scheduledTasksPath           = "data/scheduledtasks.yaml"
 	scheduledTaskLogsPath        = "data/scheduledtasklogs.yaml"
 	defaultScheduledTaskLogLimit = 20
+	maxSubscriptionBodyBytes     = 32 << 20
 	rulesetHubPath               = "data/.cache/ruleset-list.json"
 	defaultSourceRuleSetContent  = `{"version":2,"rules":[]}`
 )
@@ -79,6 +80,10 @@ type Service = appRuntimeService
 var runtimePaths atomic.Pointer[storage.Paths]
 
 var ruleSetHubHTTPRequest = httpRequest
+var (
+	errHTTPResponseTooLarge = errors.New("HTTP response body exceeds the allowed size")
+	subscriptionHTTPRequest = subscriptionHTTPCall
+)
 
 func setRuntimePaths(paths *storage.Paths) {
 	runtimePaths.Store(paths)
@@ -892,22 +897,6 @@ func taskResult(ok bool, id string, name string, result string) *appv1.TaskResul
 	return &appv1.TaskResult{Ok: ok, Id: id, Name: name, Result: result}
 }
 
-func normalizeBase64(s string) string {
-	normalized := strings.NewReplacer("\n", "", "\r", "", "\t", "", " ", "", "-", "+", "_", "/").Replace(s)
-	if m := len(normalized) % 4; m != 0 {
-		normalized += strings.Repeat("=", 4-m)
-	}
-	return normalized
-}
-
-func isValidBase64Payload(s string) bool {
-	if strings.TrimSpace(s) == "" {
-		return false
-	}
-	_, err := base64.StdEncoding.DecodeString(normalizeBase64(s))
-	return err == nil
-}
-
 func parseUserInfo(header string) map[string]int64 {
 	out := map[string]int64{}
 	for _, part := range strings.Split(header, ";") {
@@ -927,18 +916,28 @@ func readText(path string) (string, error) {
 }
 
 func httpRequest(method string, rawURL string, headers map[string]string, body string, insecure bool, timeoutSeconds int) (*http.Response, string, error) {
+	return httpRequestWithLimit(method, rawURL, headers, body, insecure, timeoutSeconds, 0)
+}
+
+func subscriptionHTTPCall(method string, rawURL string, headers map[string]string, body string, insecure bool, timeoutSeconds int) (*http.Response, string, error) {
+	return httpRequestWithLimit(method, rawURL, headers, body, insecure, timeoutSeconds, maxSubscriptionBodyBytes)
+}
+
+func httpRequestWithLimit(method string, rawURL string, headers map[string]string, body string, insecure bool, timeoutSeconds int, maxBodyBytes int64) (*http.Response, string, error) {
 	if method == "" {
 		method = http.MethodGet
 	}
 	timeout := platform.GetTimeout(timeoutSeconds)
-	client := &http.Client{
-		Timeout: timeout,
-		Transport: &http.Transport{
-			Proxy: platform.GetProxy(""),
-			TLSClientConfig: &tls.Config{
-				InsecureSkipVerify: insecure,
-			},
+	transport := &http.Transport{
+		Proxy: platform.GetProxy(""),
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: insecure,
 		},
+	}
+	defer transport.CloseIdleConnections()
+	client := &http.Client{
+		Timeout:   timeout,
+		Transport: transport,
 	}
 	req, err := http.NewRequest(method, rawURL, strings.NewReader(body))
 	if err != nil {
@@ -952,11 +951,22 @@ func httpRequest(method string, rawURL string, headers map[string]string, body s
 		return nil, "", err
 	}
 	defer resp.Body.Close()
-	data, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return resp, "", err
+	data, err := readHTTPBody(resp.Body, maxBodyBytes)
+	return resp, data, err
+}
+
+func readHTTPBody(reader io.Reader, maxBodyBytes int64) (string, error) {
+	if maxBodyBytes > 0 {
+		reader = io.LimitReader(reader, maxBodyBytes+1)
 	}
-	return resp, string(data), nil
+	data, err := io.ReadAll(reader)
+	if err != nil {
+		return "", err
+	}
+	if maxBodyBytes > 0 && int64(len(data)) > maxBodyBytes {
+		return "", errHTTPResponseTooLarge
+	}
+	return string(data), nil
 }
 
 func compileSmartRegexp(expr string) (*regexp.Regexp, error) {
@@ -1026,7 +1036,28 @@ func runSubscribeScript(script string, proxies []map[string]any, sub subscriptio
 	return result.Proxies, result.Subscription, nil
 }
 
-func updateSubscriptionAt(items []subscription, idx int) (*appv1.TaskResult, bool) {
+func subscriptionRequestHeaders(headers map[string]string, defaultUserAgent string) map[string]string {
+	result := make(map[string]string, len(headers)+1)
+	userAgent := ""
+	for key, value := range headers {
+		if strings.EqualFold(key, "User-Agent") {
+			if userAgent == "" && strings.TrimSpace(value) != "" {
+				userAgent = value
+			}
+			continue
+		}
+		result[key] = value
+	}
+	if userAgent == "" && strings.TrimSpace(defaultUserAgent) != "" {
+		userAgent = defaultUserAgent
+	}
+	if userAgent != "" {
+		result["User-Agent"] = userAgent
+	}
+	return result
+}
+
+func updateSubscriptionAt(items []subscription, idx int, defaultUserAgent string) (*appv1.TaskResult, bool) {
 	sub := &items[idx]
 	if sub.Disabled {
 		return taskResult(false, sub.ID, sub.Name, sub.Name+" Disabled"), false
@@ -1039,10 +1070,20 @@ func updateSubscriptionAt(items []subscription, idx int) (*appv1.TaskResult, boo
 	case "Manual":
 		body, err = readText(subscriptionContentPath(sub.ID))
 	case "Http":
-		resp, text, reqErr := httpRequest(sub.RequestMethod, sub.URL, sub.Header.Request, "", sub.InSecure, sub.RequestTimeout)
-		err = reqErr
+		headers := subscriptionRequestHeaders(sub.Header.Request, defaultUserAgent)
+		resp, text, reqErr := subscriptionHTTPRequest(sub.RequestMethod, sub.URL, headers, "", sub.InSecure, sub.RequestTimeout)
+		switch {
+		case errors.Is(reqErr, errHTTPResponseTooLarge):
+			err = errHTTPResponseTooLarge
+		case reqErr != nil:
+			err = errors.New("subscription request failed")
+		case resp == nil:
+			err = errors.New("subscription request returned no response")
+		case resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices:
+			err = fmt.Errorf("subscription request returned HTTP status %d", resp.StatusCode)
+		}
 		body = text
-		if resp != nil {
+		if err == nil && resp != nil {
 			for key, value := range sub.Header.Response {
 				resp.Header.Set(key, value)
 			}
@@ -1057,47 +1098,11 @@ func updateSubscriptionAt(items []subscription, idx int) (*appv1.TaskResult, boo
 		return taskResult(false, sub.ID, sub.Name, fmt.Sprintf("Failed to update subscription [%s]. Reason: %v", sub.Name, err)), false
 	}
 
-	var proxies []map[string]any
-	var parsed map[string]any
-	if json.Unmarshal([]byte(body), &parsed) == nil {
-		if arr, ok := parsed["outbounds"].([]any); ok {
-			for _, item := range arr {
-				if obj, ok := item.(map[string]any); ok {
-					proxies = append(proxies, obj)
-				}
-			}
-		} else if sub.Type == "Manual" {
-			var manual []map[string]any
-			if err := json.Unmarshal([]byte(body), &manual); err == nil {
-				proxies = manual
-			}
-		}
+	parseResult, err := parseSubscriptionBody(body, sub.Type, sub.EnableNodeConversion)
+	if err != nil {
+		return taskResult(false, sub.ID, sub.Name, fmt.Sprintf("Failed to update subscription [%s]. Reason: %v", sub.Name, err)), false
 	}
-	if proxies == nil {
-		var yamlObj map[string]any
-		if yaml.Unmarshal([]byte(body), &yamlObj) == nil {
-			if arr, ok := yamlObj["proxies"].([]any); ok {
-				for _, item := range arr {
-					if obj, ok := item.(map[string]any); ok {
-						proxies = append(proxies, obj)
-					}
-				}
-			}
-		}
-	}
-	if proxies == nil && isValidBase64Payload(body) {
-		return taskResult(false, sub.ID, sub.Name, "Subscription data must be converted to sing-box outbound format before import"), false
-	}
-	if proxies == nil {
-		return taskResult(false, sub.ID, sub.Name, fmt.Sprintf("Failed to update subscription [%s]. Reason: Not a valid subscription data", sub.Name)), false
-	}
-	for _, proxy := range proxies {
-		if _, hasName := proxy["name"]; hasName {
-			if _, hasTag := proxy["tag"]; !hasTag {
-				return taskResult(false, sub.ID, sub.Name, "Subscription data must be converted to sing-box outbound format before import"), false
-			}
-		}
-	}
+	proxies := parseResult.proxies
 
 	if sub.Type != "Manual" {
 		include, err := compileSmartRegexp(sub.Include)
@@ -1168,7 +1173,15 @@ func updateSubscriptionAt(items []subscription, idx int) (*appv1.TaskResult, boo
 		}
 	}
 
-	return taskResult(true, sub.ID, sub.Name, fmt.Sprintf("Subscription [%s] updated successfully.", sub.Name)), true
+	message := fmt.Sprintf("Subscription [%s] updated successfully.", sub.Name)
+	if parseResult.usedFallback {
+		message = fmt.Sprintf("Subscription [%s] updated successfully. Imported %d proxies", sub.Name, len(processedProxies))
+		if parseResult.skipped > 0 {
+			message += fmt.Sprintf("; skipped %d invalid or unsupported proxies", parseResult.skipped)
+		}
+		message += "."
+	}
+	return taskResult(true, sub.ID, sub.Name, message), true
 }
 
 func countRules(value any) int {
@@ -1286,9 +1299,10 @@ func (s *appRuntimeService) updateSubscription(id string) ([]*appv1.TaskResult, 
 	if err != nil {
 		return nil, err
 	}
+	defaultUserAgent := s.config.Current().UserAgent
 	for i := range items {
 		if items[i].ID == id {
-			result, changed := updateSubscriptionAt(items, i)
+			result, changed := updateSubscriptionAt(items, i, defaultUserAgent)
 			if changed {
 				if err := saveSubscriptions(items); err != nil {
 					return nil, err
@@ -1306,13 +1320,14 @@ func (s *appRuntimeService) updateAllSubscriptions() ([]*appv1.TaskResult, error
 	if err != nil {
 		return nil, err
 	}
+	defaultUserAgent := s.config.Current().UserAgent
 	results := make([]*appv1.TaskResult, 0, len(items))
 	changed := false
 	for i := range items {
 		if items[i].Disabled {
 			continue
 		}
-		result, didChange := updateSubscriptionAt(items, i)
+		result, didChange := updateSubscriptionAt(items, i, defaultUserAgent)
 		results = append(results, result)
 		changed = changed || didChange
 	}
