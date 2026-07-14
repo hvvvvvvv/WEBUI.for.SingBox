@@ -20,7 +20,7 @@ func TestExecBackgroundCallsOnExit(t *testing.T) {
 	}
 	exited := make(chan exitResult, 1)
 	service := NewService(storage.NewPaths(t.TempDir()), nil, Environment{})
-	result := service.ExecBackground("/bin/sh", []string{"-c", "exit 7"}, "", "", ExecOptions{
+	result := service.ExecBackground("/bin/sh", []string{"-c", "exit 7"}, "", ExecOptions{
 		OnExit: func(pid int, err error) {
 			exited <- exitResult{pid: pid, err: err}
 		},

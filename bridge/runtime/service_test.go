@@ -808,6 +808,20 @@ func withTempBasePath(t *testing.T) {
 	})
 }
 
+type recordingRuntimeEvents struct {
+	events []struct {
+		name string
+		data []any
+	}
+}
+
+func (e *recordingRuntimeEvents) Publish(name string, data ...any) {
+	e.events = append(e.events, struct {
+		name string
+		data []any
+	}{name: name, data: data})
+}
+
 func TestTaskResultMetadataRoundTripsScheduledTaskStorage(t *testing.T) {
 	want := &appv1.TaskResult{
 		Ok:            false,
@@ -975,5 +989,44 @@ func TestRunScheduledTaskResponseEndTimeUpdatesLastTime(t *testing.T) {
 	}
 	if logs[0].EndTime != resp.Msg.GetEndTime() {
 		t.Fatalf("expected persisted log endTime to equal response endTime, got %d != %d", logs[0].EndTime, resp.Msg.GetEndTime())
+	}
+}
+
+func TestScheduledTaskFinishedOnlyPublishesForBackgroundRuns(t *testing.T) {
+	withTempBasePath(t)
+	if err := saveScheduledTasks([]scheduledTask{{
+		ID:       "task-1",
+		Name:     "Task",
+		Type:     scheduledTaskUpdateAllSubscription,
+		Cron:     "0 * * * * *",
+		LogLimit: 3,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	events := &recordingRuntimeEvents{}
+	service := NewService(nil, runtimePaths.Load(), staticAppConfig{}, events, nil)
+
+	if _, err := service.RunScheduledTask(context.Background(), connect.NewRequest(&appv1.RunScheduledTaskRequest{Id: "task-1"})); err != nil {
+		t.Fatal(err)
+	}
+	if len(events.events) != 0 {
+		t.Fatalf("manual run published completion events: %#v", events.events)
+	}
+
+	if _, err := service.runScheduledTask(context.Background(), "task-1", true); err != nil {
+		t.Fatal(err)
+	}
+	if len(events.events) != 1 || events.events[0].name != "scheduledTaskFinished" || len(events.events[0].data) != 1 || events.events[0].data[0] != "task-1" {
+		t.Fatalf("unexpected background completion event: %#v", events.events)
+	}
+
+	service.mu.Lock()
+	service.runningTask["task-1"] = true
+	service.mu.Unlock()
+	if _, err := service.runScheduledTask(context.Background(), "task-1", true); err != nil {
+		t.Fatal(err)
+	}
+	if len(events.events) != 2 || events.events[1].name != "scheduledTaskFinished" {
+		t.Fatalf("skipped background run did not publish completion: %#v", events.events)
 	}
 }

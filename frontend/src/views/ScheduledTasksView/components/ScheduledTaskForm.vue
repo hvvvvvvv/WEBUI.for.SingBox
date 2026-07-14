@@ -120,9 +120,12 @@ const onNotificationChange = async (v: boolean) => {
   if (v) {
     try {
       if (!(await IsNotificationAvailable())) {
-        throw 'Notifications not available on this platform'
+        throw t('scheduledtasks.notificationUnavailable')
       }
-      await RequestNotificationAuthorization()
+      const permission = await RequestNotificationAuthorization()
+      if (permission !== 'granted') {
+        throw t('scheduledtasks.notificationDenied')
+      }
     } catch (error: any) {
       task.value.notification = false
       message.warn(error)

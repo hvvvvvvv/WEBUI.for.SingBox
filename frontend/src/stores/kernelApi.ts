@@ -478,6 +478,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   })
 
   eventBus.on('subscriptionChange', ({ id }) => {
+    if (appConfigStore.config.autoRestartKernel) return
     if (running.value && profilesStore.currentProfile) {
       const inUse = profilesStore.currentProfile.outbounds.some(({ outbounds }) =>
         outbounds.some((outbound) => outbound.type === 'Subscription' && outbound.id === id),
@@ -489,6 +490,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   })
 
   eventBus.on('subscriptionsChange', () => {
+    if (appConfigStore.config.autoRestartKernel) return
     if (running.value && profilesStore.currentProfile) {
       const enabledSubs = subscribesStore.subscribes.flatMap((v) => (v.disabled ? [] : v.id))
       const inUse = profilesStore.currentProfile.outbounds.some(({ outbounds }) =>
@@ -511,6 +513,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   }
 
   eventBus.on('rulesetChange', ({ id }) => {
+    if (appConfigStore.config.autoRestartKernel) return
     if (running.value && profilesStore.currentProfile) {
       const inUse = profilesStore.currentProfile.route.rule_set.some(
         (ruleset) => ruleset.type === RulesetType.Local && ruleset.path === id,
@@ -522,6 +525,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   })
 
   eventBus.on('rulesetsChange', () => {
+    if (appConfigStore.config.autoRestartKernel) return
     if (running.value && profilesStore.currentProfile) {
       const enabledRulesets = rulesetsStore.rulesets.flatMap((v) => (v.disabled ? [] : v.id))
       const inUse = collectRulesetIDs().some((v) => enabledRulesets.includes(v))

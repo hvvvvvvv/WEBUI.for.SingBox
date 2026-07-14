@@ -39,7 +39,7 @@ type kernelRuntimeConfig struct {
 
 type ProcessRunner interface {
 	Exec(path string, args []string, options platform.ExecOptions) platform.Result
-	ExecBackground(path string, args []string, outEvent string, endEvent string, options platform.ExecOptions) platform.Result
+	ExecBackground(path string, args []string, outEvent string, options platform.ExecOptions) platform.Result
 	ProcessInfo(pid int32) platform.Result
 	ProcessMemory(pid int32) platform.Result
 	KillProcess(pid int, timeout int) platform.Result
@@ -223,6 +223,10 @@ func (s *Service) handleCoreProcessExit(pid int, waitErr error) {
 	}
 
 	crashed := status != kernelv1.CoreStatus_CORE_STATUS_STOPPING
+	crashPhase := "runtime"
+	if status == kernelv1.CoreStatus_CORE_STATUS_STARTING {
+		crashPhase = "startup"
+	}
 	if crashed {
 		s.status = kernelv1.CoreStatus_CORE_STATUS_CRASHED
 	} else {
@@ -242,7 +246,47 @@ func (s *Service) handleCoreProcessExit(pid int, waitErr error) {
 	if waitErr != nil {
 		reason = waitErr.Error()
 	}
-	s.publish("kernelCrashed", map[string]any{"pid": pid, "reason": reason})
+	s.publishCoreCrash(pid, reason, crashPhase)
+}
+
+const maxCoreCrashReasonRunes = 500
+
+func sanitizeCoreCrashReason(reason string) string {
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		reason = "core process exited"
+	}
+
+	fields := strings.Fields(reason)
+	for index, field := range fields {
+		if !strings.Contains(field, "://") {
+			continue
+		}
+		trimmed := strings.TrimRight(field, ".,;:)]}")
+		suffix := strings.TrimPrefix(field, trimmed)
+		parsed, err := url.Parse(trimmed)
+		if err != nil || parsed.Host == "" {
+			continue
+		}
+		parsed.User = nil
+		parsed.RawQuery = ""
+		parsed.Fragment = ""
+		fields[index] = parsed.String() + suffix
+	}
+	reason = strings.Join(fields, " ")
+	runes := []rune(reason)
+	if len(runes) > maxCoreCrashReasonRunes {
+		reason = string(runes[:maxCoreCrashReasonRunes-1]) + "…"
+	}
+	return reason
+}
+
+func (s *Service) publishCoreCrash(pid int, reason string, phase string) {
+	s.publish("kernelCrashed", map[string]any{
+		"pid":    pid,
+		"reason": sanitizeCoreCrashReason(reason),
+		"phase":  phase,
+	})
 }
 
 func (s *Service) Status() (kernelv1.CoreStatus, string) {
@@ -299,8 +343,6 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 	if err := s.setStarting(profileID); err != nil {
 		return -1, err
 	}
-	s.publish("kernelStarting", map[string]any{"profileId": profileID})
-
 	generatedConfig, err := s.config.Generate(profile, &kernelv1.GenerateConfigOptions{
 		EnableMixinProcessing:  true,
 		EnableScriptProcessing: true,
@@ -331,7 +373,6 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 		coreWorkingDirectory+"/"+getKernelFileName(runtimeCfg.Branch == "alpha"),
 		runtimeCfg.Args,
 		"kernelLog",
-		"kernelStopped",
 		platform.ExecOptions{
 			PIDFile:           corePidFilePath,
 			StopOutputKeyword: coreStopOutputKeyword,
@@ -356,7 +397,7 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 
 	if err := waitKernelAPIReadyFunc(ctx, config.CoreAPIController, s.config.ReadGeneratedSecret(), pid, 15*time.Second); err != nil {
 		s.setCrashed()
-		s.publish("kernelCrashed", map[string]any{"pid": pid, "reason": err.Error()})
+		s.publishCoreCrash(pid, err.Error(), "startup")
 		_ = s.processes.KillProcess(pid, 5)
 		s.setStopped()
 		return -1, connect.NewError(connect.CodeUnavailable, fmt.Errorf("kernel api is not ready: %w", err))
@@ -366,7 +407,6 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 		return -1, connect.NewError(connect.CodeUnavailable, fmt.Errorf("core process exited during startup"))
 	}
 
-	s.publish("kernelStarted", map[string]any{"pid": pid, "profileId": profileID})
 	_ = ctx
 	return pid, nil
 }
@@ -383,13 +423,12 @@ func (s *Service) StopCore(
 	result := s.processes.KillProcess(pid, 10)
 	if !result.Flag {
 		s.setCrashed()
-		s.publish("kernelCrashed", map[string]any{"pid": pid, "reason": result.Data})
+		s.publishCoreCrash(pid, result.Data, "shutdown")
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("stop core failed: %s", result.Data))
 	}
 
 	s.setStopped()
 
-	s.publish("kernelStopped", map[string]any{"pid": pid})
 	return connect.NewResponse(&kernelv1.StopCoreResponse{}), nil
 }
 

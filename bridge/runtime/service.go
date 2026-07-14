@@ -18,7 +18,6 @@ import (
 	"time"
 
 	"guiforcores/bridge/config"
-	"guiforcores/bridge/event"
 	"guiforcores/bridge/platform"
 	"guiforcores/bridge/rpcutil"
 	"guiforcores/bridge/storage"
@@ -51,6 +50,10 @@ type AppConfigReader interface {
 	Current() config.AppConfig
 }
 
+type EventPublisher interface {
+	Publish(eventName string, data ...any)
+}
+
 type rulesetHub struct {
 	Geosite string           `json:"geosite"`
 	Geoip   string           `json:"geoip"`
@@ -66,7 +69,7 @@ type appRuntimeService struct {
 	platform *platform.Service
 	paths    *storage.Paths
 	config   AppConfigReader
-	events   *event.Hub
+	events   EventPublisher
 	kernel   KernelController
 
 	mu          sync.Mutex
@@ -108,7 +111,7 @@ func asConnectError(err error) error {
 	return rpcutil.AsConnectError(err)
 }
 
-func NewService(platformService *platform.Service, paths *storage.Paths, configStore AppConfigReader, events *event.Hub, kernelController KernelController) *Service {
+func NewService(platformService *platform.Service, paths *storage.Paths, configStore AppConfigReader, events EventPublisher, kernelController KernelController) *Service {
 	setRuntimePaths(paths)
 	logs, _ := loadScheduledTaskLogs()
 	tasks, _ := loadScheduledTasks()
@@ -191,7 +194,7 @@ func (s *appRuntimeService) schedulerLoop(cancel <-chan struct{}) {
 						continue
 					}
 					lastRun[task.ID] = runKey
-					go s.runScheduledTask(context.Background(), task.ID)
+					go s.runScheduledTask(context.Background(), task.ID, true)
 				}
 			}
 		}
@@ -1415,13 +1418,16 @@ func (s *appRuntimeService) updateAllRulesets() ([]*appv1.TaskResult, error) {
 	return results, nil
 }
 
-func (s *appRuntimeService) runScheduledTask(ctx context.Context, id string) (scheduledTaskLog, error) {
+func (s *appRuntimeService) runScheduledTask(ctx context.Context, id string, publishCompletion bool) (scheduledTaskLog, error) {
 	s.mu.Lock()
 	if s.runningTask[id] {
 		s.mu.Unlock()
 		now := time.Now().UnixMilli()
 		result := []*appv1.TaskResult{taskResult(false, id, "", "Skipped: task is already running")}
 		log := s.recordTaskLog(id, "", now, now, result)
+		if publishCompletion {
+			s.publish("scheduledTaskFinished", id)
+		}
 		return log, nil
 	}
 	s.runningTask[id] = true
@@ -1484,7 +1490,9 @@ func (s *appRuntimeService) runScheduledTask(ctx context.Context, id string) (sc
 	tasks[idx].LastTime = end
 	_ = saveScheduledTasks(tasks)
 	log := s.recordTaskLog(task.ID, task.Name, start, end, results)
-	s.publish("scheduledTaskFinished", task.ID)
+	if publishCompletion {
+		s.publish("scheduledTaskFinished", task.ID)
+	}
 	_ = ctx
 	return log, nil
 }
@@ -1843,7 +1851,7 @@ func (s *appRuntimeService) DeleteScheduledTask(ctx context.Context, req *connec
 }
 
 func (s *appRuntimeService) RunScheduledTask(ctx context.Context, req *connect.Request[appv1.RunScheduledTaskRequest]) (*connect.Response[appv1.RunScheduledTaskResponse], error) {
-	log, err := s.runScheduledTask(ctx, req.Msg.GetId())
+	log, err := s.runScheduledTask(ctx, req.Msg.GetId(), false)
 	if err != nil {
 		return nil, asConnectError(err)
 	}

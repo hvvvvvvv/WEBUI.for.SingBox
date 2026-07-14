@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 
-import { loadAuthToken, initWebSocket, EventsOn } from '@/bridge'
+import { loadAuthToken, initWebSocket } from '@/bridge'
 import { NavigationBar, TitleBar, SplashView, AboutView, CommandView } from '@/components'
+import { useBackendEvents } from '@/hooks/useBackendEvents'
 import LoginView from '@/views/LoginView.vue'
 import * as Stores from '@/stores'
-import { sleep, message, eventBus } from '@/utils'
+import { sleep, message } from '@/utils'
 
 const appInitialized = ref(false)
 
@@ -21,6 +22,7 @@ const appConfig = Stores.useAppConfigStore()
 const kernelApiStore = Stores.useKernelApiStore()
 const subscribesStore = Stores.useSubscribesStore()
 const scheduledTasksStore = Stores.useScheduledTasksStore()
+const { setupBackendEvents } = useBackendEvents()
 
 const handleRestartCore = async () => {
   try {
@@ -51,16 +53,9 @@ const initApp = async () => {
     loading.value = false
     return
   }
-  
+
   initWebSocket(appSettings.sessionInfo.cacheToken)
-  EventsOn('profileChange', async (data?: { id?: string }) => {
-    try {
-      await profilesStore.setupProfiles()
-      eventBus.emit('profileChange', { id: data?.id || '' })
-    } catch (e: any) {
-      message.error(e.message || e)
-    }
-  })
+  setupBackendEvents()
 
   try {
     await Promise.all([

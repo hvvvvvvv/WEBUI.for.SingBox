@@ -6,6 +6,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -21,13 +22,14 @@ import (
 type fakeProcesses struct {
 	memoryResult      *platform.Result
 	processInfoResult *platform.Result
+	killResult        *platform.Result
 	resolveBase       string
 }
 
 func (fakeProcesses) Exec(string, []string, platform.ExecOptions) platform.Result {
 	return platform.Result{Flag: true}
 }
-func (fakeProcesses) ExecBackground(string, []string, string, string, platform.ExecOptions) platform.Result {
+func (fakeProcesses) ExecBackground(string, []string, string, platform.ExecOptions) platform.Result {
 	return platform.Result{Flag: true, Data: "1"}
 }
 func (f fakeProcesses) ProcessInfo(int32) platform.Result {
@@ -42,7 +44,11 @@ func (f fakeProcesses) ProcessMemory(int32) platform.Result {
 	}
 	return platform.Result{Flag: true, Data: "1024"}
 }
-func (fakeProcesses) KillProcess(int, int) platform.Result {
+
+func (f fakeProcesses) KillProcess(int, int) platform.Result {
+	if f.killResult != nil {
+		return *f.killResult
+	}
 	return platform.Result{Flag: true}
 }
 func (f fakeProcesses) ResolvePath(path string) string {
@@ -124,6 +130,18 @@ func (e *recordingEvents) coreStates() []map[string]any {
 	return states
 }
 
+func (e *recordingEvents) named(name string) []publishedEvent {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	events := make([]publishedEvent, 0)
+	for _, item := range e.events {
+		if item.name == name {
+			events = append(events, item)
+		}
+	}
+	return events
+}
+
 type exitCallbackProcesses struct {
 	fakeProcesses
 	mu       sync.Mutex
@@ -132,7 +150,7 @@ type exitCallbackProcesses struct {
 	killExit bool
 }
 
-func (p *exitCallbackProcesses) ExecBackground(_ string, _ []string, _ string, _ string, options platform.ExecOptions) platform.Result {
+func (p *exitCallbackProcesses) ExecBackground(_ string, _ []string, _ string, options platform.ExecOptions) platform.Result {
 	p.mu.Lock()
 	p.onExit = options.OnExit
 	pid := p.execPID
@@ -523,6 +541,76 @@ func TestUnexpectedCoreExitPublishesCrashedState(t *testing.T) {
 	}
 	states := events.coreStates()
 	assertCoreStateEvent(t, states[len(states)-1], kernelv1.CoreStatus_CORE_STATUS_CRASHED, -1)
+	crashes := events.named("kernelCrashed")
+	if len(crashes) != 1 || len(crashes[0].data) != 1 {
+		t.Fatalf("kernel crash events = %#v, want one", crashes)
+	}
+	payload, ok := crashes[0].data[0].(map[string]any)
+	if !ok || payload["pid"] != 7 || payload["reason"] != "unexpected exit" || payload["phase"] != "runtime" {
+		t.Fatalf("unexpected kernel crash payload: %#v", crashes[0].data[0])
+	}
+}
+
+func TestCoreCrashReasonIsSanitizedAndLimited(t *testing.T) {
+	reason := "request https://user:secret@example.com/config?token=secret failed " + strings.Repeat("x", 600)
+	sanitized := sanitizeCoreCrashReason(reason)
+	if strings.Contains(sanitized, "secret") || strings.Contains(sanitized, "token=") {
+		t.Fatalf("sanitized reason leaked credentials: %q", sanitized)
+	}
+	if !strings.Contains(sanitized, "https://example.com/config") {
+		t.Fatalf("sanitized reason lost safe URL context: %q", sanitized)
+	}
+	if len([]rune(sanitized)) != maxCoreCrashReasonRunes || !strings.HasSuffix(sanitized, "…") {
+		t.Fatalf("sanitized reason was not limited: %d runes", len([]rune(sanitized)))
+	}
+}
+
+func TestStartFailurePublishesStartupCrash(t *testing.T) {
+	previousWait := waitKernelAPIReadyFunc
+	waitKernelAPIReadyFunc = func(context.Context, string, string, int, time.Duration) error {
+		return errors.New("request https://user:secret@example.com/config?token=secret failed")
+	}
+	t.Cleanup(func() { waitKernelAPIReadyFunc = previousWait })
+
+	events := &recordingEvents{}
+	service := NewService(fakeProcesses{}, &fakeGenerator{}, fakeConfig{}, &fakeProfiles{}, events)
+	_, err := service.StartCore(context.Background(), connect.NewRequest(&kernelv1.StartCoreRequest{ProfileId: "profile"}))
+	if err == nil {
+		t.Fatal("expected start failure")
+	}
+	crashes := events.named("kernelCrashed")
+	if len(crashes) != 1 {
+		t.Fatalf("kernel crash event count = %d, want 1", len(crashes))
+	}
+	payload := crashes[0].data[0].(map[string]any)
+	reason, _ := payload["reason"].(string)
+	if payload["phase"] != "startup" || strings.Contains(reason, "secret") || strings.Contains(reason, "token=") {
+		t.Fatalf("unexpected startup crash payload: %#v", payload)
+	}
+}
+
+func TestStopFailurePublishesShutdownCrash(t *testing.T) {
+	events := &recordingEvents{}
+	service := NewService(fakeProcesses{
+		killResult: &platform.Result{Flag: false, Data: "permission denied"},
+	}, &fakeGenerator{}, fakeConfig{}, &fakeProfiles{}, events)
+	service.mu.Lock()
+	service.status = kernelv1.CoreStatus_CORE_STATUS_RUNNING
+	service.corePID = 7
+	service.mu.Unlock()
+
+	_, err := service.StopCore(context.Background(), connect.NewRequest(&kernelv1.StopCoreRequest{}))
+	if err == nil {
+		t.Fatal("expected stop failure")
+	}
+	crashes := events.named("kernelCrashed")
+	if len(crashes) != 1 {
+		t.Fatalf("kernel crash event count = %d, want 1", len(crashes))
+	}
+	payload := crashes[0].data[0].(map[string]any)
+	if payload["phase"] != "shutdown" || payload["reason"] != "permission denied" {
+		t.Fatalf("unexpected shutdown crash payload: %#v", payload)
+	}
 }
 
 func TestStaleCoreExitDoesNotOverrideNewProcess(t *testing.T) {

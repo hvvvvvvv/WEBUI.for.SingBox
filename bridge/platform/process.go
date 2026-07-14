@@ -53,8 +53,8 @@ func (a *App) Exec(path string, args []string, options ExecOptions) FlagResult {
 	return FlagResult{true, output}
 }
 
-func (a *App) ExecBackground(path string, args []string, outEvent string, endEvent string, options ExecOptions) FlagResult {
-	log.Printf("ExecBackground: %s %s %s %s %v", path, args, outEvent, endEvent, options)
+func (a *App) ExecBackground(path string, args []string, outEvent string, options ExecOptions) FlagResult {
+	log.Printf("ExecBackground: %s %s %s %v", path, args, outEvent, options)
 
 	exePath := a.ResolvePath(path)
 	pidPath := ""
@@ -124,18 +124,13 @@ func (a *App) ExecBackground(path string, args []string, outEvent string, endEve
 		go scanAndEmit(stdout)
 	}
 
-	if endEvent != "" || options.OnExit != nil {
+	if options.OnExit != nil {
 		go func() {
 			waitErr := cmd.Wait()
 			if pidPath != "" {
 				_ = os.Remove(pidPath)
 			}
-			if endEvent != "" {
-				a.publish(endEvent)
-			}
-			if options.OnExit != nil {
-				options.OnExit(cmd.Process.Pid, waitErr)
-			}
+			options.OnExit(cmd.Process.Pid, waitErr)
 		}()
 	}
 

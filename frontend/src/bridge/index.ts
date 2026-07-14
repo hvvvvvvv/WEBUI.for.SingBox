@@ -18,7 +18,7 @@ export const BrowserOpenURL = (url: string) => {
 // Browser notification helpers.
 export const IsNotificationAvailable = async () => 'Notification' in window
 export const RequestNotificationAuthorization = async () => {
-  if ('Notification' in window) {
-    await Notification.requestPermission()
-  }
+  if (!('Notification' in window)) return 'denied' as NotificationPermission
+  if (Notification.permission !== 'default') return Notification.permission
+  return await Notification.requestPermission()
 }
