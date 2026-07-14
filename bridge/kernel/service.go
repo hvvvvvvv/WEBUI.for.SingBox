@@ -29,6 +29,8 @@ const (
 	coreStopOutputKeyword   = "sing-box started"
 	coreConfigRelativePath  = coreWorkingDirectory + "/config.json"
 	kernelStateChangedEvent = "kernelStateChanged"
+	coreErrorReasonHeader   = "X-Core-Error-Reason"
+	coreAPIUnavailable      = "core-api-not-ready"
 )
 
 type kernelRuntimeConfig struct {
@@ -289,6 +291,12 @@ func (s *Service) publishCoreCrash(pid int, reason string, phase string) {
 	})
 }
 
+func coreAPIUnavailableError(cause error) error {
+	err := connect.NewError(connect.CodeUnavailable, fmt.Errorf("kernel api is not ready: %w", cause))
+	err.Meta().Set(coreErrorReasonHeader, coreAPIUnavailable)
+	return err
+}
+
 func (s *Service) Status() (kernelv1.CoreStatus, string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -400,7 +408,7 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 		s.publishCoreCrash(pid, err.Error(), "startup")
 		_ = s.processes.KillProcess(pid, 5)
 		s.setStopped()
-		return -1, connect.NewError(connect.CodeUnavailable, fmt.Errorf("kernel api is not ready: %w", err))
+		return -1, coreAPIUnavailableError(err)
 	}
 
 	if !s.completeStart(pid, profileID, profile) {
@@ -669,8 +677,7 @@ func validateKernelConfig(app ProcessRunner, runtimeCfg kernelRuntimeConfig) err
 }
 
 func waitKernelAPIReady(ctx context.Context, controller, secret string, pid int, timeout time.Duration) error {
-	target := normalizeKernelController(controller)
-	endpoint := "http://" + target + "/configs"
+	endpoint := "http://" + controller + "/configs"
 	client := &http.Client{Timeout: 1200 * time.Millisecond}
 	deadline := time.Now().Add(timeout)
 	var lastErr error
@@ -718,44 +725,4 @@ func waitKernelAPIReady(ctx context.Context, controller, secret string, pid int,
 
 		time.Sleep(250 * time.Millisecond)
 	}
-}
-
-func normalizeKernelController(controller string) string {
-	fallback := "127.0.0.1:20123"
-	raw := strings.TrimSpace(controller)
-	if raw == "" {
-		return fallback
-	}
-
-	hostPort := raw
-	if strings.Contains(raw, "://") {
-		u, err := url.Parse(raw)
-		if err != nil || u.Host == "" {
-			return fallback
-		}
-		hostPort = u.Host
-	}
-
-	if strings.HasPrefix(hostPort, ":") {
-		hostPort = "127.0.0.1" + hostPort
-	}
-	if !strings.Contains(hostPort, ":") {
-		hostPort = hostPort + ":20123"
-	}
-	if strings.HasPrefix(hostPort, "0.0.0.0:") {
-		hostPort = "127.0.0.1:" + strings.TrimPrefix(hostPort, "0.0.0.0:")
-	}
-
-	parts := strings.Split(hostPort, ":")
-	port := parts[len(parts)-1]
-	if port == "" {
-		return fallback
-	}
-	for _, ch := range port {
-		if ch < '0' || ch > '9' {
-			return fallback
-		}
-	}
-
-	return hostPort
 }

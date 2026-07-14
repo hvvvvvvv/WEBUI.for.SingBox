@@ -578,6 +578,13 @@ func TestStartFailurePublishesStartupCrash(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected start failure")
 	}
+	var connectErr *connect.Error
+	if !errors.As(err, &connectErr) || connectErr.Code() != connect.CodeUnavailable {
+		t.Fatalf("expected unavailable connect error, got %v", err)
+	}
+	if connectErr.Meta().Get(coreErrorReasonHeader) != coreAPIUnavailable {
+		t.Fatalf("missing core API unavailable metadata: %#v", connectErr.Meta())
+	}
 	crashes := events.named("kernelCrashed")
 	if len(crashes) != 1 {
 		t.Fatalf("kernel crash event count = %d, want 1", len(crashes))
@@ -586,6 +593,29 @@ func TestStartFailurePublishesStartupCrash(t *testing.T) {
 	reason, _ := payload["reason"].(string)
 	if payload["phase"] != "startup" || strings.Contains(reason, "secret") || strings.Contains(reason, "token=") {
 		t.Fatalf("unexpected startup crash payload: %#v", payload)
+	}
+}
+
+func TestCoreExitDuringStartupDoesNotSetAPIUnavailableMetadata(t *testing.T) {
+	previousWait := waitKernelAPIReadyFunc
+	processes := &exitCallbackProcesses{execPID: 7}
+	waitKernelAPIReadyFunc = func(context.Context, string, string, int, time.Duration) error {
+		processes.exit(7, errors.New("process exited"))
+		return nil
+	}
+	t.Cleanup(func() { waitKernelAPIReadyFunc = previousWait })
+
+	service := NewService(processes, &fakeGenerator{}, fakeConfig{}, &fakeProfiles{}, fakeEvents{})
+	_, err := service.StartCore(context.Background(), connect.NewRequest(&kernelv1.StartCoreRequest{ProfileId: "profile"}))
+	if err == nil {
+		t.Fatal("expected start failure")
+	}
+	var connectErr *connect.Error
+	if !errors.As(err, &connectErr) || connectErr.Code() != connect.CodeUnavailable {
+		t.Fatalf("expected unavailable connect error, got %v", err)
+	}
+	if connectErr.Meta().Get(coreErrorReasonHeader) != "" {
+		t.Fatalf("process exit was marked as API unavailable: %#v", connectErr.Meta())
 	}
 }
 
@@ -661,6 +691,13 @@ func TestRestartStartFailureEndsInStoppedState(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected restart failure")
 	}
+	var connectErr *connect.Error
+	if !errors.As(err, &connectErr) {
+		t.Fatalf("expected connect error, got %v", err)
+	}
+	if connectErr.Meta().Get(coreErrorReasonHeader) != "" {
+		t.Fatalf("non-API-ready failure was marked as API unavailable: %#v", connectErr.Meta())
+	}
 	response, statusErr := service.GetCoreStatus(context.Background(), connect.NewRequest(&kernelv1.GetCoreStatusRequest{}))
 	if statusErr != nil {
 		t.Fatal(statusErr)
@@ -680,5 +717,32 @@ func TestRestartStartFailureEndsInStoppedState(t *testing.T) {
 	}
 	for index, status := range wantStatuses {
 		assertCoreStateEvent(t, states[index], status, -1)
+	}
+}
+
+func TestRestartAPIReadyFailurePreservesMetadata(t *testing.T) {
+	previousWait := waitKernelAPIReadyFunc
+	waitKernelAPIReadyFunc = func(context.Context, string, string, int, time.Duration) error {
+		return errors.New("API timeout")
+	}
+	t.Cleanup(func() { waitKernelAPIReadyFunc = previousWait })
+
+	service := NewService(fakeProcesses{}, &fakeGenerator{}, fakeConfig{}, &fakeProfiles{}, fakeEvents{})
+	service.mu.Lock()
+	service.status = kernelv1.CoreStatus_CORE_STATUS_RUNNING
+	service.corePID = 9
+	service.activeProfileID = "profile"
+	service.mu.Unlock()
+
+	_, err := service.RestartCore(context.Background(), connect.NewRequest(&kernelv1.RestartCoreRequest{ProfileId: "profile"}))
+	if err == nil {
+		t.Fatal("expected restart failure")
+	}
+	var connectErr *connect.Error
+	if !errors.As(err, &connectErr) || connectErr.Code() != connect.CodeUnavailable {
+		t.Fatalf("expected unavailable connect error, got %v", err)
+	}
+	if connectErr.Meta().Get(coreErrorReasonHeader) != coreAPIUnavailable {
+		t.Fatalf("restart lost core API unavailable metadata: %#v", connectErr.Meta())
 	}
 }

@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
+import { ConnectError } from '@connectrpc/connect'
+
 import {
   getProxies,
   getConfigs,
@@ -45,7 +47,20 @@ export type RuntimeConfigChange = {
   value: any
 }
 
-const normalizeCoreError = (error: unknown): string => {
+type CoreOperation = 'start' | 'stop' | 'restart'
+
+const coreErrorReasonHeader = 'X-Core-Error-Reason'
+const coreAPIUnavailable = 'core-api-not-ready'
+
+const normalizeCoreError = (error: unknown, operation: CoreOperation): string => {
+  if (
+    error instanceof ConnectError &&
+    error.metadata.get(coreErrorReasonHeader) === coreAPIUnavailable
+  ) {
+    if (operation === 'start') return 'kernel.startFailedCheckLogs'
+    if (operation === 'restart') return 'kernel.restartFailedCheckLogs'
+  }
+
   if (typeof error === 'string') {
     return error
   }
@@ -333,7 +348,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     } catch (refreshError) {
       console.error('refreshCoreState: ', refreshError)
     }
-    throw normalizeCoreError(error)
+    throw error
   }
 
   const callCoreMutation = async <T>(operation: () => Promise<T>): Promise<T> => {
@@ -391,7 +406,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
       )
       await enqueueCoreState(CoreStatus.RUNNING, pid)
     } catch (error) {
-      throw normalizeCoreError(error)
+      throw normalizeCoreError(error, 'start')
     } finally {
       starting.value = false
     }
@@ -405,7 +420,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
       await callCoreMutation(() => kernelService.stopCore({}))
       await enqueueCoreState(CoreStatus.STOPPED, -1)
     } catch (error) {
-      throw normalizeCoreError(error)
+      throw normalizeCoreError(error, 'stop')
     } finally {
       stopping.value = false
     }
@@ -434,7 +449,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
         await enqueueCoreState(CoreStatus.RUNNING, pid)
       }
     } catch (error) {
-      throw normalizeCoreError(error)
+      throw normalizeCoreError(error, 'restart')
     } finally {
       pendingRuntimeProfile = undefined
       needRestart.value = false
@@ -537,7 +552,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
 
   watch(needRestart, (v) => {
     if (v && appConfigStore.config.autoRestartKernel) {
-      restartCore()
+      void restartCore().catch((error) => message.error(error))
     }
   })
 

@@ -8,14 +8,20 @@ interface TaskLogRecord<T = any> {
   result: T
 }
 
+export interface KernelLogRecord {
+  id: number
+  message: string
+}
+
 const maxKernelLogLines = 1000
+let nextKernelLogID = 1
 
 export const useLogsStore = defineStore('logs', () => {
-  const kernelLogs = ref<string[]>([])
+  const kernelLogs = ref<KernelLogRecord[]>([])
   const scheduledtasksLogs = ref<TaskLogRecord[]>([])
 
   const recordKernelLog = (msg: string) => {
-    kernelLogs.value.unshift(msg)
+    kernelLogs.value.unshift({ id: nextKernelLogID++, message: msg })
     if (kernelLogs.value.length > maxKernelLogLines) {
       kernelLogs.value.splice(maxKernelLogLines)
     }

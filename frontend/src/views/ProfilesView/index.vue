@@ -158,7 +158,12 @@ const handleUseProfile = async (p: IProfile) => {
   appConfigStore.config.profile = p.id
 
   if (kernelApiStore.running) {
-    await kernelApiStore.restartCore()
+    try {
+      await kernelApiStore.restartCore()
+    } catch (error: any) {
+      console.error('restartCore: ', error)
+      message.error(error.message || error)
+    }
   }
 }
 
