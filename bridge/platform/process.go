@@ -124,13 +124,18 @@ func (a *App) ExecBackground(path string, args []string, outEvent string, endEve
 		go scanAndEmit(stdout)
 	}
 
-	if endEvent != "" {
+	if endEvent != "" || options.OnExit != nil {
 		go func() {
-			cmd.Wait()
+			waitErr := cmd.Wait()
 			if pidPath != "" {
 				_ = os.Remove(pidPath)
 			}
-			a.publish(endEvent)
+			if endEvent != "" {
+				a.publish(endEvent)
+			}
+			if options.OnExit != nil {
+				options.OnExit(cmd.Process.Pid, waitErr)
+			}
 		}()
 	}
 

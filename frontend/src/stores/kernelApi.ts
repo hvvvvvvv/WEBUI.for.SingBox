@@ -12,7 +12,7 @@ import {
   initWebsocket,
   destroyWebsocket,
 } from '@/api/kernel'
-import { createRpcClient } from '@/bridge'
+import { createRpcClient, EventsOn } from '@/bridge'
 import { DefaultInboundHttp, DefaultInboundMixed, DefaultInboundSocks } from '@/constant/profile'
 import { Inbound, RulesetType, TunStack } from '@/enums/kernel'
 import {
@@ -22,12 +22,7 @@ import {
   useRulesetsStore,
   useAppConfigStore,
 } from '@/stores'
-import {
-  iProfileToProto,
-  protoProfileToIProfile,
-  message,
-  eventBus,
-} from '@/utils'
+import { iProfileToProto, protoProfileToIProfile, message, eventBus } from '@/utils'
 import { KernelRuntimeService } from '../../gen/kernel/v1/kernel_runtime_service_pb'
 import { CoreStatus } from '../../gen/kernel/v1/kernel_pb'
 
@@ -283,49 +278,97 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   const restarting = ref(false)
   const needRestart = ref(false)
   const coreStateLoading = ref(true)
+  const coreStatus = ref(CoreStatus.STOPPED)
+  let pendingRuntimeProfile: IProfile | undefined
+  let coreStateQueue = Promise.resolve()
 
-  const initCoreState = async () => {
-    const status = await kernelService.getCoreStatus({}).catch(() => ({
-      status: CoreStatus.STOPPED,
-      pid: -1,
-    }))
-    corePid.value = status.pid > 0 ? status.pid : -1
-    running.value = status.status === CoreStatus.RUNNING && corePid.value > 0
+  const applyCoreState = async (status: CoreStatus, pid: number) => {
+    const normalizedPID = status === CoreStatus.RUNNING && pid > 0 ? pid : -1
+    const wasRunning = running.value
+    const previousPID = corePid.value
+    const stateChanged = coreStatus.value !== status || previousPID !== normalizedPID
 
-    coreStateLoading.value = false
+    coreStatus.value = status
+    corePid.value = normalizedPID
+    running.value = normalizedPID > 0
 
     if (running.value) {
-      initWebsocket()
-      await Promise.all([refreshConfig(), refreshProviderProxies()])
+      if (pendingRuntimeProfile) {
+        runtimeProfile = pendingRuntimeProfile
+      }
+      if (!wasRunning || previousPID !== normalizedPID) {
+        needRestart.value = false
+        initWebsocket()
+        await Promise.all([refreshConfig(), refreshProviderProxies()])
+      }
+      return
+    }
+
+    destroyWebsocket()
+    if (status === CoreStatus.STOPPED || status === CoreStatus.CRASHED) {
+      needRestart.value = false
+      runtimeProfile = undefined
+      syncRuntimeInbounds()
+    } else if (stateChanged) {
+      runtimeInbounds.value = []
     }
   }
 
-  const onCoreStarted = async (pid: number) => {
-    corePid.value = pid
-    running.value = true
-    needRestart.value = false
-
-    initWebsocket()
-    await Promise.all([refreshConfig(), refreshProviderProxies()])
+  const enqueueCoreState = (status: CoreStatus, pid: number) => {
+    const applying = coreStateQueue.then(() => applyCoreState(status, pid))
+    coreStateQueue = applying.catch((error) => {
+      console.error('applyCoreState: ', error)
+    })
+    return applying
   }
 
-  const onCoreStopped = async () => {
-    corePid.value = -1
-    running.value = false
-    needRestart.value = false
-    runtimeProfile = undefined
-    syncRuntimeInbounds()
-
-    destroyWebsocket()
+  const refreshCoreState = async () => {
+    const { status, pid } = await kernelService.getCoreStatus({})
+    await enqueueCoreState(status, pid)
   }
 
-  const markCoreStoppedForRestart = () => {
-    corePid.value = -1
-    running.value = false
-    needRestart.value = false
-    runtimeInbounds.value = []
-    destroyWebsocket()
+  const reconcileCoreStateAfterFailure = async (error: unknown): Promise<never> => {
+    try {
+      await refreshCoreState()
+    } catch (refreshError) {
+      console.error('refreshCoreState: ', refreshError)
+    }
+    throw normalizeCoreError(error)
   }
+
+  const callCoreMutation = async <T>(operation: () => Promise<T>): Promise<T> => {
+    try {
+      return await operation()
+    } catch (error) {
+      return await reconcileCoreStateAfterFailure(error)
+    }
+  }
+
+  const initCoreState = async () => {
+    let state: { status: CoreStatus; pid: number }
+    try {
+      state = await kernelService.getCoreStatus({})
+    } catch {
+      await enqueueCoreState(CoreStatus.STOPPED, -1)
+      coreStateLoading.value = false
+      return
+    }
+
+    try {
+      await enqueueCoreState(state.status, state.pid)
+    } catch (error) {
+      console.error('applyCoreState: ', error)
+    } finally {
+      coreStateLoading.value = false
+    }
+  }
+
+  EventsOn('kernelStateChanged', (state?: { status?: CoreStatus; pid?: number }) => {
+    if (typeof state?.status !== 'number') return
+    void enqueueCoreState(state.status, typeof state.pid === 'number' ? state.pid : -1).catch(
+      () => undefined,
+    )
+  })
 
   const startCore = async (_profile?: IProfile) => {
     if (running.value) throw 'The core is already running'
@@ -343,8 +386,10 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
 
     starting.value = true
     try {
-      const { pid } = await kernelService.startCore({ profileId: profile.id })
-      await onCoreStarted(pid)
+      const { pid } = await callCoreMutation(() =>
+        kernelService.startCore({ profileId: profile.id }),
+      )
+      await enqueueCoreState(CoreStatus.RUNNING, pid)
     } catch (error) {
       throw normalizeCoreError(error)
     } finally {
@@ -357,8 +402,8 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
 
     stopping.value = true
     try {
-      await kernelService.stopCore({})
-      await onCoreStopped()
+      await callCoreMutation(() => kernelService.stopCore({}))
+      await enqueueCoreState(CoreStatus.STOPPED, -1)
     } catch (error) {
       throw normalizeCoreError(error)
     } finally {
@@ -373,19 +418,25 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
       const profile = keepRuntimeProfile ? runtimeProfile : profilesStore.currentProfile
       if (!profile) throw 'Choose a profile first'
       if (keepRuntimeProfile) {
-        await kernelService.stopCore({})
-        markCoreStoppedForRestart()
-        const { pid } = await kernelService.startCoreWithProfile({
-          profile: iProfileToProto(profile),
-        })
-        await onCoreStarted(pid)
+        pendingRuntimeProfile = profile
+        await callCoreMutation(() => kernelService.stopCore({}))
+        await enqueueCoreState(CoreStatus.STOPPED, -1)
+        const { pid } = await callCoreMutation(() =>
+          kernelService.startCoreWithProfile({
+            profile: iProfileToProto(profile),
+          }),
+        )
+        await enqueueCoreState(CoreStatus.RUNNING, pid)
       } else {
-        const { pid } = await kernelService.restartCore({ profileId: profile.id })
-        await onCoreStarted(pid)
+        const { pid } = await callCoreMutation(() =>
+          kernelService.restartCore({ profileId: profile.id }),
+        )
+        await enqueueCoreState(CoreStatus.RUNNING, pid)
       }
     } catch (error) {
       throw normalizeCoreError(error)
     } finally {
+      pendingRuntimeProfile = undefined
       needRestart.value = false
       restarting.value = false
     }

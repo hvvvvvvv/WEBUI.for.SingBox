@@ -836,10 +836,14 @@ func taskResultsToRuntime(results []*appv1.TaskResult) []scheduledTaskResult {
 			continue
 		}
 		out = append(out, scheduledTaskResult{
-			Ok:     result.GetOk(),
-			ID:     result.GetId(),
-			Name:   result.GetName(),
-			Result: result.GetResult(),
+			Ok:            result.GetOk(),
+			ID:            result.GetId(),
+			Name:          result.GetName(),
+			Result:        result.GetResult(),
+			SuccessCount:  result.GetSuccessCount(),
+			FilteredCount: result.GetFilteredCount(),
+			SkippedCount:  result.GetSkippedCount(),
+			FailureReason: result.GetFailureReason(),
 		})
 	}
 	return out
@@ -849,10 +853,14 @@ func taskResultsToProto(results []scheduledTaskResult) []*appv1.TaskResult {
 	out := make([]*appv1.TaskResult, 0, len(results))
 	for _, result := range results {
 		out = append(out, &appv1.TaskResult{
-			Ok:     result.Ok,
-			Id:     result.ID,
-			Name:   result.Name,
-			Result: result.Result,
+			Ok:            result.Ok,
+			Id:            result.ID,
+			Name:          result.Name,
+			Result:        result.Result,
+			SuccessCount:  result.SuccessCount,
+			FilteredCount: result.FilteredCount,
+			SkippedCount:  result.SkippedCount,
+			FailureReason: result.FailureReason,
 		})
 	}
 	return out
@@ -895,6 +903,17 @@ func removeScheduledTaskLogs(logs []scheduledTaskLog, id string) []scheduledTask
 
 func taskResult(ok bool, id string, name string, result string) *appv1.TaskResult {
 	return &appv1.TaskResult{Ok: ok, Id: id, Name: name, Result: result}
+}
+
+func subscriptionFailureResult(sub *subscription, reason error) *appv1.TaskResult {
+	failureReason := reason.Error()
+	return &appv1.TaskResult{
+		Ok:            false,
+		Id:            sub.ID,
+		Name:          sub.Name,
+		Result:        fmt.Sprintf("Failed to update subscription [%s]. Reason: %s", sub.Name, failureReason),
+		FailureReason: failureReason,
+	}
 }
 
 func parseUserInfo(header string) map[string]int64 {
@@ -1060,7 +1079,7 @@ func subscriptionRequestHeaders(headers map[string]string, defaultUserAgent stri
 func updateSubscriptionAt(items []subscription, idx int, defaultUserAgent string) (*appv1.TaskResult, bool) {
 	sub := &items[idx]
 	if sub.Disabled {
-		return taskResult(false, sub.ID, sub.Name, sub.Name+" Disabled"), false
+		return subscriptionFailureResult(sub, errors.New("subscription is disabled")), false
 	}
 	body := ""
 	userInfo := map[string]int64{}
@@ -1095,46 +1114,51 @@ func updateSubscriptionAt(items []subscription, idx int, defaultUserAgent string
 		err = fmt.Errorf("unsupported subscription type %s", sub.Type)
 	}
 	if err != nil {
-		return taskResult(false, sub.ID, sub.Name, fmt.Sprintf("Failed to update subscription [%s]. Reason: %v", sub.Name, err)), false
+		return subscriptionFailureResult(sub, err), false
 	}
 
 	parseResult, err := parseSubscriptionBody(body, sub.Type, sub.EnableNodeConversion)
 	if err != nil {
-		return taskResult(false, sub.ID, sub.Name, fmt.Sprintf("Failed to update subscription [%s]. Reason: %v", sub.Name, err)), false
+		return subscriptionFailureResult(sub, err), false
 	}
 	proxies := parseResult.proxies
+	filteredCount := 0
 
 	if sub.Type != "Manual" {
 		include, err := compileSmartRegexp(sub.Include)
 		if err != nil {
-			return taskResult(false, sub.ID, sub.Name, err.Error()), false
+			return subscriptionFailureResult(sub, err), false
 		}
 		exclude, err := compileSmartRegexp(sub.Exclude)
 		if err != nil {
-			return taskResult(false, sub.ID, sub.Name, err.Error()), false
+			return subscriptionFailureResult(sub, err), false
 		}
 		includeProtocol, err := compileSmartRegexp(sub.IncludeProtocol)
 		if err != nil {
-			return taskResult(false, sub.ID, sub.Name, err.Error()), false
+			return subscriptionFailureResult(sub, err), false
 		}
 		excludeProtocol, err := compileSmartRegexp(sub.ExcludeProtocol)
 		if err != nil {
-			return taskResult(false, sub.ID, sub.Name, err.Error()), false
+			return subscriptionFailureResult(sub, err), false
 		}
 		filtered := proxies[:0]
 		for _, proxy := range proxies {
 			tag, _ := proxy["tag"].(string)
 			typ, _ := proxy["type"].(string)
 			if include != nil && !include.MatchString(tag) {
+				filteredCount++
 				continue
 			}
 			if exclude != nil && exclude.MatchString(tag) {
+				filteredCount++
 				continue
 			}
 			if includeProtocol != nil && !includeProtocol.MatchString(typ) {
+				filteredCount++
 				continue
 			}
 			if excludeProtocol != nil && excludeProtocol.MatchString(typ) {
+				filteredCount++
 				continue
 			}
 			if sub.ProxyPrefix != "" && !strings.HasPrefix(tag, sub.ProxyPrefix) {
@@ -1154,7 +1178,7 @@ func updateSubscriptionAt(items []subscription, idx int, defaultUserAgent string
 
 	processedProxies, processedSub, err := runSubscribeScript(sub.Script, proxies, *sub)
 	if err != nil {
-		return taskResult(false, sub.ID, sub.Name, fmt.Sprintf("Failed to update subscription [%s]. Reason: %v", sub.Name, err)), false
+		return subscriptionFailureResult(sub, err), false
 	}
 	*sub = processedSub
 	sub.Proxies = proxyRefsFromOutbounds(processedProxies, sub.Proxies)
@@ -1162,26 +1186,33 @@ func updateSubscriptionAt(items []subscription, idx int, defaultUserAgent string
 	if sub.Type == "Http" {
 		data, err := json.MarshalIndent(processedProxies, "", "  ")
 		if err != nil {
-			return taskResult(false, sub.ID, sub.Name, err.Error()), false
+			return subscriptionFailureResult(sub, err), false
 		}
 		contentPath := subscriptionContentPath(sub.ID)
 		if err := os.MkdirAll(filepath.Dir(GetPath(contentPath)), os.ModePerm); err != nil {
-			return taskResult(false, sub.ID, sub.Name, err.Error()), false
+			return subscriptionFailureResult(sub, err), false
 		}
 		if err := os.WriteFile(GetPath(contentPath), data, 0644); err != nil {
-			return taskResult(false, sub.ID, sub.Name, err.Error()), false
+			return subscriptionFailureResult(sub, err), false
 		}
 	}
 
-	message := fmt.Sprintf("Subscription [%s] updated successfully.", sub.Name)
-	if parseResult.usedFallback {
-		message = fmt.Sprintf("Subscription [%s] updated successfully. Imported %d proxies", sub.Name, len(processedProxies))
-		if parseResult.skipped > 0 {
-			message += fmt.Sprintf("; skipped %d invalid or unsupported proxies", parseResult.skipped)
-		}
-		message += "."
-	}
-	return taskResult(true, sub.ID, sub.Name, message), true
+	message := fmt.Sprintf(
+		"Subscription [%s] updated successfully. Imported %d proxies; filtered %d proxies; skipped %d invalid or unsupported proxies.",
+		sub.Name,
+		len(processedProxies),
+		filteredCount,
+		parseResult.skipped,
+	)
+	return &appv1.TaskResult{
+		Ok:            true,
+		Id:            sub.ID,
+		Name:          sub.Name,
+		Result:        message,
+		SuccessCount:  uint32(len(processedProxies)),
+		FilteredCount: uint32(filteredCount),
+		SkippedCount:  uint32(parseResult.skipped),
+	}, true
 }
 
 func countRules(value any) int {

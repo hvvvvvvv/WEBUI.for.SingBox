@@ -424,6 +424,10 @@ export default {
     editSourceFile: 'Edit Proxies(Source)',
     copySub: 'Copy Link',
     script: 'Script',
+    updateSuccess:
+      'Subscription "{name}" updated: obtained {success} nodes, filtered {filtered} nodes, skipped {skipped} nodes',
+    updateFailed: 'Failed to update subscription "{name}": {reason}',
+    unknownFailure: 'Unknown reason',
     proxies: {
       type: 'Protocol',
       name: 'Name',

@@ -808,6 +808,23 @@ func withTempBasePath(t *testing.T) {
 	})
 }
 
+func TestTaskResultMetadataRoundTripsScheduledTaskStorage(t *testing.T) {
+	want := &appv1.TaskResult{
+		Ok:            false,
+		Id:            "subscription",
+		Name:          "Subscription",
+		Result:        "failed",
+		SuccessCount:  2,
+		FilteredCount: 3,
+		SkippedCount:  4,
+		FailureReason: "reason",
+	}
+	got := taskResultsToProto(taskResultsToRuntime([]*appv1.TaskResult{want}))[0]
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("task result metadata did not round trip: got %#v, want %#v", got, want)
+	}
+}
+
 func TestScheduledTaskLogsDefaultLimitPersists(t *testing.T) {
 	withTempBasePath(t)
 	if err := writeRuntimeYAMLFile(scheduledTasksPath, []map[string]any{{"id": "task-1", "name": "Task"}}); err != nil {

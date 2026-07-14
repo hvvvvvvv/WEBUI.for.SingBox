@@ -17,6 +17,7 @@ import {
 import { useModal } from '@/components/Modal'
 
 import type { Menu, Subscription } from '@/types/app'
+import type { TaskResult } from '../../../gen/app/v1/task_pb'
 
 import ProxiesEditor from './components/ProxiesEditor.vue'
 import ProxiesView from './components/ProxiesView.vue'
@@ -74,13 +75,35 @@ const handleShowSubForm = (id?: string) => {
   modalApi.setContent(SubscribeForm, { id }).open()
 }
 
+const notifyUpdateResults = (results: TaskResult[]) => {
+  results.forEach((result) => {
+    const name = result.name || result.id
+    if (result.ok) {
+      message.success(
+        t('subscribes.updateSuccess', {
+          name,
+          success: result.successCount,
+          filtered: result.filteredCount,
+          skipped: result.skippedCount,
+        }),
+      )
+      return
+    }
+    message.error(
+      t('subscribes.updateFailed', {
+        name,
+        reason: result.failureReason || result.result || t('subscribes.unknownFailure'),
+      }),
+    )
+  })
+}
+
 const handleUpdateSubs = async () => {
   try {
-    await subscribeStore.updateSubscribes()
-    message.success('common.success')
+    notifyUpdateResults(await subscribeStore.updateSubscribes())
   } catch (error: any) {
     console.error('updateSubscribes: ', error)
-    message.error(error)
+    message.error(error.message || error)
   }
 }
 
@@ -94,10 +117,10 @@ const handleEditProxies = (id: string, editor = false) => {
 
 const handleUpdateSub = async (s: Subscription) => {
   try {
-    await subscribeStore.updateSubscribe(s.id)
+    notifyUpdateResults(await subscribeStore.updateSubscribe(s.id))
   } catch (error: any) {
     console.error('updateSubscribe: ', error)
-    message.error(error)
+    message.error(error.message || error)
   }
 }
 

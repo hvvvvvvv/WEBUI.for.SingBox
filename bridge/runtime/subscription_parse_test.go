@@ -237,6 +237,14 @@ func TestHTTPFallbackRunsFilterPrefixAndScriptBeforeCaching(t *testing.T) {
 	if !result.GetOk() {
 		t.Fatalf("fallback update failed: %s", result.GetResult())
 	}
+	if result.GetSuccessCount() != 1 || result.GetFilteredCount() != 1 || result.GetSkippedCount() != 1 {
+		t.Fatalf(
+			"fallback counts = success %d, filtered %d, skipped %d; want 1, 1, 1",
+			result.GetSuccessCount(),
+			result.GetFilteredCount(),
+			result.GetSkippedCount(),
+		)
+	}
 	if !strings.Contains(result.GetResult(), "Imported 1 proxies") || !strings.Contains(result.GetResult(), "skipped 1") {
 		t.Fatalf("unexpected fallback summary: %q", result.GetResult())
 	}
@@ -280,5 +288,157 @@ func TestSubscriptionRequestErrorDoesNotLeakURLCredentials(t *testing.T) {
 	message := response.Msg.GetResults()[0].GetResult()
 	if strings.Contains(message, secret) {
 		t.Fatalf("subscription request error leaked URL credentials: %q", message)
+	}
+	failureReason := response.Msg.GetResults()[0].GetFailureReason()
+	if failureReason == "" || strings.Contains(failureReason, secret) {
+		t.Fatalf("subscription failure reason is missing or leaked credentials: %q", failureReason)
+	}
+}
+
+func TestHTTPSubscriptionFilterCountsEachRemovedNodeOnce(t *testing.T) {
+	withTempBasePath(t)
+	previousRequest := subscriptionHTTPRequest
+	defer func() { subscriptionHTTPRequest = previousRequest }()
+
+	const responseBody = `{"outbounds":[{"type":"direct","tag":"keep"},{"type":"block","tag":"drop"}]}`
+	subscriptionHTTPRequest = func(method string, rawURL string, headers map[string]string, body string, insecure bool, timeoutSeconds int) (*http.Response, string, error) {
+		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header)}, responseBody, nil
+	}
+
+	tests := []struct {
+		name            string
+		include         string
+		exclude         string
+		includeProtocol string
+		excludeProtocol string
+	}{
+		{name: "include", include: `^keep$`},
+		{name: "exclude", exclude: `^drop$`},
+		{name: "include-protocol", includeProtocol: `^direct$`},
+		{name: "exclude-protocol", excludeProtocol: `^block$`},
+		{name: "overlapping-filters", include: `^keep$`, excludeProtocol: `^block$`},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			items := []subscription{{
+				ID:              tt.name,
+				Name:            tt.name,
+				Type:            "Http",
+				URL:             "https://example.com/" + tt.name,
+				Include:         tt.include,
+				Exclude:         tt.exclude,
+				IncludeProtocol: tt.includeProtocol,
+				ExcludeProtocol: tt.excludeProtocol,
+			}}
+			result, changed := updateSubscriptionAt(items, 0, "")
+			if !changed || !result.GetOk() {
+				t.Fatalf("subscription update failed: %#v", result)
+			}
+			if result.GetSuccessCount() != 1 || result.GetFilteredCount() != 1 || result.GetSkippedCount() != 0 {
+				t.Fatalf(
+					"counts = success %d, filtered %d, skipped %d; want 1, 1, 0",
+					result.GetSuccessCount(),
+					result.GetFilteredCount(),
+					result.GetSkippedCount(),
+				)
+			}
+		})
+	}
+}
+
+func TestSubscriptionScriptChangesOnlyFinalSuccessCount(t *testing.T) {
+	withTempBasePath(t)
+	previousRequest := subscriptionHTTPRequest
+	defer func() { subscriptionHTTPRequest = previousRequest }()
+
+	const responseBody = `{"outbounds":[{"type":"direct","tag":"keep-1"},{"type":"direct","tag":"keep-2"},{"type":"block","tag":"drop"}]}`
+	subscriptionHTTPRequest = func(method string, rawURL string, headers map[string]string, body string, insecure bool, timeoutSeconds int) (*http.Response, string, error) {
+		return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header)}, responseBody, nil
+	}
+	items := []subscription{{
+		ID:      "script-counts",
+		Name:    "Script Counts",
+		Type:    "Http",
+		URL:     "https://example.com/script-counts",
+		Include: `^keep-`,
+		Script: `function onSubscribe(proxies, subscription) {
+  return { proxies: proxies.slice(0, 1), subscription: subscription };
+}`,
+	}}
+
+	result, changed := updateSubscriptionAt(items, 0, "")
+	if !changed || !result.GetOk() {
+		t.Fatalf("subscription update failed: %#v", result)
+	}
+	if result.GetSuccessCount() != 1 || result.GetFilteredCount() != 1 || result.GetSkippedCount() != 0 {
+		t.Fatalf(
+			"counts = success %d, filtered %d, skipped %d; want 1, 1, 0",
+			result.GetSuccessCount(),
+			result.GetFilteredCount(),
+			result.GetSkippedCount(),
+		)
+	}
+}
+
+func TestManualSubscriptionCountsHaveNoFilteredOrSkippedNodes(t *testing.T) {
+	withTempBasePath(t)
+	const id = "manual-counts"
+	path := GetPath(subscriptionContentPath(id))
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(`[{"type":"direct","tag":"one"},{"type":"direct","tag":"two"}]`), 0644); err != nil {
+		t.Fatal(err)
+	}
+	items := []subscription{{ID: id, Name: "Manual Counts", Type: "Manual"}}
+
+	result, changed := updateSubscriptionAt(items, 0, "")
+	if !changed || !result.GetOk() {
+		t.Fatalf("manual subscription update failed: %#v", result)
+	}
+	if result.GetSuccessCount() != 2 || result.GetFilteredCount() != 0 || result.GetSkippedCount() != 0 {
+		t.Fatalf(
+			"counts = success %d, filtered %d, skipped %d; want 2, 0, 0",
+			result.GetSuccessCount(),
+			result.GetFilteredCount(),
+			result.GetSkippedCount(),
+		)
+	}
+}
+
+func TestUpdateAllSubscriptionsReturnsMixedStructuredResults(t *testing.T) {
+	withTempBasePath(t)
+	previousRequest := subscriptionHTTPRequest
+	defer func() { subscriptionHTTPRequest = previousRequest }()
+
+	subscriptionHTTPRequest = func(method string, rawURL string, headers map[string]string, body string, insecure bool, timeoutSeconds int) (*http.Response, string, error) {
+		status := http.StatusOK
+		if strings.HasSuffix(rawURL, "/failed") {
+			status = http.StatusBadGateway
+		}
+		return &http.Response{StatusCode: status, Header: make(http.Header)}, `[{"type":"direct","tag":"one"}]`, nil
+	}
+	if err := saveSubscriptions([]subscription{
+		{ID: "successful", Name: "Successful", Type: "Http", URL: "https://example.com/successful"},
+		{ID: "failed", Name: "Failed", Type: "Http", URL: "https://example.com/failed"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	service := &appRuntimeService{config: staticAppConfig{value: config.AppConfig{}}}
+
+	response, err := service.UpdateAllSubscriptions(context.Background(), connect.NewRequest(&appv1.UpdateAllSubscriptionsRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	results := response.Msg.GetResults()
+	if len(results) != 2 {
+		t.Fatalf("expected two update results, got %d", len(results))
+	}
+	if !results[0].GetOk() || results[0].GetSuccessCount() != 1 {
+		t.Fatalf("unexpected successful result: %#v", results[0])
+	}
+	if results[1].GetOk() || results[1].GetFailureReason() == "" {
+		t.Fatalf("unexpected failed result: %#v", results[1])
 	}
 }

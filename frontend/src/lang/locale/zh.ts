@@ -423,6 +423,9 @@ export default {
     editSourceFile: '编辑节点(源文件)',
     copySub: '复制订阅链接',
     script: '脚本',
+    updateSuccess: '订阅「{name}」更新成功：获取 {success} 个节点，过滤 {filtered} 个节点，跳过 {skipped} 个节点',
+    updateFailed: '订阅「{name}」更新失败：{reason}',
+    unknownFailure: '未知原因',
     proxies: {
       type: '协议',
       name: '名称',

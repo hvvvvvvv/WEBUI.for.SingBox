@@ -74,10 +74,14 @@ type scheduledTask struct {
 }
 
 type scheduledTaskResult struct {
-	Ok     bool   `json:"ok" yaml:"ok"`
-	ID     string `json:"id" yaml:"id"`
-	Name   string `json:"name" yaml:"name"`
-	Result string `json:"result" yaml:"result"`
+	Ok            bool   `json:"ok" yaml:"ok"`
+	ID            string `json:"id" yaml:"id"`
+	Name          string `json:"name" yaml:"name"`
+	Result        string `json:"result" yaml:"result"`
+	SuccessCount  uint32 `json:"successCount,omitempty" yaml:"successCount,omitempty"`
+	FilteredCount uint32 `json:"filteredCount,omitempty" yaml:"filteredCount,omitempty"`
+	SkippedCount  uint32 `json:"skippedCount,omitempty" yaml:"skippedCount,omitempty"`
+	FailureReason string `json:"failureReason,omitempty" yaml:"failureReason,omitempty"`
 }
 
 type scheduledTaskLog struct {

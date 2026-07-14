@@ -24,10 +24,11 @@ import (
 )
 
 const (
-	coreWorkingDirectory   = "data/sing-box"
-	corePidFilePath        = coreWorkingDirectory + "/pid.txt"
-	coreStopOutputKeyword  = "sing-box started"
-	coreConfigRelativePath = coreWorkingDirectory + "/config.json"
+	coreWorkingDirectory    = "data/sing-box"
+	corePidFilePath         = coreWorkingDirectory + "/pid.txt"
+	coreStopOutputKeyword   = "sing-box started"
+	coreConfigRelativePath  = coreWorkingDirectory + "/config.json"
+	kernelStateChangedEvent = "kernelStateChanged"
 )
 
 type kernelRuntimeConfig struct {
@@ -71,6 +72,7 @@ type Service struct {
 	profiles  ProfileReader
 	events    EventPublisher
 
+	stateEventMu    sync.Mutex
 	mu              sync.Mutex
 	status          kernelv1.CoreStatus
 	activeProfileID string
@@ -98,6 +100,149 @@ func (s *Service) publish(eventName string, data ...any) {
 	if s.events != nil {
 		s.events.Publish(eventName, data...)
 	}
+}
+
+func visibleCorePID(status kernelv1.CoreStatus, pid int) int {
+	if status == kernelv1.CoreStatus_CORE_STATUS_RUNNING && pid > 0 {
+		return pid
+	}
+	return -1
+}
+
+func (s *Service) updateCoreState(update func()) {
+	s.stateEventMu.Lock()
+	defer s.stateEventMu.Unlock()
+
+	s.mu.Lock()
+	previousStatus := s.status
+	previousPID := visibleCorePID(s.status, s.corePID)
+	update()
+	status := s.status
+	pid := visibleCorePID(status, s.corePID)
+	s.mu.Unlock()
+
+	if status != previousStatus || pid != previousPID {
+		s.publish(kernelStateChangedEvent, map[string]any{"status": status, "pid": pid})
+	}
+}
+
+func (s *Service) setStarting(profileID string) error {
+	s.stateEventMu.Lock()
+	defer s.stateEventMu.Unlock()
+
+	s.mu.Lock()
+	if s.status == kernelv1.CoreStatus_CORE_STATUS_STARTING || s.status == kernelv1.CoreStatus_CORE_STATUS_RUNNING {
+		s.mu.Unlock()
+		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("core is already starting or running"))
+	}
+	s.status = kernelv1.CoreStatus_CORE_STATUS_STARTING
+	s.activeProfileID = profileID
+	s.corePID = -1
+	s.currentProfile = nil
+	s.mu.Unlock()
+
+	s.publish(kernelStateChangedEvent, map[string]any{"status": kernelv1.CoreStatus_CORE_STATUS_STARTING, "pid": -1})
+	return nil
+}
+
+func (s *Service) setRunning(pid int, profileID string, profile *profilev1.Profile) {
+	s.updateCoreState(func() {
+		s.status = kernelv1.CoreStatus_CORE_STATUS_RUNNING
+		s.activeProfileID = profileID
+		s.corePID = pid
+		s.currentProfile = cloneProfile(profile)
+	})
+}
+
+func (s *Service) completeStart(pid int, profileID string, profile *profilev1.Profile) bool {
+	s.stateEventMu.Lock()
+	defer s.stateEventMu.Unlock()
+
+	s.mu.Lock()
+	if s.status != kernelv1.CoreStatus_CORE_STATUS_STARTING || s.corePID != pid {
+		s.mu.Unlock()
+		return false
+	}
+	s.status = kernelv1.CoreStatus_CORE_STATUS_RUNNING
+	s.activeProfileID = profileID
+	s.currentProfile = cloneProfile(profile)
+	s.mu.Unlock()
+
+	s.publish(kernelStateChangedEvent, map[string]any{"status": kernelv1.CoreStatus_CORE_STATUS_RUNNING, "pid": pid})
+	return true
+}
+
+func (s *Service) setStopped() {
+	s.updateCoreState(func() {
+		s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPED
+		s.corePID = -1
+		s.currentProfile = nil
+	})
+}
+
+func (s *Service) setCrashed() {
+	s.updateCoreState(func() {
+		s.status = kernelv1.CoreStatus_CORE_STATUS_CRASHED
+		s.corePID = -1
+		s.currentProfile = nil
+	})
+}
+
+func (s *Service) beginStopping() (int, error) {
+	s.stateEventMu.Lock()
+	defer s.stateEventMu.Unlock()
+
+	s.mu.Lock()
+	if s.status != kernelv1.CoreStatus_CORE_STATUS_RUNNING {
+		s.mu.Unlock()
+		return -1, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("core is not running"))
+	}
+	pid := s.corePID
+	s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPING
+	s.mu.Unlock()
+
+	s.publish(kernelStateChangedEvent, map[string]any{"status": kernelv1.CoreStatus_CORE_STATUS_STOPPING, "pid": -1})
+	return pid, nil
+}
+
+func (s *Service) handleCoreProcessExit(pid int, waitErr error) {
+	s.stateEventMu.Lock()
+	defer s.stateEventMu.Unlock()
+
+	s.mu.Lock()
+	if s.corePID != pid {
+		s.mu.Unlock()
+		return
+	}
+	status := s.status
+	if status != kernelv1.CoreStatus_CORE_STATUS_STOPPING &&
+		status != kernelv1.CoreStatus_CORE_STATUS_STARTING &&
+		status != kernelv1.CoreStatus_CORE_STATUS_RUNNING {
+		s.mu.Unlock()
+		return
+	}
+
+	crashed := status != kernelv1.CoreStatus_CORE_STATUS_STOPPING
+	if crashed {
+		s.status = kernelv1.CoreStatus_CORE_STATUS_CRASHED
+	} else {
+		s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPED
+	}
+	s.corePID = -1
+	s.currentProfile = nil
+	status = s.status
+	s.mu.Unlock()
+
+	s.publish(kernelStateChangedEvent, map[string]any{"status": status, "pid": -1})
+	if !crashed {
+		return
+	}
+
+	reason := "core process exited"
+	if waitErr != nil {
+		reason = waitErr.Error()
+	}
+	s.publish("kernelCrashed", map[string]any{"pid": pid, "reason": reason})
 }
 
 func (s *Service) Status() (kernelv1.CoreStatus, string) {
@@ -151,16 +296,9 @@ func (s *Service) StartCoreWithProfile(
 func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.Profile) (int, error) {
 	profileID := profile.GetId()
 
-	s.mu.Lock()
-	if s.status == kernelv1.CoreStatus_CORE_STATUS_STARTING || s.status == kernelv1.CoreStatus_CORE_STATUS_RUNNING {
-		s.mu.Unlock()
-		return -1, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("core is already starting or running"))
+	if err := s.setStarting(profileID); err != nil {
+		return -1, err
 	}
-
-	s.status = kernelv1.CoreStatus_CORE_STATUS_STARTING
-	s.activeProfileID = profileID
-	s.currentProfile = nil
-	s.mu.Unlock()
 	s.publish("kernelStarting", map[string]any{"profileId": profileID})
 
 	generatedConfig, err := s.config.Generate(profile, &kernelv1.GenerateConfigOptions{
@@ -168,24 +306,24 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 		EnableScriptProcessing: true,
 	})
 	if err != nil {
-		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_STOPPED)
+		s.setStopped()
 		return -1, rpcutil.AsConnectError(err)
 	}
 
 	config.FinalizeGeneratedConfig(generatedConfig)
 	if err := s.config.WriteGeneratedConfig(generatedConfig); err != nil {
-		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_STOPPED)
+		s.setStopped()
 		return -1, rpcutil.AsConnectError(err)
 	}
 
 	runtimeCfg, err := s.loadRuntimeConfig()
 	if err != nil {
-		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_STOPPED)
+		s.setStopped()
 		return -1, rpcutil.AsConnectError(err)
 	}
 
 	if err := validateKernelConfig(s.processes, runtimeCfg); err != nil {
-		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_STOPPED)
+		s.setStopped()
 		return -1, connect.NewError(connect.CodeInvalidArgument, err)
 	}
 
@@ -198,38 +336,35 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 			PIDFile:           corePidFilePath,
 			StopOutputKeyword: coreStopOutputKeyword,
 			Env:               runtimeCfg.Env,
+			OnExit:            s.handleCoreProcessExit,
 		},
 	)
 	if !execResult.Flag {
-		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_STOPPED)
+		s.setStopped()
 		return -1, connect.NewError(connect.CodeInternal, fmt.Errorf("start core failed: %s", execResult.Data))
 	}
 
 	pid, convErr := parsePID(execResult.Data)
 	if convErr != nil {
-		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_STOPPED)
+		s.setStopped()
 		return -1, connect.NewError(connect.CodeInternal, convErr)
 	}
 
-	s.mu.Lock()
-	s.corePID = pid
-	s.mu.Unlock()
+	s.updateCoreState(func() {
+		s.corePID = pid
+	})
 
 	if err := waitKernelAPIReadyFunc(ctx, config.CoreAPIController, s.config.ReadGeneratedSecret(), pid, 15*time.Second); err != nil {
-		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_CRASHED)
+		s.setCrashed()
 		s.publish("kernelCrashed", map[string]any{"pid": pid, "reason": err.Error()})
 		_ = s.processes.KillProcess(pid, 5)
-		s.mu.Lock()
-		s.corePID = -1
-		s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPED
-		s.mu.Unlock()
+		s.setStopped()
 		return -1, connect.NewError(connect.CodeUnavailable, fmt.Errorf("kernel api is not ready: %w", err))
 	}
 
-	s.mu.Lock()
-	s.status = kernelv1.CoreStatus_CORE_STATUS_RUNNING
-	s.currentProfile = cloneProfile(profile)
-	s.mu.Unlock()
+	if !s.completeStart(pid, profileID, profile) {
+		return -1, connect.NewError(connect.CodeUnavailable, fmt.Errorf("core process exited during startup"))
+	}
 
 	s.publish("kernelStarted", map[string]any{"pid": pid, "profileId": profileID})
 	_ = ctx
@@ -240,27 +375,19 @@ func (s *Service) StopCore(
 	_ context.Context,
 	_ *connect.Request[kernelv1.StopCoreRequest],
 ) (*connect.Response[kernelv1.StopCoreResponse], error) {
-	s.mu.Lock()
-	if s.status != kernelv1.CoreStatus_CORE_STATUS_RUNNING {
-		s.mu.Unlock()
-		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("core is not running"))
+	pid, err := s.beginStopping()
+	if err != nil {
+		return nil, err
 	}
-	pid := s.corePID
-	s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPING
-	s.mu.Unlock()
 
 	result := s.processes.KillProcess(pid, 10)
 	if !result.Flag {
-		s.setStatus(kernelv1.CoreStatus_CORE_STATUS_CRASHED)
+		s.setCrashed()
 		s.publish("kernelCrashed", map[string]any{"pid": pid, "reason": result.Data})
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("stop core failed: %s", result.Data))
 	}
 
-	s.mu.Lock()
-	s.corePID = -1
-	s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPED
-	s.currentProfile = nil
-	s.mu.Unlock()
+	s.setStopped()
 
 	s.publish("kernelStopped", map[string]any{"pid": pid})
 	return connect.NewResponse(&kernelv1.StopCoreResponse{}), nil
@@ -412,11 +539,7 @@ func (s *Service) attachExistingCoreFromPID(profileID string) bool {
 		return false
 	}
 
-	s.mu.Lock()
-	s.status = kernelv1.CoreStatus_CORE_STATUS_RUNNING
-	s.activeProfileID = profileID
-	s.corePID = pid
-	s.mu.Unlock()
+	s.setRunning(pid, profileID, nil)
 
 	log.Printf("AutoStartCore: attached to existing core process %d", pid)
 	return true
@@ -424,12 +547,6 @@ func (s *Service) attachExistingCoreFromPID(profileID string) bool {
 
 func (s *Service) loadProfileByID(id string) (*profilev1.Profile, error) {
 	return s.profiles.FindByID(id)
-}
-
-func (s *Service) setStatus(status kernelv1.CoreStatus) {
-	s.mu.Lock()
-	s.status = status
-	s.mu.Unlock()
 }
 
 func (s *Service) loadRuntimeConfig() (kernelRuntimeConfig, error) {

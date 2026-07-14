@@ -27,6 +27,10 @@ type TaskResult struct {
 	Id            string                 `protobuf:"bytes,2,opt,name=id,proto3" json:"id,omitempty"`
 	Name          string                 `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	Result        string                 `protobuf:"bytes,4,opt,name=result,proto3" json:"result,omitempty"`
+	SuccessCount  uint32                 `protobuf:"varint,5,opt,name=success_count,json=successCount,proto3" json:"success_count,omitempty"`
+	FilteredCount uint32                 `protobuf:"varint,6,opt,name=filtered_count,json=filteredCount,proto3" json:"filtered_count,omitempty"`
+	SkippedCount  uint32                 `protobuf:"varint,7,opt,name=skipped_count,json=skippedCount,proto3" json:"skipped_count,omitempty"`
+	FailureReason string                 `protobuf:"bytes,8,opt,name=failure_reason,json=failureReason,proto3" json:"failure_reason,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -85,6 +89,34 @@ func (x *TaskResult) GetName() string {
 func (x *TaskResult) GetResult() string {
 	if x != nil {
 		return x.Result
+	}
+	return ""
+}
+
+func (x *TaskResult) GetSuccessCount() uint32 {
+	if x != nil {
+		return x.SuccessCount
+	}
+	return 0
+}
+
+func (x *TaskResult) GetFilteredCount() uint32 {
+	if x != nil {
+		return x.FilteredCount
+	}
+	return 0
+}
+
+func (x *TaskResult) GetSkippedCount() uint32 {
+	if x != nil {
+		return x.SkippedCount
+	}
+	return 0
+}
+
+func (x *TaskResult) GetFailureReason() string {
+	if x != nil {
+		return x.FailureReason
 	}
 	return ""
 }
@@ -169,13 +201,17 @@ var File_app_v1_task_proto protoreflect.FileDescriptor
 
 const file_app_v1_task_proto_rawDesc = "" +
 	"\n" +
-	"\x11app/v1/task.proto\x12\x06app.v1\"X\n" +
+	"\x11app/v1/task.proto\x12\x06app.v1\"\xf0\x01\n" +
 	"\n" +
 	"TaskResult\x12\x0e\n" +
 	"\x02ok\x18\x01 \x01(\bR\x02ok\x12\x0e\n" +
 	"\x02id\x18\x02 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12\x16\n" +
-	"\x06result\x18\x04 \x01(\tR\x06result\"\x95\x01\n" +
+	"\x06result\x18\x04 \x01(\tR\x06result\x12#\n" +
+	"\rsuccess_count\x18\x05 \x01(\rR\fsuccessCount\x12%\n" +
+	"\x0efiltered_count\x18\x06 \x01(\rR\rfilteredCount\x12#\n" +
+	"\rskipped_count\x18\a \x01(\rR\fskippedCount\x12%\n" +
+	"\x0efailure_reason\x18\b \x01(\tR\rfailureReason\"\x95\x01\n" +
 	"\aTaskLog\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1d\n" +

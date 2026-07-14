@@ -9,6 +9,10 @@ message TaskResult {
   string id = 2;
   string name = 3;
   string result = 4;
+  uint32 success_count = 5;
+  uint32 filtered_count = 6;
+  uint32 skipped_count = 7;
+  string failure_reason = 8;
 }
 
 message TaskLog {

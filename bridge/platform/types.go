@@ -6,6 +6,7 @@ type ExecOptions struct {
 	WorkingDirectory  string
 	Convert           bool
 	Env               map[string]string
+	OnExit            func(pid int, err error) `json:"-"`
 }
 
 type Result struct {

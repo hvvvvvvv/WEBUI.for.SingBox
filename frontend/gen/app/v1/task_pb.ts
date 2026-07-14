@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file app/v1/task.proto.
  */
 export const file_app_v1_task: GenFile = /*@__PURE__*/
-  fileDesc("ChFhcHAvdjEvdGFzay5wcm90bxIGYXBwLnYxIkIKClRhc2tSZXN1bHQSCgoCb2sYASABKAgSCgoCaWQYAiABKAkSDAoEbmFtZRgDIAEoCRIOCgZyZXN1bHQYBCABKAkibgoHVGFza0xvZxIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEhIKCnN0YXJ0X3RpbWUYAyABKAMSEAoIZW5kX3RpbWUYBCABKAMSIwoHcmVzdWx0cxgFIAMoCzISLmFwcC52MS5UYXNrUmVzdWx0Qm4KCmNvbS5hcHAudjFCCVRhc2tQcm90b1ABWhxndWlmb3Jjb3Jlcy9nZW4vYXBwL3YxO2FwcHYxogIDQVhYqgIGQXBwLlYxygIGQXBwXFYx4gISQXBwXFYxXEdQQk1ldGFkYXRh6gIHQXBwOjpWMWIGcHJvdG8z");
+  fileDesc("ChFhcHAvdjEvdGFzay5wcm90bxIGYXBwLnYxIqABCgpUYXNrUmVzdWx0EgoKAm9rGAEgASgIEgoKAmlkGAIgASgJEgwKBG5hbWUYAyABKAkSDgoGcmVzdWx0GAQgASgJEhUKDXN1Y2Nlc3NfY291bnQYBSABKA0SFgoOZmlsdGVyZWRfY291bnQYBiABKA0SFQoNc2tpcHBlZF9jb3VudBgHIAEoDRIWCg5mYWlsdXJlX3JlYXNvbhgIIAEoCSJuCgdUYXNrTG9nEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSEgoKc3RhcnRfdGltZRgDIAEoAxIQCghlbmRfdGltZRgEIAEoAxIjCgdyZXN1bHRzGAUgAygLMhIuYXBwLnYxLlRhc2tSZXN1bHRCbgoKY29tLmFwcC52MUIJVGFza1Byb3RvUAFaHGd1aWZvcmNvcmVzL2dlbi9hcHAvdjE7YXBwdjGiAgNBWFiqAgZBcHAuVjHKAgZBcHBcVjHiAhJBcHBcVjFcR1BCTWV0YWRhdGHqAgdBcHA6OlYxYgZwcm90bzM");
 
 /**
  * @generated from message app.v1.TaskResult
@@ -35,6 +35,26 @@ export type TaskResult = Message<"app.v1.TaskResult"> & {
    * @generated from field: string result = 4;
    */
   result: string;
+
+  /**
+   * @generated from field: uint32 success_count = 5;
+   */
+  successCount: number;
+
+  /**
+   * @generated from field: uint32 filtered_count = 6;
+   */
+  filteredCount: number;
+
+  /**
+   * @generated from field: uint32 skipped_count = 7;
+   */
+  skippedCount: number;
+
+  /**
+   * @generated from field: string failure_reason = 8;
+   */
+  failureReason: string;
 };
 
 /**

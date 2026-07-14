@@ -2,8 +2,11 @@ package kernel
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -53,10 +56,14 @@ func (fakeProcesses) BaseDir() string { return "/tmp/app" }
 type fakeGenerator struct {
 	generatedConfig   map[string]any
 	generatedProfiles []*profilev1.Profile
+	generateErr       error
 }
 
 func (f *fakeGenerator) Generate(profile *profilev1.Profile, _ *kernelv1.GenerateConfigOptions) (map[string]any, error) {
 	f.generatedProfiles = append(f.generatedProfiles, profile)
+	if f.generateErr != nil {
+		return nil, f.generateErr
+	}
 	if f.generatedConfig != nil {
 		return f.generatedConfig, nil
 	}
@@ -85,6 +92,76 @@ func (f *fakeProfiles) FindByID(string) (*profilev1.Profile, error) {
 type fakeEvents struct{}
 
 func (fakeEvents) Publish(string, ...any) {}
+
+type publishedEvent struct {
+	name string
+	data []any
+}
+
+type recordingEvents struct {
+	mu     sync.Mutex
+	events []publishedEvent
+}
+
+func (e *recordingEvents) Publish(name string, data ...any) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	e.events = append(e.events, publishedEvent{name: name, data: data})
+}
+
+func (e *recordingEvents) coreStates() []map[string]any {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+	states := make([]map[string]any, 0)
+	for _, event := range e.events {
+		if event.name != kernelStateChangedEvent || len(event.data) == 0 {
+			continue
+		}
+		if state, ok := event.data[0].(map[string]any); ok {
+			states = append(states, state)
+		}
+	}
+	return states
+}
+
+type exitCallbackProcesses struct {
+	fakeProcesses
+	mu       sync.Mutex
+	onExit   func(int, error)
+	execPID  int
+	killExit bool
+}
+
+func (p *exitCallbackProcesses) ExecBackground(_ string, _ []string, _ string, _ string, options platform.ExecOptions) platform.Result {
+	p.mu.Lock()
+	p.onExit = options.OnExit
+	pid := p.execPID
+	p.mu.Unlock()
+	if pid <= 0 {
+		pid = 1
+	}
+	return platform.Result{Flag: true, Data: strconv.Itoa(pid)}
+}
+
+func (p *exitCallbackProcesses) KillProcess(pid int, _ int) platform.Result {
+	p.mu.Lock()
+	onExit := p.onExit
+	killExit := p.killExit
+	p.mu.Unlock()
+	if killExit && onExit != nil {
+		onExit(pid, nil)
+	}
+	return platform.Result{Flag: true}
+}
+
+func (p *exitCallbackProcesses) exit(pid int, err error) {
+	p.mu.Lock()
+	onExit := p.onExit
+	p.mu.Unlock()
+	if onExit != nil {
+		onExit(pid, err)
+	}
+}
 
 func TestStartCoreRejectsMissingProfileID(t *testing.T) {
 	service := NewService(fakeProcesses{}, &fakeGenerator{}, fakeConfig{}, &fakeProfiles{}, fakeEvents{})
@@ -384,5 +461,136 @@ func TestRestartCoreReturnsPID(t *testing.T) {
 	}
 	if resp.Msg.GetPid() != 1 {
 		t.Fatalf("expected restarted pid 1, got %d", resp.Msg.GetPid())
+	}
+}
+
+func assertCoreStateEvent(t *testing.T, state map[string]any, status kernelv1.CoreStatus, pid int) {
+	t.Helper()
+	if state["status"] != status || state["pid"] != pid {
+		t.Fatalf("core state event = %#v, want status %v and pid %d", state, status, pid)
+	}
+}
+
+func TestCoreStateEventsFollowStartAndStop(t *testing.T) {
+	previousWait := waitKernelAPIReadyFunc
+	waitKernelAPIReadyFunc = func(context.Context, string, string, int, time.Duration) error {
+		return nil
+	}
+	t.Cleanup(func() { waitKernelAPIReadyFunc = previousWait })
+
+	processes := &exitCallbackProcesses{execPID: 7, killExit: true}
+	events := &recordingEvents{}
+	service := NewService(processes, &fakeGenerator{}, fakeConfig{}, &fakeProfiles{}, events)
+
+	if _, err := service.StartCore(context.Background(), connect.NewRequest(&kernelv1.StartCoreRequest{ProfileId: "profile"})); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StopCore(context.Background(), connect.NewRequest(&kernelv1.StopCoreRequest{})); err != nil {
+		t.Fatal(err)
+	}
+
+	states := events.coreStates()
+	if len(states) != 4 {
+		t.Fatalf("core state event count = %d, want 4: %#v", len(states), states)
+	}
+	assertCoreStateEvent(t, states[0], kernelv1.CoreStatus_CORE_STATUS_STARTING, -1)
+	assertCoreStateEvent(t, states[1], kernelv1.CoreStatus_CORE_STATUS_RUNNING, 7)
+	assertCoreStateEvent(t, states[2], kernelv1.CoreStatus_CORE_STATUS_STOPPING, -1)
+	assertCoreStateEvent(t, states[3], kernelv1.CoreStatus_CORE_STATUS_STOPPED, -1)
+}
+
+func TestUnexpectedCoreExitPublishesCrashedState(t *testing.T) {
+	previousWait := waitKernelAPIReadyFunc
+	waitKernelAPIReadyFunc = func(context.Context, string, string, int, time.Duration) error {
+		return nil
+	}
+	t.Cleanup(func() { waitKernelAPIReadyFunc = previousWait })
+
+	processes := &exitCallbackProcesses{execPID: 7}
+	events := &recordingEvents{}
+	service := NewService(processes, &fakeGenerator{}, fakeConfig{}, &fakeProfiles{}, events)
+	if _, err := service.StartCore(context.Background(), connect.NewRequest(&kernelv1.StartCoreRequest{ProfileId: "profile"})); err != nil {
+		t.Fatal(err)
+	}
+
+	processes.exit(7, errors.New("unexpected exit"))
+	response, err := service.GetCoreStatus(context.Background(), connect.NewRequest(&kernelv1.GetCoreStatusRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.Msg.GetStatus() != kernelv1.CoreStatus_CORE_STATUS_CRASHED || response.Msg.GetPid() != -1 {
+		t.Fatalf("core status after exit = %v, pid %d", response.Msg.GetStatus(), response.Msg.GetPid())
+	}
+	states := events.coreStates()
+	assertCoreStateEvent(t, states[len(states)-1], kernelv1.CoreStatus_CORE_STATUS_CRASHED, -1)
+}
+
+func TestStaleCoreExitDoesNotOverrideNewProcess(t *testing.T) {
+	previousWait := waitKernelAPIReadyFunc
+	waitKernelAPIReadyFunc = func(context.Context, string, string, int, time.Duration) error {
+		return nil
+	}
+	t.Cleanup(func() { waitKernelAPIReadyFunc = previousWait })
+
+	processes := &exitCallbackProcesses{execPID: 7}
+	events := &recordingEvents{}
+	service := NewService(processes, &fakeGenerator{}, fakeConfig{}, &fakeProfiles{}, events)
+	if _, err := service.StartCore(context.Background(), connect.NewRequest(&kernelv1.StartCoreRequest{ProfileId: "profile"})); err != nil {
+		t.Fatal(err)
+	}
+	service.setRunning(8, "profile", &profilev1.Profile{Id: "profile"})
+	stateCount := len(events.coreStates())
+
+	processes.exit(7, errors.New("old process exited"))
+	response, err := service.GetCoreStatus(context.Background(), connect.NewRequest(&kernelv1.GetCoreStatusRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.Msg.GetStatus() != kernelv1.CoreStatus_CORE_STATUS_RUNNING || response.Msg.GetPid() != 8 {
+		t.Fatalf("stale exit changed core state to %v, pid %d", response.Msg.GetStatus(), response.Msg.GetPid())
+	}
+	if len(events.coreStates()) != stateCount {
+		t.Fatal("stale process exit published a state change")
+	}
+}
+
+func TestRestartStartFailureEndsInStoppedState(t *testing.T) {
+	events := &recordingEvents{}
+	service := NewService(
+		fakeProcesses{},
+		&fakeGenerator{generateErr: errors.New("generation failed")},
+		fakeConfig{},
+		&fakeProfiles{},
+		events,
+	)
+	service.mu.Lock()
+	service.status = kernelv1.CoreStatus_CORE_STATUS_RUNNING
+	service.corePID = 9
+	service.activeProfileID = "profile"
+	service.mu.Unlock()
+
+	_, err := service.RestartCore(context.Background(), connect.NewRequest(&kernelv1.RestartCoreRequest{ProfileId: "profile"}))
+	if err == nil {
+		t.Fatal("expected restart failure")
+	}
+	response, statusErr := service.GetCoreStatus(context.Background(), connect.NewRequest(&kernelv1.GetCoreStatusRequest{}))
+	if statusErr != nil {
+		t.Fatal(statusErr)
+	}
+	if response.Msg.GetStatus() != kernelv1.CoreStatus_CORE_STATUS_STOPPED || response.Msg.GetPid() != -1 {
+		t.Fatalf("core status after failed restart = %v, pid %d", response.Msg.GetStatus(), response.Msg.GetPid())
+	}
+	states := events.coreStates()
+	wantStatuses := []kernelv1.CoreStatus{
+		kernelv1.CoreStatus_CORE_STATUS_STOPPING,
+		kernelv1.CoreStatus_CORE_STATUS_STOPPED,
+		kernelv1.CoreStatus_CORE_STATUS_STARTING,
+		kernelv1.CoreStatus_CORE_STATUS_STOPPED,
+	}
+	if len(states) != len(wantStatuses) {
+		t.Fatalf("core state event count = %d, want %d: %#v", len(states), len(wantStatuses), states)
+	}
+	for index, status := range wantStatuses {
+		assertCoreStateEvent(t, states[index], status, -1)
 	}
 }
