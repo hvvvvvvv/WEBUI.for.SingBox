@@ -2,9 +2,7 @@ package appupdate
 
 import (
 	"archive/zip"
-	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -24,45 +22,27 @@ type HelperOptions struct {
 	ParentPID   int
 	RestartArgs []string
 	WorkingDir  string
+	ServiceMode bool
 }
 
-func IsHelperMode(args []string) bool {
-	for _, arg := range args {
-		if arg == appUpdateHelperFlag {
-			return true
-		}
-	}
-	return false
-}
-
-func ParseHelperOptions(args []string) (HelperOptions, error) {
-	var opts HelperOptions
-	var restartArgsJSON string
-	fs := flag.NewFlagSet("updater-helper", flag.ContinueOnError)
-	fs.Bool(flagName(appUpdateHelperFlag), false, "")
-	fs.StringVar(&opts.ArchivePath, flagName(appUpdateArchiveFlag), "", "")
-	fs.StringVar(&opts.TargetPath, flagName(appUpdateTargetFlag), "", "")
-	fs.IntVar(&opts.ParentPID, flagName(appUpdateParentFlag), 0, "")
-	fs.StringVar(&restartArgsJSON, flagName(appUpdateArgsFlag), "[]", "")
-	fs.StringVar(&opts.WorkingDir, flagName(appUpdateWorkingDirFlag), "", "")
-	if err := fs.Parse(args); err != nil {
-		return opts, err
-	}
-	if opts.ArchivePath == "" || opts.TargetPath == "" || opts.ParentPID <= 0 {
-		return opts, fmt.Errorf("invalid updater helper arguments")
-	}
-	if err := json.Unmarshal([]byte(restartArgsJSON), &opts.RestartArgs); err != nil {
-		return opts, err
-	}
-	return opts, nil
-}
-
-func flagName(name string) string {
-	return strings.TrimLeft(name, "-")
-}
+var (
+	waitForUpdateParent       = waitForParentExit
+	extractUpdateArchive      = extractZip
+	replaceUpdatedApplication = replaceApplication
+	controlUpdatedService     = runServiceControl
+	startUpdatedApplication   = startApplication
+	serviceControlDelay       = 300 * time.Millisecond
+)
 
 func RunHelper(opts HelperOptions) error {
-	if err := waitForParentExit(opts.ParentPID, 30*time.Second); err != nil {
+	if opts.ServiceMode {
+		time.Sleep(serviceControlDelay)
+		if err := controlUpdatedService(opts.TargetPath, opts.WorkingDir, "stop"); err != nil {
+			return fmt.Errorf("stop system service: %w", err)
+		}
+	}
+
+	if err := waitForUpdateParent(opts.ParentPID, 30*time.Second); err != nil {
 		return err
 	}
 
@@ -72,18 +52,45 @@ func RunHelper(opts HelperOptions) error {
 	}
 	defer os.RemoveAll(extractDir)
 
-	if err := extractZip(opts.ArchivePath, extractDir); err != nil {
+	if err := extractUpdateArchive(opts.ArchivePath, extractDir); err != nil {
 		return err
 	}
-	if err := replaceApplication(extractDir, opts.TargetPath); err != nil {
+	if err := replaceUpdatedApplication(extractDir, opts.TargetPath); err != nil {
 		return err
 	}
 	_ = os.Remove(opts.ArchivePath)
 
-	cmd := exec.Command(opts.TargetPath, opts.RestartArgs...)
+	if opts.ServiceMode {
+		if err := controlUpdatedService(opts.TargetPath, opts.WorkingDir, "start"); err != nil {
+			return fmt.Errorf("start system service: %w", err)
+		}
+		return nil
+	}
+	return startUpdatedApplication(opts.TargetPath, opts.RestartArgs, opts.WorkingDir)
+}
+
+func runServiceControl(targetPath, workingDir, action string) error {
+	cmd := exec.Command(targetPath, "service", action)
 	cmd.Env = os.Environ()
-	if opts.WorkingDir != "" {
-		cmd.Dir = opts.WorkingDir
+	if workingDir != "" {
+		cmd.Dir = workingDir
+	}
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		message := strings.TrimSpace(string(output))
+		if message != "" {
+			return fmt.Errorf("%w: %s", err, message)
+		}
+		return err
+	}
+	return nil
+}
+
+func startApplication(targetPath string, args []string, workingDir string) error {
+	cmd := exec.Command(targetPath, args...)
+	cmd.Env = os.Environ()
+	if workingDir != "" {
+		cmd.Dir = workingDir
 	}
 	return cmd.Start()
 }

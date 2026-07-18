@@ -23,15 +23,10 @@ import (
 )
 
 const (
-	appTitle                = "webui.for.singbox"
-	appLatestReleaseAPIURL  = "https://api.github.com/repos/hvvvvvvv/WEBUI.for.SingBox/releases/latest"
-	appUpdateCacheFilePath  = "data/.cache/gui-update.zip"
-	appUpdateHelperFlag     = "--gfs-updater-helper"
-	appUpdateArchiveFlag    = "--gfs-update-archive"
-	appUpdateTargetFlag     = "--gfs-update-target"
-	appUpdateParentFlag     = "--gfs-update-parent"
-	appUpdateArgsFlag       = "--gfs-update-args"
-	appUpdateWorkingDirFlag = "--gfs-update-working-dir"
+	appTitle               = "webui.for.singbox"
+	appLatestReleaseAPIURL = "https://api.github.com/repos/hvvvvvvv/WEBUI.for.SingBox/releases/latest"
+	appUpdateCacheFilePath = "data/.cache/gui-update.zip"
+	appUpdateHelperCommand = "__updater"
 )
 
 type AppConfigReader interface {
@@ -47,6 +42,7 @@ type Service struct {
 	appConfig      AppConfigReader
 	events         EventPublisher
 	currentVersion string
+	serviceMode    bool
 
 	mu             sync.Mutex
 	updatedVersion string
@@ -63,16 +59,24 @@ type githubAsset struct {
 	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
-func NewService(platformService *platform.Service, appConfig AppConfigReader, events EventPublisher, currentVersion string) *Service {
+func NewService(
+	platformService *platform.Service,
+	appConfig AppConfigReader,
+	events EventPublisher,
+	currentVersion string,
+	serviceModes ...bool,
+) *Service {
 	currentVersion = strings.TrimSpace(currentVersion)
 	if currentVersion == "" {
 		currentVersion = "unknown"
 	}
+	serviceMode := len(serviceModes) > 0 && serviceModes[0]
 	return &Service{
 		platform:       platformService,
 		appConfig:      appConfig,
 		events:         events,
 		currentVersion: currentVersion,
+		serviceMode:    serviceMode,
 		updatedVersion: currentVersion,
 		downloads:      map[string]context.CancelFunc{},
 	}
@@ -190,13 +194,15 @@ func (s *Service) ApplyAppUpdate(
 	if !fileExists(archivePath) {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("update cache file is missing"))
 	}
-	if err := startUpdateHelper(archivePath); err != nil {
+	if err := startUpdateHelper(archivePath, s.serviceMode); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	go func() {
-		time.Sleep(300 * time.Millisecond)
-		os.Exit(0)
-	}()
+	if !s.serviceMode {
+		go func() {
+			time.Sleep(300 * time.Millisecond)
+			os.Exit(0)
+		}()
+	}
 	return connect.NewResponse(&appv1.ApplyAppUpdateResponse{}), nil
 }
 
@@ -310,7 +316,7 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-func startUpdateHelper(archivePath string) error {
+func startUpdateHelper(archivePath string, serviceMode bool) error {
 	currentExe, err := os.Executable()
 	if err != nil {
 		return err
@@ -325,17 +331,26 @@ func startUpdateHelper(archivePath string) error {
 		return err
 	}
 
-	cmd := exec.Command(helperPath,
-		appUpdateHelperFlag,
-		appUpdateArchiveFlag, archivePath,
-		appUpdateTargetFlag, currentExe,
-		appUpdateParentFlag, fmt.Sprintf("%d", os.Getpid()),
-		appUpdateArgsFlag, string(restartArgs),
-		appUpdateWorkingDirFlag, workingDir,
-	)
+	args := updateHelperArguments(archivePath, currentExe, os.Getpid(), string(restartArgs), workingDir, serviceMode)
+	cmd := exec.Command(helperPath, args...)
 	cmd.Env = os.Environ()
 	cmd.Dir = workingDir
 	return cmd.Start()
+}
+
+func updateHelperArguments(archivePath, targetPath string, parentPID int, restartArgs, workingDir string, serviceMode bool) []string {
+	args := []string{
+		appUpdateHelperCommand,
+		"--archive-path", archivePath,
+		"--target-path", targetPath,
+		"--parent-pid", fmt.Sprintf("%d", parentPID),
+		"--restart-args", restartArgs,
+		"--working-dir", workingDir,
+	}
+	if serviceMode {
+		args = append(args, "--service-mode")
+	}
+	return args
 }
 
 func copyFile(source string, target string, mode os.FileMode) error {

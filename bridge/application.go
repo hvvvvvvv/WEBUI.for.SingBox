@@ -27,11 +27,12 @@ import (
 )
 
 type Options struct {
-	Address    string
-	Assets     embed.FS
-	BaseDir    string
-	AppName    string
-	AppVersion string
+	Address     string
+	Assets      embed.FS
+	BaseDir     string
+	AppName     string
+	AppVersion  string
+	ServiceMode bool
 }
 
 type Application struct {
@@ -89,7 +90,7 @@ func New(options Options) (*Application, error) {
 	subscriptionService := subscription.NewService(runtimeService)
 	ruleSetService := ruleset.NewService(runtimeService)
 	schedulerService := scheduler.NewService(runtimeService)
-	updateService := appupdate.NewService(platformService, appConfig, events, options.AppVersion)
+	updateService := appupdate.NewService(platformService, appConfig, events, options.AppVersion, options.ServiceMode)
 	systemService := appsystem.NewService(platformService)
 
 	server, err := httptransport.NewServer(httptransport.Options{

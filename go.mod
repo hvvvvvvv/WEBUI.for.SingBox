@@ -3,7 +3,9 @@ module guiforcores
 go 1.26
 
 require (
+	github.com/alecthomas/kong v1.16.0
 	github.com/gorilla/websocket v1.5.3
+	github.com/kardianos/service v1.3.0
 	github.com/oschwald/geoip2-golang v1.13.0
 	github.com/shirou/gopsutil/v3 v3.24.5
 	github.com/titanous/json5 v1.0.0
