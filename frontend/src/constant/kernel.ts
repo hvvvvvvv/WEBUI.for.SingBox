@@ -174,13 +174,6 @@ export const RulesTypeOptions = [
   },
 ]
 
-export const DnsRuleTypeOptions = RulesTypeOptions.concat([
-  {
-    label: 'kernel.rules.type.ip_accept_any',
-    value: RuleType.IpAcceptAny,
-  },
-])
-
 export const TunStackOptions = [
   { label: 'kernel.inbounds.tun.system', value: TunStack.System },
   { label: 'kernel.inbounds.tun.gvisor', value: TunStack.GVisor },
@@ -275,11 +268,51 @@ export const DnsServerTypeOptions = [
 
 export const DnsRuleActionOptions = [
   { label: 'kernel.route.rules.action.route', value: RuleAction.Route },
+  { label: 'kernel.dns.rules.actionName.evaluate', value: RuleAction.Evaluate },
+  { label: 'kernel.dns.rules.actionName.respond', value: RuleAction.Respond },
   { label: 'kernel.route.rules.action.route-options', value: RuleAction.RouteOptions },
   { label: 'kernel.route.rules.action.reject', value: RuleAction.Reject },
   { label: 'kernel.route.rules.action.predefined', value: RuleAction.Predefined },
   { label: 'kernel.route.rules.action.inline', value: RuleAction.Inline },
 ]
+
+export const DnsRuleNetworkOptions = [
+  { label: 'TCP', value: 'tcp' },
+  { label: 'UDP', value: 'udp' },
+]
+
+export const DnsRulePreferredByOptions = [
+  { label: 'Hosts', value: 'hosts' },
+  { label: 'Local', value: 'local' },
+  { label: 'mDNS', value: 'mdns' },
+  { label: 'Tailscale', value: 'tailscale' },
+  { label: 'OpenConnect', value: 'openconnect' },
+  { label: 'Resolved', value: 'resolved' },
+]
+
+export const DnsQueryTypeOptions = [
+  'A',
+  'AAAA',
+  'CNAME',
+  'MX',
+  'NS',
+  'PTR',
+  'SOA',
+  'SRV',
+  'TXT',
+  'HTTPS',
+  'SVCB',
+  'CAA',
+].map((value) => ({ label: value, value }))
+
+export const DnsRcodeOptions = [
+  'NOERROR',
+  'FORMERR',
+  'SERVFAIL',
+  'NXDOMAIN',
+  'NOTIMP',
+  'REFUSED',
+].map((value) => ({ label: value, value }))
 
 export const DnsRuleActionRejectOptions = [
   { label: 'kernel.route.rules.action.rejectDefault', value: RuleActionReject.Default },

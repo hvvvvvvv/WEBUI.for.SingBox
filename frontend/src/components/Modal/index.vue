@@ -24,6 +24,7 @@ export interface Props {
   cancelText?: string
   submitText?: string
   maskClosable?: boolean
+  bodyScrollable?: boolean
   class?: string
   toolbar?: {
     maximize?: boolean
@@ -61,6 +62,7 @@ const props = withDefaults(defineProps<Props>(), {
   cancelText: 'common.cancel',
   submitText: 'common.save',
   maskClosable: false,
+  bodyScrollable: true,
   class: undefined,
   toolbar: () => ({
     maximize: true,
@@ -191,7 +193,10 @@ provide(IS_IN_MODAL, true)
               </Button>
             </div>
           </div>
-          <div class="flex-1 overflow-auto mx-16">
+          <div
+            class="flex-1 min-h-0 mx-16"
+            :class="bodyScrollable ? 'overflow-auto' : 'overflow-hidden'"
+          >
             <slot></slot>
           </div>
           <div v-if="footer" class="flex items-center justify-end py-8 px-16 gap-8">

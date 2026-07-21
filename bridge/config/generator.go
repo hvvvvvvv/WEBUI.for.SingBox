@@ -46,6 +46,8 @@ const (
 	ruleActionSniff        = "sniff"
 	ruleActionResolve      = "resolve"
 	ruleActionPredefined   = "predefined"
+	ruleActionEvaluate     = "evaluate"
+	ruleActionRespond      = "respond"
 	ruleActionInline       = "inline"
 
 	outboundTypeDirect   = "direct"
@@ -958,73 +960,51 @@ func (g *configGenerator) generateDNS(
 		if rule == nil || !rule.GetEnable() {
 			continue
 		}
-		path := fmt.Sprintf("dns.rules[%d]", ruleIndex)
-		ruleType, err := ruleTypeString(rule.GetType())
-		if err != nil {
-			return nil, err
-		}
-		if ruleType == ruleTypeInsertionPoint {
+		if rule.GetId() == ruleTypeInsertionPoint {
 			continue
 		}
-
+		path := fmt.Sprintf("dns.rules[%d]", ruleIndex)
 		action, err := dnsRuleActionString(rule.GetAction())
 		if err != nil {
 			return nil, err
 		}
-		ruleFields, err := generateRuleFields(ruleType, rule.GetPayload(), ruleSet, inbounds, path)
+		var rawFields map[string]any
+		if raw := strings.TrimSpace(rule.GetRaw()); raw != "" {
+			rawFields, err = parseJSONObject(raw)
+			if err != nil {
+				return nil, invalidArgumentError{message: fmt.Sprintf("%s.raw: %v", path, err)}
+			}
+			if isFakeIPRule, _ := rawFields["__is_fake_ip"].(bool); isFakeIPRule && !hasFakeIP {
+				continue
+			}
+		} else if action == ruleActionInline {
+			return nil, invalidArgumentError{message: path + ".raw is required for inline action"}
+		}
+		item, err := generateDNSRuleMatchFields(rule, ruleSet, inbounds, path)
 		if err != nil {
 			return nil, err
 		}
-		item := map[string]any{}
 		if rule.GetInvert() {
 			item["invert"] = true
 		}
-		if len(rule.GetQueryType()) > 0 {
-			item["query_type"] = stringsToAnySlice(rule.GetQueryType())
-		}
-		deepAssign(item, ruleFields)
-
-		if ruleType == ruleTypeInline {
-			_, isFakeIPRule := ruleFields["__is_fake_ip"]
-			if isFakeIPRule && !hasFakeIP {
-				continue
-			}
-		}
 		if action != ruleActionInline {
 			item["action"] = action
-			if action == ruleActionRoute || action == ruleActionRouteOptions {
-				if rule.GetDisableCache() {
-					item["disable_cache"] = true
-				}
-				if rule.GetClientSubnet() != "" {
-					item["client_subnet"] = rule.GetClientSubnet()
-				}
-				if action == ruleActionRoute {
-					server, err := resolveDNSServerTag(dns.GetServers(), rule.GetServer(), path+".server")
-					if err != nil {
-						return nil, err
-					}
-					if server != "" {
-						item["server"] = server
-					}
-				}
-			}
-
-			if action == ruleActionRouteOptions || action == ruleActionPredefined {
-				parsed, err := parseJSONObject(rule.GetServer())
-				if err != nil {
-					return nil, err
-				}
-				deepAssign(item, parsed)
-			}
-
-			if action == ruleActionReject {
-				item["method"] = rule.GetServer()
+			if err := applyDNSRuleActionOptions(item, action, rule.GetActionOptions(), dns.GetServers(), path); err != nil {
+				return nil, err
 			}
 		}
-		applyInlineInvert(item, ruleType, ruleFields)
-		if ruleType == ruleTypeInline {
-			delete(item, "__is_fake_ip")
+
+		if rawFields != nil {
+			deepAssign(item, rawFields)
+		}
+
+		if isFakeIPRule, _ := item["__is_fake_ip"].(bool); isFakeIPRule && !hasFakeIP {
+			continue
+		}
+		delete(item, "__is_fake_ip")
+
+		if err := validateGeneratedDNSRule(item, path, action == ruleActionInline); err != nil {
+			return nil, err
 		}
 
 		result["rules"] = append(result["rules"].([]any), item)
@@ -1033,79 +1013,262 @@ func (g *configGenerator) generateDNS(
 	return result, nil
 }
 
-func generateRuleFields(
-	ruleType string,
-	payload string,
+func generateDNSRuleMatchFields(
+	rule *configv1.DnsRule,
 	ruleSets []*configv1.RuleSet,
 	inbounds []*configv1.Inbound,
 	path string,
 ) (map[string]any, error) {
-	result := map[string]any{}
+	item := map[string]any{}
 
-	switch ruleType {
-	case ruleTypeInline:
-		parsed, err := parseJSONObject(payload)
+	if len(rule.GetInbound()) > 0 {
+		tags := make([]any, 0, len(rule.GetInbound()))
+		for index, id := range rule.GetInbound() {
+			tag, err := resolveEnabledInboundTag(inbounds, id, fmt.Sprintf("%s.inbound[%d]", path, index))
+			if err != nil {
+				return nil, err
+			}
+			tags = append(tags, tag)
+		}
+		item["inbound"] = tags
+	}
+
+	if clashMode := rule.GetClashMode(); clashMode != "" {
+		item["clash_mode"] = clashMode
+	}
+	if ipVersion := rule.GetIpVersion(); ipVersion != 0 {
+		if ipVersion != 4 && ipVersion != 6 {
+			return nil, invalidArgumentError{message: fmt.Sprintf("%s.ip_version must be 4 or 6", path)}
+		}
+		item["ip_version"] = ipVersion
+	}
+	if len(rule.GetQueryType()) > 0 {
+		queryTypes, err := dnsQueryTypesToAnySlice(rule.GetQueryType(), path+".query_type")
 		if err != nil {
 			return nil, err
 		}
-		return parsed, nil
-	case ruleTypeRuleSet:
-		entries := make([]any, 0)
-		for index, id := range strings.Split(payload, ",") {
-			id = strings.TrimSpace(id)
-			if id == "" {
-				continue
-			}
-			tag, err := resolveRuleSetTag(ruleSets, id, fmt.Sprintf("%s.payload[%d]", path, index))
-			if err != nil {
-				return nil, err
-			}
-			entries = append(entries, tag)
-		}
-		result[ruleType] = entries
-	case ruleTypeInbound:
-		if payload != "" {
-			tag, err := resolveEnabledInboundTag(inbounds, payload, path+".payload")
-			if err != nil {
-				return nil, err
-			}
-			result[ruleType] = tag
-		}
-	case ruleTypeIpIsPrivate, ruleTypeIpAcceptAny:
-		result[ruleType] = payload == "true"
-	case ruleTypeClashMode:
-		result[ruleType] = payload
-	default:
-		parts := strings.Split(payload, ",")
-		values := make([]any, 0, len(parts))
-		for _, part := range parts {
-			if ruleType == ruleTypePort || ruleType == ruleTypeSourcePort {
-				value, err := strconv.Atoi(part)
-				if err != nil {
-					return nil, invalidArgumentError{message: fmt.Sprintf("invalid numeric rule payload %q", part)}
-				}
-				values = append(values, value)
-				continue
-			}
-			values = append(values, part)
-		}
-		if len(values) == 1 {
-			result[ruleType] = values[0]
-		} else {
-			result[ruleType] = values
+		if len(queryTypes) > 0 {
+			item["query_type"] = queryTypes
 		}
 	}
 
+	assignStrings := func(key string, values []string) {
+		if len(values) > 0 {
+			item[key] = stringsToAnySlice(values)
+		}
+	}
+	assignStrings("network", rule.GetNetwork())
+	assignStrings("protocol", rule.GetProtocol())
+	assignStrings("preferred_by", rule.GetPreferredBy())
+	assignStrings("domain", rule.GetDomain())
+	assignStrings("domain_suffix", rule.GetDomainSuffix())
+	assignStrings("domain_keyword", rule.GetDomainKeyword())
+	assignStrings("domain_regex", rule.GetDomainRegex())
+	assignStrings("ip_cidr", rule.GetIpCidr())
+	assignStrings("response_answer", rule.GetResponseAnswer())
+	assignStrings("response_ns", rule.GetResponseNs())
+	assignStrings("response_extra", rule.GetResponseExtra())
+	assignStrings("process_name", rule.GetProcessName())
+	assignStrings("process_path", rule.GetProcessPath())
+	assignStrings("process_path_regex", rule.GetProcessPathRegex())
+
+	if len(rule.GetRuleSet()) > 0 {
+		tags := make([]any, 0, len(rule.GetRuleSet()))
+		for index, id := range rule.GetRuleSet() {
+			tag, err := resolveRuleSetTag(ruleSets, id, fmt.Sprintf("%s.rule_set[%d]", path, index))
+			if err != nil {
+				return nil, err
+			}
+			tags = append(tags, tag)
+		}
+		item["rule_set"] = tags
+	}
+	if rule.GetRuleSetIpCidrMatchSource() {
+		item["rule_set_ip_cidr_match_source"] = true
+	}
+	if rule.GetMatchResponse() {
+		item["match_response"] = true
+	}
+	if rule.GetIpAcceptAny() {
+		item["ip_accept_any"] = true
+	}
+	if rule.GetIpIsPrivate() {
+		item["ip_is_private"] = true
+	}
+	if responseRcode := rule.GetResponseRcode(); responseRcode != "" {
+		item["response_rcode"] = responseRcode
+	}
+
+	return item, nil
+}
+
+func dnsQueryTypesToAnySlice(values []string, path string) ([]any, error) {
+	result := make([]any, 0, len(values))
+	for index, value := range values {
+		value = strings.TrimSpace(value)
+		if value == "" {
+			continue
+		}
+		if isDecimalString(value) {
+			number, err := strconv.ParseUint(value, 10, 16)
+			if err != nil {
+				return nil, invalidArgumentError{message: fmt.Sprintf("%s[%d] must be between 0 and 65535", path, index)}
+			}
+			result = append(result, number)
+			continue
+		}
+		result = append(result, value)
+	}
 	return result, nil
 }
 
-func applyInlineInvert(item map[string]any, ruleType string, ruleFields map[string]any) {
-	if ruleType != ruleTypeInline {
-		return
+func isDecimalString(value string) bool {
+	if value == "" {
+		return false
 	}
-	if inlineInvert, ok := ruleFields["invert"]; ok {
-		item["invert"] = deepCopyValue(inlineInvert)
+	for _, character := range value {
+		if character < '0' || character > '9' {
+			return false
+		}
 	}
+	return true
+}
+
+func applyDNSRuleActionOptions(
+	item map[string]any,
+	action string,
+	options *configv1.DnsActionOptions,
+	dnsServers []*configv1.DnsServer,
+	path string,
+) error {
+	if options == nil {
+		options = &configv1.DnsActionOptions{}
+	}
+
+	applyQueryOptions := func() {
+		if options.GetDisableCache() {
+			item["disable_cache"] = true
+		}
+		if options.GetDisableOptimisticCache() {
+			item["disable_optimistic_cache"] = true
+		}
+		if options.RewriteTtl != nil {
+			item["rewrite_ttl"] = options.GetRewriteTtl()
+		}
+		if options.GetTimeout() != "" {
+			item["timeout"] = options.GetTimeout()
+		}
+		if options.GetClientSubnet() != "" {
+			item["client_subnet"] = options.GetClientSubnet()
+		}
+	}
+
+	switch action {
+	case ruleActionRoute, ruleActionEvaluate:
+		server, err := resolveDNSServerTag(dnsServers, options.GetServer(), path+".action_options.server")
+		if err != nil {
+			return err
+		}
+		if server != "" {
+			item["server"] = server
+		}
+		applyQueryOptions()
+	case ruleActionRouteOptions:
+		applyQueryOptions()
+	case ruleActionRespond:
+	case ruleActionReject:
+		method := options.GetMethod()
+		if method == "" {
+			method = "default"
+		}
+		if method != "default" && method != "drop" {
+			return invalidArgumentError{message: fmt.Sprintf("%s.action_options.method has unsupported value %q", path, method)}
+		}
+		if method == "drop" && options.GetNoDrop() {
+			return invalidArgumentError{message: path + ".action_options.no_drop is unavailable when method is drop"}
+		}
+		item["method"] = method
+		if options.GetNoDrop() {
+			item["no_drop"] = true
+		}
+	case ruleActionPredefined:
+		rcode := options.GetRcode()
+		if rcode == "" {
+			rcode = "NOERROR"
+		}
+		item["rcode"] = rcode
+		if len(options.GetAnswer()) > 0 {
+			item["answer"] = stringsToAnySlice(options.GetAnswer())
+		}
+		if len(options.GetNs()) > 0 {
+			item["ns"] = stringsToAnySlice(options.GetNs())
+		}
+		if len(options.GetExtra()) > 0 {
+			item["extra"] = stringsToAnySlice(options.GetExtra())
+		}
+	}
+	return nil
+}
+
+func validateGeneratedDNSRule(item map[string]any, path string, inline bool) error {
+	action, _ := item["action"].(string)
+	if inline && strings.TrimSpace(action) == "" {
+		return invalidArgumentError{message: path + ".raw.action is required for inline action"}
+	}
+	if action == ruleActionRoute || action == ruleActionEvaluate {
+		server, _ := item["server"].(string)
+		if server == "" {
+			return invalidArgumentError{message: fmt.Sprintf("%s.server is required for %s action", path, action)}
+		}
+	}
+	if action == ruleActionReject {
+		method, _ := item["method"].(string)
+		if method == "" {
+			method = "default"
+		}
+		if method != "default" && method != "drop" {
+			return invalidArgumentError{message: fmt.Sprintf("%s.method has unsupported value %q", path, method)}
+		}
+		noDrop, _ := item["no_drop"].(bool)
+		if method == "drop" && noDrop {
+			return invalidArgumentError{message: path + ".no_drop is unavailable when method is drop"}
+		}
+	}
+	if hasDNSResponseMatchFields(item) {
+		matchResponse, _ := item["match_response"].(bool)
+		if !matchResponse {
+			return invalidArgumentError{message: path + ".match_response must be true when response match fields are configured"}
+		}
+	}
+	return nil
+}
+
+func hasDNSResponseMatchFields(item map[string]any) bool {
+	for _, key := range []string{"ip_accept_any", "ip_cidr", "ip_is_private", "response_rcode", "response_answer", "response_ns", "response_extra"} {
+		value, exists := item[key]
+		if !exists {
+			continue
+		}
+		switch typed := value.(type) {
+		case bool:
+			if typed {
+				return true
+			}
+		case string:
+			if strings.TrimSpace(typed) != "" {
+				return true
+			}
+		case []any:
+			if len(typed) > 0 {
+				return true
+			}
+		case []string:
+			if len(typed) > 0 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func (g *configGenerator) subscriptionEntries(id string) ([]map[string]any, error) {
@@ -1743,6 +1906,10 @@ func dnsRuleActionString(action configv1.DnsRuleAction) (string, error) {
 		return ruleActionPredefined, nil
 	case configv1.DnsRuleAction_DNS_RULE_ACTION_INLINE:
 		return ruleActionInline, nil
+	case configv1.DnsRuleAction_DNS_RULE_ACTION_EVALUATE:
+		return ruleActionEvaluate, nil
+	case configv1.DnsRuleAction_DNS_RULE_ACTION_RESPOND:
+		return ruleActionRespond, nil
 	default:
 		return "", invalidArgumentError{message: fmt.Sprintf("unsupported dns rule action: %v", action)}
 	}

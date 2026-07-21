@@ -2,10 +2,8 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { loginAuthToken } from '@/bridge/http'
-import { useAppSettingsStore } from '@/stores'
 
 const { t } = useI18n()
-const appSettings = useAppSettingsStore()
 
 const secret = ref('')
 const loading = ref(false)

@@ -722,6 +722,8 @@ const (
 	DnsRuleAction_DNS_RULE_ACTION_REJECT        DnsRuleAction = 3
 	DnsRuleAction_DNS_RULE_ACTION_PREDEFINED    DnsRuleAction = 4
 	DnsRuleAction_DNS_RULE_ACTION_INLINE        DnsRuleAction = 5
+	DnsRuleAction_DNS_RULE_ACTION_EVALUATE      DnsRuleAction = 6
+	DnsRuleAction_DNS_RULE_ACTION_RESPOND       DnsRuleAction = 7
 )
 
 // Enum value maps for DnsRuleAction.
@@ -733,6 +735,8 @@ var (
 		3: "DNS_RULE_ACTION_REJECT",
 		4: "DNS_RULE_ACTION_PREDEFINED",
 		5: "DNS_RULE_ACTION_INLINE",
+		6: "DNS_RULE_ACTION_EVALUATE",
+		7: "DNS_RULE_ACTION_RESPOND",
 	}
 	DnsRuleAction_value = map[string]int32{
 		"DNS_RULE_ACTION_UNSPECIFIED":   0,
@@ -741,6 +745,8 @@ var (
 		"DNS_RULE_ACTION_REJECT":        3,
 		"DNS_RULE_ACTION_PREDEFINED":    4,
 		"DNS_RULE_ACTION_INLINE":        5,
+		"DNS_RULE_ACTION_EVALUATE":      6,
+		"DNS_RULE_ACTION_RESPOND":       7,
 	}
 )
 
@@ -2565,25 +2571,177 @@ func (x *DnsServer) GetInet6Range() string {
 	return ""
 }
 
+type DnsActionOptions struct {
+	state                  protoimpl.MessageState `protogen:"open.v1"`
+	Server                 string                 `protobuf:"bytes,1,opt,name=server,proto3" json:"server,omitempty"`
+	DisableCache           bool                   `protobuf:"varint,2,opt,name=disable_cache,json=disableCache,proto3" json:"disable_cache,omitempty"`
+	DisableOptimisticCache bool                   `protobuf:"varint,3,opt,name=disable_optimistic_cache,json=disableOptimisticCache,proto3" json:"disable_optimistic_cache,omitempty"`
+	RewriteTtl             *uint32                `protobuf:"varint,4,opt,name=rewrite_ttl,json=rewriteTtl,proto3,oneof" json:"rewrite_ttl,omitempty"`
+	Timeout                string                 `protobuf:"bytes,5,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	ClientSubnet           string                 `protobuf:"bytes,6,opt,name=client_subnet,json=clientSubnet,proto3" json:"client_subnet,omitempty"`
+	Method                 string                 `protobuf:"bytes,7,opt,name=method,proto3" json:"method,omitempty"`
+	NoDrop                 bool                   `protobuf:"varint,8,opt,name=no_drop,json=noDrop,proto3" json:"no_drop,omitempty"`
+	Rcode                  string                 `protobuf:"bytes,9,opt,name=rcode,proto3" json:"rcode,omitempty"`
+	Answer                 []string               `protobuf:"bytes,10,rep,name=answer,proto3" json:"answer,omitempty"`
+	Ns                     []string               `protobuf:"bytes,11,rep,name=ns,proto3" json:"ns,omitempty"`
+	Extra                  []string               `protobuf:"bytes,12,rep,name=extra,proto3" json:"extra,omitempty"`
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *DnsActionOptions) Reset() {
+	*x = DnsActionOptions{}
+	mi := &file_profile_v1_profile_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DnsActionOptions) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DnsActionOptions) ProtoMessage() {}
+
+func (x *DnsActionOptions) ProtoReflect() protoreflect.Message {
+	mi := &file_profile_v1_profile_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DnsActionOptions.ProtoReflect.Descriptor instead.
+func (*DnsActionOptions) Descriptor() ([]byte, []int) {
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{16}
+}
+
+func (x *DnsActionOptions) GetServer() string {
+	if x != nil {
+		return x.Server
+	}
+	return ""
+}
+
+func (x *DnsActionOptions) GetDisableCache() bool {
+	if x != nil {
+		return x.DisableCache
+	}
+	return false
+}
+
+func (x *DnsActionOptions) GetDisableOptimisticCache() bool {
+	if x != nil {
+		return x.DisableOptimisticCache
+	}
+	return false
+}
+
+func (x *DnsActionOptions) GetRewriteTtl() uint32 {
+	if x != nil && x.RewriteTtl != nil {
+		return *x.RewriteTtl
+	}
+	return 0
+}
+
+func (x *DnsActionOptions) GetTimeout() string {
+	if x != nil {
+		return x.Timeout
+	}
+	return ""
+}
+
+func (x *DnsActionOptions) GetClientSubnet() string {
+	if x != nil {
+		return x.ClientSubnet
+	}
+	return ""
+}
+
+func (x *DnsActionOptions) GetMethod() string {
+	if x != nil {
+		return x.Method
+	}
+	return ""
+}
+
+func (x *DnsActionOptions) GetNoDrop() bool {
+	if x != nil {
+		return x.NoDrop
+	}
+	return false
+}
+
+func (x *DnsActionOptions) GetRcode() string {
+	if x != nil {
+		return x.Rcode
+	}
+	return ""
+}
+
+func (x *DnsActionOptions) GetAnswer() []string {
+	if x != nil {
+		return x.Answer
+	}
+	return nil
+}
+
+func (x *DnsActionOptions) GetNs() []string {
+	if x != nil {
+		return x.Ns
+	}
+	return nil
+}
+
+func (x *DnsActionOptions) GetExtra() []string {
+	if x != nil {
+		return x.Extra
+	}
+	return nil
+}
+
 type DnsRule struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Type          RuleType               `protobuf:"varint,2,opt,name=type,proto3,enum=profile.v1.RuleType" json:"type,omitempty"`
-	Enable        bool                   `protobuf:"varint,3,opt,name=enable,proto3" json:"enable,omitempty"`
-	Payload       string                 `protobuf:"bytes,4,opt,name=payload,proto3" json:"payload,omitempty"`
-	Action        DnsRuleAction          `protobuf:"varint,5,opt,name=action,proto3,enum=profile.v1.DnsRuleAction" json:"action,omitempty"`
-	Invert        bool                   `protobuf:"varint,6,opt,name=invert,proto3" json:"invert,omitempty"`
-	Server        string                 `protobuf:"bytes,7,opt,name=server,proto3" json:"server,omitempty"`
-	DisableCache  bool                   `protobuf:"varint,9,opt,name=disable_cache,json=disableCache,proto3" json:"disable_cache,omitempty"`
-	ClientSubnet  string                 `protobuf:"bytes,10,opt,name=client_subnet,json=clientSubnet,proto3" json:"client_subnet,omitempty"`
-	QueryType     []string               `protobuf:"bytes,11,rep,name=query_type,json=queryType,proto3" json:"query_type,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                    protoimpl.MessageState `protogen:"open.v1"`
+	Id                       string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Enable                   bool                   `protobuf:"varint,3,opt,name=enable,proto3" json:"enable,omitempty"`
+	Action                   DnsRuleAction          `protobuf:"varint,5,opt,name=action,proto3,enum=profile.v1.DnsRuleAction" json:"action,omitempty"`
+	Invert                   bool                   `protobuf:"varint,6,opt,name=invert,proto3" json:"invert,omitempty"`
+	QueryType                []string               `protobuf:"bytes,11,rep,name=query_type,json=queryType,proto3" json:"query_type,omitempty"`
+	Inbound                  []string               `protobuf:"bytes,12,rep,name=inbound,proto3" json:"inbound,omitempty"`
+	ClashMode                string                 `protobuf:"bytes,13,opt,name=clash_mode,json=clashMode,proto3" json:"clash_mode,omitempty"`
+	IpVersion                int32                  `protobuf:"varint,14,opt,name=ip_version,json=ipVersion,proto3" json:"ip_version,omitempty"`
+	Network                  []string               `protobuf:"bytes,15,rep,name=network,proto3" json:"network,omitempty"`
+	Protocol                 []string               `protobuf:"bytes,16,rep,name=protocol,proto3" json:"protocol,omitempty"`
+	PreferredBy              []string               `protobuf:"bytes,17,rep,name=preferred_by,json=preferredBy,proto3" json:"preferred_by,omitempty"`
+	Domain                   []string               `protobuf:"bytes,18,rep,name=domain,proto3" json:"domain,omitempty"`
+	DomainSuffix             []string               `protobuf:"bytes,19,rep,name=domain_suffix,json=domainSuffix,proto3" json:"domain_suffix,omitempty"`
+	DomainKeyword            []string               `protobuf:"bytes,20,rep,name=domain_keyword,json=domainKeyword,proto3" json:"domain_keyword,omitempty"`
+	DomainRegex              []string               `protobuf:"bytes,21,rep,name=domain_regex,json=domainRegex,proto3" json:"domain_regex,omitempty"`
+	RuleSet                  []string               `protobuf:"bytes,22,rep,name=rule_set,json=ruleSet,proto3" json:"rule_set,omitempty"`
+	RuleSetIpCidrMatchSource bool                   `protobuf:"varint,23,opt,name=rule_set_ip_cidr_match_source,json=ruleSetIpCidrMatchSource,proto3" json:"rule_set_ip_cidr_match_source,omitempty"`
+	MatchResponse            bool                   `protobuf:"varint,24,opt,name=match_response,json=matchResponse,proto3" json:"match_response,omitempty"`
+	IpAcceptAny              bool                   `protobuf:"varint,25,opt,name=ip_accept_any,json=ipAcceptAny,proto3" json:"ip_accept_any,omitempty"`
+	IpCidr                   []string               `protobuf:"bytes,26,rep,name=ip_cidr,json=ipCidr,proto3" json:"ip_cidr,omitempty"`
+	IpIsPrivate              bool                   `protobuf:"varint,27,opt,name=ip_is_private,json=ipIsPrivate,proto3" json:"ip_is_private,omitempty"`
+	ResponseRcode            string                 `protobuf:"bytes,28,opt,name=response_rcode,json=responseRcode,proto3" json:"response_rcode,omitempty"`
+	ResponseAnswer           []string               `protobuf:"bytes,29,rep,name=response_answer,json=responseAnswer,proto3" json:"response_answer,omitempty"`
+	ResponseNs               []string               `protobuf:"bytes,30,rep,name=response_ns,json=responseNs,proto3" json:"response_ns,omitempty"`
+	ResponseExtra            []string               `protobuf:"bytes,31,rep,name=response_extra,json=responseExtra,proto3" json:"response_extra,omitempty"`
+	ProcessName              []string               `protobuf:"bytes,32,rep,name=process_name,json=processName,proto3" json:"process_name,omitempty"`
+	ProcessPath              []string               `protobuf:"bytes,33,rep,name=process_path,json=processPath,proto3" json:"process_path,omitempty"`
+	ProcessPathRegex         []string               `protobuf:"bytes,34,rep,name=process_path_regex,json=processPathRegex,proto3" json:"process_path_regex,omitempty"`
+	ActionOptions            *DnsActionOptions      `protobuf:"bytes,35,opt,name=action_options,json=actionOptions,proto3" json:"action_options,omitempty"`
+	Raw                      string                 `protobuf:"bytes,36,opt,name=raw,proto3" json:"raw,omitempty"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *DnsRule) Reset() {
 	*x = DnsRule{}
-	mi := &file_profile_v1_profile_proto_msgTypes[16]
+	mi := &file_profile_v1_profile_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2595,7 +2753,7 @@ func (x *DnsRule) String() string {
 func (*DnsRule) ProtoMessage() {}
 
 func (x *DnsRule) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[16]
+	mi := &file_profile_v1_profile_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2608,7 +2766,7 @@ func (x *DnsRule) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DnsRule.ProtoReflect.Descriptor instead.
 func (*DnsRule) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{16}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *DnsRule) GetId() string {
@@ -2618,25 +2776,11 @@ func (x *DnsRule) GetId() string {
 	return ""
 }
 
-func (x *DnsRule) GetType() RuleType {
-	if x != nil {
-		return x.Type
-	}
-	return RuleType_RULE_TYPE_UNSPECIFIED
-}
-
 func (x *DnsRule) GetEnable() bool {
 	if x != nil {
 		return x.Enable
 	}
 	return false
-}
-
-func (x *DnsRule) GetPayload() string {
-	if x != nil {
-		return x.Payload
-	}
-	return ""
 }
 
 func (x *DnsRule) GetAction() DnsRuleAction {
@@ -2653,32 +2797,186 @@ func (x *DnsRule) GetInvert() bool {
 	return false
 }
 
-func (x *DnsRule) GetServer() string {
-	if x != nil {
-		return x.Server
-	}
-	return ""
-}
-
-func (x *DnsRule) GetDisableCache() bool {
-	if x != nil {
-		return x.DisableCache
-	}
-	return false
-}
-
-func (x *DnsRule) GetClientSubnet() string {
-	if x != nil {
-		return x.ClientSubnet
-	}
-	return ""
-}
-
 func (x *DnsRule) GetQueryType() []string {
 	if x != nil {
 		return x.QueryType
 	}
 	return nil
+}
+
+func (x *DnsRule) GetInbound() []string {
+	if x != nil {
+		return x.Inbound
+	}
+	return nil
+}
+
+func (x *DnsRule) GetClashMode() string {
+	if x != nil {
+		return x.ClashMode
+	}
+	return ""
+}
+
+func (x *DnsRule) GetIpVersion() int32 {
+	if x != nil {
+		return x.IpVersion
+	}
+	return 0
+}
+
+func (x *DnsRule) GetNetwork() []string {
+	if x != nil {
+		return x.Network
+	}
+	return nil
+}
+
+func (x *DnsRule) GetProtocol() []string {
+	if x != nil {
+		return x.Protocol
+	}
+	return nil
+}
+
+func (x *DnsRule) GetPreferredBy() []string {
+	if x != nil {
+		return x.PreferredBy
+	}
+	return nil
+}
+
+func (x *DnsRule) GetDomain() []string {
+	if x != nil {
+		return x.Domain
+	}
+	return nil
+}
+
+func (x *DnsRule) GetDomainSuffix() []string {
+	if x != nil {
+		return x.DomainSuffix
+	}
+	return nil
+}
+
+func (x *DnsRule) GetDomainKeyword() []string {
+	if x != nil {
+		return x.DomainKeyword
+	}
+	return nil
+}
+
+func (x *DnsRule) GetDomainRegex() []string {
+	if x != nil {
+		return x.DomainRegex
+	}
+	return nil
+}
+
+func (x *DnsRule) GetRuleSet() []string {
+	if x != nil {
+		return x.RuleSet
+	}
+	return nil
+}
+
+func (x *DnsRule) GetRuleSetIpCidrMatchSource() bool {
+	if x != nil {
+		return x.RuleSetIpCidrMatchSource
+	}
+	return false
+}
+
+func (x *DnsRule) GetMatchResponse() bool {
+	if x != nil {
+		return x.MatchResponse
+	}
+	return false
+}
+
+func (x *DnsRule) GetIpAcceptAny() bool {
+	if x != nil {
+		return x.IpAcceptAny
+	}
+	return false
+}
+
+func (x *DnsRule) GetIpCidr() []string {
+	if x != nil {
+		return x.IpCidr
+	}
+	return nil
+}
+
+func (x *DnsRule) GetIpIsPrivate() bool {
+	if x != nil {
+		return x.IpIsPrivate
+	}
+	return false
+}
+
+func (x *DnsRule) GetResponseRcode() string {
+	if x != nil {
+		return x.ResponseRcode
+	}
+	return ""
+}
+
+func (x *DnsRule) GetResponseAnswer() []string {
+	if x != nil {
+		return x.ResponseAnswer
+	}
+	return nil
+}
+
+func (x *DnsRule) GetResponseNs() []string {
+	if x != nil {
+		return x.ResponseNs
+	}
+	return nil
+}
+
+func (x *DnsRule) GetResponseExtra() []string {
+	if x != nil {
+		return x.ResponseExtra
+	}
+	return nil
+}
+
+func (x *DnsRule) GetProcessName() []string {
+	if x != nil {
+		return x.ProcessName
+	}
+	return nil
+}
+
+func (x *DnsRule) GetProcessPath() []string {
+	if x != nil {
+		return x.ProcessPath
+	}
+	return nil
+}
+
+func (x *DnsRule) GetProcessPathRegex() []string {
+	if x != nil {
+		return x.ProcessPathRegex
+	}
+	return nil
+}
+
+func (x *DnsRule) GetActionOptions() *DnsActionOptions {
+	if x != nil {
+		return x.ActionOptions
+	}
+	return nil
+}
+
+func (x *DnsRule) GetRaw() string {
+	if x != nil {
+		return x.Raw
+	}
+	return ""
 }
 
 type Dns struct {
@@ -2697,7 +2995,7 @@ type Dns struct {
 
 func (x *Dns) Reset() {
 	*x = Dns{}
-	mi := &file_profile_v1_profile_proto_msgTypes[17]
+	mi := &file_profile_v1_profile_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2709,7 +3007,7 @@ func (x *Dns) String() string {
 func (*Dns) ProtoMessage() {}
 
 func (x *Dns) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[17]
+	mi := &file_profile_v1_profile_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2722,7 +3020,7 @@ func (x *Dns) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Dns.ProtoReflect.Descriptor instead.
 func (*Dns) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{17}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *Dns) GetServers() []*DnsServer {
@@ -2792,7 +3090,7 @@ type Mixin struct {
 
 func (x *Mixin) Reset() {
 	*x = Mixin{}
-	mi := &file_profile_v1_profile_proto_msgTypes[18]
+	mi := &file_profile_v1_profile_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2804,7 +3102,7 @@ func (x *Mixin) String() string {
 func (*Mixin) ProtoMessage() {}
 
 func (x *Mixin) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[18]
+	mi := &file_profile_v1_profile_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2817,7 +3115,7 @@ func (x *Mixin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Mixin.ProtoReflect.Descriptor instead.
 func (*Mixin) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{18}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Mixin) GetPriority() MixinPriority {
@@ -2850,7 +3148,7 @@ type Script struct {
 
 func (x *Script) Reset() {
 	*x = Script{}
-	mi := &file_profile_v1_profile_proto_msgTypes[19]
+	mi := &file_profile_v1_profile_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2862,7 +3160,7 @@ func (x *Script) String() string {
 func (*Script) ProtoMessage() {}
 
 func (x *Script) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[19]
+	mi := &file_profile_v1_profile_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2875,7 +3173,7 @@ func (x *Script) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Script.ProtoReflect.Descriptor instead.
 func (*Script) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{19}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *Script) GetCode() string {
@@ -2903,7 +3201,7 @@ type Profile struct {
 
 func (x *Profile) Reset() {
 	*x = Profile{}
-	mi := &file_profile_v1_profile_proto_msgTypes[20]
+	mi := &file_profile_v1_profile_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2915,7 +3213,7 @@ func (x *Profile) String() string {
 func (*Profile) ProtoMessage() {}
 
 func (x *Profile) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[20]
+	mi := &file_profile_v1_profile_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2928,7 +3226,7 @@ func (x *Profile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Profile.ProtoReflect.Descriptor instead.
 func (*Profile) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{20}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *Profile) GetId() string {
@@ -3188,20 +3486,58 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"inet6Range\x1a=\n" +
 	"\x0fPredefinedEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xd1\x02\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\x83\x03\n" +
+	"\x10DnsActionOptions\x12\x16\n" +
+	"\x06server\x18\x01 \x01(\tR\x06server\x12#\n" +
+	"\rdisable_cache\x18\x02 \x01(\bR\fdisableCache\x128\n" +
+	"\x18disable_optimistic_cache\x18\x03 \x01(\bR\x16disableOptimisticCache\x12$\n" +
+	"\vrewrite_ttl\x18\x04 \x01(\rH\x00R\n" +
+	"rewriteTtl\x88\x01\x01\x12\x18\n" +
+	"\atimeout\x18\x05 \x01(\tR\atimeout\x12#\n" +
+	"\rclient_subnet\x18\x06 \x01(\tR\fclientSubnet\x12\x16\n" +
+	"\x06method\x18\a \x01(\tR\x06method\x12\x17\n" +
+	"\ano_drop\x18\b \x01(\bR\x06noDrop\x12\x14\n" +
+	"\x05rcode\x18\t \x01(\tR\x05rcode\x12\x16\n" +
+	"\x06answer\x18\n" +
+	" \x03(\tR\x06answer\x12\x0e\n" +
+	"\x02ns\x18\v \x03(\tR\x02ns\x12\x14\n" +
+	"\x05extra\x18\f \x03(\tR\x05extraB\x0e\n" +
+	"\f_rewrite_ttl\"\xeb\b\n" +
 	"\aDnsRule\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12(\n" +
-	"\x04type\x18\x02 \x01(\x0e2\x14.profile.v1.RuleTypeR\x04type\x12\x16\n" +
-	"\x06enable\x18\x03 \x01(\bR\x06enable\x12\x18\n" +
-	"\apayload\x18\x04 \x01(\tR\apayload\x121\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
+	"\x06enable\x18\x03 \x01(\bR\x06enable\x121\n" +
 	"\x06action\x18\x05 \x01(\x0e2\x19.profile.v1.DnsRuleActionR\x06action\x12\x16\n" +
-	"\x06invert\x18\x06 \x01(\bR\x06invert\x12\x16\n" +
-	"\x06server\x18\a \x01(\tR\x06server\x12#\n" +
-	"\rdisable_cache\x18\t \x01(\bR\fdisableCache\x12#\n" +
-	"\rclient_subnet\x18\n" +
-	" \x01(\tR\fclientSubnet\x12\x1d\n" +
+	"\x06invert\x18\x06 \x01(\bR\x06invert\x12\x1d\n" +
 	"\n" +
-	"query_type\x18\v \x03(\tR\tqueryTypeJ\x04\b\b\x10\tR\bstrategy\"\xc7\x02\n" +
+	"query_type\x18\v \x03(\tR\tqueryType\x12\x18\n" +
+	"\ainbound\x18\f \x03(\tR\ainbound\x12\x1d\n" +
+	"\n" +
+	"clash_mode\x18\r \x01(\tR\tclashMode\x12\x1d\n" +
+	"\n" +
+	"ip_version\x18\x0e \x01(\x05R\tipVersion\x12\x18\n" +
+	"\anetwork\x18\x0f \x03(\tR\anetwork\x12\x1a\n" +
+	"\bprotocol\x18\x10 \x03(\tR\bprotocol\x12!\n" +
+	"\fpreferred_by\x18\x11 \x03(\tR\vpreferredBy\x12\x16\n" +
+	"\x06domain\x18\x12 \x03(\tR\x06domain\x12#\n" +
+	"\rdomain_suffix\x18\x13 \x03(\tR\fdomainSuffix\x12%\n" +
+	"\x0edomain_keyword\x18\x14 \x03(\tR\rdomainKeyword\x12!\n" +
+	"\fdomain_regex\x18\x15 \x03(\tR\vdomainRegex\x12\x19\n" +
+	"\brule_set\x18\x16 \x03(\tR\aruleSet\x12?\n" +
+	"\x1drule_set_ip_cidr_match_source\x18\x17 \x01(\bR\x18ruleSetIpCidrMatchSource\x12%\n" +
+	"\x0ematch_response\x18\x18 \x01(\bR\rmatchResponse\x12\"\n" +
+	"\rip_accept_any\x18\x19 \x01(\bR\vipAcceptAny\x12\x17\n" +
+	"\aip_cidr\x18\x1a \x03(\tR\x06ipCidr\x12\"\n" +
+	"\rip_is_private\x18\x1b \x01(\bR\vipIsPrivate\x12%\n" +
+	"\x0eresponse_rcode\x18\x1c \x01(\tR\rresponseRcode\x12'\n" +
+	"\x0fresponse_answer\x18\x1d \x03(\tR\x0eresponseAnswer\x12\x1f\n" +
+	"\vresponse_ns\x18\x1e \x03(\tR\n" +
+	"responseNs\x12%\n" +
+	"\x0eresponse_extra\x18\x1f \x03(\tR\rresponseExtra\x12!\n" +
+	"\fprocess_name\x18  \x03(\tR\vprocessName\x12!\n" +
+	"\fprocess_path\x18! \x03(\tR\vprocessPath\x12,\n" +
+	"\x12process_path_regex\x18\" \x03(\tR\x10processPathRegex\x12C\n" +
+	"\x0eaction_options\x18# \x01(\v2\x1c.profile.v1.DnsActionOptionsR\ractionOptions\x12\x10\n" +
+	"\x03raw\x18$ \x01(\tR\x03rawJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05J\x04\b\a\x10\vR\x04typeR\apayloadR\x06serverR\bstrategyR\rdisable_cacheR\rclient_subnet\"\xc7\x02\n" +
 	"\x03Dns\x12/\n" +
 	"\aservers\x18\x01 \x03(\v2\x15.profile.v1.DnsServerR\aservers\x12)\n" +
 	"\x05rules\x18\x02 \x03(\v2\x13.profile.v1.DnsRuleR\x05rules\x12#\n" +
@@ -3326,14 +3662,16 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\x11RULE_ACTION_SNIFF\x10\x05\x12\x17\n" +
 	"\x13RULE_ACTION_RESOLVE\x10\x06\x12\x16\n" +
 	"\x12RULE_ACTION_INLINE\x10\a\x12\x16\n" +
-	"\x12RULE_ACTION_BYPASS\x10\b*\xc6\x01\n" +
+	"\x12RULE_ACTION_BYPASS\x10\b*\x81\x02\n" +
 	"\rDnsRuleAction\x12\x1f\n" +
 	"\x1bDNS_RULE_ACTION_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15DNS_RULE_ACTION_ROUTE\x10\x01\x12!\n" +
 	"\x1dDNS_RULE_ACTION_ROUTE_OPTIONS\x10\x02\x12\x1a\n" +
 	"\x16DNS_RULE_ACTION_REJECT\x10\x03\x12\x1e\n" +
 	"\x1aDNS_RULE_ACTION_PREDEFINED\x10\x04\x12\x1a\n" +
-	"\x16DNS_RULE_ACTION_INLINE\x10\x05*a\n" +
+	"\x16DNS_RULE_ACTION_INLINE\x10\x05\x12\x1c\n" +
+	"\x18DNS_RULE_ACTION_EVALUATE\x10\x06\x12\x1b\n" +
+	"\x17DNS_RULE_ACTION_RESPOND\x10\a*a\n" +
 	"\rMixinPriority\x12\x1e\n" +
 	"\x1aMIXIN_PRIORITY_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14MIXIN_PRIORITY_MIXIN\x10\x01\x12\x16\n" +
@@ -3359,7 +3697,7 @@ func file_profile_v1_profile_proto_rawDescGZIP() []byte {
 }
 
 var file_profile_v1_profile_proto_enumTypes = make([]protoimpl.EnumInfo, 14)
-var file_profile_v1_profile_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_profile_v1_profile_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_profile_v1_profile_proto_goTypes = []any{
 	(LogLevel)(0),                      // 0: profile.v1.LogLevel
 	(InboundType)(0),                   // 1: profile.v1.InboundType
@@ -3391,12 +3729,13 @@ var file_profile_v1_profile_proto_goTypes = []any{
 	(*RouteDefaultDomainResolver)(nil), // 27: profile.v1.RouteDefaultDomainResolver
 	(*Route)(nil),                      // 28: profile.v1.Route
 	(*DnsServer)(nil),                  // 29: profile.v1.DnsServer
-	(*DnsRule)(nil),                    // 30: profile.v1.DnsRule
-	(*Dns)(nil),                        // 31: profile.v1.Dns
-	(*Mixin)(nil),                      // 32: profile.v1.Mixin
-	(*Script)(nil),                     // 33: profile.v1.Script
-	(*Profile)(nil),                    // 34: profile.v1.Profile
-	nil,                                // 35: profile.v1.DnsServer.PredefinedEntry
+	(*DnsActionOptions)(nil),           // 30: profile.v1.DnsActionOptions
+	(*DnsRule)(nil),                    // 31: profile.v1.DnsRule
+	(*Dns)(nil),                        // 32: profile.v1.Dns
+	(*Mixin)(nil),                      // 33: profile.v1.Mixin
+	(*Script)(nil),                     // 34: profile.v1.Script
+	(*Profile)(nil),                    // 35: profile.v1.Profile
+	nil,                                // 36: profile.v1.DnsServer.PredefinedEntry
 }
 var file_profile_v1_profile_proto_depIdxs = []int32{
 	0,  // 0: profile.v1.Log.level:type_name -> profile.v1.LogLevel
@@ -3421,11 +3760,11 @@ var file_profile_v1_profile_proto_depIdxs = []int32{
 	18, // 19: profile.v1.Route.rule_set:type_name -> profile.v1.RuleSet
 	27, // 20: profile.v1.Route.default_domain_resolver:type_name -> profile.v1.RouteDefaultDomainResolver
 	9,  // 21: profile.v1.DnsServer.type:type_name -> profile.v1.DnsServerType
-	35, // 22: profile.v1.DnsServer.predefined:type_name -> profile.v1.DnsServer.PredefinedEntry
-	7,  // 23: profile.v1.DnsRule.type:type_name -> profile.v1.RuleType
-	11, // 24: profile.v1.DnsRule.action:type_name -> profile.v1.DnsRuleAction
+	36, // 22: profile.v1.DnsServer.predefined:type_name -> profile.v1.DnsServer.PredefinedEntry
+	11, // 23: profile.v1.DnsRule.action:type_name -> profile.v1.DnsRuleAction
+	30, // 24: profile.v1.DnsRule.action_options:type_name -> profile.v1.DnsActionOptions
 	29, // 25: profile.v1.Dns.servers:type_name -> profile.v1.DnsServer
-	30, // 26: profile.v1.Dns.rules:type_name -> profile.v1.DnsRule
+	31, // 26: profile.v1.Dns.rules:type_name -> profile.v1.DnsRule
 	8,  // 27: profile.v1.Dns.strategy:type_name -> profile.v1.Strategy
 	12, // 28: profile.v1.Mixin.priority:type_name -> profile.v1.MixinPriority
 	13, // 29: profile.v1.Mixin.format:type_name -> profile.v1.MixinFormat
@@ -3434,9 +3773,9 @@ var file_profile_v1_profile_proto_depIdxs = []int32{
 	23, // 32: profile.v1.Profile.inbounds:type_name -> profile.v1.Inbound
 	24, // 33: profile.v1.Profile.outbounds:type_name -> profile.v1.Outbound
 	28, // 34: profile.v1.Profile.route:type_name -> profile.v1.Route
-	31, // 35: profile.v1.Profile.dns:type_name -> profile.v1.Dns
-	32, // 36: profile.v1.Profile.mixin:type_name -> profile.v1.Mixin
-	33, // 37: profile.v1.Profile.script:type_name -> profile.v1.Script
+	32, // 35: profile.v1.Profile.dns:type_name -> profile.v1.Dns
+	33, // 36: profile.v1.Profile.mixin:type_name -> profile.v1.Mixin
+	34, // 37: profile.v1.Profile.script:type_name -> profile.v1.Script
 	38, // [38:38] is the sub-list for method output_type
 	38, // [38:38] is the sub-list for method input_type
 	38, // [38:38] is the sub-list for extension type_name
@@ -3450,13 +3789,14 @@ func file_profile_v1_profile_proto_init() {
 		return
 	}
 	file_profile_v1_profile_proto_msgTypes[11].OneofWrappers = []any{}
+	file_profile_v1_profile_proto_msgTypes[16].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_profile_v1_profile_proto_rawDesc), len(file_profile_v1_profile_proto_rawDesc)),
 			NumEnums:      14,
-			NumMessages:   22,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

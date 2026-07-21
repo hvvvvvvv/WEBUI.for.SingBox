@@ -5,8 +5,6 @@ import {
   TLSSpoofMethodOptions,
 } from '@/constant/kernel'
 
-import ActionToggleField from './ActionToggleField.vue'
-
 const model = defineModel<IActionOptions>({ required: true })
 
 const handleTlsFragment = (enabled: boolean) => {

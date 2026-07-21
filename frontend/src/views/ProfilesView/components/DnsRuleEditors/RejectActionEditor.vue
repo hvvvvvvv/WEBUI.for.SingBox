@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { RuleActionRejectOptions } from '@/constant/kernel'
+import { DnsRuleActionRejectOptions } from '@/constant/kernel'
 import { RuleActionReject } from '@/enums/kernel'
 
-const model = defineModel<IActionOptions>({ required: true })
+const model = defineModel<IDNSActionOptions>({ required: true })
 
 const handleMethodChange = (method: string | number | boolean | (string | number | boolean)[]) => {
   if (!Array.isArray(method) && method === RuleActionReject.Drop) model.value.no_drop = false
@@ -14,7 +14,7 @@ const handleMethodChange = (method: string | number | boolean | (string | number
     {{ $t('kernel.route.rules.action.rejectMethod') }}
     <OptionGroup
       v-model="model.method"
-      :options="RuleActionRejectOptions"
+      :options="DnsRuleActionRejectOptions"
       :aria-label="$t('kernel.route.rules.action.rejectMethod')"
       @change="handleMethodChange"
     />

@@ -85,7 +85,6 @@ defineExpose({ handleAdd })
         ref="rulesConfigRef"
         v-model="model.rules"
         :inbound-options="inboundOptions"
-        :outbound-options="outboundOptions"
         :servers-options="serversOptions"
         :rule-set="ruleSet"
       />

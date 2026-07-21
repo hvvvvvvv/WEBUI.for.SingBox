@@ -12,17 +12,15 @@ func TestGenerateDNSRuleQueryType(t *testing.T) {
 	generator := &configGenerator{}
 	dns, err := generator.generateDNS(&profilev1.Dns{Rules: []*profilev1.DnsRule{
 		{
-			Type:      profilev1.RuleType_RULE_TYPE_DOMAIN,
 			Enable:    true,
-			Payload:   "example.com",
-			Action:    profilev1.DnsRuleAction_DNS_RULE_ACTION_ROUTE,
+			Domain:    []string{"example.com"},
+			Action:    profilev1.DnsRuleAction_DNS_RULE_ACTION_REJECT,
 			QueryType: []string{"A", "AAAA"},
 		},
 		{
-			Type:    profilev1.RuleType_RULE_TYPE_DOMAIN_SUFFIX,
-			Enable:  true,
-			Payload: ".example.org",
-			Action:  profilev1.DnsRuleAction_DNS_RULE_ACTION_ROUTE,
+			Enable:       true,
+			DomainSuffix: []string{".example.org"},
+			Action:       profilev1.DnsRuleAction_DNS_RULE_ACTION_REJECT,
 		},
 	}}, nil, nil, nil)
 	if err != nil {
@@ -39,19 +37,19 @@ func TestGenerateDNSRuleQueryType(t *testing.T) {
 	}
 }
 
-func TestGenerateDNSStructuredActionFieldsOverrideInline(t *testing.T) {
+func TestGenerateDNSRawOverridesStructuredFields(t *testing.T) {
 	generator := &configGenerator{}
 	dns, err := generator.generateDNS(&profilev1.Dns{Rules: []*profilev1.DnsRule{
 		{
-			Type:         profilev1.RuleType_RULE_TYPE_INLINE,
-			Enable:       true,
-			Payload:      `{"action":"reject","invert":false,"query_type":["HTTPS"],"server":"inline","disable_cache":false,"nested":{"winner":"inline"}}`,
-			Invert:       true,
-			Action:       profilev1.DnsRuleAction_DNS_RULE_ACTION_ROUTE_OPTIONS,
-			Server:       `{"server":"structured","nested":{"winner":"structured","preserved":true}}`,
-			DisableCache: true,
-			ClientSubnet: "198.51.100.0/24",
-			QueryType:    []string{"A", "AAAA"},
+			Enable:    true,
+			Raw:       `{"action":"reject","invert":false,"query_type":["HTTPS"],"disable_cache":false,"nested":{"winner":"inline"}}`,
+			Invert:    true,
+			Action:    profilev1.DnsRuleAction_DNS_RULE_ACTION_ROUTE_OPTIONS,
+			QueryType: []string{"A", "AAAA"},
+			ActionOptions: &profilev1.DnsActionOptions{
+				DisableCache: true,
+				ClientSubnet: "198.51.100.0/24",
+			},
 		},
 	}}, nil, nil, nil)
 	if err != nil {
@@ -62,15 +60,15 @@ func TestGenerateDNSStructuredActionFieldsOverrideInline(t *testing.T) {
 	if got := rule["query_type"]; !reflect.DeepEqual(got, []any{"HTTPS"}) {
 		t.Fatalf("inline query_type should win, got %#v", got)
 	}
-	if rule["action"] != "route-options" || rule["server"] != "structured" || rule["disable_cache"] != true {
-		t.Fatalf("structured action fields should win, got %#v", rule)
+	if rule["action"] != "reject" || rule["disable_cache"] != false {
+		t.Fatalf("raw action fields should win, got %#v", rule)
 	}
 	if rule["client_subnet"] != "198.51.100.0/24" {
 		t.Fatalf("non-conflicting structured field should remain, got %#v", rule)
 	}
 	nested := rule["nested"].(map[string]any)
-	if nested["winner"] != "structured" || nested["preserved"] != true {
-		t.Fatalf("structured action options should win without dropping other fields, got %#v", nested)
+	if nested["winner"] != "inline" {
+		t.Fatalf("raw nested fields should be preserved, got %#v", nested)
 	}
 	if rule["invert"] != false {
 		t.Fatalf("inline invert should win, got %#v", rule)
@@ -81,14 +79,14 @@ func TestGenerateDNSInlineRemovesFakeIPMarkerAfterOverride(t *testing.T) {
 	generator := &configGenerator{}
 	dns, err := generator.generateDNS(&profilev1.Dns{
 		Servers: []*profilev1.DnsServer{
-			{Type: profilev1.DnsServerType_DNS_SERVER_TYPE_FAKEIP, Tag: "fakeip"},
+			{Id: "fake-id", Type: profilev1.DnsServerType_DNS_SERVER_TYPE_FAKEIP, Tag: "fakeip"},
 		},
 		Rules: []*profilev1.DnsRule{
 			{
-				Type:    profilev1.RuleType_RULE_TYPE_INLINE,
-				Enable:  true,
-				Payload: `{"__is_fake_ip":true,"domain":["example.com"]}`,
-				Action:  profilev1.DnsRuleAction_DNS_RULE_ACTION_ROUTE,
+				Enable:        true,
+				Raw:           `{"__is_fake_ip":true,"domain":["example.com"]}`,
+				Action:        profilev1.DnsRuleAction_DNS_RULE_ACTION_ROUTE,
+				ActionOptions: &profilev1.DnsActionOptions{Server: "fake-id"},
 			},
 		},
 	}, nil, nil, nil)
@@ -102,6 +100,187 @@ func TestGenerateDNSInlineRemovesFakeIPMarkerAfterOverride(t *testing.T) {
 	}
 	if got := rule["domain"]; !reflect.DeepEqual(got, []any{"example.com"}) {
 		t.Fatalf("inline fields should be preserved, got %#v", rule)
+	}
+}
+
+func TestGenerateDNSSkipsFakeIPRuleBeforeResolvingMissingServer(t *testing.T) {
+	generator := &configGenerator{}
+	dns, err := generator.generateDNS(&profilev1.Dns{Rules: []*profilev1.DnsRule{{
+		Enable:        true,
+		Action:        profilev1.DnsRuleAction_DNS_RULE_ACTION_ROUTE,
+		ActionOptions: &profilev1.DnsActionOptions{Server: "missing-fake-server"},
+		Raw:           `{"__is_fake_ip":true,"domain":["example.com"]}`,
+	}}}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Fake-IP rule should be skipped before reference validation: %v", err)
+	}
+	if got := len(dns["rules"].([]any)); got != 0 {
+		t.Fatalf("generated %d Fake-IP rules without a Fake-IP server", got)
+	}
+}
+
+func TestGenerateDNSStructuredMatches(t *testing.T) {
+	generator := &configGenerator{}
+	dns, err := generator.generateDNS(&profilev1.Dns{Rules: []*profilev1.DnsRule{{
+		Enable:                   true,
+		Action:                   profilev1.DnsRuleAction_DNS_RULE_ACTION_RESPOND,
+		Invert:                   true,
+		Inbound:                  []string{"in-1"},
+		ClashMode:                "direct",
+		IpVersion:                4,
+		QueryType:                []string{"A", "65"},
+		Network:                  []string{"udp"},
+		Protocol:                 []string{"dns"},
+		PreferredBy:              []string{"local", "resolved"},
+		Domain:                   []string{"example.com"},
+		DomainSuffix:             []string{".example.org"},
+		DomainKeyword:            []string{"keyword"},
+		DomainRegex:              []string{"^regex"},
+		RuleSet:                  []string{"rs-1"},
+		RuleSetIpCidrMatchSource: true,
+		MatchResponse:            true,
+		IpAcceptAny:              true,
+		IpCidr:                   []string{"192.0.2.0/24"},
+		IpIsPrivate:              true,
+		ResponseRcode:            "NOERROR",
+		ResponseAnswer:           []string{"example.com. 60 IN A 192.0.2.1"},
+		ResponseNs:               []string{"example.com. 60 IN NS ns.example.com."},
+		ResponseExtra:            []string{"ns.example.com. 60 IN A 192.0.2.2"},
+		ProcessName:              []string{"browser"},
+		ProcessPath:              []string{"/usr/bin/browser"},
+		ProcessPathRegex:         []string{"/browser$"},
+	}}},
+		[]*profilev1.RuleSet{{Id: "rs-1", Tag: "ruleset-tag"}},
+		[]*profilev1.Inbound{{Id: "in-1", Tag: "inbound-tag", Enable: true}},
+		nil,
+	)
+	if err != nil {
+		t.Fatalf("generate DNS: %v", err)
+	}
+
+	rule := dns["rules"].([]any)[0].(map[string]any)
+	checks := map[string]any{
+		"action":                        "respond",
+		"invert":                        true,
+		"inbound":                       []any{"inbound-tag"},
+		"clash_mode":                    "direct",
+		"ip_version":                    int32(4),
+		"query_type":                    []any{"A", uint64(65)},
+		"network":                       []any{"udp"},
+		"protocol":                      []any{"dns"},
+		"preferred_by":                  []any{"local", "resolved"},
+		"domain":                        []any{"example.com"},
+		"rule_set":                      []any{"ruleset-tag"},
+		"rule_set_ip_cidr_match_source": true,
+		"match_response":                true,
+		"ip_accept_any":                 true,
+		"ip_is_private":                 true,
+		"response_rcode":                "NOERROR",
+		"process_name":                  []any{"browser"},
+	}
+	for key, want := range checks {
+		if got := rule[key]; !reflect.DeepEqual(got, want) {
+			t.Fatalf("%s = %#v, want %#v; rule=%#v", key, got, want, rule)
+		}
+	}
+}
+
+func TestGenerateDNSActionOptionIsolation(t *testing.T) {
+	generator := &configGenerator{}
+	ttl := uint32(0)
+	allOptions := func() *profilev1.DnsActionOptions {
+		return &profilev1.DnsActionOptions{
+			Server: "dns-1", DisableCache: true, DisableOptimisticCache: true,
+			RewriteTtl: &ttl, Timeout: "2s", ClientSubnet: "198.51.100.0/24",
+			Method: "default", NoDrop: true, Rcode: "NXDOMAIN",
+			Answer: []string{"answer"}, Ns: []string{"ns"}, Extra: []string{"extra"},
+		}
+	}
+	dns, err := generator.generateDNS(&profilev1.Dns{
+		Servers: []*profilev1.DnsServer{{Id: "dns-1", Tag: "dns-tag", Type: profilev1.DnsServerType_DNS_SERVER_TYPE_LOCAL}},
+		Rules: []*profilev1.DnsRule{
+			{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_ROUTE, ActionOptions: allOptions()},
+			{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_EVALUATE, ActionOptions: allOptions()},
+			{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_ROUTE_OPTIONS, ActionOptions: allOptions()},
+			{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_RESPOND, ActionOptions: allOptions()},
+			{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_REJECT, ActionOptions: allOptions()},
+			{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_PREDEFINED, ActionOptions: allOptions()},
+		},
+	}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("generate DNS: %v", err)
+	}
+
+	rules := dns["rules"].([]any)
+	for _, index := range []int{0, 1} {
+		rule := rules[index].(map[string]any)
+		if rule["server"] != "dns-tag" || rule["rewrite_ttl"] != uint32(0) || rule["disable_cache"] != true {
+			t.Fatalf("query action fields missing: %#v", rule)
+		}
+		if _, exists := rule["method"]; exists {
+			t.Fatalf("reject options leaked into query action: %#v", rule)
+		}
+	}
+	routeOptions := rules[2].(map[string]any)
+	if _, exists := routeOptions["server"]; exists {
+		t.Fatalf("route-options must not output server: %#v", routeOptions)
+	}
+	respond := rules[3].(map[string]any)
+	if len(respond) != 1 || respond["action"] != "respond" {
+		t.Fatalf("respond options leaked: %#v", respond)
+	}
+	reject := rules[4].(map[string]any)
+	if reject["method"] != "default" || reject["no_drop"] != true {
+		t.Fatalf("reject options missing: %#v", reject)
+	}
+	if _, exists := reject["disable_cache"]; exists {
+		t.Fatalf("query options leaked into reject: %#v", reject)
+	}
+	predefined := rules[5].(map[string]any)
+	if predefined["rcode"] != "NXDOMAIN" || !reflect.DeepEqual(predefined["answer"], []any{"answer"}) {
+		t.Fatalf("predefined options missing: %#v", predefined)
+	}
+	if _, exists := predefined["server"]; exists {
+		t.Fatalf("server leaked into predefined: %#v", predefined)
+	}
+}
+
+func TestGenerateDNSMatchValidation(t *testing.T) {
+	generator := &configGenerator{}
+	tests := []struct {
+		name string
+		rule *profilev1.DnsRule
+		want string
+	}{
+		{name: "IP version", rule: &profilev1.DnsRule{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_RESPOND, IpVersion: 5}, want: "ip_version"},
+		{name: "numeric query type", rule: &profilev1.DnsRule{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_RESPOND, QueryType: []string{"65536"}}, want: "query_type[0]"},
+		{name: "response dependency", rule: &profilev1.DnsRule{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_RESPOND, IpCidr: []string{"192.0.2.0/24"}}, want: "match_response"},
+		{name: "inline raw required", rule: &profilev1.DnsRule{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_INLINE}, want: ".raw is required"},
+		{name: "inline action required", rule: &profilev1.DnsRule{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_INLINE, Raw: `{}`}, want: ".raw.action is required"},
+		{name: "reject no drop conflict", rule: &profilev1.DnsRule{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_REJECT, ActionOptions: &profilev1.DnsActionOptions{Method: "drop", NoDrop: true}}, want: "no_drop"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := generator.generateDNS(&profilev1.Dns{Rules: []*profilev1.DnsRule{test.rule}}, nil, nil, nil)
+			if err == nil || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want path containing %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestGenerateDNSPredefinedDefaultsRcode(t *testing.T) {
+	generator := &configGenerator{}
+	dns, err := generator.generateDNS(&profilev1.Dns{Rules: []*profilev1.DnsRule{{
+		Enable: true,
+		Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_PREDEFINED,
+	}}}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("generate DNS: %v", err)
+	}
+	rule := dns["rules"].([]any)[0].(map[string]any)
+	if rule["rcode"] != "NOERROR" {
+		t.Fatalf("default predefined rcode = %#v", rule["rcode"])
 	}
 }
 
@@ -487,9 +666,9 @@ func TestGenerateDNSReferenceErrors(t *testing.T) {
 		{name: "final", dns: &profilev1.Dns{Servers: dnsServers, Final: "missing"}, want: "dns.final"},
 		{name: "server detour", dns: &profilev1.Dns{Servers: []*profilev1.DnsServer{{Type: profilev1.DnsServerType_DNS_SERVER_TYPE_LOCAL, Detour: "missing"}}}, want: "dns.servers[0].detour"},
 		{name: "server domain resolver", dns: &profilev1.Dns{Servers: []*profilev1.DnsServer{{Type: profilev1.DnsServerType_DNS_SERVER_TYPE_LOCAL, DomainResolver: "missing"}}}, want: "dns.servers[0].domain_resolver"},
-		{name: "rule server", dns: &profilev1.Dns{Servers: dnsServers, Rules: []*profilev1.DnsRule{{Enable: true, Type: profilev1.RuleType_RULE_TYPE_DOMAIN, Payload: "example.com", Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_ROUTE, Server: "missing"}}}, want: "dns.rules[0].server"},
-		{name: "rule inbound", dns: &profilev1.Dns{Rules: []*profilev1.DnsRule{{Enable: true, Type: profilev1.RuleType_RULE_TYPE_INBOUND, Payload: "missing", Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_REJECT}}}, want: "dns.rules[0].payload"},
-		{name: "rule set", dns: &profilev1.Dns{Rules: []*profilev1.DnsRule{{Enable: true, Type: profilev1.RuleType_RULE_TYPE_RULE_SET, Payload: "missing", Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_REJECT}}}, want: "dns.rules[0].payload[0]"},
+		{name: "rule server", dns: &profilev1.Dns{Servers: dnsServers, Rules: []*profilev1.DnsRule{{Enable: true, Domain: []string{"example.com"}, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_ROUTE, ActionOptions: &profilev1.DnsActionOptions{Server: "missing"}}}}, want: "dns.rules[0].action_options.server"},
+		{name: "rule inbound", dns: &profilev1.Dns{Rules: []*profilev1.DnsRule{{Enable: true, Inbound: []string{"missing"}, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_REJECT}}}, want: "dns.rules[0].inbound[0]"},
+		{name: "rule set", dns: &profilev1.Dns{Rules: []*profilev1.DnsRule{{Enable: true, RuleSet: []string{"missing"}, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_REJECT}}}, want: "dns.rules[0].rule_set[0]"},
 	}
 
 	for _, test := range tests {
@@ -506,14 +685,14 @@ func TestGenerateDNSRejectsDisabledInboundReference(t *testing.T) {
 	generator := &configGenerator{}
 	_, err := generator.generateDNS(
 		&profilev1.Dns{Rules: []*profilev1.DnsRule{{
-			Enable: true, Type: profilev1.RuleType_RULE_TYPE_INBOUND, Payload: "in-1",
+			Enable: true, Inbound: []string{"in-1"},
 			Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_REJECT,
 		}}},
 		nil,
 		[]*profilev1.Inbound{{Id: "in-1", Tag: "in", Enable: false}},
 		nil,
 	)
-	if err == nil || !strings.Contains(err.Error(), "dns.rules[0].payload") || !strings.Contains(err.Error(), "disabled") {
+	if err == nil || !strings.Contains(err.Error(), "dns.rules[0].inbound[0]") || !strings.Contains(err.Error(), "disabled") {
 		t.Fatalf("expected disabled inbound path error, got %v", err)
 	}
 }
@@ -631,11 +810,10 @@ func TestGenerateInlineActionUsesRawAction(t *testing.T) {
 	t.Run("dns", func(t *testing.T) {
 		dns, err := generator.generateDNS(&profilev1.Dns{Rules: []*profilev1.DnsRule{
 			{
-				Type:    profilev1.RuleType_RULE_TYPE_INLINE,
-				Enable:  true,
-				Payload: `{"action":"reject","method":"drop","invert":false}`,
-				Invert:  true,
-				Action:  profilev1.DnsRuleAction_DNS_RULE_ACTION_INLINE,
+				Enable: true,
+				Raw:    `{"action":"reject","method":"drop","invert":false}`,
+				Invert: true,
+				Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_INLINE,
 			},
 		}}, nil, nil, nil)
 		if err != nil {
@@ -651,18 +829,17 @@ func TestGenerateInlineActionUsesRawAction(t *testing.T) {
 	})
 }
 
-func TestGenerateDNSRejectsInvalidInlinePayload(t *testing.T) {
+func TestGenerateDNSRejectsInvalidRaw(t *testing.T) {
 	generator := &configGenerator{}
 	_, err := generator.generateDNS(&profilev1.Dns{Rules: []*profilev1.DnsRule{
 		{
-			Type:    profilev1.RuleType_RULE_TYPE_INLINE,
-			Enable:  true,
-			Payload: `{invalid`,
-			Action:  profilev1.DnsRuleAction_DNS_RULE_ACTION_ROUTE,
+			Enable: true,
+			Raw:    `{invalid`,
+			Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_INLINE,
 		},
 	}}, nil, nil, nil)
 	if err == nil {
-		t.Fatal("invalid inline payload should return an error")
+		t.Fatal("invalid raw should return an error")
 	}
 }
 

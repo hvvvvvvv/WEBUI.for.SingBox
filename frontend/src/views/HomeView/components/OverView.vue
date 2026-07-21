@@ -136,13 +136,16 @@ onUnmounted(() => {
       <div
         v-if="kernelApiStore.runtimeInbounds.length"
         class="h-20 px-6 rounded-4 text-12 font-bold text-nowrap inline-flex items-center gap-4 shrink-0"
-        style="color: var(--primary-color); background-color: color-mix(in srgb, var(--primary-color) 12%, transparent)"
+        style="
+          color: var(--primary-color);
+          background-color: color-mix(in srgb, var(--primary-color) 12%, transparent);
+        "
       >
         <Icon icon="inbound" :size="12" color="var(--primary-color)" />
         <span>{{ t('profiles.inbounds') }}</span>
       </div>
       <Switch
-        v-for="(inbound, index) in kernelApiStore.runtimeInbounds"
+        v-for="inbound in kernelApiStore.runtimeInbounds"
         :key="inbound.id"
         v-model="inbound.enable"
         size="small"

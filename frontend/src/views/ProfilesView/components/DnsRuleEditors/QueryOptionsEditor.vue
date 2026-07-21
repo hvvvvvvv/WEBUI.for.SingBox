@@ -1,15 +1,5 @@
 <script setup lang="ts">
-import { Strategy } from '@/enums/kernel'
-
-defineProps<{ serverOptions: { label: string; value: string }[] }>()
-const model = defineModel<IActionOptions>({ required: true })
-
-const strategyOptions = [
-  { label: 'kernel.strategy.prefer_ipv4', value: Strategy.PreferIPv4 },
-  { label: 'kernel.strategy.prefer_ipv6', value: Strategy.PreferIPv6 },
-  { label: 'kernel.strategy.ipv4_only', value: Strategy.IPv4Only },
-  { label: 'kernel.strategy.ipv6_only', value: Strategy.IPv6Only },
-]
+const model = defineModel<IDNSActionOptions>({ required: true })
 
 const addRewriteTTL = () => {
   model.value.rewrite_ttl = 0
@@ -21,19 +11,6 @@ const removeRewriteTTL = () => {
 </script>
 
 <template>
-  <div class="form-item action-field">
-    {{ $t('kernel.route.rules.server') }}
-    <Select v-model="model.server" :options="serverOptions" clearable />
-  </div>
-  <div class="form-item action-field">
-    {{ $t('kernel.strategy.name') }}
-    <OptionGroup
-      v-model="model.strategy"
-      :options="strategyOptions"
-      :aria-label="$t('kernel.strategy.name')"
-      clearable
-    />
-  </div>
   <div class="action-toggle-group">
     <ActionToggleField
       v-model="model.disable_cache"

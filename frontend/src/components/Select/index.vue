@@ -13,6 +13,9 @@ interface Props {
   placeholder?: string
   autoSize?: boolean
   clearable?: boolean
+  searchable?: boolean
+  allowCreate?: boolean
+  ariaLabel?: string
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -24,6 +27,9 @@ const props = withDefaults(defineProps<Props>(), {
   placeholder: '',
   autoSize: false,
   clearable: false,
+  searchable: false,
+  allowCreate: false,
+  ariaLabel: undefined,
 })
 
 const emit = defineEmits(['change', 'update:modelValue'])
@@ -31,6 +37,7 @@ const emit = defineEmits(['change', 'update:modelValue'])
 const model = ref(props.multiple ? deepClone(props.modelValue || []) : props.modelValue)
 
 const { t } = useI18n()
+const search = ref('')
 
 const innerClearable = computed(
   () => props.clearable && (props.multiple ? (model.value as string[]).length !== 0 : model.value),
@@ -53,6 +60,23 @@ const displayLabel = computed(() => {
   }
   const label = props.options.find((v) => v.value === model.value)?.label ?? (model.value as string)
   return (label || props.placeholder) ?? 'common.none'
+})
+
+const filteredOptions = computed(() => {
+  const keyword = search.value.trim().toLocaleLowerCase()
+  if (!keyword) return props.options
+  return props.options.filter((option) =>
+    `${t(option.label)} ${option.value}`.toLocaleLowerCase().includes(keyword),
+  )
+})
+
+const creatableValue = computed(() => {
+  const value = search.value.trim()
+  if (!props.allowCreate || !value) return ''
+  if (props.options.some((option) => option.value === value)) return ''
+  if (props.multiple && (model.value as string[]).includes(value)) return ''
+  if (!props.multiple && model.value === value) return ''
+  return value
 })
 
 let internalUpdate = false
@@ -100,6 +124,12 @@ const handleSelect = (value: string, disabled = false) => {
   internalUpdate = true
 }
 
+const handleCreate = () => {
+  if (!creatableValue.value) return
+  handleSelect(creatableValue.value)
+  search.value = ''
+}
+
 const handleClear = () => {
   if (props.multiple) {
     model.value = []
@@ -118,6 +148,7 @@ const handleClear = () => {
   <Dropdown :trigger="['click']" coordinate="viewport">
     <template #default="{ toggle, close }">
       <div
+        :aria-label="ariaLabel"
         :class="{
           border,
           [size]: true,
@@ -152,11 +183,20 @@ const handleClear = () => {
 
     <template #overlay="{ close }">
       <div class="flex flex-col gap-4 min-w-64 p-4">
-        <slot v-if="options.length === 0" name="empty">
+        <input
+          v-if="searchable || allowCreate"
+          v-model="search"
+          :aria-label="ariaLabel"
+          class="select-search rounded-4 px-8 py-6 outline-none"
+          type="text"
+          autocomplete="off"
+          @keydown.enter.prevent="handleCreate"
+        />
+        <slot v-if="filteredOptions.length === 0 && !creatableValue" name="empty">
           <Empty :icon-size="42" />
         </slot>
         <Button
-          v-for="o in options"
+          v-for="o in filteredOptions"
           :key="o.value"
           type="text"
           :disabled="o.disabled"
@@ -175,6 +215,18 @@ const handleClear = () => {
               {{ t(o.label) }}
             </div>
           </div>
+        </Button>
+        <Button
+          v-if="creatableValue"
+          type="text"
+          @click="
+            () => {
+              handleCreate()
+              !props.multiple && close()
+            }
+          "
+        >
+          <div class="w-full text-left">+ {{ creatableValue }}</div>
         </Button>
       </div>
     </template>
@@ -196,5 +248,12 @@ const handleClear = () => {
 
 .small {
   font-size: 12px;
+}
+
+.select-search {
+  min-width: 180px;
+  color: var(--input-color);
+  background: var(--input-bg);
+  border: 1px solid var(--primary-color);
 }
 </style>

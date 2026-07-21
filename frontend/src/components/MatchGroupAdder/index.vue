@@ -1,16 +1,11 @@
 <script setup lang="ts">
-type MatchGroupKey = 'source' | 'destination' | 'process' | 'rule_set' | 'inline'
-
 interface MatchGroupOption {
-  key: MatchGroupKey
+  key: string
   label: string
 }
 
 defineProps<{ options: MatchGroupOption[] }>()
-
-const emit = defineEmits<{
-  add: [key: MatchGroupKey]
-}>()
+const emit = defineEmits<{ add: [key: any] }>()
 </script>
 
 <template>

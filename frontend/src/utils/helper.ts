@@ -1,13 +1,6 @@
 import { deleteConnection, getConnections, useProxy } from '@/api/kernel'
 import { RulesetFormat } from '@/enums/kernel'
-import i18n from '@/lang'
-import {
-  useAppSettingsStore,
-  useAppStore,
-  useKernelApiStore,
-  useRulesetsStore,
-} from '@/stores'
-import { message, confirm } from '@/utils'
+import { useAppSettingsStore, useKernelApiStore, useRulesetsStore } from '@/stores'
 
 export const getZoomLevel = () => {
   const el = document.querySelector('.app-zoomed') as HTMLElement | null
@@ -86,7 +79,8 @@ export const addToRuleSet = async (
     await rulesetsStoe.addRuleset(ruleset)
   }
 
-  const content = (await rulesetsStoe.getRulesetContent(ruleset.id)) || '{ "version": 2, "rules": [] }'
+  const content =
+    (await rulesetsStoe.getRulesetContent(ruleset.id)) || '{ "version": 2, "rules": [] }'
   const { rules = [] } = JSON.parse(content)
   rules[0] = rules[0] || {}
   payloads.forEach((payload) => {

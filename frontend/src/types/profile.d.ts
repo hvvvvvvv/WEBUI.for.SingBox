@@ -97,7 +97,14 @@ type RuleAction =
   | 'sniff'
   | 'resolve'
   | 'inline'
-type DnsRuleAction = 'route' | 'route-options' | 'reject' | 'predefined' | 'inline'
+type DnsRuleAction =
+  | 'route'
+  | 'evaluate'
+  | 'respond'
+  | 'route-options'
+  | 'reject'
+  | 'predefined'
+  | 'inline'
 
 interface IOutbound {
   id: string
@@ -249,19 +256,52 @@ interface IDNSServer {
   inet6_range: string
 }
 
+interface IDNSActionOptions {
+  server: string
+  disable_cache: boolean
+  disable_optimistic_cache: boolean
+  rewrite_ttl?: number
+  timeout: string
+  client_subnet: string
+  method: string
+  no_drop: boolean
+  rcode: string
+  answer: string[]
+  ns: string[]
+  extra: string[]
+}
+
 interface IDNSRule {
   id: string
-  type: RuleType
   enable: boolean
-  payload: string
   action: DnsRuleAction
   invert: boolean
-  // route
-  server: string
+  inbound: string[]
+  clash_mode: string
+  ip_version: number
   query_type: string[]
-  // route/route-options
-  disable_cache: boolean
-  client_subnet: string
+  network: string[]
+  protocol: string[]
+  preferred_by: string[]
+  domain: string[]
+  domain_suffix: string[]
+  domain_keyword: string[]
+  domain_regex: string[]
+  rule_set: string[]
+  rule_set_ip_cidr_match_source: boolean
+  match_response: boolean
+  ip_accept_any: boolean
+  ip_cidr: string[]
+  ip_is_private: boolean
+  response_rcode: string
+  response_answer: string[]
+  response_ns: string[]
+  response_extra: string[]
+  process_name: string[]
+  process_path: string[]
+  process_path_regex: string[]
+  action_options: IDNSActionOptions
+  raw: string
 }
 
 interface IDNS {

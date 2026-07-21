@@ -1,39 +1,9 @@
 import * as Defaults from '@/constant/profile'
-import {
-  Inbound,
-  Outbound,
-  RuleAction,
-  RulesetType,
-  RuleType as RouteRuleType,
-  DnsServer,
-} from '@/enums/kernel'
+import { Inbound, Outbound, RuleAction, RulesetType, DnsServer } from '@/enums/kernel'
 
 import { createTextMatcher, deepAssign, sampleID } from './others'
 import { useProfilesStore, useRulesetsStore, useSubscribesStore } from '@/stores'
 import type { Subscription } from '@/types/app'
-
-const supportedDnsRuleTypes = [
-  RouteRuleType.Inbound,
-  RouteRuleType.Network,
-  RouteRuleType.Protocol,
-  RouteRuleType.Domain,
-  RouteRuleType.DomainSuffix,
-  RouteRuleType.DomainKeyword,
-  RouteRuleType.DomainRegex,
-  RouteRuleType.SourceIPCidr,
-  RouteRuleType.IPCidr,
-  RouteRuleType.SourcePort,
-  RouteRuleType.SourcePortRange,
-  RouteRuleType.Port,
-  RouteRuleType.PortRange,
-  RouteRuleType.ProcessName,
-  RouteRuleType.ProcessPath,
-  RouteRuleType.ProcessPathRegex,
-  RouteRuleType.RuleSet,
-  RouteRuleType.IpIsPrivate,
-  RouteRuleType.IpAcceptAny,
-  RouteRuleType.ClashMode,
-]
 
 const routeArrayMatchKeys = [
   'network',
@@ -593,80 +563,125 @@ const restoreDnsRules = (
   RouteRuleSetIds: Recordable,
   DnsServersIds: Recordable,
 ): IDNSRule[] => {
-  return rules.flatMap((raw: Recordable, i) => {
+  const asArray = (value: unknown) => (Array.isArray(value) ? value : [value])
+  const knownActions = new Set<string>([
+    RuleAction.Route,
+    RuleAction.Evaluate,
+    RuleAction.Respond,
+    RuleAction.RouteOptions,
+    RuleAction.Reject,
+    RuleAction.Predefined,
+  ])
+  const arrayMatchKeys = [
+    'network',
+    'protocol',
+    'preferred_by',
+    'domain',
+    'domain_suffix',
+    'domain_keyword',
+    'domain_regex',
+    'ip_cidr',
+    'response_answer',
+    'response_ns',
+    'response_extra',
+    'process_name',
+    'process_path',
+    'process_path_regex',
+  ] as const
+  const queryOptionKeys = [
+    'disable_cache',
+    'disable_optimistic_cache',
+    'rewrite_ttl',
+    'timeout',
+    'client_subnet',
+  ] as const
+
+  return rules.map((raw: Recordable, i) => {
     const rule = Defaults.DefaultDnsRule()
     rule.id = 'rule-' + i
-    rule.action = raw.action || RuleAction.Route
+    const importedAction = raw.action || RuleAction.Route
+    const isKnownAction = knownActions.has(importedAction)
+    rule.action = isKnownAction ? importedAction : RuleAction.Inline
+    const consumed = new Set<string>()
 
-    const hits = supportedDnsRuleTypes.filter((key) => key in raw)
-    if (hits.length === 1) {
-      rule.type = hits[0] as any
-    } else {
-      rule.type = RouteRuleType.Inline
+    if ('invert' in raw) {
+      rule.invert = Boolean(raw.invert)
+      consumed.add('invert')
     }
-
-    if (rule.type === RouteRuleType.Inline) {
-      rule.payload = JSON.stringify(
-        {
-          ...raw,
-          action: undefined,
-          invert: undefined,
-          client_subnet: undefined,
-          disable_cache: undefined,
-          query_type: undefined,
-          server: undefined,
-        },
-        null,
-        2,
-      )
-    } else if (rule.type === RouteRuleType.Inbound) {
-      rule.payload = restoreReference(InboundsIds, raw[rule.type])
-    } else if (rule.type === RouteRuleType.RuleSet) {
-      const rs = Array.isArray(raw[rule.type]) ? raw[rule.type] : [raw[rule.type]]
-      rule.payload = rs.map((tag: string) => restoreReference(RouteRuleSetIds, tag)).join(',')
-    } else {
-      rule.payload = Array.isArray(raw[rule.type])
-        ? raw[rule.type].join(',')
-        : String(raw[rule.type])
+    if ('inbound' in raw) {
+      rule.inbound = asArray(raw.inbound).map((tag) => restoreReference(InboundsIds, tag))
+      consumed.add('inbound')
     }
-
-    if (RuleAction.Route === raw.action) {
-      if ('server' in raw) {
-        rule.server = restoreReference(DnsServersIds, raw.server)
-      }
-    } else if (RuleAction.Reject === raw.action) {
-      if ('method' in raw) {
-        rule.server = raw.method
-      }
-    } else if ([RuleAction.RouteOptions, RuleAction.Predefined].includes(raw.action)) {
-      rule.server = JSON.stringify(
-        {
-          ...raw,
-          action: undefined,
-          invert: undefined,
-          disable_cache: undefined,
-          client_subnet: undefined,
-          query_type: undefined,
-          server: undefined,
-          ...supportedDnsRuleTypes.reduce((p, c) => ((p[c] = undefined), p), {} as Recordable),
-        },
-        null,
-        2,
-      )
+    if ('clash_mode' in raw) {
+      rule.clash_mode = String(raw.clash_mode)
+      consumed.add('clash_mode')
     }
-    if ([RuleAction.Route, RuleAction.RouteOptions].includes(raw.action)) {
-      if ('disable_cache' in raw) {
-        rule.disable_cache = raw.disable_cache
-      }
-      if ('client_subnet' in raw) {
-        rule.client_subnet = raw.client_subnet
-      }
+    if (raw.ip_version === 4 || raw.ip_version === 6) {
+      rule.ip_version = raw.ip_version
+      consumed.add('ip_version')
     }
     if ('query_type' in raw) {
-      rule.query_type = Array.isArray(raw.query_type) ? raw.query_type : [String(raw.query_type)]
+      rule.query_type = asArray(raw.query_type).map(String)
+      consumed.add('query_type')
     }
-    if ('invert' in raw) {
-      rule.invert = raw.invert
+    for (const key of arrayMatchKeys) {
+      if (!(key in raw)) continue
+      ;(rule as unknown as Record<string, unknown>)[key] = asArray(raw[key]).map(String)
+      consumed.add(key)
+    }
+    if ('rule_set' in raw) {
+      rule.rule_set = asArray(raw.rule_set).map((tag) => restoreReference(RouteRuleSetIds, tag))
+      consumed.add('rule_set')
+    }
+    for (const key of [
+      'rule_set_ip_cidr_match_source',
+      'match_response',
+      'ip_accept_any',
+      'ip_is_private',
+    ] as const) {
+      if (!(key in raw)) continue
+      ;(rule as unknown as Record<string, unknown>)[key] = Boolean(raw[key])
+      consumed.add(key)
+    }
+    if ('response_rcode' in raw) {
+      rule.response_rcode = String(raw.response_rcode)
+      consumed.add('response_rcode')
+    }
+
+    const assignOptions = (keys: readonly (keyof IDNSActionOptions)[]) => {
+      const actionOptions = rule.action_options as unknown as Record<string, unknown>
+      for (const key of keys) {
+        if (!(key in raw)) continue
+        actionOptions[key] = raw[key]
+        consumed.add(key)
+      }
+    }
+
+    if (isKnownAction) {
+      consumed.add('action')
+      if (rule.action === RuleAction.Route || rule.action === RuleAction.Evaluate) {
+        if ('server' in raw) {
+          rule.action_options.server = restoreReference(DnsServersIds, raw.server)
+          consumed.add('server')
+        }
+        assignOptions(queryOptionKeys)
+      } else if (rule.action === RuleAction.RouteOptions) {
+        assignOptions(queryOptionKeys)
+      } else if (rule.action === RuleAction.Reject) {
+        assignOptions(['method', 'no_drop'])
+      } else if (rule.action === RuleAction.Predefined) {
+        assignOptions(['rcode'])
+        for (const key of ['answer', 'ns', 'extra'] as const) {
+          if (!(key in raw)) continue
+          rule.action_options[key] = asArray(raw[key]).map(String)
+          consumed.add(key)
+        }
+      }
+    }
+
+    const unmodeled = Object.fromEntries(Object.entries(raw).filter(([key]) => !consumed.has(key)))
+    if (Object.keys(unmodeled).length > 0) {
+      rule.raw = JSON.stringify(unmodeled, null, 2)
     }
     return rule
   })

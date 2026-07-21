@@ -338,7 +338,7 @@ const createDefaultRouteRule = (
   return {
     ...rule,
     ...fields,
-    action_options: { ...rule.action_options, ...(fields.action_options || {}) },
+    action_options: { ...rule.action_options, ...fields.action_options },
   }
 }
 
@@ -602,94 +602,89 @@ export const DefaultFakeIPDnsRule = () => ({
   ],
 })
 
-export const DefaultDnsRule = (): IDNSRule => ({
-  id: sampleID(),
-  type: RuleType.RuleSet,
-  enable: true,
-  payload: '',
-  action: RuleAction.Route,
-  invert: false,
-  // route
+export const DefaultDnsActionOptions = (): IDNSActionOptions => ({
   server: '',
-  query_type: [],
-  // route/route-options
   disable_cache: false,
+  disable_optimistic_cache: false,
+  timeout: '',
   client_subnet: '',
+  method: 'default',
+  no_drop: false,
+  rcode: 'NOERROR',
+  answer: [],
+  ns: [],
+  extra: [],
 })
 
+export const DefaultDnsRule = (): IDNSRule => ({
+  id: sampleID(),
+  enable: true,
+  action: RuleAction.Route,
+  invert: false,
+  inbound: [],
+  clash_mode: '',
+  ip_version: 0,
+  query_type: [],
+  network: [],
+  protocol: [],
+  preferred_by: [],
+  domain: [],
+  domain_suffix: [],
+  domain_keyword: [],
+  domain_regex: [],
+  rule_set: [],
+  rule_set_ip_cidr_match_source: false,
+  match_response: false,
+  ip_accept_any: false,
+  ip_cidr: [],
+  ip_is_private: false,
+  response_rcode: '',
+  response_answer: [],
+  response_ns: [],
+  response_extra: [],
+  process_name: [],
+  process_path: [],
+  process_path_regex: [],
+  action_options: DefaultDnsActionOptions(),
+  raw: '',
+})
+
+const createDefaultDnsRule = (
+  fields: Omit<Partial<IDNSRule>, 'action_options'> & {
+    action_options?: Partial<IDNSActionOptions>
+  },
+): IDNSRule => {
+  const rule = DefaultDnsRule()
+  return {
+    ...rule,
+    ...fields,
+    action_options: { ...rule.action_options, ...fields.action_options },
+  }
+}
+
 export const DefaultDnsRules = (): IDNSRule[] => [
-  {
-    id: sampleID(),
-    type: RuleType.ClashMode,
-    enable: true,
-    payload: ClashMode.Direct,
-    action: RuleAction.Route,
-    server: DefaultDnsServersIds.LocalDns,
-    invert: false,
-    query_type: [],
-    disable_cache: false,
-    client_subnet: '',
-  },
-  {
-    id: sampleID(),
-    type: RuleType.ClashMode,
-    enable: true,
-    payload: ClashMode.Global,
-    action: RuleAction.Route,
-    server: DefaultDnsServersIds.RemoteDns,
-    invert: false,
-    query_type: [],
-    disable_cache: false,
-    client_subnet: '',
-  },
-  {
-    id: RuleType.InsertionPoint,
-    type: RuleType.InsertionPoint,
-    enable: true,
-    payload: '',
-    action: RuleAction.Route,
-    server: '',
-    invert: false,
-    query_type: [],
-    disable_cache: false,
-    client_subnet: '',
-  },
-  {
-    id: sampleID(),
-    type: RuleType.RuleSet,
-    enable: true,
-    payload: DefaultRulesetIds.GEOSITE_CN,
-    action: RuleAction.Route,
-    server: DefaultDnsServersIds.LocalDns,
-    invert: false,
-    query_type: [],
-    disable_cache: false,
-    client_subnet: '',
-  },
-  {
-    id: sampleID(),
-    type: RuleType.Inline,
+  createDefaultDnsRule({
+    clash_mode: ClashMode.Direct,
+    action_options: { server: DefaultDnsServersIds.LocalDns },
+  }),
+  createDefaultDnsRule({
+    clash_mode: ClashMode.Global,
+    action_options: { server: DefaultDnsServersIds.RemoteDns },
+  }),
+  createDefaultDnsRule({ id: RuleType.InsertionPoint }),
+  createDefaultDnsRule({
+    rule_set: [DefaultRulesetIds.GEOSITE_CN],
+    action_options: { server: DefaultDnsServersIds.LocalDns },
+  }),
+  createDefaultDnsRule({
     enable: false,
-    payload: JSON.stringify(DefaultFakeIPDnsRule(), null, 2),
-    action: RuleAction.Route,
-    server: DefaultDnsServersIds.FakeIP,
-    invert: false,
-    query_type: [],
-    disable_cache: false,
-    client_subnet: '',
-  },
-  {
-    id: sampleID(),
-    type: RuleType.RuleSet,
-    enable: true,
-    payload: DefaultRulesetIds.GEOLOCATION_NOT_CN,
-    action: RuleAction.Route,
-    server: DefaultDnsServersIds.RemoteDns,
-    invert: false,
-    query_type: [],
-    disable_cache: false,
-    client_subnet: '',
-  },
+    raw: JSON.stringify(DefaultFakeIPDnsRule(), null, 2),
+    action_options: { server: DefaultDnsServersIds.FakeIP },
+  }),
+  createDefaultDnsRule({
+    rule_set: [DefaultRulesetIds.GEOLOCATION_NOT_CN],
+    action_options: { server: DefaultDnsServersIds.RemoteDns },
+  }),
 ]
 
 export const DefaultDns = (): IDNS => ({

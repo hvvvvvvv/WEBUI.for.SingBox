@@ -2,6 +2,8 @@ export {}
 
 declare module 'vue' {
   export interface GlobalComponents {
+    ActionPicker: (typeof import('./ActionPicker/index.vue'))['default']
+    ActionToggleField: (typeof import('./ActionToggleField/index.vue'))['default']
     Button: (typeof import('./Button/index.vue'))['default']
     Card: (typeof import('./Card/index.vue'))['default']
     CheckBox: (typeof import('./CheckBox/index.vue'))['default']
@@ -18,6 +20,7 @@ declare module 'vue' {
     InterfaceSelect: (typeof import('./InterfaceSelect/index.vue'))['default']
     KeyValueEditor: (typeof import('./KeyValueEditor/index.vue'))['default']
     Menu: (typeof import('./Menu/index.vue'))['default']
+    MatchGroupAdder: (typeof import('./MatchGroupAdder/index.vue'))['default']
     Message: (typeof import('./Message/index.vue'))['default']
     Modal: (typeof import('./Modal/index.vue'))['default']
     MultipleSelect: (typeof import('./Select/index.vue'))['default']
@@ -27,6 +30,7 @@ declare module 'vue' {
     Progress: (typeof import('./Progress/index.vue'))['default']
     Prompt: (typeof import('./Prompt/index.vue'))['default']
     Radio: (typeof import('./Radio/index.vue'))['default']
+    RuleBuilder: (typeof import('./RuleBuilder/index.vue'))['default']
     Select: (typeof import('./Select/index.vue'))['default']
     Switch: (typeof import('./Switch/index.vue'))['default']
     Table: (typeof import('./Table/index.vue'))['default']

@@ -108,6 +108,8 @@ export enum RuleAction {
   Sniff = 'sniff',
   Resolve = 'resolve',
   Predefined = 'predefined',
+  Evaluate = 'evaluate',
+  Respond = 'respond',
   Inline = 'inline',
 }
 

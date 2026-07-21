@@ -14,16 +14,15 @@ import { DefaultActionOptions, DefaultRouteRule } from '@/constant/profile'
 import { RuleAction, RuleType } from '@/enums/kernel'
 import { useBool } from '@/hooks'
 import { deepClone, message } from '@/utils'
+import type { ActionPickerItem } from '@/components/ActionPicker/index.vue'
 
 import BypassActionEditor from './RouteRuleEditors/BypassActionEditor.vue'
 import DestinationMatchGroup from './RouteRuleEditors/DestinationMatchGroup.vue'
 import InlineMatchGroup from './RouteRuleEditors/InlineMatchGroup.vue'
-import MatchGroupAdder from './RouteRuleEditors/MatchGroupAdder.vue'
 import ProcessMatchGroup from './RouteRuleEditors/ProcessMatchGroup.vue'
 import RejectActionEditor from './RouteRuleEditors/RejectActionEditor.vue'
 import ResolveActionEditor from './RouteRuleEditors/ResolveActionEditor.vue'
 import RouteActionEditor from './RouteRuleEditors/RouteActionEditor.vue'
-import RouteActionPicker from './RouteRuleEditors/RouteActionPicker.vue'
 import RouteOptionsEditor from './RouteRuleEditors/RouteOptionsEditor.vue'
 import RuleSetMatchGroup from './RouteRuleEditors/RuleSetMatchGroup.vue'
 import SniffActionEditor from './RouteRuleEditors/SniffActionEditor.vue'
@@ -66,15 +65,64 @@ const actionsWithOptions = new Set<RuleAction>([
   RuleAction.Resolve,
 ])
 
+const actionItems: ActionPickerItem[] = [
+  {
+    value: RuleAction.Route,
+    label: 'kernel.route.rules.action.route',
+    description: 'kernel.route.rules.actionDescription.route',
+    icon: 'forward',
+  },
+  {
+    value: RuleAction.Bypass,
+    label: 'kernel.route.rules.action.bypass',
+    description: 'kernel.route.rules.actionDescription.bypass',
+    icon: 'arrowRight',
+  },
+  {
+    value: RuleAction.RouteOptions,
+    label: 'kernel.route.rules.action.route-options',
+    description: 'kernel.route.rules.actionDescription.route-options',
+    icon: 'settings3',
+  },
+  {
+    value: RuleAction.Reject,
+    label: 'kernel.route.rules.action.reject',
+    description: 'kernel.route.rules.actionDescription.reject',
+    icon: 'forbidden',
+  },
+  {
+    value: RuleAction.HijackDNS,
+    label: 'kernel.route.rules.action.hijack-dns',
+    description: 'kernel.route.rules.actionDescription.hijack-dns',
+    icon: 'inbound',
+  },
+  {
+    value: RuleAction.Sniff,
+    label: 'kernel.route.rules.action.sniff',
+    description: 'kernel.route.rules.actionDescription.sniff',
+    icon: 'preview',
+  },
+  {
+    value: RuleAction.Resolve,
+    label: 'kernel.route.rules.action.resolve',
+    description: 'kernel.route.rules.actionDescription.resolve',
+    icon: 'link',
+  },
+  {
+    value: RuleAction.Inline,
+    label: 'kernel.route.rules.action.inline',
+    description: 'kernel.route.rules.actionDescription.inline',
+    icon: 'code',
+  },
+]
+
 const availableGroupOptions = computed(() =>
   groupOptions
     .filter((group) => !activeGroups.value.has(group.key))
     .map((group) => ({ ...group, label: t(group.label) })),
 )
 
-const hasActionOptions = computed(() =>
-  actionsWithOptions.has(fields.value.action as RuleAction),
-)
+const hasActionOptions = computed(() => actionsWithOptions.has(fields.value.action as RuleAction))
 
 const ruleSetOptions = computed(() =>
   props.ruleSet.map((ruleSet) => ({ label: ruleSet.tag, value: ruleSet.id })),
@@ -233,6 +281,11 @@ const handleActionChange = () => {
   fields.value.action_options = DefaultActionOptions()
 }
 
+const handleActionSelect = (action: string) => {
+  fields.value.action = action as IRule['action']
+  handleActionChange()
+}
+
 const isInsertionPointMissing = computed(() =>
   model.value.every((rule) => rule.id !== RuleType.InsertionPoint),
 )
@@ -370,19 +423,20 @@ const renderRule = (rule: IRule) => {
     title="kernel.route.tab.rules"
     max-width="90"
     max-height="90"
+    height="90"
+    :body-scrollable="false"
   >
-    <div class="rule-builder">
-      <section class="rule-builder-pane rule-action-pane rounded-8">
-        <div class="rule-action-pane-top">
-          <div class="rule-builder-heading flex items-center gap-8">
-            <span class="rule-builder-keyword rounded-full">THEN</span>
-            <span class="font-bold text-16">{{ t('kernel.route.rules.executeAction') }}</span>
-          </div>
-          <RouteActionPicker
-            v-model="fields.action"
-            @change="handleActionChange"
-          />
-        </div>
+    <RuleBuilder
+      match-title="kernel.route.rules.matchConditions"
+      action-title="kernel.route.rules.executeAction"
+    >
+      <template #action>
+        <ActionPicker
+          :model-value="fields.action"
+          :items="actionItems"
+          change-label="kernel.route.rules.changeAction"
+          @update:model-value="handleActionSelect"
+        />
 
         <div v-if="hasActionOptions" class="action-editor-grid">
           <RouteActionEditor
@@ -413,18 +467,9 @@ const renderRule = (rule: IRule) => {
             :server-options="serverOptions"
           />
         </div>
-      </section>
+      </template>
 
-      <div class="rule-flow-arrow flex items-center justify-center" aria-hidden="true">
-        <Icon icon="arrowRight" :size="20" color="var(--primary-color)" />
-      </div>
-
-      <section class="rule-builder-pane rule-match-pane rounded-8">
-        <div class="rule-builder-heading flex items-center gap-8">
-          <span class="rule-builder-keyword rounded-full">IF</span>
-          <span class="font-bold text-16">{{ t('kernel.route.rules.matchConditions') }}</span>
-        </div>
-
+      <template #match>
         <div class="form-item">
           {{ t('kernel.rules.type.inbound') }}
           <Select v-model="fields.inbound" :options="inboundOptions" multiple clearable />
@@ -459,7 +504,12 @@ const renderRule = (rule: IRule) => {
         </div>
         <div class="form-item">
           {{ t('kernel.rules.type.protocol') }}
-          <Select v-model="fields.protocol" :options="RouteRuleProtocolOptions" multiple clearable />
+          <Select
+            v-model="fields.protocol"
+            :options="RouteRuleProtocolOptions"
+            multiple
+            clearable
+          />
         </div>
         <div class="form-item">
           {{ t('kernel.rules.type.clash_mode') }}
@@ -569,8 +619,8 @@ const renderRule = (rule: IRule) => {
           </template>
           <InlineMatchGroup v-model="fields" />
         </Card>
-      </section>
-    </div>
+      </template>
+    </RuleBuilder>
   </Modal>
 </template>
 
@@ -578,155 +628,5 @@ const renderRule = (rule: IRule) => {
 .rule-content {
   min-width: 0;
   word-break: break-all;
-}
-
-.rule-builder {
-  display: grid;
-  grid-template-columns: minmax(0, 3fr) 32px minmax(360px, 2fr);
-  grid-template-areas: 'match arrow action';
-  align-items: start;
-  gap: 8px;
-}
-
-.rule-builder-pane {
-  min-width: 0;
-  padding: 12px;
-  border: 1px solid color-mix(in srgb, var(--card-color) 12%, transparent);
-  box-sizing: border-box;
-}
-
-.rule-builder-heading {
-  min-height: 28px;
-  margin-bottom: 10px;
-}
-
-.rule-builder-keyword {
-  padding: 2px 8px;
-  color: var(--primary-color);
-  background: color-mix(in srgb, var(--primary-color) 11%, transparent);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
-.rule-match-pane {
-  grid-area: match;
-  background: color-mix(in srgb, var(--card-bg) 76%, transparent);
-}
-
-.rule-action-pane {
-  --action-pane-bg: color-mix(in srgb, var(--primary-color) 5%, var(--card-bg));
-
-  grid-area: action;
-  position: sticky;
-  top: 0;
-  align-self: start;
-  max-height: calc(90vh - 120px);
-  overflow-y: auto;
-  background: var(--action-pane-bg);
-  border-color: color-mix(in srgb, var(--primary-color) 28%, transparent);
-  border-top: 3px solid var(--primary-color);
-  container-type: inline-size;
-}
-
-.rule-action-pane-top {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  padding-bottom: 2px;
-  background: var(--action-pane-bg);
-}
-
-.rule-flow-arrow {
-  grid-area: arrow;
-  width: 28px;
-  height: 28px;
-  margin-top: 14px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
-}
-
-.action-editor-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  column-gap: 10px;
-  row-gap: 12px;
-  padding-top: 12px;
-  margin-top: 12px;
-  border-top: 1px solid color-mix(in srgb, var(--primary-color) 20%, transparent);
-}
-
-.action-editor-grid :deep(.action-field) {
-  min-width: 0;
-  padding: 0;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
-  gap: 6px;
-}
-
-.action-editor-grid :deep(.action-field-wide) {
-  grid-column: 1 / -1;
-}
-
-.action-editor-grid :deep(.action-toggle-group) {
-  display: grid;
-  grid-column: 1 / -1;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  min-width: 0;
-}
-
-.action-editor-grid :deep(.action-toggle-group > :only-child) {
-  grid-column: 1 / -1;
-}
-
-.action-editor-grid :deep(.action-field > .gui-dropdown),
-.action-editor-grid :deep(.action-field > .gui-input),
-.action-editor-grid :deep(.action-field > .gui-input-list),
-.action-editor-grid :deep(.action-field > .action-input-row),
-.action-editor-grid :deep(.action-field .gui-select) {
-  width: 100%;
-  min-width: 0;
-  max-width: 100%;
-}
-
-@container (max-width: 440px) {
-  .action-editor-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .action-editor-grid :deep(.action-field-wide) {
-    grid-column: auto;
-  }
-}
-
-@container (max-width: 360px) {
-  .action-editor-grid :deep(.action-toggle-group) {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 900px) {
-  .rule-builder {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      'action'
-      'match';
-  }
-
-  .rule-flow-arrow {
-    display: none;
-  }
-
-  .rule-action-pane {
-    position: static;
-    max-height: none;
-    overflow: visible;
-  }
-
-  .rule-action-pane-top {
-    position: static;
-  }
 }
 </style>

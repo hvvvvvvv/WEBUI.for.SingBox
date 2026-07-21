@@ -128,6 +128,8 @@ enum DnsRuleAction {
   DNS_RULE_ACTION_REJECT = 3;
   DNS_RULE_ACTION_PREDEFINED = 4;
   DNS_RULE_ACTION_INLINE = 5;
+  DNS_RULE_ACTION_EVALUATE = 6;
+  DNS_RULE_ACTION_RESPOND = 7;
 }
 
 enum MixinPriority {
@@ -334,20 +336,55 @@ message DnsServer {
   string inet6_range = 13;
 }
 
+message DnsActionOptions {
+  string server = 1;
+  bool disable_cache = 2;
+  bool disable_optimistic_cache = 3;
+  optional uint32 rewrite_ttl = 4;
+  string timeout = 5;
+  string client_subnet = 6;
+  string method = 7;
+  bool no_drop = 8;
+  string rcode = 9;
+  repeated string answer = 10;
+  repeated string ns = 11;
+  repeated string extra = 12;
+}
+
 message DnsRule {
-  reserved 8;
-  reserved "strategy";
+  reserved 2, 4, 7 to 10;
+  reserved "type", "payload", "server", "strategy", "disable_cache", "client_subnet";
 
   string id = 1;
-  RuleType type = 2;
   bool enable = 3;
-  string payload = 4;
   DnsRuleAction action = 5;
   bool invert = 6;
-  string server = 7;
-  bool disable_cache = 9;
-  string client_subnet = 10;
   repeated string query_type = 11;
+  repeated string inbound = 12;
+  string clash_mode = 13;
+  int32 ip_version = 14;
+  repeated string network = 15;
+  repeated string protocol = 16;
+  repeated string preferred_by = 17;
+  repeated string domain = 18;
+  repeated string domain_suffix = 19;
+  repeated string domain_keyword = 20;
+  repeated string domain_regex = 21;
+  repeated string rule_set = 22;
+  bool rule_set_ip_cidr_match_source = 23;
+  bool match_response = 24;
+  bool ip_accept_any = 25;
+  repeated string ip_cidr = 26;
+  bool ip_is_private = 27;
+  string response_rcode = 28;
+  repeated string response_answer = 29;
+  repeated string response_ns = 30;
+  repeated string response_extra = 31;
+  repeated string process_name = 32;
+  repeated string process_path = 33;
+  repeated string process_path_regex = 34;
+  DnsActionOptions action_options = 35;
+  string raw = 36;
 }
 
 message Dns {

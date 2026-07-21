@@ -3,6 +3,7 @@ package profile
 import (
 	"context"
 	"os"
+	"reflect"
 	"testing"
 
 	"guiforcores/bridge/storage"
@@ -21,11 +22,11 @@ func TestProfilesIgnoreUnknownFieldsOnReadAndWrite(t *testing.T) {
   dns:
     rules:
       - id: rule
-        type: 4
         enable: true
-        payload: example.com
+        domain:
+          - example.com
         action: 1
-        strategy: 2
+        legacy_field: ignored
         querytype:
           - A
           - AAAA
@@ -58,8 +59,8 @@ func TestProfilesIgnoreUnknownFieldsOnReadAndWrite(t *testing.T) {
 	}
 	dns := persisted[0]["dns"].(map[string]any)
 	rules := dns["rules"].([]any)
-	if _, ok := rules[0].(map[string]any)["strategy"]; ok {
-		t.Fatalf("legacy DNS rule strategy was written back:\n%s", written)
+	if _, ok := rules[0].(map[string]any)["legacy_field"]; ok {
+		t.Fatalf("unknown DNS rule field was written back:\n%s", written)
 	}
 }
 
@@ -87,16 +88,16 @@ func TestLegacyMigrationDiscardsUnknownFields(t *testing.T) {
 	}
 }
 
-func TestNormalizeProfilePayloadsForYAMLKeepsMarshaledProfilesParseable(t *testing.T) {
+func TestNormalizeProfileRawForYAMLKeepsMarshaledProfilesParseable(t *testing.T) {
 	profiles := []*profilev1.Profile{
 		{
 			Id: "profile",
 			Dns: &profilev1.Dns{
 				Rules: []*profilev1.DnsRule{
 					{
-						Id:      "rule",
-						Type:    profilev1.RuleType_RULE_TYPE_INLINE,
-						Payload: " {\n  \"query_type\": [\n    \"A\",\n    \"AAAA\"\n  ]\n}",
+						Id:     "rule",
+						Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_INLINE,
+						Raw:    " {\n  \"query_type\": [\n    \"A\",\n    \"AAAA\"\n  ]\n}",
 					},
 				},
 			},
@@ -116,9 +117,59 @@ func TestNormalizeProfilePayloadsForYAMLKeepsMarshaledProfilesParseable(t *testi
 		t.Fatalf("unmarshal marshaled profiles: %v\n%s", err, payload)
 	}
 
-	got := decoded[0].GetDns().GetRules()[0].GetPayload()
+	got := decoded[0].GetDns().GetRules()[0].GetRaw()
 	if got[0] != '{' {
-		t.Fatalf("payload should start with JSON object, got %q", got)
+		t.Fatalf("raw should start with JSON object, got %q", got)
+	}
+}
+
+func TestStructuredDNSRuleYAMLRoundTrip(t *testing.T) {
+	paths := storage.NewPaths(t.TempDir())
+	service := NewService(paths, nil)
+	ttl := uint32(0)
+	profiles := []*profilev1.Profile{{
+		Id: "profile",
+		Dns: &profilev1.Dns{Rules: []*profilev1.DnsRule{{
+			Id:            "rule",
+			Enable:        true,
+			Action:        profilev1.DnsRuleAction_DNS_RULE_ACTION_EVALUATE,
+			Inbound:       []string{"inbound-id"},
+			QueryType:     []string{"A", "65"},
+			PreferredBy:   []string{"local", "resolved"},
+			MatchResponse: true,
+			ResponseAnswer: []string{
+				"example.com. 60 IN A 192.0.2.1",
+			},
+			ActionOptions: &profilev1.DnsActionOptions{
+				Server:     "dns-id",
+				RewriteTtl: &ttl,
+			},
+			Raw: "{\n  \"custom\": true\n}",
+		}}},
+	}}
+
+	if err := service.saveProfiles(profiles); err != nil {
+		t.Fatalf("save profiles: %v", err)
+	}
+	loaded, err := service.loadProfiles()
+	if err != nil {
+		t.Fatalf("load profiles: %v", err)
+	}
+	rule := loaded[0].GetDns().GetRules()[0]
+	if rule.GetAction() != profilev1.DnsRuleAction_DNS_RULE_ACTION_EVALUATE {
+		t.Fatalf("action = %v", rule.GetAction())
+	}
+	if len(rule.GetInbound()) != 1 || rule.GetInbound()[0] != "inbound-id" {
+		t.Fatalf("inbound = %#v", rule.GetInbound())
+	}
+	if !reflect.DeepEqual(rule.GetQueryType(), []string{"A", "65"}) {
+		t.Fatalf("query_type = %#v", rule.GetQueryType())
+	}
+	if rule.GetActionOptions().RewriteTtl == nil || rule.GetActionOptions().GetRewriteTtl() != 0 {
+		t.Fatalf("rewrite_ttl presence was lost: %#v", rule.GetActionOptions())
+	}
+	if rule.GetRaw() == "" || rule.GetRaw()[0] != '{' {
+		t.Fatalf("raw = %q", rule.GetRaw())
 	}
 }
 

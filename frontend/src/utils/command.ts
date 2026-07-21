@@ -8,7 +8,7 @@ import {
   useRulesetsStore,
   useSubscribesStore,
 } from '@/stores'
-import { handleChangeMode, message } from '@/utils'
+import { handleChangeMode } from '@/utils'
 
 type Command = {
   label: string
@@ -102,13 +102,11 @@ export const getCommands = () => {
         {
           label: 'settings.lang.name',
           cmd: 'Language',
-          children: [
-            ...appStore.locales.map((v) => ({
-              label: v.label,
-              cmd: v.value,
-              handler: () => (appSettings.app.lang = v.value),
-            })),
-          ],
+          children: appStore.locales.map((v) => ({
+            label: v.label,
+            cmd: v.value,
+            handler: () => (appSettings.app.lang = v.value),
+          })),
         },
         {
           label: 'settings.theme.name',

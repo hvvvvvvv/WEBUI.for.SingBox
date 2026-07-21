@@ -314,7 +314,7 @@ func normalizeProfilePayloadsForYAML(profiles []*profilev1.Profile) {
 		if dns := profile.GetDns(); dns != nil {
 			for _, rule := range dns.GetRules() {
 				if rule != nil {
-					rule.Payload = normalizeMultilinePayloadForYAML(rule.GetPayload())
+					rule.Raw = normalizeMultilinePayloadForYAML(rule.GetRaw())
 				}
 			}
 		}
@@ -598,32 +598,10 @@ func convertDNS(profile map[string]any) {
 		if !ok {
 			continue
 		}
-		convertEnumString(m, "type", map[string]string{
-			"inbound":            "RULE_TYPE_INBOUND",
-			"network":            "RULE_TYPE_NETWORK",
-			"protocol":           "RULE_TYPE_PROTOCOL",
-			"domain":             "RULE_TYPE_DOMAIN",
-			"domain_suffix":      "RULE_TYPE_DOMAIN_SUFFIX",
-			"domain_keyword":     "RULE_TYPE_DOMAIN_KEYWORD",
-			"domain_regex":       "RULE_TYPE_DOMAIN_REGEX",
-			"source_ip_cidr":     "RULE_TYPE_SOURCE_IP_CIDR",
-			"ip_cidr":            "RULE_TYPE_IP_CIDR",
-			"ip_is_private":      "RULE_TYPE_IP_IS_PRIVATE",
-			"source_port":        "RULE_TYPE_SOURCE_PORT",
-			"source_port_range":  "RULE_TYPE_SOURCE_PORT_RANGE",
-			"port":               "RULE_TYPE_PORT",
-			"port_range":         "RULE_TYPE_PORT_RANGE",
-			"process_name":       "RULE_TYPE_PROCESS_NAME",
-			"process_path":       "RULE_TYPE_PROCESS_PATH",
-			"process_path_regex": "RULE_TYPE_PROCESS_PATH_REGEX",
-			"clash_mode":         "RULE_TYPE_CLASH_MODE",
-			"rule_set":           "RULE_TYPE_RULE_SET",
-			"ip_accept_any":      "RULE_TYPE_IP_ACCEPT_ANY",
-			"inline":             "RULE_TYPE_INLINE",
-			"InsertionPoint":     "RULE_TYPE_INSERTION_POINT",
-		})
 		convertEnumString(m, "action", map[string]string{
 			"route":         "DNS_RULE_ACTION_ROUTE",
+			"evaluate":      "DNS_RULE_ACTION_EVALUATE",
+			"respond":       "DNS_RULE_ACTION_RESPOND",
 			"route-options": "DNS_RULE_ACTION_ROUTE_OPTIONS",
 			"reject":        "DNS_RULE_ACTION_REJECT",
 			"predefined":    "DNS_RULE_ACTION_PREDEFINED",

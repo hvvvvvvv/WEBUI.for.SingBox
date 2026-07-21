@@ -25,30 +25,6 @@ const OUTBOUND_TYPE: Record<string, number> = {
 const TUN_STACK: Record<string, number> = { system: 1, gvisor: 2, mixed: 3 }
 const RULESET_TYPE: Record<string, number> = { inline: 1, local: 2, remote: 3 }
 const RULESET_FORMAT: Record<string, number> = { source: 1, binary: 2 }
-const RULE_TYPE: Record<string, number> = {
-  inbound: 1,
-  network: 2,
-  protocol: 3,
-  domain: 4,
-  domain_suffix: 5,
-  domain_keyword: 6,
-  domain_regex: 7,
-  source_ip_cidr: 8,
-  ip_cidr: 9,
-  ip_is_private: 10,
-  source_port: 11,
-  source_port_range: 12,
-  port: 13,
-  port_range: 14,
-  process_name: 15,
-  process_path: 16,
-  process_path_regex: 17,
-  clash_mode: 18,
-  rule_set: 19,
-  ip_accept_any: 20,
-  inline: 21,
-  InsertionPoint: 22,
-}
 const STRATEGY: Record<string, number> = {
   default: 1,
   prefer_ipv4: 2,
@@ -85,6 +61,8 @@ const DNS_RULE_ACTION: Record<string, number> = {
   reject: 3,
   predefined: 4,
   inline: 5,
+  evaluate: 6,
+  respond: 7,
 }
 const MIXIN_PRIORITY: Record<string, number> = { mixin: 1, gui: 2 }
 const MIXIN_FORMAT: Record<string, number> = { json: 1, yaml: 2 }
@@ -120,8 +98,10 @@ const protoFieldNames: Record<string, string> = {
   ip_cidr: 'ipCidr',
   ip_is_private: 'ipIsPrivate',
   ip_version: 'ipVersion',
+  ip_accept_any: 'ipAcceptAny',
   listen_port: 'listenPort',
   query_type: 'queryType',
+  match_response: 'matchResponse',
   fallback_delay: 'fallbackDelay',
   fallback_network_type: 'fallbackNetworkType',
   network_strategy: 'networkStrategy',
@@ -138,6 +118,7 @@ const protoFieldNames: Record<string, string> = {
   route_address: 'routeAddress',
   route_exclude_address: 'routeExcludeAddress',
   rule_set: 'ruleSet',
+  rule_set_ip_cidr_match_source: 'ruleSetIpCidrMatchSource',
   rewrite_ttl: 'rewriteTtl',
   server_port: 'serverPort',
   store_fakeip: 'storeFakeip',
@@ -146,6 +127,10 @@ const protoFieldNames: Record<string, string> = {
   source_ip_is_private: 'sourceIpIsPrivate',
   source_port: 'sourcePort',
   source_port_range: 'sourcePortRange',
+  response_rcode: 'responseRcode',
+  response_answer: 'responseAnswer',
+  response_ns: 'responseNs',
+  response_extra: 'responseExtra',
   strict_route: 'strictRoute',
   tcp_fast_open: 'tcpFastOpen',
   tcp_multi_path: 'tcpMultiPath',
@@ -234,7 +219,6 @@ export function iProfileToProto(p: IProfile): Profile {
     server.type = toNum(DNS_SERVER_TYPE, server.type)
   }
   for (const rule of profile.dns?.rules ?? []) {
-    rule.type = toNum(RULE_TYPE, rule.type)
     rule.action = toNum(DNS_RULE_ACTION, rule.action)
   }
   if (profile.dns?.strategy) profile.dns.strategy = toNum(STRATEGY, profile.dns.strategy)
@@ -266,7 +250,7 @@ const normalizeLoadedProfile = (raw: any): IProfile => {
   const profile: any = {
     ...template,
     ...raw,
-    log: { ...template.log, ...(raw?.log || {}) },
+    log: { ...template.log, ...raw?.log },
     experimental: normalizeExperimental(raw?.experimental, template.experimental),
     inbounds: normalizeInbounds(raw?.inbounds, template.inbounds),
     outbounds: normalizeOutbounds(raw?.outbounds, template.outbounds),
@@ -376,7 +360,7 @@ const normalizeRouteRule = (item: any): IRule => {
     Array.isArray(value) ? value.map(Number).filter((entry) => Number.isFinite(entry)) : []
   const actionOptions: IActionOptions = {
     ...Defaults.DefaultActionOptions(),
-    ...(item?.action_options || {}),
+    ...item?.action_options,
   }
   actionOptions.method ||= 'default'
   actionOptions.network_type = strings(actionOptions.network_type)
@@ -439,7 +423,7 @@ const normalizeRoute = (route: any, fallback: IRoute): IRoute => {
     find_process: r.find_process ?? r.findprocess ?? fallback.find_process,
     default_domain_resolver: {
       ...fallback.default_domain_resolver,
-      ...(r.default_domain_resolver || r.defaultdomainresolver || {}),
+      ...(r.default_domain_resolver || r.defaultdomainresolver),
       client_subnet:
         (r.default_domain_resolver || r.defaultdomainresolver || {}).client_subnet ??
         (r.default_domain_resolver || r.defaultdomainresolver || {}).clientsubnet ??
@@ -469,33 +453,70 @@ const normalizeDns = (dns: any, fallback: IDNS): IDNS => {
           inet6_range: item?.inet6_range ?? item?.inet6range ?? '',
         }))
       : fallback.servers,
-    rules: Array.isArray(d.rules)
-      ? d.rules.map((item: any) => ({
-          ...item,
-          type: normalizeRuleType(item?.type),
-          action: normalizeDnsRuleAction(item?.action),
-          query_type: Array.isArray(item?.query_type)
-            ? item.query_type
-            : Array.isArray(item?.querytype)
-              ? item.querytype
-              : [],
-          disable_cache: item?.disable_cache ?? item?.disablecache ?? false,
-          client_subnet: item?.client_subnet ?? item?.clientsubnet ?? '',
-        }))
-      : fallback.rules,
+    rules: Array.isArray(d.rules) ? d.rules.map(normalizeDnsRule) : fallback.rules,
+  }
+}
+
+const normalizeDnsRule = (item: any): IDNSRule => {
+  const fallback = Defaults.DefaultDnsRule()
+  const strings = (value: any) => (Array.isArray(value) ? value.map(String) : [])
+  const rawOptions = item?.action_options || item?.actionoptions || {}
+  const actionOptions: IDNSActionOptions = {
+    ...Defaults.DefaultDnsActionOptions(),
+    ...rawOptions,
+    answer: strings(rawOptions.answer),
+    ns: strings(rawOptions.ns),
+    extra: strings(rawOptions.extra),
+  }
+  actionOptions.method ||= 'default'
+  actionOptions.rcode ||= 'NOERROR'
+
+  return {
+    ...fallback,
+    ...item,
+    id: item?.id || sampleID(),
+    enable: item?.enable ?? fallback.enable,
+    action: normalizeDnsRuleAction(item?.action),
+    invert: item?.invert ?? false,
+    inbound: strings(item?.inbound),
+    clash_mode: item?.clash_mode || '',
+    ip_version: Number(item?.ip_version || 0),
+    query_type: strings(item?.query_type ?? item?.querytype),
+    network: strings(item?.network),
+    protocol: strings(item?.protocol),
+    preferred_by: strings(item?.preferred_by),
+    domain: strings(item?.domain),
+    domain_suffix: strings(item?.domain_suffix),
+    domain_keyword: strings(item?.domain_keyword),
+    domain_regex: strings(item?.domain_regex),
+    rule_set: strings(item?.rule_set),
+    rule_set_ip_cidr_match_source: item?.rule_set_ip_cidr_match_source ?? false,
+    match_response: item?.match_response ?? false,
+    ip_accept_any: item?.ip_accept_any ?? false,
+    ip_cidr: strings(item?.ip_cidr),
+    ip_is_private: item?.ip_is_private ?? false,
+    response_rcode: item?.response_rcode || '',
+    response_answer: strings(item?.response_answer),
+    response_ns: strings(item?.response_ns),
+    response_extra: strings(item?.response_extra),
+    process_name: strings(item?.process_name),
+    process_path: strings(item?.process_path),
+    process_path_regex: strings(item?.process_path_regex),
+    action_options: actionOptions,
+    raw: item?.raw || '',
   }
 }
 
 const normalizeMixin = (mixin: any, fallback: IMixin): IMixin => ({
   ...fallback,
-  ...(mixin || {}),
+  ...mixin,
   priority: normalizeMixinPriority(mixin?.priority),
   format: normalizeMixinFormat(mixin?.format),
 })
 
 const normalizeScript = (script: any, fallback: IScript): IScript => ({
   ...fallback,
-  ...(script || {}),
+  ...script,
 })
 
 const mapEnum = (value: any, mapping: Record<number, string>, fallback: string) => {
@@ -535,7 +556,19 @@ const normalizeRuleAction = (v: any) =>
     'route',
   )
 const normalizeDnsRuleAction = (v: any) =>
-  mapEnum(v, { 1: 'route', 2: 'route-options', 3: 'reject', 4: 'predefined', 5: 'inline' }, 'route')
+  mapEnum(
+    v,
+    {
+      1: 'route',
+      2: 'route-options',
+      3: 'reject',
+      4: 'predefined',
+      5: 'inline',
+      6: 'evaluate',
+      7: 'respond',
+    },
+    'route',
+  )
 const normalizeStrategy = (v: any) =>
   mapEnum(
     v,
@@ -562,33 +595,3 @@ const normalizeDnsServerType = (v: any) =>
   )
 const normalizeMixinPriority = (v: any) => mapEnum(v, { 1: 'mixin', 2: 'gui' }, 'mixin')
 const normalizeMixinFormat = (v: any) => mapEnum(v, { 1: 'json', 2: 'yaml' }, 'yaml')
-
-const normalizeRuleType = (v: any) =>
-  mapEnum(
-    v,
-    {
-      1: 'inbound',
-      2: 'network',
-      3: 'protocol',
-      4: 'domain',
-      5: 'domain_suffix',
-      6: 'domain_keyword',
-      7: 'domain_regex',
-      8: 'source_ip_cidr',
-      9: 'ip_cidr',
-      10: 'ip_is_private',
-      11: 'source_port',
-      12: 'source_port_range',
-      13: 'port',
-      14: 'port_range',
-      15: 'process_name',
-      16: 'process_path',
-      17: 'process_path_regex',
-      18: 'clash_mode',
-      19: 'rule_set',
-      20: 'ip_accept_any',
-      21: 'inline',
-      22: 'InsertionPoint',
-    },
-    'inline',
-  )

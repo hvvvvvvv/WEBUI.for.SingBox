@@ -3,7 +3,7 @@ import { KernelConfigService } from '../../gen/kernel/v1/kernel_config_service_p
 import { ProfileService } from '../../gen/profile/v1/profile_service_pb'
 import { DnsServer } from '@/enums/kernel'
 import { Branch } from '@/enums/app'
-import { useAppConfigStore, useAppSettingsStore } from '@/stores'
+import { useAppConfigStore } from '@/stores'
 import { iProfileToProto } from './profileRpc'
 
 export const generateDnsServerURL = (dnsServer: IDNSServer) => {

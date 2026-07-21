@@ -73,31 +73,6 @@ export const isValidJson = (str: string) => {
   }
 }
 
-export const validateInlineRulePayload = (
-  type: string,
-  action: string,
-  payload: string,
-): 'kernel.route.rules.inlineInvalidPayload' | 'kernel.route.rules.inlineActionRequired' | null => {
-  if (type !== 'inline') return null
-
-  let parsed: unknown
-  try {
-    parsed = JSON.parse(payload)
-  } catch {
-    return 'kernel.route.rules.inlineInvalidPayload'
-  }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return 'kernel.route.rules.inlineInvalidPayload'
-  }
-  if (action === 'inline') {
-    const inlineAction = (parsed as Record<string, unknown>).action
-    if (typeof inlineAction !== 'string' || !inlineAction.trim()) {
-      return 'kernel.route.rules.inlineActionRequired'
-    }
-  }
-  return null
-}
-
 export const isNumber = (v: any) => typeof v === 'number'
 
 export const isValidCron = (pattern: string) => {
