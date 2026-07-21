@@ -88,7 +88,15 @@ interface IInbound {
 
 type OutboundType = 'direct' | 'bridge' | 'block' | 'selector' | 'urltest'
 
-type RuleAction = 'route' | 'route-options' | 'reject' | 'hijack-dns' | 'sniff' | 'resolve' | 'inline'
+type RuleAction =
+  | 'route'
+  | 'bypass'
+  | 'route-options'
+  | 'reject'
+  | 'hijack-dns'
+  | 'sniff'
+  | 'resolve'
+  | 'inline'
 type DnsRuleAction = 'route' | 'route-options' | 'reject' | 'predefined' | 'inline'
 
 interface IOutbound {
@@ -133,20 +141,63 @@ type RuleType =
   | 'inline'
   | 'InsertionPoint'
 
+interface IActionOptions {
+  outbound: string
+  override_address: string
+  override_port: number
+  network_strategy: string
+  network_type: string[]
+  fallback_network_type: string[]
+  fallback_delay: string
+  udp_disable_domain_unmapping: boolean
+  udp_connect: boolean
+  udp_timeout: string
+  tls_fragment: boolean
+  tls_fragment_fallback_delay: string
+  tls_record_fragment: boolean
+  tls_spoof: string
+  tls_spoof_method: string
+  method: string
+  no_drop: boolean
+  sniffer: string[]
+  timeout: string
+  server: string
+  strategy: string
+  disable_cache: boolean
+  disable_optimistic_cache: boolean
+  rewrite_ttl?: number
+  client_subnet: string
+}
+
 interface IRule {
   id: string
-  type: RuleType
   enable: boolean
-  payload: string
   invert: boolean
   action: RuleAction
-  // action = route
-  outbound: string
-  // action = sniff
-  sniffer: string[]
-  // action = resolve
-  strategy: Strategy
-  server: string
+  inbound: string[]
+  ip_version: number
+  network: string[]
+  preferred_by: string[]
+  protocol: string[]
+  domain: string[]
+  domain_suffix: string[]
+  domain_keyword: string[]
+  domain_regex: string[]
+  ip_cidr: string[]
+  source_ip_cidr: string[]
+  source_ip_is_private: boolean
+  ip_is_private: boolean
+  source_port: number[]
+  source_port_range: string[]
+  port: number[]
+  port_range: string[]
+  process_name: string[]
+  process_path: string[]
+  process_path_regex: string[]
+  clash_mode: string
+  rule_set: string[]
+  action_options: IActionOptions
+  raw: string
 }
 
 interface IRoute {

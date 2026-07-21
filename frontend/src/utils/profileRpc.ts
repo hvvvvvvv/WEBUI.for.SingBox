@@ -5,49 +5,109 @@ import { deepClone, sampleID } from './others'
 import type { Profile } from '../../gen/profile/v1/profile_pb'
 
 const LOG_LEVEL: Record<string, number> = {
-  trace: 1, debug: 2, info: 3, warn: 4, error: 5, fatal: 6, panic: 7,
+  trace: 1,
+  debug: 2,
+  info: 3,
+  warn: 4,
+  error: 5,
+  fatal: 6,
+  panic: 7,
 }
 const INBOUND_TYPE: Record<string, number> = { mixed: 1, socks: 2, http: 3, tun: 4, direct: 5 }
 const INBOUND_NETWORK: Record<string, number> = { tcp: 1, udp: 2 }
-const OUTBOUND_TYPE: Record<string, number> = { direct: 1, block: 2, selector: 3, urltest: 4, bridge: 5 }
+const OUTBOUND_TYPE: Record<string, number> = {
+  direct: 1,
+  block: 2,
+  selector: 3,
+  urltest: 4,
+  bridge: 5,
+}
 const TUN_STACK: Record<string, number> = { system: 1, gvisor: 2, mixed: 3 }
 const RULESET_TYPE: Record<string, number> = { inline: 1, local: 2, remote: 3 }
 const RULESET_FORMAT: Record<string, number> = { source: 1, binary: 2 }
 const RULE_TYPE: Record<string, number> = {
-  inbound: 1, network: 2, protocol: 3, domain: 4, domain_suffix: 5, domain_keyword: 6,
-  domain_regex: 7, source_ip_cidr: 8, ip_cidr: 9, ip_is_private: 10,
-  source_port: 11, source_port_range: 12, port: 13, port_range: 14,
-  process_name: 15, process_path: 16, process_path_regex: 17, clash_mode: 18,
-  rule_set: 19, ip_accept_any: 20, inline: 21, InsertionPoint: 22,
+  inbound: 1,
+  network: 2,
+  protocol: 3,
+  domain: 4,
+  domain_suffix: 5,
+  domain_keyword: 6,
+  domain_regex: 7,
+  source_ip_cidr: 8,
+  ip_cidr: 9,
+  ip_is_private: 10,
+  source_port: 11,
+  source_port_range: 12,
+  port: 13,
+  port_range: 14,
+  process_name: 15,
+  process_path: 16,
+  process_path_regex: 17,
+  clash_mode: 18,
+  rule_set: 19,
+  ip_accept_any: 20,
+  inline: 21,
+  InsertionPoint: 22,
 }
 const STRATEGY: Record<string, number> = {
-  default: 1, prefer_ipv4: 2, prefer_ipv6: 3, ipv4_only: 4, ipv6_only: 5,
+  default: 1,
+  prefer_ipv4: 2,
+  prefer_ipv6: 3,
+  ipv4_only: 4,
+  ipv6_only: 5,
 }
 const DNS_SERVER_TYPE: Record<string, number> = {
-  local: 1, hosts: 2, tcp: 3, udp: 4, tls: 5, https: 6, quic: 7, h3: 8, dhcp: 9, fakeip: 10, tailscale: 11,
+  local: 1,
+  hosts: 2,
+  tcp: 3,
+  udp: 4,
+  tls: 5,
+  https: 6,
+  quic: 7,
+  h3: 8,
+  dhcp: 9,
+  fakeip: 10,
+  tailscale: 11,
 }
 const RULE_ACTION: Record<string, number> = {
-  route: 1, 'route-options': 2, reject: 3, 'hijack-dns': 4, sniff: 5, resolve: 6, inline: 7,
+  route: 1,
+  'route-options': 2,
+  reject: 3,
+  'hijack-dns': 4,
+  sniff: 5,
+  resolve: 6,
+  inline: 7,
+  bypass: 8,
 }
 const DNS_RULE_ACTION: Record<string, number> = {
-  route: 1, 'route-options': 2, reject: 3, predefined: 4, inline: 5,
+  route: 1,
+  'route-options': 2,
+  reject: 3,
+  predefined: 4,
+  inline: 5,
 }
 const MIXIN_PRIORITY: Record<string, number> = { mixin: 1, gui: 2 }
 const MIXIN_FORMAT: Record<string, number> = { json: 1, yaml: 2 }
 
 const protoFieldNames: Record<string, string> = {
+  action_options: 'actionOptions',
   auto_detect_interface: 'autoDetectInterface',
   auto_route: 'autoRoute',
   auto_redirect: 'autoRedirect',
   bridge_name: 'bridgeName',
   cache_file: 'cacheFile',
   cache_id: 'cacheId',
+  clash_mode: 'clashMode',
   client_subnet: 'clientSubnet',
+  disable_optimistic_cache: 'disableOptimisticCache',
   default_interface: 'defaultInterface',
   default_domain_resolver: 'defaultDomainResolver',
   disable_cache: 'disableCache',
   disable_expire: 'disableExpire',
   domain_resolver: 'domainResolver',
+  domain_suffix: 'domainSuffix',
+  domain_keyword: 'domainKeyword',
+  domain_regex: 'domainRegex',
   download_detour: 'downloadDetour',
   endpoint_independent_nat: 'endpointIndependentNat',
   find_process: 'findProcess',
@@ -57,19 +117,47 @@ const protoFieldNames: Record<string, string> = {
   inet6_range: 'inet6Range',
   interface_name: 'interfaceName',
   interrupt_exist_connections: 'interruptExistConnections',
+  ip_cidr: 'ipCidr',
+  ip_is_private: 'ipIsPrivate',
+  ip_version: 'ipVersion',
   listen_port: 'listenPort',
   query_type: 'queryType',
+  fallback_delay: 'fallbackDelay',
+  fallback_network_type: 'fallbackNetworkType',
+  network_strategy: 'networkStrategy',
+  network_type: 'networkType',
+  no_drop: 'noDrop',
+  override_address: 'overrideAddress',
+  override_port: 'overridePort',
+  port_range: 'portRange',
+  preferred_by: 'preferredBy',
+  process_name: 'processName',
+  process_path: 'processPath',
+  process_path_regex: 'processPathRegex',
   rdrc_timeout: 'rdrcTimeout',
   route_address: 'routeAddress',
   route_exclude_address: 'routeExcludeAddress',
   rule_set: 'ruleSet',
+  rewrite_ttl: 'rewriteTtl',
   server_port: 'serverPort',
   store_fakeip: 'storeFakeip',
   store_rdrc: 'storeRdrc',
+  source_ip_cidr: 'sourceIpCidr',
+  source_ip_is_private: 'sourceIpIsPrivate',
+  source_port: 'sourcePort',
+  source_port_range: 'sourcePortRange',
   strict_route: 'strictRoute',
   tcp_fast_open: 'tcpFastOpen',
   tcp_multi_path: 'tcpMultiPath',
   udp_fragment: 'udpFragment',
+  udp_connect: 'udpConnect',
+  udp_disable_domain_unmapping: 'udpDisableDomainUnmapping',
+  udp_timeout: 'udpTimeout',
+  tls_fragment: 'tlsFragment',
+  tls_fragment_fallback_delay: 'tlsFragmentFallbackDelay',
+  tls_record_fragment: 'tlsRecordFragment',
+  tls_spoof: 'tlsSpoof',
+  tls_spoof_method: 'tlsSpoofMethod',
   update_interval: 'updateInterval',
 }
 
@@ -140,9 +228,7 @@ export function iProfileToProto(p: IProfile): Profile {
     rs.format = toNum(RULESET_FORMAT, rs.format)
   }
   for (const rule of profile.route?.rules ?? []) {
-    rule.type = toNum(RULE_TYPE, rule.type)
     rule.action = toNum(RULE_ACTION, rule.action)
-    if (rule.strategy) rule.strategy = toNum(STRATEGY, rule.strategy)
   }
   for (const server of profile.dns?.servers ?? []) {
     server.type = toNum(DNS_SERVER_TYPE, server.type)
@@ -202,9 +288,12 @@ const normalizeExperimental = (exp: any, fallback: IExperimental): IExperimental
       ...fallback.cache_file,
       ...cacheFileRaw,
       cache_id: cacheFileRaw.cache_id ?? cacheFileRaw.cacheid ?? fallback.cache_file.cache_id,
-      store_fakeip: cacheFileRaw.store_fakeip ?? cacheFileRaw.storefakeip ?? fallback.cache_file.store_fakeip,
-      store_rdrc: cacheFileRaw.store_rdrc ?? cacheFileRaw.storerdrc ?? fallback.cache_file.store_rdrc,
-      rdrc_timeout: cacheFileRaw.rdrc_timeout ?? cacheFileRaw.rdrctimeout ?? fallback.cache_file.rdrc_timeout,
+      store_fakeip:
+        cacheFileRaw.store_fakeip ?? cacheFileRaw.storefakeip ?? fallback.cache_file.store_fakeip,
+      store_rdrc:
+        cacheFileRaw.store_rdrc ?? cacheFileRaw.storerdrc ?? fallback.cache_file.store_rdrc,
+      rdrc_timeout:
+        cacheFileRaw.rdrc_timeout ?? cacheFileRaw.rdrctimeout ?? fallback.cache_file.rdrc_timeout,
     },
   }
 }
@@ -228,17 +317,17 @@ const normalizeInbounds = (inbounds: any[], fallback: IInbound[]): IInbound[] =>
       direct: normalizeInboundDirect(direct),
       tun: tun
         ? {
-          ...tun,
-          interface_name: tun.interface_name ?? tun.interfacename ?? '',
-          auto_route: tun.auto_route ?? tun.autoroute ?? false,
-          auto_redirect: tun.auto_redirect ?? tun.autoredirect ?? false,
-          strict_route: tun.strict_route ?? tun.strictroute ?? false,
-          route_address: tun.route_address ?? tun.routeaddress ?? [],
-          route_exclude_address: tun.route_exclude_address ?? tun.routeexcludeaddress ?? [],
-          endpoint_independent_nat:
-            tun.endpoint_independent_nat ?? tun.endpointindependentnat ?? false,
-          stack: normalizeTunStack(tun.stack),
-        }
+            ...tun,
+            interface_name: tun.interface_name ?? tun.interfacename ?? '',
+            auto_route: tun.auto_route ?? tun.autoroute ?? false,
+            auto_redirect: tun.auto_redirect ?? tun.autoredirect ?? false,
+            strict_route: tun.strict_route ?? tun.strictroute ?? false,
+            route_address: tun.route_address ?? tun.routeaddress ?? [],
+            route_exclude_address: tun.route_exclude_address ?? tun.routeexcludeaddress ?? [],
+            endpoint_independent_nat:
+              tun.endpoint_independent_nat ?? tun.endpointindependentnat ?? false,
+            stack: normalizeTunStack(tun.stack),
+          }
         : undefined,
     }
   })
@@ -280,6 +369,54 @@ const normalizeOutbounds = (outbounds: any[], fallback: IOutbound[]): IOutbound[
   }))
 }
 
+const normalizeRouteRule = (item: any): IRule => {
+  const fallback = Defaults.DefaultRouteRule()
+  const strings = (value: any) => (Array.isArray(value) ? value.map(String) : [])
+  const numbers = (value: any) =>
+    Array.isArray(value) ? value.map(Number).filter((entry) => Number.isFinite(entry)) : []
+  const actionOptions: IActionOptions = {
+    ...Defaults.DefaultActionOptions(),
+    ...(item?.action_options || {}),
+  }
+  actionOptions.method ||= 'default'
+  actionOptions.network_type = strings(actionOptions.network_type)
+  actionOptions.fallback_network_type = strings(actionOptions.fallback_network_type)
+  actionOptions.sniffer = strings(actionOptions.sniffer)
+
+  return {
+    ...fallback,
+    ...item,
+    id: item?.id || sampleID(),
+    enable: item?.enable ?? fallback.enable,
+    invert: item?.invert ?? fallback.invert,
+    action: normalizeRuleAction(item?.action),
+    inbound: strings(item?.inbound),
+    ip_version: Number(item?.ip_version || 0),
+    network: strings(item?.network),
+    preferred_by: strings(item?.preferred_by),
+    protocol: strings(item?.protocol),
+    domain: strings(item?.domain),
+    domain_suffix: strings(item?.domain_suffix),
+    domain_keyword: strings(item?.domain_keyword),
+    domain_regex: strings(item?.domain_regex),
+    ip_cidr: strings(item?.ip_cidr),
+    source_ip_cidr: strings(item?.source_ip_cidr),
+    source_ip_is_private: item?.source_ip_is_private ?? false,
+    ip_is_private: item?.ip_is_private ?? false,
+    source_port: numbers(item?.source_port),
+    source_port_range: strings(item?.source_port_range),
+    port: numbers(item?.port),
+    port_range: strings(item?.port_range),
+    process_name: strings(item?.process_name),
+    process_path: strings(item?.process_path),
+    process_path_regex: strings(item?.process_path_regex),
+    clash_mode: item?.clash_mode || '',
+    rule_set: strings(item?.rule_set),
+    action_options: actionOptions,
+    raw: item?.raw || '',
+  }
+}
+
 const normalizeRoute = (route: any, fallback: IRoute): IRoute => {
   const r = route || {}
   const ruleSet = r.rule_set || r.ruleset || []
@@ -288,22 +425,16 @@ const normalizeRoute = (route: any, fallback: IRoute): IRoute => {
     ...r,
     rule_set: Array.isArray(ruleSet)
       ? ruleSet.map((item: any) => ({
-        ...item,
-        type: normalizeRulesetType(item?.type),
-        format: normalizeRulesetFormat(item?.format),
-        download_detour: item?.download_detour ?? item?.downloaddetour ?? '',
-        update_interval: item?.update_interval ?? item?.updateinterval ?? '',
-      }))
+          ...item,
+          type: normalizeRulesetType(item?.type),
+          format: normalizeRulesetFormat(item?.format),
+          download_detour: item?.download_detour ?? item?.downloaddetour ?? '',
+          update_interval: item?.update_interval ?? item?.updateinterval ?? '',
+        }))
       : fallback.rule_set,
-    rules: Array.isArray(r.rules)
-      ? r.rules.map((item: any) => ({
-        ...item,
-        type: normalizeRuleType(item?.type),
-        action: normalizeRuleAction(item?.action),
-        strategy: normalizeStrategy(item?.strategy),
-      }))
-      : fallback.rules,
-    auto_detect_interface: r.auto_detect_interface ?? r.autodetectinterface ?? fallback.auto_detect_interface,
+    rules: Array.isArray(r.rules) ? r.rules.map(normalizeRouteRule) : fallback.rules,
+    auto_detect_interface:
+      r.auto_detect_interface ?? r.autodetectinterface ?? fallback.auto_detect_interface,
     default_interface: r.default_interface ?? r.defaultinterface ?? fallback.default_interface,
     find_process: r.find_process ?? r.findprocess ?? fallback.find_process,
     default_domain_resolver: {
@@ -329,28 +460,28 @@ const normalizeDns = (dns: any, fallback: IDNS): IDNS => {
     strategy: normalizeStrategy(d.strategy),
     servers: Array.isArray(d.servers)
       ? d.servers.map((item: any) => ({
-        ...item,
-        type: normalizeDnsServerType(item?.type),
-        domain_resolver: item?.domain_resolver ?? item?.domainresolver ?? '',
-        hosts_path: item?.hosts_path ?? item?.hostspath ?? [],
-        server_port: item?.server_port ?? item?.serverport ?? '',
-        inet4_range: item?.inet4_range ?? item?.inet4range ?? '',
-        inet6_range: item?.inet6_range ?? item?.inet6range ?? '',
-      }))
+          ...item,
+          type: normalizeDnsServerType(item?.type),
+          domain_resolver: item?.domain_resolver ?? item?.domainresolver ?? '',
+          hosts_path: item?.hosts_path ?? item?.hostspath ?? [],
+          server_port: item?.server_port ?? item?.serverport ?? '',
+          inet4_range: item?.inet4_range ?? item?.inet4range ?? '',
+          inet6_range: item?.inet6_range ?? item?.inet6range ?? '',
+        }))
       : fallback.servers,
     rules: Array.isArray(d.rules)
       ? d.rules.map((item: any) => ({
-        ...item,
-        type: normalizeRuleType(item?.type),
-        action: normalizeDnsRuleAction(item?.action),
-        query_type: Array.isArray(item?.query_type)
-          ? item.query_type
-          : Array.isArray(item?.querytype)
-            ? item.querytype
-            : [],
-        disable_cache: item?.disable_cache ?? item?.disablecache ?? false,
-        client_subnet: item?.client_subnet ?? item?.clientsubnet ?? '',
-      }))
+          ...item,
+          type: normalizeRuleType(item?.type),
+          action: normalizeDnsRuleAction(item?.action),
+          query_type: Array.isArray(item?.query_type)
+            ? item.query_type
+            : Array.isArray(item?.querytype)
+              ? item.querytype
+              : [],
+          disable_cache: item?.disable_cache ?? item?.disablecache ?? false,
+          client_subnet: item?.client_subnet ?? item?.clientsubnet ?? '',
+        }))
       : fallback.rules,
   }
 }
@@ -374,23 +505,61 @@ const mapEnum = (value: any, mapping: Record<number, string>, fallback: string) 
 }
 
 const normalizeLogLevel = (v: any) =>
-  mapEnum(v, { 1: 'trace', 2: 'debug', 3: 'info', 4: 'warn', 5: 'error', 6: 'fatal', 7: 'panic' }, 'info')
+  mapEnum(
+    v,
+    { 1: 'trace', 2: 'debug', 3: 'info', 4: 'warn', 5: 'error', 6: 'fatal', 7: 'panic' },
+    'info',
+  )
 const normalizeInboundType = (v: any) =>
   mapEnum(v, { 1: 'mixed', 2: 'socks', 3: 'http', 4: 'tun', 5: 'direct' }, 'mixed')
 const normalizeInboundNetwork = (v: any) => mapEnum(v, { 1: 'tcp', 2: 'udp' }, 'udp')
 const normalizeOutboundType = (v: any) =>
   mapEnum(v, { 1: 'direct', 2: 'block', 3: 'selector', 4: 'urltest', 5: 'bridge' }, 'selector')
 const normalizeTunStack = (v: any) => mapEnum(v, { 1: 'system', 2: 'gvisor', 3: 'mixed' }, 'mixed')
-const normalizeRulesetType = (v: any) => mapEnum(v, { 1: 'inline', 2: 'local', 3: 'remote' }, 'inline')
+const normalizeRulesetType = (v: any) =>
+  mapEnum(v, { 1: 'inline', 2: 'local', 3: 'remote' }, 'inline')
 const normalizeRulesetFormat = (v: any) => mapEnum(v, { 1: 'source', 2: 'binary' }, 'source')
 const normalizeRuleAction = (v: any) =>
-  mapEnum(v, { 1: 'route', 2: 'route-options', 3: 'reject', 4: 'hijack-dns', 5: 'sniff', 6: 'resolve', 7: 'inline' }, 'route')
+  mapEnum(
+    v,
+    {
+      1: 'route',
+      2: 'route-options',
+      3: 'reject',
+      4: 'hijack-dns',
+      5: 'sniff',
+      6: 'resolve',
+      7: 'inline',
+      8: 'bypass',
+    },
+    'route',
+  )
 const normalizeDnsRuleAction = (v: any) =>
   mapEnum(v, { 1: 'route', 2: 'route-options', 3: 'reject', 4: 'predefined', 5: 'inline' }, 'route')
 const normalizeStrategy = (v: any) =>
-  mapEnum(v, { 1: 'default', 2: 'prefer_ipv4', 3: 'prefer_ipv6', 4: 'ipv4_only', 5: 'ipv6_only' }, 'default')
+  mapEnum(
+    v,
+    { 1: 'default', 2: 'prefer_ipv4', 3: 'prefer_ipv6', 4: 'ipv4_only', 5: 'ipv6_only' },
+    'default',
+  )
 const normalizeDnsServerType = (v: any) =>
-  mapEnum(v, { 1: 'local', 2: 'hosts', 3: 'tcp', 4: 'udp', 5: 'tls', 6: 'https', 7: 'quic', 8: 'h3', 9: 'dhcp', 10: 'fakeip', 11: 'tailscale' }, 'local')
+  mapEnum(
+    v,
+    {
+      1: 'local',
+      2: 'hosts',
+      3: 'tcp',
+      4: 'udp',
+      5: 'tls',
+      6: 'https',
+      7: 'quic',
+      8: 'h3',
+      9: 'dhcp',
+      10: 'fakeip',
+      11: 'tailscale',
+    },
+    'local',
+  )
 const normalizeMixinPriority = (v: any) => mapEnum(v, { 1: 'mixin', 2: 'gui' }, 'mixin')
 const normalizeMixinFormat = (v: any) => mapEnum(v, { 1: 'json', 2: 'yaml' }, 'yaml')
 

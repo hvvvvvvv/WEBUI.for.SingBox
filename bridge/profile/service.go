@@ -311,13 +311,6 @@ func normalizeProfilePayloadsForYAML(profiles []*profilev1.Profile) {
 		if profile == nil {
 			continue
 		}
-		if route := profile.GetRoute(); route != nil {
-			for _, rule := range route.GetRules() {
-				if rule != nil {
-					rule.Payload = normalizeMultilinePayloadForYAML(rule.GetPayload())
-				}
-			}
-		}
 		if dns := profile.GetDns(); dns != nil {
 			for _, rule := range dns.GetRules() {
 				if rule != nil {
@@ -534,45 +527,15 @@ func convertRoute(profile map[string]any) {
 		if !ok {
 			continue
 		}
-		convertEnumString(m, "type", map[string]string{
-			"inbound":            "RULE_TYPE_INBOUND",
-			"network":            "RULE_TYPE_NETWORK",
-			"protocol":           "RULE_TYPE_PROTOCOL",
-			"domain":             "RULE_TYPE_DOMAIN",
-			"domain_suffix":      "RULE_TYPE_DOMAIN_SUFFIX",
-			"domain_keyword":     "RULE_TYPE_DOMAIN_KEYWORD",
-			"domain_regex":       "RULE_TYPE_DOMAIN_REGEX",
-			"source_ip_cidr":     "RULE_TYPE_SOURCE_IP_CIDR",
-			"ip_cidr":            "RULE_TYPE_IP_CIDR",
-			"ip_is_private":      "RULE_TYPE_IP_IS_PRIVATE",
-			"source_port":        "RULE_TYPE_SOURCE_PORT",
-			"source_port_range":  "RULE_TYPE_SOURCE_PORT_RANGE",
-			"port":               "RULE_TYPE_PORT",
-			"port_range":         "RULE_TYPE_PORT_RANGE",
-			"process_name":       "RULE_TYPE_PROCESS_NAME",
-			"process_path":       "RULE_TYPE_PROCESS_PATH",
-			"process_path_regex": "RULE_TYPE_PROCESS_PATH_REGEX",
-			"clash_mode":         "RULE_TYPE_CLASH_MODE",
-			"rule_set":           "RULE_TYPE_RULE_SET",
-			"ip_accept_any":      "RULE_TYPE_IP_ACCEPT_ANY",
-			"inline":             "RULE_TYPE_INLINE",
-			"InsertionPoint":     "RULE_TYPE_INSERTION_POINT",
-		})
 		convertEnumString(m, "action", map[string]string{
 			"route":         "RULE_ACTION_ROUTE",
+			"bypass":        "RULE_ACTION_BYPASS",
 			"route-options": "RULE_ACTION_ROUTE_OPTIONS",
 			"reject":        "RULE_ACTION_REJECT",
 			"hijack-dns":    "RULE_ACTION_HIJACK_DNS",
 			"sniff":         "RULE_ACTION_SNIFF",
 			"resolve":       "RULE_ACTION_RESOLVE",
 			"inline":        "RULE_ACTION_INLINE",
-		})
-		convertEnumString(m, "strategy", map[string]string{
-			"default":     "STRATEGY_DEFAULT",
-			"prefer_ipv4": "STRATEGY_PREFER_IPV4",
-			"prefer_ipv6": "STRATEGY_PREFER_IPV6",
-			"ipv4_only":   "STRATEGY_IPV4_ONLY",
-			"ipv6_only":   "STRATEGY_IPV6_ONLY",
 		})
 	}
 

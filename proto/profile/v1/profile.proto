@@ -118,6 +118,7 @@ enum RuleAction {
   RULE_ACTION_SNIFF = 5;
   RULE_ACTION_RESOLVE = 6;
   RULE_ACTION_INLINE = 7;
+  RULE_ACTION_BYPASS = 8;
 }
 
 enum DnsRuleAction {
@@ -240,17 +241,66 @@ message Outbound {
   string bridge_name = 14;
 }
 
+message ActionOptions {
+  string outbound = 1;
+  string override_address = 2;
+  uint32 override_port = 3;
+  string network_strategy = 4;
+  repeated string network_type = 5;
+  repeated string fallback_network_type = 6;
+  string fallback_delay = 7;
+  bool udp_disable_domain_unmapping = 8;
+  bool udp_connect = 9;
+  string udp_timeout = 10;
+  bool tls_fragment = 11;
+  string tls_fragment_fallback_delay = 12;
+  bool tls_record_fragment = 13;
+  string tls_spoof = 14;
+  string tls_spoof_method = 15;
+  string method = 16;
+  bool no_drop = 17;
+  repeated string sniffer = 18;
+  string timeout = 19;
+  string server = 20;
+  string strategy = 21;
+  bool disable_cache = 22;
+  bool disable_optimistic_cache = 23;
+  optional uint32 rewrite_ttl = 24;
+  string client_subnet = 25;
+}
+
 message RouteRule {
+  reserved 2, 4, 7 to 10;
+  reserved "type", "payload", "outbound", "sniffer", "strategy", "server";
+
   string id = 1;
-  RuleType type = 2;
   bool enable = 3;
-  string payload = 4;
   bool invert = 5;
   RuleAction action = 6;
-  string outbound = 7;
-  repeated string sniffer = 8;
-  Strategy strategy = 9;
-  string server = 10;
+  repeated string inbound = 11;
+  int32 ip_version = 12;
+  repeated string network = 13;
+  repeated string protocol = 14;
+  repeated string domain = 15;
+  repeated string domain_suffix = 16;
+  repeated string domain_keyword = 17;
+  repeated string domain_regex = 18;
+  repeated string ip_cidr = 19;
+  repeated string source_ip_cidr = 20;
+  bool source_ip_is_private = 21;
+  bool ip_is_private = 22;
+  repeated uint32 source_port = 23;
+  repeated string source_port_range = 24;
+  repeated uint32 port = 25;
+  repeated string port_range = 26;
+  repeated string process_name = 27;
+  repeated string process_path = 28;
+  repeated string process_path_regex = 29;
+  string clash_mode = 30;
+  repeated string rule_set = 31;
+  ActionOptions action_options = 32;
+  string raw = 33;
+  repeated string preferred_by = 34;
 }
 
 message RouteDefaultDomainResolver {

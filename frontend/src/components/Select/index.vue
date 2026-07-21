@@ -6,7 +6,7 @@ import { deepClone } from '@/utils'
 
 interface Props {
   modelValue?: string | string[]
-  options?: { label: string; value: string }[]
+  options?: { label: string; value: string; disabled?: boolean }[]
   multiple?: boolean
   border?: boolean
   size?: 'default' | 'small'
@@ -75,7 +75,8 @@ const isSelected = (val: string) => {
   return model.value === val
 }
 
-const handleSelect = (value: string) => {
+const handleSelect = (value: string, disabled = false) => {
+  if (disabled) return
   const oldModel = JSON.stringify(model.value)
   if (props.multiple) {
     if (!Array.isArray(model.value)) {
@@ -158,9 +159,10 @@ const handleClear = () => {
           v-for="o in options"
           :key="o.value"
           type="text"
+          :disabled="o.disabled"
           @click="
             () => {
-              handleSelect(o.value)
+              handleSelect(o.value, o.disabled)
               !props.multiple && close()
             }
           "

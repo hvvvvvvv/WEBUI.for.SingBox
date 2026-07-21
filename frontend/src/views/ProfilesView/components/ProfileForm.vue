@@ -59,7 +59,7 @@ const stepItems = [
 const profile = ref<IProfile>(profilesStore.getProfileTemplate())
 
 const inboundOptions = computed(() =>
-  profile.value.inbounds.map((v) => ({ label: v.tag, value: v.id })),
+  profile.value.inbounds.map((v) => ({ label: v.tag, value: v.id, disabled: !v.enable })),
 )
 
 const outboundOptions = computed(() =>

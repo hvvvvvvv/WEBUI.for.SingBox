@@ -101,6 +101,7 @@ export enum DnsServer {
 
 export enum RuleAction {
   Route = 'route',
+  Bypass = 'bypass',
   RouteOptions = 'route-options',
   Reject = 'reject',
   HijackDNS = 'hijack-dns',
@@ -108,6 +109,27 @@ export enum RuleAction {
   Resolve = 'resolve',
   Predefined = 'predefined',
   Inline = 'inline',
+}
+
+export enum NetworkStrategy {
+  Default = 'default',
+  Hybrid = 'hybrid',
+  Fallback = 'fallback',
+}
+
+export enum NetworkType {
+  Wifi = 'wifi',
+  Cellular = 'cellular',
+  Ethernet = 'ethernet',
+  Other = 'other',
+}
+
+export enum TLSSpoofMethod {
+  WrongSequence = 'wrong-sequence',
+  WrongChecksum = 'wrong-checksum',
+  WrongAck = 'wrong-ack',
+  WrongMD5 = 'wrong-md5',
+  WrongTimestamp = 'wrong-timestamp',
 }
 
 export enum RuleActionReject {

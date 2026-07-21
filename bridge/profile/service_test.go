@@ -207,6 +207,35 @@ func TestSaveProfilesPersistsBridgeOutbound(t *testing.T) {
 	}
 }
 
+func TestSaveProfilesPersistsRoutePreferredBy(t *testing.T) {
+	paths := storage.NewPaths(t.TempDir())
+	service := NewService(paths, nil)
+	want := []string{"tailscale", "wireguard", "bridge"}
+	profiles := []*profilev1.Profile{{
+		Id: "profile",
+		Route: &profilev1.Route{Rules: []*profilev1.RouteRule{{
+			Id: "rule", Enable: true, PreferredBy: want,
+		}}},
+	}}
+
+	if err := service.saveProfiles(profiles); err != nil {
+		t.Fatalf("save profiles: %v", err)
+	}
+	loaded, err := service.loadProfiles()
+	if err != nil {
+		t.Fatalf("load profiles: %v", err)
+	}
+	got := loaded[0].GetRoute().GetRules()[0].GetPreferredBy()
+	if len(got) != len(want) {
+		t.Fatalf("preferred_by = %#v, want %#v", got, want)
+	}
+	for index := range want {
+		if got[index] != want[index] {
+			t.Fatalf("preferred_by = %#v, want %#v", got, want)
+		}
+	}
+}
+
 func TestSaveProfilesRejectsDuplicateIDs(t *testing.T) {
 	paths := storage.NewPaths(t.TempDir())
 

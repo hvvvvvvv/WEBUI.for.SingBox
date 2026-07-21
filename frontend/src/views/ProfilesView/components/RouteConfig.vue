@@ -6,7 +6,7 @@ import RouteRulesConfig from './RouteRulesConfig.vue'
 import RouteRulesetConfig from './RouteRulesetConfig.vue'
 
 interface Props {
-  inboundOptions: { label: string; value: string }[]
+  inboundOptions: { label: string; value: string; disabled?: boolean }[]
   outboundOptions: { label: string; value: string }[]
   serverOptions: { label: string; value: string }[]
 }

@@ -12,13 +12,13 @@ import { DefaultDnsRule } from '@/constant/profile'
 import {
   RuleType,
   ClashMode,
-  RulesetType,
-  RulesetFormat,
   RuleAction,
   RuleActionReject,
 } from '@/enums/kernel'
 import { useBool, useInlineRuleActionOptions } from '@/hooks'
 import { deepClone, isValidJson, message, validateInlineRulePayload } from '@/utils'
+
+import RuleSetCardPicker from './RuleSetCardPicker.vue'
 
 interface Props {
   inboundOptions: { label: string; value: string }[]
@@ -45,6 +45,13 @@ const isInsertionPointMissing = computed(
 
 const { t } = useI18n()
 const [showEditModal] = useBool(false)
+
+const selectedRuleSetIds = computed({
+  get: () => fields.value.payload.split(',').filter(Boolean),
+  set: (ids: string[]) => {
+    fields.value.payload = ids.join(',')
+  },
+})
 
 const handleAdd = () => {
   ruleId = -1
@@ -100,17 +107,6 @@ const handleAddInsertionPoint = () => {
 
 const handleDeleteRule = (index: number) => {
   model.value.splice(index, 1)
-}
-
-const handleUse = (ruleset: any) => {
-  const ids = fields.value.payload.split(',').filter((v) => v)
-  const idx = ids.findIndex((v) => v === ruleset.id)
-  if (idx === -1) {
-    ids.push(ruleset.id)
-  } else {
-    ids.splice(idx, 1)
-  }
-  fields.value.payload = ids.join(',')
 }
 
 const handleClearRuleset = (ruleset: any) => {
@@ -321,21 +317,7 @@ const renderRule = (rule: IDNSRule) => {
     </Card>
     <template v-if="fields.type === RuleType.RuleSet">
       <Divider>{{ t('kernel.route.tab.rule_set') }}</Divider>
-      <Empty v-if="ruleSet.length === 0" :description="t('kernel.route.rule_set.empty')" />
-      <div class="grid grid-cols-3 gap-8">
-        <Card
-          v-for="ruleset in ruleSet"
-          :key="ruleset.tag"
-          v-tips="ruleset.type"
-          :title="ruleset.tag"
-          :selected="fields.payload.includes(ruleset.id)"
-          class="text-12 line-clamp-1"
-          @click="handleUse(ruleset)"
-        >
-          {{ ruleset.type }}
-          {{ ruleset.type === RulesetType.Inline ? RulesetFormat.Source : ruleset.format }}
-        </Card>
-      </div>
+      <RuleSetCardPicker v-model="selectedRuleSetIds" :rule-sets="ruleSet" />
     </template>
   </Modal>
 </template>

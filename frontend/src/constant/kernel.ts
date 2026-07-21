@@ -12,6 +12,9 @@ import {
   Sniffer,
   Strategy,
   RuleActionReject,
+  NetworkStrategy,
+  NetworkType,
+  TLSSpoofMethod,
   DnsServer,
 } from '@/enums/kernel'
 
@@ -205,6 +208,7 @@ export const DomainStrategyOptions = [
 
 export const RuleActionOptions = [
   { label: 'kernel.route.rules.action.route', value: RuleAction.Route },
+  { label: 'kernel.route.rules.action.bypass', value: RuleAction.Bypass },
   { label: 'kernel.route.rules.action.route-options', value: RuleAction.RouteOptions },
   { label: 'kernel.route.rules.action.reject', value: RuleAction.Reject },
   { label: 'kernel.route.rules.action.hijack-dns', value: RuleAction.HijackDNS },
@@ -212,6 +216,43 @@ export const RuleActionOptions = [
   { label: 'kernel.route.rules.action.resolve', value: RuleAction.Resolve },
   { label: 'kernel.route.rules.action.inline', value: RuleAction.Inline },
 ]
+
+export const RouteRuleIPVersionOptions = [
+  { label: 'IPV4', value: 4 },
+  { label: 'IPV6', value: 6 },
+]
+
+export const RouteRuleNetworkOptions = [
+  { label: 'TCP', value: 'tcp' },
+  { label: 'UDP', value: 'udp' },
+  { label: 'ICMP', value: 'icmp' },
+]
+
+export const RouteRulePreferredByOptions = [
+  { label: 'Tailscale', value: 'tailscale' },
+  { label: 'WireGuard', value: 'wireguard' },
+  { label: 'Bridge', value: 'bridge' },
+]
+
+export const RouteRuleProtocolOptions = Object.values(Sniffer).map((value) => ({
+  label: value,
+  value,
+}))
+
+export const NetworkStrategyOptions = Object.values(NetworkStrategy).map((value) => ({
+  label: value,
+  value,
+}))
+
+export const NetworkTypeOptions = Object.values(NetworkType).map((value) => ({
+  label: value,
+  value,
+}))
+
+export const TLSSpoofMethodOptions = Object.values(TLSSpoofMethod).map((value) => ({
+  label: value,
+  value,
+}))
 
 export const RuleActionRejectOptions = [
   { label: 'kernel.route.rules.action.rejectDefault', value: RuleActionReject.Default },

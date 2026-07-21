@@ -40,6 +40,7 @@ const (
 	ruleTypeInsertionPoint = "InsertionPoint"
 
 	ruleActionRoute        = "route"
+	ruleActionBypass       = "bypass"
 	ruleActionRouteOptions = "route-options"
 	ruleActionReject       = "reject"
 	ruleActionSniff        = "sniff"
@@ -97,7 +98,13 @@ type configGenerator struct {
 }
 
 type subscriptionMeta struct {
-	ID string `yaml:"id"`
+	ID      string                  `yaml:"id"`
+	Proxies []subscriptionProxyMeta `yaml:"proxies"`
+}
+
+type subscriptionProxyMeta struct {
+	ID  string `yaml:"id"`
+	Tag string `yaml:"tag"`
 }
 
 type rulesetMeta struct {
@@ -333,7 +340,7 @@ func (g *configGenerator) generateOutbounds(outbounds []*configv1.Outbound) ([]a
 	builtInTags := make([]string, 0)
 	builtInSeen := map[string]struct{}{}
 
-	for _, outbound := range outbounds {
+	for outboundIndex, outbound := range outbounds {
 		if outbound == nil {
 			continue
 		}
@@ -367,10 +374,11 @@ func (g *configGenerator) generateOutbounds(outbounds []*configv1.Outbound) ([]a
 			item["outbounds"] = make([]any, 0)
 			match := createTextMatcher(outbound.GetInclude(), outbound.GetExclude())
 
-			for _, proxy := range outbound.GetOutbounds() {
+			for proxyIndex, proxy := range outbound.GetOutbounds() {
 				if proxy == nil {
 					continue
 				}
+				path := fmt.Sprintf("outbounds[%d].outbounds[%d]", outboundIndex, proxyIndex)
 
 				if proxy.GetType() == "Built-in" {
 					if proxy.GetId() == outboundTypeDirect || proxy.GetId() == outboundTypeBlock {
@@ -378,8 +386,14 @@ func (g *configGenerator) generateOutbounds(outbounds []*configv1.Outbound) ([]a
 							builtInSeen[proxy.GetId()] = struct{}{}
 							builtInTags = append(builtInTags, proxy.GetId())
 						}
+						item["outbounds"] = append(item["outbounds"].([]any), proxy.GetId())
+						continue
 					}
-					item["outbounds"] = append(item["outbounds"].([]any), proxy.GetTag())
+					tag, err := resolveOutboundTag(outbounds, proxy.GetId(), path+".id")
+					if err != nil {
+						return nil, err
+					}
+					item["outbounds"] = append(item["outbounds"].([]any), tag)
 					continue
 				}
 
@@ -390,7 +404,7 @@ func (g *configGenerator) generateOutbounds(outbounds []*configv1.Outbound) ([]a
 
 				proxies, err := g.subscriptionEntries(subID)
 				if err != nil {
-					return nil, err
+					return nil, invalidArgumentError{message: fmt.Sprintf("%s.id: %v", path, err)}
 				}
 
 				if proxy.GetType() == "Subscription" {
@@ -405,14 +419,23 @@ func (g *configGenerator) generateOutbounds(outbounds []*configv1.Outbound) ([]a
 					continue
 				}
 
+				nodeTag, err := g.resolveSubscriptionProxyTag(subID, proxy.GetId(), path+".id")
+				if err != nil {
+					return nil, err
+				}
+				matched := false
 				for _, candidate := range proxies {
 					tag, _ := candidate["tag"].(string)
-					if tag != proxy.GetTag() || !match(tag) {
+					if tag != nodeTag || !match(tag) {
 						continue
 					}
 					item["outbounds"] = append(item["outbounds"].([]any), tag)
 					proxyItems = appendUniqueProxy(proxyItems, proxySeen, subID+"\x00"+tag, candidate)
+					matched = true
 					break
+				}
+				if !matched {
+					return nil, invalidArgumentError{message: fmt.Sprintf("%s references subscription node %q whose generated outbound is unavailable", path+".id", proxy.GetId())}
 				}
 			}
 		}
@@ -459,25 +482,26 @@ func (g *configGenerator) generateRoute(
 	if !route.GetAutoDetectInterface() {
 		result["default_interface"] = route.GetDefaultInterface()
 	}
-	if final := getOutboundTag(outbounds, route.GetFinal()); final != "" {
+	final, err := resolveOutboundTag(outbounds, route.GetFinal(), "route.final")
+	if err != nil {
+		return nil, err
+	}
+	if final != "" {
 		result["final"] = final
 	}
-	if server := getDNSServerTag(dns.GetServers(), route.GetDefaultDomainResolver().GetServer()); server != "" {
+	server, err := resolveDNSServerTag(dns.GetServers(), route.GetDefaultDomainResolver().GetServer(), "route.default_domain_resolver.server")
+	if err != nil {
+		return nil, err
+	}
+	if server != "" {
 		result["default_domain_resolver"].(map[string]any)["server"] = server
 	}
 
-	for _, rule := range route.GetRules() {
+	for ruleIndex, rule := range route.GetRules() {
 		if rule == nil || !rule.GetEnable() {
 			continue
 		}
-		ruleType, err := ruleTypeString(rule.GetType())
-		if err != nil {
-			return nil, err
-		}
-		if ruleType == ruleTypeInsertionPoint {
-			continue
-		}
-		if ruleType == ruleTypeInbound && !isInboundEnabled(inbounds, rule.GetPayload()) {
+		if rule.GetId() == ruleTypeInsertionPoint {
 			continue
 		}
 
@@ -486,49 +510,39 @@ func (g *configGenerator) generateRoute(
 			return nil, err
 		}
 
-		ruleFields, err := generateRuleFields(ruleType, rule.GetPayload(), route.GetRuleSet(), inbounds)
+		path := fmt.Sprintf("route.rules[%d]", ruleIndex)
+		item, err := generateRouteRuleMatchFields(rule, route.GetRuleSet(), inbounds, path)
 		if err != nil {
 			return nil, err
 		}
-		item := map[string]any{}
 		if rule.GetInvert() {
 			item["invert"] = true
 		}
-		deepAssign(item, ruleFields)
 
 		if action != ruleActionInline {
 			item["action"] = action
-			switch action {
-			case ruleActionRoute:
-				if outbound := getOutboundTag(outbounds, rule.GetOutbound()); outbound != "" {
-					item["outbound"] = outbound
-				}
-			case ruleActionRouteOptions:
-				parsed, err := parseJSONObject(rule.GetOutbound())
-				if err != nil {
-					return nil, err
-				}
-				deepAssign(item, parsed)
-			case ruleActionReject:
-				item["method"] = rule.GetOutbound()
-			case ruleActionSniff:
-				if len(rule.GetSniffer()) > 0 {
-					item["sniffer"] = stringsToAnySlice(rule.GetSniffer())
-				}
-			case ruleActionResolve:
-				if strategy := strategyString(rule.GetStrategy()); strategy != strategyDefault && strategy != "" {
-					item["strategy"] = strategy
-				}
-				if server := getDNSServerTag(dns.GetServers(), rule.GetServer()); server != "" {
-					item["server"] = server
-				}
+			if err := applyRouteRuleActionOptions(item, action, rule.GetActionOptions(), outbounds, dns.GetServers(), path); err != nil {
+				return nil, err
 			}
 		}
-		applyInlineInvert(item, ruleType, ruleFields)
+
+		if raw := strings.TrimSpace(rule.GetRaw()); raw != "" {
+			parsed, err := parseJSONObject(raw)
+			if err != nil {
+				return nil, invalidArgumentError{message: fmt.Sprintf("%s.raw: %v", path, err)}
+			}
+			deepAssign(item, parsed)
+		} else if action == ruleActionInline {
+			return nil, invalidArgumentError{message: path + ".raw is required for inline action"}
+		}
+
+		if err := validateGeneratedRouteRule(item, path, action == ruleActionInline); err != nil {
+			return nil, err
+		}
 		result["rules"] = append(result["rules"].([]any), item)
 	}
 
-	for _, ruleset := range route.GetRuleSet() {
+	for rulesetIndex, ruleset := range route.GetRuleSet() {
 		if ruleset == nil {
 			continue
 		}
@@ -559,7 +573,11 @@ func (g *configGenerator) generateRoute(
 			if format := rulesetFormatString(ruleset.GetFormat()); format != "" {
 				item["format"] = format
 			}
-			if detour := getOutboundTag(outbounds, ruleset.GetDownloadDetour()); detour != "" {
+			detour, err := resolveOutboundTag(outbounds, ruleset.GetDownloadDetour(), fmt.Sprintf("route.rule_set[%d].download_detour", rulesetIndex))
+			if err != nil {
+				return nil, err
+			}
+			if detour != "" {
 				item["download_detour"] = detour
 			}
 			if ruleset.GetUpdateInterval() != "" {
@@ -570,6 +588,239 @@ func (g *configGenerator) generateRoute(
 	}
 
 	return result, nil
+}
+
+func generateRouteRuleMatchFields(
+	rule *configv1.RouteRule,
+	ruleSets []*configv1.RuleSet,
+	inbounds []*configv1.Inbound,
+	path string,
+) (map[string]any, error) {
+	item := map[string]any{}
+
+	if len(rule.GetInbound()) > 0 {
+		tags := make([]any, 0, len(rule.GetInbound()))
+		for index, id := range rule.GetInbound() {
+			tag, err := resolveEnabledInboundTag(inbounds, id, fmt.Sprintf("%s.inbound[%d]", path, index))
+			if err != nil {
+				return nil, err
+			}
+			tags = append(tags, tag)
+		}
+		item["inbound"] = tags
+	}
+
+	if ipVersion := rule.GetIpVersion(); ipVersion != 0 {
+		if ipVersion != 4 && ipVersion != 6 {
+			return nil, invalidArgumentError{message: fmt.Sprintf("%s.ip_version must be 4 or 6", path)}
+		}
+		item["ip_version"] = ipVersion
+	}
+
+	assignStrings := func(key string, values []string) {
+		if len(values) > 0 {
+			item[key] = stringsToAnySlice(values)
+		}
+	}
+	assignStrings("network", rule.GetNetwork())
+	assignStrings("preferred_by", rule.GetPreferredBy())
+	assignStrings("protocol", rule.GetProtocol())
+	assignStrings("domain", rule.GetDomain())
+	assignStrings("domain_suffix", rule.GetDomainSuffix())
+	assignStrings("domain_keyword", rule.GetDomainKeyword())
+	assignStrings("domain_regex", rule.GetDomainRegex())
+	assignStrings("ip_cidr", rule.GetIpCidr())
+	assignStrings("source_ip_cidr", rule.GetSourceIpCidr())
+	assignStrings("source_port_range", rule.GetSourcePortRange())
+	assignStrings("port_range", rule.GetPortRange())
+	assignStrings("process_name", rule.GetProcessName())
+	assignStrings("process_path", rule.GetProcessPath())
+	assignStrings("process_path_regex", rule.GetProcessPathRegex())
+
+	if rule.GetSourceIpIsPrivate() {
+		item["source_ip_is_private"] = true
+	}
+	if rule.GetIpIsPrivate() {
+		item["ip_is_private"] = true
+	}
+	if len(rule.GetSourcePort()) > 0 {
+		ports, err := routePortsToAnySlice(rule.GetSourcePort(), path+".source_port")
+		if err != nil {
+			return nil, err
+		}
+		item["source_port"] = ports
+	}
+	if len(rule.GetPort()) > 0 {
+		ports, err := routePortsToAnySlice(rule.GetPort(), path+".port")
+		if err != nil {
+			return nil, err
+		}
+		item["port"] = ports
+	}
+	if clashMode := rule.GetClashMode(); clashMode != "" {
+		item["clash_mode"] = clashMode
+	}
+	if len(rule.GetRuleSet()) > 0 {
+		tags := make([]any, 0, len(rule.GetRuleSet()))
+		for index, id := range rule.GetRuleSet() {
+			tag, err := resolveRuleSetTag(ruleSets, id, fmt.Sprintf("%s.rule_set[%d]", path, index))
+			if err != nil {
+				return nil, err
+			}
+			tags = append(tags, tag)
+		}
+		item["rule_set"] = tags
+	}
+
+	return item, nil
+}
+
+func routePortsToAnySlice(values []uint32, path string) ([]any, error) {
+	result := make([]any, 0, len(values))
+	for index, value := range values {
+		if value > 65535 {
+			return nil, invalidArgumentError{message: fmt.Sprintf("%s[%d] must be between 0 and 65535", path, index)}
+		}
+		result = append(result, value)
+	}
+	return result, nil
+}
+
+func applyRouteRuleActionOptions(
+	item map[string]any,
+	action string,
+	options *configv1.ActionOptions,
+	outbounds []*configv1.Outbound,
+	dnsServers []*configv1.DnsServer,
+	path string,
+) error {
+	if options == nil {
+		options = &configv1.ActionOptions{}
+	}
+
+	switch action {
+	case ruleActionRoute, ruleActionBypass:
+		outbound, err := resolveOutboundTag(outbounds, options.GetOutbound(), path+".action_options.outbound")
+		if err != nil {
+			return err
+		}
+		if outbound != "" {
+			item["outbound"] = outbound
+		}
+		return applyRouteOptions(item, options, path)
+	case ruleActionRouteOptions:
+		return applyRouteOptions(item, options, path)
+	case ruleActionReject:
+		method := options.GetMethod()
+		if method == "" {
+			method = "default"
+		}
+		if method != "default" && method != "drop" && method != "reply" {
+			return invalidArgumentError{message: fmt.Sprintf("%s.action_options.method has unsupported value %q", path, method)}
+		}
+		if method == "drop" && options.GetNoDrop() {
+			return invalidArgumentError{message: path + ".action_options.no_drop is unavailable when method is drop"}
+		}
+		item["method"] = method
+		if options.GetNoDrop() {
+			item["no_drop"] = true
+		}
+	case "hijack-dns":
+	case ruleActionSniff:
+		if len(options.GetSniffer()) > 0 {
+			item["sniffer"] = stringsToAnySlice(options.GetSniffer())
+		}
+		if options.GetTimeout() != "" {
+			item["timeout"] = options.GetTimeout()
+		}
+	case ruleActionResolve:
+		server, err := resolveDNSServerTag(dnsServers, options.GetServer(), path+".action_options.server")
+		if err != nil {
+			return err
+		}
+		if server != "" {
+			item["server"] = server
+		}
+		if options.GetStrategy() != "" {
+			item["strategy"] = options.GetStrategy()
+		}
+		if options.GetDisableCache() {
+			item["disable_cache"] = true
+		}
+		if options.GetDisableOptimisticCache() {
+			item["disable_optimistic_cache"] = true
+		}
+		if options.RewriteTtl != nil {
+			item["rewrite_ttl"] = options.GetRewriteTtl()
+		}
+		if options.GetTimeout() != "" {
+			item["timeout"] = options.GetTimeout()
+		}
+		if options.GetClientSubnet() != "" {
+			item["client_subnet"] = options.GetClientSubnet()
+		}
+	}
+	return nil
+}
+
+func applyRouteOptions(item map[string]any, options *configv1.ActionOptions, path string) error {
+	if options.GetOverridePort() > 65535 {
+		return invalidArgumentError{message: path + ".action_options.override_port must be between 0 and 65535"}
+	}
+	if options.GetTlsFragment() && options.GetTlsRecordFragment() {
+		return invalidArgumentError{message: path + ".action_options.tls_fragment and tls_record_fragment are mutually exclusive"}
+	}
+	assignString := func(key, value string) {
+		if value != "" {
+			item[key] = value
+		}
+	}
+	assignString("override_address", options.GetOverrideAddress())
+	if options.GetOverridePort() != 0 {
+		item["override_port"] = options.GetOverridePort()
+	}
+	assignString("network_strategy", options.GetNetworkStrategy())
+	if len(options.GetNetworkType()) > 0 {
+		item["network_type"] = stringsToAnySlice(options.GetNetworkType())
+	}
+	if len(options.GetFallbackNetworkType()) > 0 {
+		item["fallback_network_type"] = stringsToAnySlice(options.GetFallbackNetworkType())
+	}
+	assignString("fallback_delay", options.GetFallbackDelay())
+	if options.GetUdpDisableDomainUnmapping() {
+		item["udp_disable_domain_unmapping"] = true
+	}
+	if options.GetUdpConnect() {
+		item["udp_connect"] = true
+	}
+	assignString("udp_timeout", options.GetUdpTimeout())
+	if options.GetTlsFragment() {
+		item["tls_fragment"] = true
+	}
+	assignString("tls_fragment_fallback_delay", options.GetTlsFragmentFallbackDelay())
+	if options.GetTlsRecordFragment() {
+		item["tls_record_fragment"] = true
+	}
+	assignString("tls_spoof", options.GetTlsSpoof())
+	assignString("tls_spoof_method", options.GetTlsSpoofMethod())
+	return nil
+}
+
+func validateGeneratedRouteRule(item map[string]any, path string, inline bool) error {
+	action, _ := item["action"].(string)
+	if inline && strings.TrimSpace(action) == "" {
+		return invalidArgumentError{message: path + ".raw.action is required for inline action"}
+	}
+	if action == "" {
+		action = ruleActionRoute
+	}
+	if action == ruleActionRoute {
+		outbound, _ := item["outbound"].(string)
+		if outbound == "" {
+			return invalidArgumentError{message: path + ".outbound is required for route action"}
+		}
+	}
+	return nil
 }
 
 func (g *configGenerator) generateDNS(
@@ -595,14 +846,19 @@ func (g *configGenerator) generateDNS(
 	if dns.GetClientSubnet() != "" {
 		result["client_subnet"] = dns.GetClientSubnet()
 	}
-	if final := getDNSServerTag(dns.GetServers(), dns.GetFinal()); final != "" {
+	final, err := resolveDNSServerTag(dns.GetServers(), dns.GetFinal(), "dns.final")
+	if err != nil {
+		return nil, err
+	}
+	if final != "" {
 		result["final"] = final
 	}
 
-	for _, server := range dns.GetServers() {
+	for serverIndex, server := range dns.GetServers() {
 		if server == nil {
 			continue
 		}
+		path := fmt.Sprintf("dns.servers[%d]", serverIndex)
 		serverType, err := dnsServerTypeString(server.GetType())
 		if err != nil {
 			return nil, err
@@ -614,14 +870,18 @@ func (g *configGenerator) generateDNS(
 
 		switch serverType {
 		case dnsServerLocal, dnsServerTCP, dnsServerUDP, dnsServerTLS, dnsServerQUIC, dnsServerHTTPS, dnsServerH3:
-			if server.GetDetour() != "" {
-				if outbound := getOutbound(outbounds, server.GetDetour()); outbound != nil {
-					if outboundType, _ := outboundTypeString(outbound.GetType()); outboundType != outboundTypeDirect {
-						item["detour"] = outbound.GetTag()
-					}
-				}
+			detour, err := resolveOutboundTag(outbounds, server.GetDetour(), path+".detour")
+			if err != nil {
+				return nil, err
 			}
-			if resolver := getDNSServerTag(dns.GetServers(), server.GetDomainResolver()); resolver != "" {
+			if detour != "" {
+				item["detour"] = detour
+			}
+			resolver, err := resolveDNSServerTag(dns.GetServers(), server.GetDomainResolver(), path+".domain_resolver")
+			if err != nil {
+				return nil, err
+			}
+			if resolver != "" {
 				item["domain_resolver"] = resolver
 			}
 			if serverType == dnsServerTCP || serverType == dnsServerUDP || serverType == dnsServerTLS || serverType == dnsServerQUIC || serverType == dnsServerHTTPS || serverType == dnsServerH3 {
@@ -655,14 +915,18 @@ func (g *configGenerator) generateDNS(
 			}
 			item["predefined"] = predefined
 		case dnsServerDHCP:
-			if server.GetDetour() != "" {
-				if outbound := getOutbound(outbounds, server.GetDetour()); outbound != nil {
-					if outboundType, _ := outboundTypeString(outbound.GetType()); outboundType != outboundTypeDirect {
-						item["detour"] = outbound.GetTag()
-					}
-				}
+			detour, err := resolveOutboundTag(outbounds, server.GetDetour(), path+".detour")
+			if err != nil {
+				return nil, err
 			}
-			if resolver := getDNSServerTag(dns.GetServers(), server.GetDomainResolver()); resolver != "" {
+			if detour != "" {
+				item["detour"] = detour
+			}
+			resolver, err := resolveDNSServerTag(dns.GetServers(), server.GetDomainResolver(), path+".domain_resolver")
+			if err != nil {
+				return nil, err
+			}
+			if resolver != "" {
 				item["domain_resolver"] = resolver
 			}
 			if server.GetInterface() != "" {
@@ -690,10 +954,11 @@ func (g *configGenerator) generateDNS(
 		}
 	}
 
-	for _, rule := range dns.GetRules() {
+	for ruleIndex, rule := range dns.GetRules() {
 		if rule == nil || !rule.GetEnable() {
 			continue
 		}
+		path := fmt.Sprintf("dns.rules[%d]", ruleIndex)
 		ruleType, err := ruleTypeString(rule.GetType())
 		if err != nil {
 			return nil, err
@@ -706,7 +971,7 @@ func (g *configGenerator) generateDNS(
 		if err != nil {
 			return nil, err
 		}
-		ruleFields, err := generateRuleFields(ruleType, rule.GetPayload(), ruleSet, inbounds)
+		ruleFields, err := generateRuleFields(ruleType, rule.GetPayload(), ruleSet, inbounds, path)
 		if err != nil {
 			return nil, err
 		}
@@ -735,7 +1000,11 @@ func (g *configGenerator) generateDNS(
 					item["client_subnet"] = rule.GetClientSubnet()
 				}
 				if action == ruleActionRoute {
-					if server := getDNSServerTag(dns.GetServers(), rule.GetServer()); server != "" {
+					server, err := resolveDNSServerTag(dns.GetServers(), rule.GetServer(), path+".server")
+					if err != nil {
+						return nil, err
+					}
+					if server != "" {
 						item["server"] = server
 					}
 				}
@@ -769,6 +1038,7 @@ func generateRuleFields(
 	payload string,
 	ruleSets []*configv1.RuleSet,
 	inbounds []*configv1.Inbound,
+	path string,
 ) (map[string]any, error) {
 	result := map[string]any{}
 
@@ -781,12 +1051,26 @@ func generateRuleFields(
 		return parsed, nil
 	case ruleTypeRuleSet:
 		entries := make([]any, 0)
-		for _, id := range strings.Split(payload, ",") {
-			entries = append(entries, getRulesetTag(ruleSets, id))
+		for index, id := range strings.Split(payload, ",") {
+			id = strings.TrimSpace(id)
+			if id == "" {
+				continue
+			}
+			tag, err := resolveRuleSetTag(ruleSets, id, fmt.Sprintf("%s.payload[%d]", path, index))
+			if err != nil {
+				return nil, err
+			}
+			entries = append(entries, tag)
 		}
 		result[ruleType] = entries
 	case ruleTypeInbound:
-		result[ruleType] = getInboundTag(inbounds, payload)
+		if payload != "" {
+			tag, err := resolveEnabledInboundTag(inbounds, payload, path+".payload")
+			if err != nil {
+				return nil, err
+			}
+			result[ruleType] = tag
+		}
 	case ruleTypeIpIsPrivate, ruleTypeIpAcceptAny:
 		result[ruleType] = payload == "true"
 	case ruleTypeClashMode:
@@ -846,6 +1130,22 @@ func (g *configGenerator) subscriptionEntries(id string) ([]map[string]any, erro
 
 	g.subscriptionProxies[id] = entries
 	return entries, nil
+}
+
+func (g *configGenerator) resolveSubscriptionProxyTag(subscriptionID string, proxyID string, path string) (string, error) {
+	if proxyID == "" {
+		return "", invalidArgumentError{message: path + " is required"}
+	}
+	meta, ok := g.subscriptions[subscriptionID]
+	if !ok {
+		return "", invalidArgumentError{message: fmt.Sprintf("%s references missing subscription %q", path, subscriptionID)}
+	}
+	for _, proxy := range meta.Proxies {
+		if proxy.ID == proxyID {
+			return proxy.Tag, nil
+		}
+	}
+	return "", invalidArgumentError{message: fmt.Sprintf("%s references missing subscription node %q", path, proxyID)}
 }
 
 func applyMixin(config map[string]any, mixin *configv1.Mixin) (map[string]any, error) {
@@ -1106,56 +1406,55 @@ func inboundUserConfigForType(inbound *configv1.Inbound, inboundType string) *co
 	}
 }
 
-func getOutbound(outbounds []*configv1.Outbound, id string) *configv1.Outbound {
+func resolveOutboundTag(outbounds []*configv1.Outbound, id string, path string) (string, error) {
+	if id == "" {
+		return "", nil
+	}
 	for _, outbound := range outbounds {
 		if outbound != nil && outbound.GetId() == id {
-			return outbound
+			return outbound.GetTag(), nil
 		}
 	}
-	return nil
+	return "", invalidArgumentError{message: fmt.Sprintf("%s references missing outbound ID %q", path, id)}
 }
 
-func getOutboundTag(outbounds []*configv1.Outbound, id string) string {
-	if outbound := getOutbound(outbounds, id); outbound != nil {
-		return outbound.GetTag()
+func resolveDNSServerTag(servers []*configv1.DnsServer, id string, path string) (string, error) {
+	if id == "" {
+		return "", nil
 	}
-	return ""
-}
-
-func getDNSServerTag(servers []*configv1.DnsServer, id string) string {
 	for _, server := range servers {
 		if server != nil && server.GetId() == id {
-			return server.GetTag()
+			return server.GetTag(), nil
 		}
 	}
-	return ""
+	return "", invalidArgumentError{message: fmt.Sprintf("%s references missing DNS server ID %q", path, id)}
 }
 
-func getInboundTag(inbounds []*configv1.Inbound, id string) any {
+func resolveEnabledInboundTag(inbounds []*configv1.Inbound, id string, path string) (string, error) {
+	if id == "" {
+		return "", invalidArgumentError{message: path + " is required"}
+	}
 	for _, inbound := range inbounds {
 		if inbound != nil && inbound.GetId() == id {
-			return inbound.GetTag()
+			if !inbound.GetEnable() {
+				return "", invalidArgumentError{message: fmt.Sprintf("%s references disabled inbound ID %q", path, id)}
+			}
+			return inbound.GetTag(), nil
 		}
 	}
-	return nil
+	return "", invalidArgumentError{message: fmt.Sprintf("%s references missing inbound ID %q", path, id)}
 }
 
-func isInboundEnabled(inbounds []*configv1.Inbound, id string) bool {
-	for _, inbound := range inbounds {
-		if inbound != nil && inbound.GetId() == id {
-			return inbound.GetEnable()
-		}
+func resolveRuleSetTag(ruleSets []*configv1.RuleSet, id string, path string) (string, error) {
+	if id == "" {
+		return "", invalidArgumentError{message: path + " is required"}
 	}
-	return false
-}
-
-func getRulesetTag(ruleSets []*configv1.RuleSet, id string) any {
 	for _, ruleset := range ruleSets {
 		if ruleset != nil && ruleset.GetId() == id {
-			return ruleset.GetTag()
+			return ruleset.GetTag(), nil
 		}
 	}
-	return nil
+	return "", invalidArgumentError{message: fmt.Sprintf("%s references missing rule set ID %q", path, id)}
 }
 
 func stringsToAnySlice(values []string) []any {
@@ -1413,6 +1712,8 @@ func ruleActionString(action configv1.RuleAction) (string, error) {
 	switch action {
 	case configv1.RuleAction_RULE_ACTION_ROUTE:
 		return ruleActionRoute, nil
+	case configv1.RuleAction_RULE_ACTION_BYPASS:
+		return ruleActionBypass, nil
 	case configv1.RuleAction_RULE_ACTION_ROUTE_OPTIONS:
 		return ruleActionRouteOptions, nil
 	case configv1.RuleAction_RULE_ACTION_REJECT:

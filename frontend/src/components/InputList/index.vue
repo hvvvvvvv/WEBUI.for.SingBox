@@ -7,13 +7,16 @@ import { sampleID } from '@/utils'
 import Input from '@/components/Input/index.vue'
 
 interface Props {
-  modelValue?: string[]
+  modelValue?: (string | number)[]
   placeholder?: string
   autofocus?: boolean
+  type?: 'text' | 'number'
+  min?: number
+  max?: number
 }
 
 interface Item {
-  value: string
+  value: string | number
   id: string
 }
 
@@ -21,6 +24,9 @@ const props = withDefaults(defineProps<Props>(), {
   modelValue: () => [],
   placeholder: '',
   autofocus: false,
+  type: 'text',
+  min: undefined,
+  max: undefined,
 })
 
 const emit = defineEmits(['change', 'update:modelValue'])
@@ -28,17 +34,20 @@ const emit = defineEmits(['change', 'update:modelValue'])
 const innerList = ref<Item[]>(props.modelValue.map((v, i) => ({ value: v, id: i.toString() })))
 
 const editItem = ref<Item>()
-const inputVal = ref('')
+const inputVal = ref<string | number>('')
 const inputRef = useTemplateRef<typeof Input>('inputRef')
 
 const handleAdd = () => {
   const item = editItem.value
   editItem.value = undefined
-  if (!inputVal.value) return
+  if (inputVal.value === '') return
+
+  const value = props.type === 'number' ? Number(inputVal.value) : String(inputVal.value)
+  if (props.type === 'number' && !Number.isFinite(value)) return
   if (item) {
-    item.value = inputVal.value
+    item.value = value
   } else {
-    innerList.value.push({ value: inputVal.value, id: sampleID() })
+    innerList.value.push({ value, id: sampleID() })
   }
   inputVal.value = ''
   inputRef.value?.focus()
@@ -116,7 +125,9 @@ const emitUpdate = () => {
       ref="inputRef"
       v-model="inputVal"
       :placeholder="placeholder"
-      type="text"
+      :type="type"
+      :min="min"
+      :max="max"
       clearable
       :autofocus="autofocus"
       class="mt-4 w-full"

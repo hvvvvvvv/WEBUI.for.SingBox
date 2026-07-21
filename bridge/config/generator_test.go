@@ -2,6 +2,7 @@ package config
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	profilev1 "guiforcores/gen/profile/v1"
@@ -104,45 +105,515 @@ func TestGenerateDNSInlineRemovesFakeIPMarkerAfterOverride(t *testing.T) {
 	}
 }
 
-func TestGenerateRouteStructuredActionFieldsOverrideInline(t *testing.T) {
+func TestGenerateRouteStructuredMatchesAndRawOverride(t *testing.T) {
 	generator := &configGenerator{}
-	route, err := generator.generateRoute(&profilev1.Route{Rules: []*profilev1.RouteRule{
-		{
-			Type:     profilev1.RuleType_RULE_TYPE_INLINE,
-			Enable:   true,
-			Payload:  `{"action":"route","method":"inline","invert":false,"domain":["example.com"]}`,
-			Invert:   true,
-			Action:   profilev1.RuleAction_RULE_ACTION_REJECT,
-			Outbound: "drop",
-		},
-	}}, nil, nil, nil)
+	inbounds := []*profilev1.Inbound{{Id: "in-1", Tag: "mixed-in", Enable: true}}
+	outbounds := []*profilev1.Outbound{{Id: "out-1", Tag: "proxy"}}
+	ruleSets := []*profilev1.RuleSet{{
+		Id: "rs-1", Tag: "geoip-cn", Type: profilev1.RulesetType_RULESET_TYPE_INLINE, Rules: "[]",
+	}}
+	route, err := generator.generateRoute(&profilev1.Route{
+		RuleSet: ruleSets,
+		Rules: []*profilev1.RouteRule{{
+			Enable:            true,
+			Invert:            true,
+			Action:            profilev1.RuleAction_RULE_ACTION_ROUTE,
+			Inbound:           []string{"in-1"},
+			IpVersion:         6,
+			Network:           []string{"tcp", "udp"},
+			PreferredBy:       []string{"tailscale", "wireguard"},
+			Protocol:          []string{"tls"},
+			Domain:            []string{"structured.example"},
+			DomainSuffix:      []string{".example.org"},
+			DomainKeyword:     []string{"keyword"},
+			DomainRegex:       []string{"^regex"},
+			IpCidr:            []string{"192.0.2.0/24"},
+			SourceIpCidr:      []string{"10.0.0.0/8"},
+			SourceIpIsPrivate: true,
+			IpIsPrivate:       true,
+			SourcePort:        []uint32{0, 53},
+			SourcePortRange:   []string{"1000:2000"},
+			Port:              []uint32{80, 443},
+			PortRange:         []string{"8000:9000"},
+			ProcessName:       []string{"curl"},
+			ProcessPath:       []string{"/usr/bin/curl"},
+			ProcessPathRegex:  []string{"^/usr/bin/"},
+			ClashMode:         "direct",
+			RuleSet:           []string{"rs-1"},
+			ActionOptions:     &profilev1.ActionOptions{Outbound: "out-1"},
+			Raw:               `{"domain":["raw.example"],"preferred_by":["bridge"],"custom":{"nested":true}}`,
+		}},
+	}, inbounds, outbounds, nil)
 	if err != nil {
 		t.Fatalf("generate route: %v", err)
 	}
 
 	rule := route["rules"].([]any)[0].(map[string]any)
-	if rule["action"] != "reject" || rule["method"] != "drop" {
-		t.Fatalf("structured action should win, got %#v", rule)
+	for key, want := range map[string]any{
+		"ip_version":           int32(6),
+		"source_ip_is_private": true,
+		"ip_is_private":        true,
+		"clash_mode":           "direct",
+		"action":               "route",
+		"outbound":             "proxy",
+		"invert":               true,
+	} {
+		if got := rule[key]; got != want {
+			t.Fatalf("%s = %#v, want %#v in %#v", key, got, want, rule)
+		}
 	}
-	if rule["invert"] != false {
-		t.Fatalf("inline invert should win, got %#v", rule)
+	for key, want := range map[string][]any{
+		"inbound":      {"mixed-in"},
+		"domain":       {"raw.example"},
+		"preferred_by": {"bridge"},
+		"source_port":  {uint32(0), uint32(53)},
+		"port":         {uint32(80), uint32(443)},
+		"rule_set":     {"geoip-cn"},
+	} {
+		if got := rule[key]; !reflect.DeepEqual(got, want) {
+			t.Fatalf("%s = %#v, want %#v", key, got, want)
+		}
 	}
-	if got := rule["domain"]; !reflect.DeepEqual(got, []any{"example.com"}) {
-		t.Fatalf("inline match fields were not preserved, got %#v", rule)
+	if got := rule["custom"].(map[string]any)["nested"]; got != true {
+		t.Fatalf("raw custom object was not merged: %#v", rule)
 	}
 }
 
-func TestGenerateInlineActionUsesPayloadAction(t *testing.T) {
+func TestGenerateRoutePreferredByPresence(t *testing.T) {
+	generator := &configGenerator{}
+	tests := []struct {
+		name       string
+		values     []string
+		wantField  bool
+		wantValues []any
+	}{
+		{name: "empty"},
+		{
+			name:       "all documented values",
+			values:     []string{"tailscale", "wireguard", "bridge"},
+			wantField:  true,
+			wantValues: []any{"tailscale", "wireguard", "bridge"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			route, err := generator.generateRoute(&profilev1.Route{Rules: []*profilev1.RouteRule{{
+				Enable: true, Action: profilev1.RuleAction_RULE_ACTION_REJECT,
+				PreferredBy: test.values,
+			}}}, nil, nil, nil)
+			if err != nil {
+				t.Fatalf("generate route: %v", err)
+			}
+
+			rule := route["rules"].([]any)[0].(map[string]any)
+			got, ok := rule["preferred_by"]
+			if ok != test.wantField || (ok && !reflect.DeepEqual(got, test.wantValues)) {
+				t.Fatalf("preferred_by = %#v, presence %v, want %#v/%v", got, ok, test.wantValues, test.wantField)
+			}
+		})
+	}
+}
+
+func TestGenerateRouteIPVersionPresence(t *testing.T) {
+	generator := &configGenerator{}
+	for _, test := range []struct {
+		name      string
+		version   int32
+		wantField bool
+	}{
+		{name: "unrestricted", version: 0},
+		{name: "IPv4", version: 4, wantField: true},
+		{name: "IPv6", version: 6, wantField: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			route, err := generator.generateRoute(&profilev1.Route{Rules: []*profilev1.RouteRule{{
+				Enable: true, Action: profilev1.RuleAction_RULE_ACTION_REJECT, IpVersion: test.version,
+			}}}, nil, nil, nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rule := route["rules"].([]any)[0].(map[string]any)
+			got, ok := rule["ip_version"]
+			if ok != test.wantField || (ok && got != test.version) {
+				t.Fatalf("ip_version = %#v, presence %v, want %d/%v", got, ok, test.version, test.wantField)
+			}
+		})
+	}
+}
+
+func TestGenerateRouteActionsAndOptionIsolation(t *testing.T) {
+	generator := &configGenerator{}
+	outbounds := []*profilev1.Outbound{{Id: "out-1", Tag: "proxy"}}
+	dns := &profilev1.Dns{Servers: []*profilev1.DnsServer{{Id: "dns-1", Tag: "resolver"}}}
+	ttl := uint32(0)
+
+	tests := []struct {
+		name      string
+		action    profilev1.RuleAction
+		options   *profilev1.ActionOptions
+		want      map[string]any
+		forbidden []string
+	}{
+		{
+			name: "route", action: profilev1.RuleAction_RULE_ACTION_ROUTE,
+			options:   &profilev1.ActionOptions{Outbound: "out-1", OverrideAddress: "example.com"},
+			want:      map[string]any{"action": "route", "outbound": "proxy", "override_address": "example.com"},
+			forbidden: []string{"method", "sniffer", "server"},
+		},
+		{
+			name: "bypass", action: profilev1.RuleAction_RULE_ACTION_BYPASS,
+			options:   &profilev1.ActionOptions{OverrideAddress: "example.com", TlsRecordFragment: true},
+			want:      map[string]any{"action": "bypass", "override_address": "example.com", "tls_record_fragment": true},
+			forbidden: []string{"outbound", "method", "server"},
+		},
+		{
+			name: "route-options", action: profilev1.RuleAction_RULE_ACTION_ROUTE_OPTIONS,
+			options: &profilev1.ActionOptions{
+				Outbound: "out-1", OverrideAddress: "example.net", OverridePort: 443,
+				NetworkStrategy: "fallback", NetworkType: []string{"wifi"},
+				FallbackNetworkType: []string{"cellular"}, FallbackDelay: "300ms",
+				UdpDisableDomainUnmapping: true, UdpConnect: true, UdpTimeout: "30s",
+				TlsFragment: true, TlsFragmentFallbackDelay: "500ms",
+				TlsSpoof: "allowed.example", TlsSpoofMethod: "wrong-sequence",
+			},
+			want: map[string]any{
+				"action": "route-options", "override_address": "example.net", "override_port": uint32(443),
+				"network_strategy": "fallback", "network_type": []any{"wifi"},
+				"fallback_network_type": []any{"cellular"}, "fallback_delay": "300ms",
+				"udp_disable_domain_unmapping": true, "udp_connect": true, "udp_timeout": "30s",
+				"tls_fragment": true, "tls_fragment_fallback_delay": "500ms",
+				"tls_spoof": "allowed.example", "tls_spoof_method": "wrong-sequence",
+			},
+			forbidden: []string{"outbound", "method", "server"},
+		},
+		{
+			name: "reject", action: profilev1.RuleAction_RULE_ACTION_REJECT,
+			options:   &profilev1.ActionOptions{Outbound: "out-1", Method: "reply", NoDrop: true, OverrideAddress: "leak"},
+			want:      map[string]any{"action": "reject", "method": "reply", "no_drop": true},
+			forbidden: []string{"outbound", "override_address", "sniffer", "server"},
+		},
+		{
+			name: "hijack-dns", action: profilev1.RuleAction_RULE_ACTION_HIJACK_DNS,
+			options:   &profilev1.ActionOptions{Outbound: "out-1", Method: "reply"},
+			want:      map[string]any{"action": "hijack-dns"},
+			forbidden: []string{"outbound", "method", "server"},
+		},
+		{
+			name: "sniff", action: profilev1.RuleAction_RULE_ACTION_SNIFF,
+			options:   &profilev1.ActionOptions{Outbound: "out-1", Sniffer: []string{"tls", "http"}, Timeout: "500ms"},
+			want:      map[string]any{"action": "sniff", "sniffer": []any{"tls", "http"}, "timeout": "500ms"},
+			forbidden: []string{"outbound", "method", "server", "strategy"},
+		},
+		{
+			name: "resolve", action: profilev1.RuleAction_RULE_ACTION_RESOLVE,
+			options: &profilev1.ActionOptions{
+				Outbound: "out-1", Server: "dns-1", Strategy: "ipv4_only",
+				DisableCache: true, DisableOptimisticCache: true, RewriteTtl: &ttl,
+				Timeout: "2s", ClientSubnet: "198.51.100.0/24",
+			},
+			want: map[string]any{
+				"action": "resolve", "server": "resolver", "strategy": "ipv4_only",
+				"disable_cache": true, "disable_optimistic_cache": true,
+				"rewrite_ttl": uint32(0), "timeout": "2s", "client_subnet": "198.51.100.0/24",
+			},
+			forbidden: []string{"outbound", "method", "sniffer", "override_address"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			route, err := generator.generateRoute(&profilev1.Route{Rules: []*profilev1.RouteRule{{
+				Enable: true, Action: test.action, ActionOptions: test.options,
+			}}}, nil, outbounds, dns)
+			if err != nil {
+				t.Fatal(err)
+			}
+			rule := route["rules"].([]any)[0].(map[string]any)
+			for key, want := range test.want {
+				if got := rule[key]; !reflect.DeepEqual(got, want) {
+					t.Fatalf("%s = %#v, want %#v in %#v", key, got, want, rule)
+				}
+			}
+			for _, key := range test.forbidden {
+				if _, ok := rule[key]; ok {
+					t.Fatalf("option %q leaked into %s action: %#v", key, test.name, rule)
+				}
+			}
+		})
+	}
+}
+
+func TestGenerateRouteActionValidation(t *testing.T) {
+	generator := &configGenerator{}
+	tests := []struct {
+		name    string
+		rule    *profilev1.RouteRule
+		message string
+	}{
+		{
+			name:    "route outbound required",
+			rule:    &profilev1.RouteRule{Enable: true, Action: profilev1.RuleAction_RULE_ACTION_ROUTE},
+			message: "outbound is required",
+		},
+		{
+			name:    "TLS fragmentation conflict",
+			rule:    &profilev1.RouteRule{Enable: true, Action: profilev1.RuleAction_RULE_ACTION_ROUTE_OPTIONS, ActionOptions: &profilev1.ActionOptions{TlsFragment: true, TlsRecordFragment: true}},
+			message: "mutually exclusive",
+		},
+		{
+			name:    "drop no_drop conflict",
+			rule:    &profilev1.RouteRule{Enable: true, Action: profilev1.RuleAction_RULE_ACTION_REJECT, ActionOptions: &profilev1.ActionOptions{Method: "drop", NoDrop: true}},
+			message: "no_drop",
+		},
+		{
+			name:    "inline raw required",
+			rule:    &profilev1.RouteRule{Enable: true, Action: profilev1.RuleAction_RULE_ACTION_INLINE},
+			message: ".raw is required",
+		},
+		{
+			name:    "inline raw action required",
+			rule:    &profilev1.RouteRule{Enable: true, Action: profilev1.RuleAction_RULE_ACTION_INLINE, Raw: `{}`},
+			message: ".raw.action is required",
+		},
+		{
+			name:    "invalid raw object",
+			rule:    &profilev1.RouteRule{Enable: true, Action: profilev1.RuleAction_RULE_ACTION_REJECT, Raw: `[]`},
+			message: "json value must be an object",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := generator.generateRoute(&profilev1.Route{Rules: []*profilev1.RouteRule{test.rule}}, nil, nil, nil)
+			if err == nil || !strings.Contains(err.Error(), test.message) {
+				t.Fatalf("error = %v, want message containing %q", err, test.message)
+			}
+		})
+	}
+}
+
+func TestGenerateRouteReferenceErrors(t *testing.T) {
+	generator := &configGenerator{}
+	enabledInbound := []*profilev1.Inbound{{Id: "in-1", Tag: "in", Enable: true}}
+	disabledInbound := []*profilev1.Inbound{{Id: "in-1", Tag: "in", Enable: false}}
+	outbounds := []*profilev1.Outbound{{Id: "out-1", Tag: "out"}}
+	dns := &profilev1.Dns{Servers: []*profilev1.DnsServer{{Id: "dns-1", Tag: "dns"}}}
+	ruleSets := []*profilev1.RuleSet{{Id: "rs-1", Tag: "rs", Type: profilev1.RulesetType_RULESET_TYPE_INLINE, Rules: "[]"}}
+
+	tests := []struct {
+		name      string
+		route     *profilev1.Route
+		inbounds  []*profilev1.Inbound
+		outbounds []*profilev1.Outbound
+		dns       *profilev1.Dns
+		want      []string
+	}{
+		{
+			name:  "missing rule inbound",
+			route: &profilev1.Route{Rules: []*profilev1.RouteRule{{Enable: true, Action: profilev1.RuleAction_RULE_ACTION_REJECT, Inbound: []string{"missing"}}}},
+			want:  []string{"route.rules[0].inbound[0]", "missing"},
+		},
+		{
+			name:     "disabled rule inbound",
+			route:    &profilev1.Route{Rules: []*profilev1.RouteRule{{Enable: true, Action: profilev1.RuleAction_RULE_ACTION_REJECT, Inbound: []string{"in-1"}}}},
+			inbounds: disabledInbound,
+			want:     []string{"route.rules[0].inbound[0]", "disabled", "in-1"},
+		},
+		{
+			name:     "missing rule set",
+			route:    &profilev1.Route{RuleSet: ruleSets, Rules: []*profilev1.RouteRule{{Enable: true, Action: profilev1.RuleAction_RULE_ACTION_REJECT, RuleSet: []string{"missing"}}}},
+			inbounds: enabledInbound,
+			want:     []string{"route.rules[0].rule_set[0]", "missing"},
+		},
+		{
+			name:      "missing action outbound",
+			route:     &profilev1.Route{Rules: []*profilev1.RouteRule{{Enable: true, Action: profilev1.RuleAction_RULE_ACTION_ROUTE, ActionOptions: &profilev1.ActionOptions{Outbound: "missing"}}}},
+			outbounds: outbounds,
+			want:      []string{"route.rules[0].action_options.outbound", "missing"},
+		},
+		{
+			name:  "missing resolve server",
+			route: &profilev1.Route{Rules: []*profilev1.RouteRule{{Enable: true, Action: profilev1.RuleAction_RULE_ACTION_RESOLVE, ActionOptions: &profilev1.ActionOptions{Server: "missing"}}}},
+			dns:   dns,
+			want:  []string{"route.rules[0].action_options.server", "missing"},
+		},
+		{
+			name:      "missing route final",
+			route:     &profilev1.Route{Final: "missing"},
+			outbounds: outbounds,
+			want:      []string{"route.final", "missing"},
+		},
+		{
+			name:  "missing default resolver",
+			route: &profilev1.Route{DefaultDomainResolver: &profilev1.RouteDefaultDomainResolver{Server: "missing"}},
+			dns:   dns,
+			want:  []string{"route.default_domain_resolver.server", "missing"},
+		},
+		{
+			name:      "missing rule set download detour",
+			route:     &profilev1.Route{RuleSet: []*profilev1.RuleSet{{Type: profilev1.RulesetType_RULESET_TYPE_REMOTE, DownloadDetour: "missing"}}},
+			outbounds: outbounds,
+			want:      []string{"route.rule_set[0].download_detour", "missing"},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := generator.generateRoute(test.route, test.inbounds, test.outbounds, test.dns)
+			if err == nil {
+				t.Fatal("expected reference error")
+			}
+			for _, want := range test.want {
+				if !strings.Contains(err.Error(), want) {
+					t.Fatalf("error %q does not contain %q", err, want)
+				}
+			}
+		})
+	}
+}
+
+func TestGenerateDNSReferenceErrors(t *testing.T) {
+	generator := &configGenerator{}
+	dnsServers := []*profilev1.DnsServer{{Id: "dns-1", Tag: "dns", Type: profilev1.DnsServerType_DNS_SERVER_TYPE_LOCAL}}
+	outbounds := []*profilev1.Outbound{{Id: "out-1", Tag: "out"}}
+	inbounds := []*profilev1.Inbound{{Id: "in-1", Tag: "in", Enable: true}}
+	ruleSets := []*profilev1.RuleSet{{Id: "rs-1", Tag: "rs"}}
+
+	tests := []struct {
+		name string
+		dns  *profilev1.Dns
+		want string
+	}{
+		{name: "final", dns: &profilev1.Dns{Servers: dnsServers, Final: "missing"}, want: "dns.final"},
+		{name: "server detour", dns: &profilev1.Dns{Servers: []*profilev1.DnsServer{{Type: profilev1.DnsServerType_DNS_SERVER_TYPE_LOCAL, Detour: "missing"}}}, want: "dns.servers[0].detour"},
+		{name: "server domain resolver", dns: &profilev1.Dns{Servers: []*profilev1.DnsServer{{Type: profilev1.DnsServerType_DNS_SERVER_TYPE_LOCAL, DomainResolver: "missing"}}}, want: "dns.servers[0].domain_resolver"},
+		{name: "rule server", dns: &profilev1.Dns{Servers: dnsServers, Rules: []*profilev1.DnsRule{{Enable: true, Type: profilev1.RuleType_RULE_TYPE_DOMAIN, Payload: "example.com", Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_ROUTE, Server: "missing"}}}, want: "dns.rules[0].server"},
+		{name: "rule inbound", dns: &profilev1.Dns{Rules: []*profilev1.DnsRule{{Enable: true, Type: profilev1.RuleType_RULE_TYPE_INBOUND, Payload: "missing", Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_REJECT}}}, want: "dns.rules[0].payload"},
+		{name: "rule set", dns: &profilev1.Dns{Rules: []*profilev1.DnsRule{{Enable: true, Type: profilev1.RuleType_RULE_TYPE_RULE_SET, Payload: "missing", Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_REJECT}}}, want: "dns.rules[0].payload[0]"},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := generator.generateDNS(test.dns, ruleSets, inbounds, outbounds)
+			if err == nil || !strings.Contains(err.Error(), test.want) || !strings.Contains(err.Error(), "missing") {
+				t.Fatalf("error = %v, want path %q and missing ID", err, test.want)
+			}
+		})
+	}
+}
+
+func TestGenerateDNSRejectsDisabledInboundReference(t *testing.T) {
+	generator := &configGenerator{}
+	_, err := generator.generateDNS(
+		&profilev1.Dns{Rules: []*profilev1.DnsRule{{
+			Enable: true, Type: profilev1.RuleType_RULE_TYPE_INBOUND, Payload: "in-1",
+			Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_REJECT,
+		}}},
+		nil,
+		[]*profilev1.Inbound{{Id: "in-1", Tag: "in", Enable: false}},
+		nil,
+	)
+	if err == nil || !strings.Contains(err.Error(), "dns.rules[0].payload") || !strings.Contains(err.Error(), "disabled") {
+		t.Fatalf("expected disabled inbound path error, got %v", err)
+	}
+}
+
+func TestGenerateRouteSkipsInternalInsertionPointByID(t *testing.T) {
+	generator := &configGenerator{}
+	route, err := generator.generateRoute(&profilev1.Route{Rules: []*profilev1.RouteRule{{
+		Id: ruleTypeInsertionPoint, Enable: true, Action: profilev1.RuleAction_RULE_ACTION_ROUTE,
+	}}}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("insertion point should be skipped before route action validation: %v", err)
+	}
+	if got := len(route["rules"].([]any)); got != 0 {
+		t.Fatalf("generated %d rules for insertion point", got)
+	}
+}
+
+func TestGenerateOutboundReferenceErrors(t *testing.T) {
+	tests := []struct {
+		name      string
+		generator *configGenerator
+		proxy     *profilev1.ProxyRef
+		want      string
+	}{
+		{
+			name:      "local outbound",
+			generator: &configGenerator{},
+			proxy:     &profilev1.ProxyRef{Id: "missing", Type: "Built-in"},
+			want:      "missing outbound ID",
+		},
+		{
+			name:      "subscription",
+			generator: &configGenerator{subscriptions: map[string]subscriptionMeta{}, subscriptionProxies: map[string][]map[string]any{}},
+			proxy:     &profilev1.ProxyRef{Id: "missing", Type: "Subscription"},
+			want:      `subscription "missing" not found`,
+		},
+		{
+			name: "subscription node",
+			generator: &configGenerator{
+				subscriptions:       map[string]subscriptionMeta{"sub-1": {ID: "sub-1"}},
+				subscriptionProxies: map[string][]map[string]any{"sub-1": {{"tag": "node"}}},
+			},
+			proxy: &profilev1.ProxyRef{Id: "missing-node", Type: "sub-1"},
+			want:  "missing subscription node",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, err := test.generator.generateOutbounds([]*profilev1.Outbound{{
+				Id: "group", Tag: "group", Type: profilev1.OutboundType_OUTBOUND_TYPE_SELECTOR,
+				Outbounds: []*profilev1.ProxyRef{test.proxy},
+			}})
+			if err == nil || !strings.Contains(err.Error(), "outbounds[0].outbounds[0]") || !strings.Contains(err.Error(), test.want) {
+				t.Fatalf("error = %v, want path and %q", err, test.want)
+			}
+		})
+	}
+}
+
+func TestGenerateOutboundsResolveManagedIDs(t *testing.T) {
+	generator := &configGenerator{
+		subscriptions: map[string]subscriptionMeta{
+			"sub-1": {ID: "sub-1", Proxies: []subscriptionProxyMeta{{ID: "node-id", Tag: "node-tag"}}},
+		},
+		subscriptionProxies: map[string][]map[string]any{
+			"sub-1": {{"type": "direct", "tag": "node-tag"}},
+		},
+	}
+	outbounds := []*profilev1.Outbound{
+		{Id: "target-id", Tag: "target-tag", Type: profilev1.OutboundType_OUTBOUND_TYPE_SELECTOR},
+		{
+			Id: "group-id", Tag: "group-tag", Type: profilev1.OutboundType_OUTBOUND_TYPE_SELECTOR,
+			Outbounds: []*profilev1.ProxyRef{
+				{Id: "target-id", Type: "Built-in", Tag: "stale-local-tag"},
+				{Id: "node-id", Type: "sub-1", Tag: "stale-node-tag"},
+			},
+		},
+	}
+
+	generated, err := generator.generateOutbounds(outbounds)
+	if err != nil {
+		t.Fatal(err)
+	}
+	group := generated[1].(map[string]any)
+	if got := group["outbounds"]; !reflect.DeepEqual(got, []any{"target-tag", "node-tag"}) {
+		t.Fatalf("outbound IDs were not resolved to current tags: %#v", got)
+	}
+}
+
+func TestGenerateInlineActionUsesRawAction(t *testing.T) {
 	generator := &configGenerator{}
 
 	t.Run("route", func(t *testing.T) {
 		route, err := generator.generateRoute(&profilev1.Route{Rules: []*profilev1.RouteRule{
 			{
-				Type:    profilev1.RuleType_RULE_TYPE_INLINE,
-				Enable:  true,
-				Payload: `{"action":"reject","method":"drop","invert":true}`,
-				Invert:  false,
-				Action:  profilev1.RuleAction_RULE_ACTION_INLINE,
+				Enable: true,
+				Raw:    `{"action":"reject","method":"drop","invert":true}`,
+				Invert: false,
+				Action: profilev1.RuleAction_RULE_ACTION_INLINE,
 			},
 		}}, nil, nil, nil)
 		if err != nil {
