@@ -1,16 +1,7 @@
 <script lang="ts" setup>
 import { ColorOptions, DefaultFontFamily, ThemeOptions } from '@/constant/app'
 import { Color } from '@/enums/app'
-import routes from '@/router/routes'
 import { useAppSettingsStore, useAppStore } from '@/stores'
-
-const pages = routes.flatMap((route) => {
-  if (route.meta?.hidden !== undefined) return []
-  return {
-    label: route.meta!.name,
-    value: route.name as string,
-  }
-})
 
 const appStore = useAppStore()
 const appSettings = useAppSettingsStore()
@@ -23,7 +14,6 @@ const onThemeClick = (e: MouseEvent) => {
   document.documentElement.style.setProperty('--x', e.clientX + 'px')
   document.documentElement.style.setProperty('--y', e.clientY + 'px')
 }
-
 </script>
 <template>
   <div class="px-8 py-12 text-18 font-bold">{{ $t('settings.personalization') }}</div>
@@ -70,10 +60,6 @@ const onThemeClick = (e: MouseEvent) => {
           />
         </template>
       </Input>
-    </div>
-    <div class="px-8 py-12 flex items-center justify-between">
-      <div class="text-16 font-bold">{{ $t('settings.pages.name') }}</div>
-      <CheckBox v-model="appSettings.app.pages" :options="pages" />
     </div>
   </Card>
 </template>

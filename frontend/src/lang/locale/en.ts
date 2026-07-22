@@ -9,6 +9,7 @@ export default {
     clear: 'Clear',
     update: 'Update',
     delete: 'Delete',
+    deleteConfirm: 'Are you sure you want to delete this item? This action cannot be undone.',
     cancel: 'Cancel',
     save: 'Save',
     nextStep: 'Next',
@@ -688,9 +689,6 @@ export default {
       load: 'Load language files',
       zh: '简体中文',
       en: 'English',
-    },
-    pages: {
-      name: 'Page visibility',
     },
     needRestart: 'Restart Required',
     autoStartKernel: 'Start core on launch',

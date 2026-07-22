@@ -60,7 +60,6 @@ const routes: RouteRecordRaw[] = [
     meta: {
       name: 'router.settings',
       icon: 'settings2',
-      hidden: false,
     },
   },
 ]

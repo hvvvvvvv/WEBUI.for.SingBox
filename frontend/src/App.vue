@@ -18,6 +18,7 @@ const appStore = Stores.useAppStore()
 const profilesStore = Stores.useProfilesStore()
 const rulesetsStore = Stores.useRulesetsStore()
 const appSettings = Stores.useAppSettingsStore()
+appSettings.setupAppSettings()
 const appConfig = Stores.useAppConfigStore()
 const kernelApiStore = Stores.useKernelApiStore()
 const subscribesStore = Stores.useSubscribesStore()
@@ -59,7 +60,6 @@ const initApp = async () => {
 
   try {
     await Promise.all([
-      appSettings.setupAppSettings(),
       appStore.setupAppVersion(),
       appStore.setupPlatform(),
       appConfig.setupAppConfig(),

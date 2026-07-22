@@ -28,7 +28,6 @@ import (
 	"guiforcores/bridge/profile"
 	"guiforcores/bridge/ruleset"
 	"guiforcores/bridge/scheduler"
-	"guiforcores/bridge/settings"
 	"guiforcores/bridge/subscription"
 	"guiforcores/gen/app/v1/appv1connect"
 	"guiforcores/gen/kernel/v1/kernelv1connect"
@@ -47,7 +46,6 @@ type Options struct {
 	AppConfig      *config.AppService
 	Profiles       *profile.Service
 	Kernel         *kernel.Service
-	Settings       *settings.Service
 	Subscriptions  *subscription.Service
 	RuleSets       *ruleset.Service
 	Scheduler      *scheduler.Service
@@ -218,8 +216,6 @@ func (s *Server) registerRPCRoutes(mux *http.ServeMux) {
 	path, handler = profilev1connect.NewProfileServiceHandler(s.options.Profiles)
 	register(path, handler)
 	path, handler = kernelv1connect.NewKernelRuntimeServiceHandler(s.options.Kernel)
-	register(path, handler)
-	path, handler = appv1connect.NewAppSettingsServiceHandler(s.options.Settings)
 	register(path, handler)
 	path, handler = appv1connect.NewAppConfigServiceHandler(s.options.AppConfig)
 	register(path, handler)

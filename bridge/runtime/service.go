@@ -30,7 +30,6 @@ import (
 )
 
 const (
-	userSettingsPath             = "data/user.yaml"
 	subscriptionsFilePath        = "data/subscribes.yaml"
 	runtimeRulesetsFilePath      = "data/rulesets.yaml"
 	scheduledTasksPath           = "data/scheduledtasks.yaml"
@@ -227,42 +226,6 @@ func writeRuntimeYAMLFile(path string, value any) error {
 		return err
 	}
 	return os.WriteFile(fullPath, data, 0644)
-}
-
-func readUserSettingsMap() (map[string]any, error) {
-	settings, err := readRuntimeYAMLFile[map[string]any](userSettingsPath)
-	if err != nil {
-		return nil, err
-	}
-	if settings == nil {
-		settings = map[string]any{}
-	}
-	return settings, nil
-}
-
-func userSettingsJSON(settings map[string]any) (string, error) {
-	data, err := json.Marshal(settings)
-	if err != nil {
-		return "", err
-	}
-	return string(data), nil
-}
-
-func saveUserSettingsJSON(settingsJSON string) (string, error) {
-	var incoming map[string]any
-	if strings.TrimSpace(settingsJSON) == "" {
-		incoming = map[string]any{}
-	} else if err := json.Unmarshal([]byte(settingsJSON), &incoming); err != nil {
-		return "", invalidArgumentError{message: "invalid app settings json: " + err.Error()}
-	}
-	if incoming == nil {
-		incoming = map[string]any{}
-	}
-
-	if err := writeRuntimeYAMLFile(userSettingsPath, incoming); err != nil {
-		return "", err
-	}
-	return userSettingsJSON(incoming)
 }
 
 func validateSourceType(value any, resource string) error {
@@ -1515,26 +1478,6 @@ func (s *appRuntimeService) recordTaskLog(id string, name string, start int64, e
 	}
 	_ = saveScheduledTaskLogs(s.taskLogs)
 	return log
-}
-
-func (s *appRuntimeService) GetAppSettings(ctx context.Context, req *connect.Request[appv1.GetAppSettingsRequest]) (*connect.Response[appv1.GetAppSettingsResponse], error) {
-	settings, err := readUserSettingsMap()
-	if err != nil {
-		return nil, asConnectError(err)
-	}
-	settingsJSON, err := userSettingsJSON(settings)
-	if err != nil {
-		return nil, asConnectError(err)
-	}
-	return connect.NewResponse(&appv1.GetAppSettingsResponse{SettingsJson: settingsJSON}), nil
-}
-
-func (s *appRuntimeService) SaveAppSettings(ctx context.Context, req *connect.Request[appv1.SaveAppSettingsRequest]) (*connect.Response[appv1.SaveAppSettingsResponse], error) {
-	settingsJSON, err := saveUserSettingsJSON(req.Msg.GetSettingsJson())
-	if err != nil {
-		return nil, asConnectError(err)
-	}
-	return connect.NewResponse(&appv1.SaveAppSettingsResponse{SettingsJson: settingsJSON}), nil
 }
 
 func (s *appRuntimeService) ListSubscriptions(ctx context.Context, req *connect.Request[appv1.ListSubscriptionsRequest]) (*connect.Response[appv1.ListSubscriptionsResponse], error) {

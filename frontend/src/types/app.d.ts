@@ -59,7 +59,6 @@ export interface AppSettings {
   debugOutline: boolean
   debugNoAnimation: boolean
   debugNoRounded: false
-  pages: string[]
 }
 
 export interface CoreRuntimeConfig {

@@ -12,6 +12,7 @@ import {
   debounce,
   formatDate,
   message,
+  confirmDelete,
 } from '@/utils'
 
 import { useModal } from '@/components/Modal'
@@ -125,6 +126,8 @@ const handleUpdateSub = async (s: Subscription) => {
 }
 
 const handleDeleteSub = async (s: Subscription) => {
+  if (!(await confirmDelete())) return
+
   try {
     await subscribeStore.deleteSubscribe(s.id)
   } catch (error: any) {

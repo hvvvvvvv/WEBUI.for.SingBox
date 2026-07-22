@@ -12,7 +12,15 @@ import {
   useSubscribesStore,
   useAppStore,
 } from '@/stores'
-import { debounce, deepClone, generateConfigViaRpc, message, sampleID, alert } from '@/utils'
+import {
+  debounce,
+  deepClone,
+  generateConfigViaRpc,
+  message,
+  sampleID,
+  alert,
+  confirmDelete,
+} from '@/utils'
 
 import { useModal } from '@/components/Modal'
 
@@ -143,6 +151,7 @@ const handleDeleteProfile = async (p: IProfile) => {
     message.warn('profiles.shouldStop')
     return
   }
+  if (!(await confirmDelete())) return
 
   try {
     await profilesStore.deleteProfile(p.id)

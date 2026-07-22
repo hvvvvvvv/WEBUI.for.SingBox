@@ -6,7 +6,7 @@ import { DraggableOptions, ViewOptions } from '@/constant/app'
 import { View } from '@/enums/app'
 import { RulesetFormat } from '@/enums/kernel'
 import { type RuleSet, useRulesetsStore, useAppSettingsStore } from '@/stores'
-import { debounce, formatRelativeTime, formatDate, message } from '@/utils'
+import { debounce, formatRelativeTime, formatDate, message, confirmDelete } from '@/utils'
 
 import { useModal } from '@/components/Modal'
 
@@ -95,6 +95,8 @@ const handleUpdateRuleset = async (r: RuleSet) => {
 }
 
 const handleDeleteRuleset = async (r: RuleSet) => {
+  if (!(await confirmDelete())) return
+
   try {
     await rulesetsStore.deleteRuleset(r.id)
   } catch (error: any) {

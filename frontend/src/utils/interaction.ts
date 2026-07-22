@@ -15,7 +15,7 @@ import type { MessageIcon } from '@/components/Message/index.vue'
 import type { Props as ModalProps, Slots as ModalSlots } from '@/components/Modal/index.vue'
 import type { PickerItem } from '@/components/Picker/index.vue'
 
-const ContainerCssText = `
+const FloatingContainerCssText = `
     position: fixed;
     z-index: 99999;
     top: 84px;
@@ -24,6 +24,20 @@ const ContainerCssText = `
     display: flex;
     justify-content: center;
     max-height: 70%;
+`
+
+const ConfirmContainerCssText = `
+    position: fixed;
+    z-index: 99999;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 24px;
+    background: var(--modal-mask-bg);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
 `
 
 interface MessageInstance {
@@ -153,7 +167,7 @@ class Picker {
     return new Promise((resolve, reject) => {
       const { t } = i18n.global
       const dom = document.createElement('div')
-      dom.style.cssText = ContainerCssText
+      dom.style.cssText = FloatingContainerCssText
       const vnode = h(PickerComp<ValueType, PickerType>, {
         type,
         title,
@@ -182,7 +196,7 @@ const buildConfirm = (
   return new Promise((resolve, reject) => {
     const { t } = i18n.global
     const dom = document.createElement('div')
-    dom.style.cssText = ContainerCssText
+    dom.style.cssText = ConfirmContainerCssText
     const vnode = h(ConfirmComp, {
       title,
       message,
@@ -210,7 +224,7 @@ export const prompt = <T>(
 
   return new Promise<T>((resolve, reject) => {
     const dom = document.createElement('div')
-    dom.style.cssText = ContainerCssText
+    dom.style.cssText = FloatingContainerCssText
     const vnode = h(PromptComp, {
       title,
       initialValue,
@@ -242,6 +256,18 @@ export const confirm = (
   options: ConfirmOptions = { type: 'text' },
 ) => {
   return buildConfirm(title, message, options)
+}
+
+export const confirmDelete = async () => {
+  try {
+    await confirm('common.warning', 'common.deleteConfirm', {
+      type: 'text',
+      okText: 'common.delete',
+    })
+    return true
+  } catch {
+    return false
+  }
 }
 
 export const modal = (options: ModalProps = {}, slots: ModalSlots = {}) => {

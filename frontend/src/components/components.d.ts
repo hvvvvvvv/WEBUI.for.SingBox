@@ -6,7 +6,6 @@ declare module 'vue' {
     ActionToggleField: (typeof import('./ActionToggleField/index.vue'))['default']
     Button: (typeof import('./Button/index.vue'))['default']
     Card: (typeof import('./Card/index.vue'))['default']
-    CheckBox: (typeof import('./CheckBox/index.vue'))['default']
     CodeViewer: (typeof import('./CodeViewer/index.vue'))['default']
     ColorPicker: (typeof import('./ColorPicker/index.vue'))['default']
     Confirm: (typeof import('./Confirm/index.vue'))['default']

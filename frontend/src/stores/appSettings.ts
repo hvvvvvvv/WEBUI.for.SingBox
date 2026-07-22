@@ -1,7 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, watch } from 'vue'
 
-import { createRpcClient } from '@/bridge'
 import {
   Colors,
   DefaultCardColumns,
@@ -12,25 +11,15 @@ import {
   DefaultTestURL,
 } from '@/constant/app'
 import { DefaultConnections } from '@/constant/kernel'
-import {
-  Theme,
-  Lang,
-  View,
-  Color,
-  ControllerCloseMode,
-} from '@/enums/app'
+import { Theme, Lang, View, Color, ControllerCloseMode } from '@/enums/app'
 import i18n from '@/lang'
-import {
-  debounce,
-  deepClone,
-} from '@/utils'
-import { AppSettingsService } from '../../gen/app/v1/app_settings_service_pb'
+import { debounce, deepClone } from '@/utils'
 
 import type { AppSettings, SessionInfo } from '@/types/app'
 
-export const useAppSettingsStore = defineStore('app-settings', () => {
-  const service = createRpcClient(AppSettingsService)
+const AppSettingsStorageKey = 'appSettings'
 
+export const useAppSettingsStore = defineStore('app-settings', () => {
   let latestUserSettings: string
 
   const stableStringify = (value: any): string => {
@@ -73,7 +62,6 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       debugOutline: defaults.debugOutline,
       debugNoAnimation: defaults.debugNoAnimation,
       debugNoRounded: defaults.debugNoRounded,
-      pages: defaults.pages,
     } as any
     ;[
       'lang',
@@ -89,7 +77,6 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       'debugOutline',
       'debugNoAnimation',
       'debugNoRounded',
-      'pages',
     ].forEach((key) => {
       if (key in raw) {
         settings[key] = raw[key]
@@ -144,9 +131,13 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
 
   const sessionInfo = ref<SessionInfo>(getSessionInfo())
 
-  watch(sessionInfo, (newInfo) => {
-    sessionStorage.setItem('sessionInfo', JSON.stringify(newInfo))
-  }, { deep: true })
+  watch(
+    sessionInfo,
+    (newInfo) => {
+      sessionStorage.setItem('sessionInfo', JSON.stringify(newInfo))
+    },
+    { deep: true },
+  )
 
   const app = ref<AppSettings>({
     lang: Lang.EN,
@@ -176,29 +167,11 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     debugOutline: false,
     debugNoAnimation: false,
     debugNoRounded: false,
-    pages: ['Overview', 'Profiles', 'Subscriptions']
   })
 
   const saveAppSettings = debounce(async (settingsJson: string) => {
-    const result = await service.saveAppSettings({ settingsJson })
-    return result.settingsJson
+    localStorage.setItem(AppSettingsStorageKey, settingsJson)
   }, 500)
-
-  const setupAppSettings = async () => {
-    const { settingsJson } = await service.getAppSettings({})
-    const defaults = deepClone(app.value)
-    let settings: AppSettings
-    if (settingsJson) {
-      const raw = parseSettingsJSON(settingsJson)
-      settings = normalizeSettings(raw, defaults)
-    } else {
-      settings = defaults
-    }
-
-    app.value = settings
-    latestUserSettings = stableStringify(app.value)
-  }
-
 
   const applyAppSettings = {
     theme(theme: Theme) {
@@ -229,8 +202,7 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     },
   }
 
-  /* Apply AppSettings */
-  const onAppSettingsChange = (settings: AppSettings) => {
+  const applySettings = (settings: AppSettings) => {
     applyAppSettings.theme(settings.theme)
     applyAppSettings.color(settings.color, settings.primaryColor, settings.secondaryColor)
     applyAppSettings.lang(settings.lang)
@@ -240,12 +212,36 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       settings.debugNoAnimation,
       settings.debugNoRounded,
     )
+  }
+
+  const setupAppSettings = () => {
+    const defaults = deepClone(app.value)
+    let settings = defaults
+    try {
+      const settingsJson = localStorage.getItem(AppSettingsStorageKey)
+      if (settingsJson) {
+        settings = normalizeSettings(parseSettingsJSON(settingsJson), defaults)
+      }
+    } catch {
+      settings = defaults
+    }
+
+    latestUserSettings = stableStringify(settings)
+    app.value = settings
+    applySettings(settings)
+  }
+
+  /* Apply AppSettings */
+  const onAppSettingsChange = (settings: AppSettings) => {
+    applySettings(settings)
     const normalizedSettings = normalizeSettings(settings, deepClone(app.value))
     const lastModifiedSettings = stableStringify(normalizedSettings)
     if (latestUserSettings !== lastModifiedSettings) {
-      saveAppSettings(JSON.stringify(normalizedSettings)).then((settingsJson) => {
-        latestUserSettings = stableStringify(normalizeSettings(parseSettingsJSON(settingsJson as string), deepClone(app.value)))
-      })
+      saveAppSettings(JSON.stringify(normalizedSettings))
+        .then(() => {
+          latestUserSettings = lastModifiedSettings
+        })
+        .catch(() => {})
     } else {
       saveAppSettings.cancel()
     }

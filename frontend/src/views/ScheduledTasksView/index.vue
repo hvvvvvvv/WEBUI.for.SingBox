@@ -4,7 +4,7 @@ import { useI18n, I18nT } from 'vue-i18n'
 import { DraggableOptions, ViewOptions } from '@/constant/app'
 import { View } from '@/enums/app'
 import { useAppSettingsStore, useScheduledTasksStore } from '@/stores'
-import { debounce, formatRelativeTime, formatDate, message, alert } from '@/utils'
+import { debounce, formatRelativeTime, formatDate, message, alert, confirmDelete } from '@/utils'
 
 import { useModal } from '@/components/Modal'
 
@@ -101,6 +101,8 @@ const handleShowTaskForm = (id?: string) => {
 }
 
 const handleDeleteTask = async (s: ScheduledTask) => {
+  if (!(await confirmDelete())) return
+
   try {
     await scheduledTasksStore.deleteScheduledTask(s.id)
   } catch (error: any) {

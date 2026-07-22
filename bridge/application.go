@@ -20,7 +20,6 @@ import (
 	"guiforcores/bridge/ruleset"
 	appruntime "guiforcores/bridge/runtime"
 	"guiforcores/bridge/scheduler"
-	"guiforcores/bridge/settings"
 	"guiforcores/bridge/storage"
 	"guiforcores/bridge/subscription"
 	httptransport "guiforcores/bridge/transport/http"
@@ -86,7 +85,6 @@ func New(options Options) (*Application, error) {
 	profileService := profile.NewService(paths, events)
 	kernelService := kernel.NewService(platformService, configService, appConfig, profileService, events)
 	runtimeService := appruntime.NewService(platformService, paths, appConfig, events, kernelService)
-	settingsService := settings.NewService(runtimeService)
 	subscriptionService := subscription.NewService(runtimeService)
 	ruleSetService := ruleset.NewService(runtimeService)
 	schedulerService := scheduler.NewService(runtimeService)
@@ -103,7 +101,6 @@ func New(options Options) (*Application, error) {
 		AppConfig:     config.NewAppService(appConfig),
 		Profiles:      profileService,
 		Kernel:        kernelService,
-		Settings:      settingsService,
 		Subscriptions: subscriptionService,
 		RuleSets:      ruleSetService,
 		Scheduler:     schedulerService,

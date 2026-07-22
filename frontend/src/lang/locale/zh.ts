@@ -9,6 +9,7 @@ export default {
     clear: '清理',
     update: '更新',
     delete: '删除',
+    deleteConfirm: '确定要删除此项吗？此操作无法撤销。',
     cancel: '取消',
     save: '保存',
     nextStep: '下一步',
@@ -684,9 +685,6 @@ export default {
       load: '加载语言文件',
       zh: '简体中文',
       en: 'English',
-    },
-    pages: {
-      name: '页面可见性',
     },
     needRestart: '重启生效',
     autoStartKernel: '程序启动时开启核心',

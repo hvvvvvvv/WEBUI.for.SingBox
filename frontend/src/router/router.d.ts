@@ -6,6 +6,5 @@ declare module 'vue-router' {
   interface RouteMeta {
     name: string
     icon?: IconType
-    hidden?: boolean
   }
 }

@@ -34,6 +34,8 @@ const props = withDefaults(defineProps<Props>(), {
 const emits = defineEmits(['confirm', 'cancel', 'finish'])
 
 const content = ref<string | Record<string, any>>('')
+const visible = ref(true)
+const closing = ref(false)
 const domContainers: (() => void)[] = []
 
 const { t } = useI18n.global
@@ -138,38 +140,50 @@ const renderContent = async () => {
 onMounted(renderContent)
 
 const handleConfirm = () => {
+  if (closing.value) return
+  closing.value = true
   emits('confirm', true)
-  emits('finish')
-  domContainers.forEach((destroy) => destroy())
+  visible.value = false
 }
 
 const handleCancel = () => {
+  if (closing.value) return
+  closing.value = true
   emits('cancel')
+  visible.value = false
+}
+
+const handleAfterLeave = () => {
   emits('finish')
   domContainers.forEach((destroy) => destroy())
 }
 </script>
 
 <template>
-  <Transition name="slide-down" appear>
-    <div class="gui-confirm flex flex-col p-8 rounded-8 shadow">
-      <div class="font-bold break-all px-4 py-8">{{ t(title) }}</div>
+  <Transition name="confirm-dialog" appear @after-leave="handleAfterLeave">
+    <div
+      v-if="visible"
+      role="dialog"
+      aria-modal="true"
+      class="gui-confirm flex flex-col rounded-8 shadow"
+    >
+      <div class="gui-confirm-title font-bold break-all">{{ t(title) }}</div>
       <div
         v-if="options.type === 'markdown'"
-        class="flex-1 overflow-y-auto text-12 leading-relaxed p-6 break-all whitespace-pre-wrap select-text"
+        class="gui-confirm-content flex-1 overflow-y-auto break-all whitespace-pre-wrap select-text"
         v-html="content"
       ></div>
       <div
         v-else
-        class="flex-1 overflow-y-auto text-12 leading-relaxed p-6 break-all whitespace-pre-wrap select-text"
+        class="gui-confirm-content flex-1 overflow-y-auto break-all whitespace-pre-wrap select-text"
       >
         {{ content }}
       </div>
-      <div class="form-action gap-4">
-        <Button v-if="cancel" size="small" @click="handleCancel">
+      <div class="gui-confirm-actions form-action">
+        <Button v-if="cancel" @click="handleCancel">
           {{ t(options.cancelText || 'common.cancel') }}
         </Button>
-        <Button size="small" type="primary" @click="handleConfirm">
+        <Button type="primary" @click="handleConfirm">
           {{ t(options.okText || 'common.confirm') }}
         </Button>
       </div>
@@ -179,8 +193,44 @@ const handleCancel = () => {
 
 <style lang="less" scoped>
 .gui-confirm {
-  min-width: 340px;
-  max-width: 60%;
-  background: var(--toast-bg);
+  box-sizing: border-box;
+  width: min(480px, calc(100vw - 32px));
+  min-width: 0;
+  min-height: 176px;
+  max-width: 100%;
+  max-height: calc(100vh - 48px);
+  padding: 20px 24px 16px;
+  background: var(--modal-bg);
+}
+
+.gui-confirm-title {
+  padding-bottom: 12px;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.gui-confirm-content {
+  min-height: 48px;
+  padding: 4px 0 16px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.gui-confirm-actions {
+  gap: 8px;
+  margin-top: auto;
+}
+
+.confirm-dialog-enter-active,
+.confirm-dialog-leave-active {
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s ease;
+}
+
+.confirm-dialog-enter-from,
+.confirm-dialog-leave-to {
+  opacity: 0;
+  transform: scale(0.96);
 }
 </style>
