@@ -2,11 +2,12 @@
 import { ref, inject, computed, useTemplateRef, type Ref, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { useProfilesStore } from '@/stores'
+import { isResourceConflict, isResourceNotFound, useProfilesStore } from '@/stores'
 import { deepClone, generateConfigViaRpcByProfile, message, alert } from '@/utils'
 
 import Button from '@/components/Button/index.vue'
 import Dropdown from '@/components/Dropdown/index.vue'
+import ResourceConflictNotice from '@/components/ResourceConflictNotice/index.vue'
 
 interface Props {
   id?: string
@@ -44,6 +45,8 @@ const dnsRef = useTemplateRef('dnsRef')
 const profilesStore = useProfilesStore()
 
 const loading = ref(false)
+const conflict = ref<'changed' | 'deleted' | null>(null)
+const reloading = ref(false)
 const currentStep = ref(props.step)
 
 const stepItems = [
@@ -57,6 +60,7 @@ const stepItems = [
 ] as const
 
 const profile = ref<IProfile>(profilesStore.getProfileTemplate())
+let baseRevision = props.id ? profilesStore.getProfileRevision(props.id) : undefined
 
 const inboundOptions = computed(() =>
   profile.value.inbounds.map((v) => ({ label: v.tag, value: v.id, disabled: !v.enable })),
@@ -99,16 +103,41 @@ const handleSave = async () => {
   loading.value = true
   try {
     if (props.id) {
-      await profilesStore.editProfile(props.id, profile.value)
+      await profilesStore.editProfile(props.id, profile.value, baseRevision)
     } else {
       await profilesStore.addProfile(profile.value)
     }
     await handleSubmit()
   } catch (error: any) {
     console.error('handleSave: ', error)
-    message.error(error)
+    if (isResourceConflict(error) || isResourceNotFound(error)) {
+      await profilesStore.setupProfiles().catch(() => undefined)
+      conflict.value = isResourceNotFound(error) ? 'deleted' : 'changed'
+    } else {
+      message.error(error)
+    }
   }
   loading.value = false
+}
+
+const loadLatest = async () => {
+  if (!props.id) return
+  reloading.value = true
+  try {
+    await profilesStore.setupProfiles()
+    const latest = profilesStore.getProfileById(props.id)
+    if (!latest) {
+      conflict.value = 'deleted'
+      return
+    }
+    profile.value = deepClone(latest)
+    baseRevision = profilesStore.getProfileRevision(props.id)
+    conflict.value = null
+  } catch (error: any) {
+    message.error(error.message || error)
+  } finally {
+    reloading.value = false
+  }
 }
 
 const handleAdd = () => {
@@ -235,6 +264,12 @@ defineExpose({ modalSlots })
 
 <template>
   <div>
+    <ResourceConflictNotice
+      v-if="conflict"
+      :kind="conflict"
+      :loading="reloading"
+      @reload="loadLatest"
+    />
     <div v-if="currentStep === Step.Name">
       <Input
         v-model="profile.name"

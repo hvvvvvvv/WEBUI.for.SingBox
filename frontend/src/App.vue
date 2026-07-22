@@ -15,15 +15,12 @@ const percent = ref(0)
 const hasError = ref(false)
 
 const appStore = Stores.useAppStore()
-const profilesStore = Stores.useProfilesStore()
-const rulesetsStore = Stores.useRulesetsStore()
 const appSettings = Stores.useAppSettingsStore()
 appSettings.setupAppSettings()
 const appConfig = Stores.useAppConfigStore()
 const kernelApiStore = Stores.useKernelApiStore()
 const subscribesStore = Stores.useSubscribesStore()
-const scheduledTasksStore = Stores.useScheduledTasksStore()
-const { setupBackendEvents } = useBackendEvents()
+const { setupBackendEvents, syncConfigStores } = useBackendEvents()
 
 const handleRestartCore = async () => {
   try {
@@ -55,18 +52,16 @@ const initApp = async () => {
     return
   }
 
-  initWebSocket(appSettings.sessionInfo.cacheToken)
   setupBackendEvents()
+  initWebSocket(appSettings.sessionInfo.cacheToken)
 
   try {
     await Promise.all([
       appStore.setupAppVersion(),
       appStore.setupPlatform(),
       appConfig.setupAppConfig(),
-      profilesStore.setupProfiles(),
       subscribesStore.setupSubscribes(),
-      rulesetsStore.setupRulesets(),
-      scheduledTasksStore.setupScheduledTasks(),
+      syncConfigStores(),
     ])
 
     const startTime = performance.now()

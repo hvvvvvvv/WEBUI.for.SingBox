@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 
 import { ConnectError } from '@connectrpc/connect'
 
@@ -16,15 +16,9 @@ import {
 } from '@/api/kernel'
 import { createRpcClient, EventsOn } from '@/bridge'
 import { DefaultInboundHttp, DefaultInboundMixed, DefaultInboundSocks } from '@/constant/profile'
-import { Inbound, RulesetType, TunStack } from '@/enums/kernel'
-import {
-  useProfilesStore,
-  useLogsStore,
-  useSubscribesStore,
-  useRulesetsStore,
-  useAppConfigStore,
-} from '@/stores'
-import { iProfileToProto, protoProfileToIProfile, message, eventBus } from '@/utils'
+import { Inbound, TunStack } from '@/enums/kernel'
+import { useProfilesStore, useLogsStore, useAppConfigStore } from '@/stores'
+import { iProfileToProto, protoProfileToIProfile } from '@/utils'
 import { KernelRuntimeService } from '../../gen/kernel/v1/kernel_runtime_service_pb'
 import { CoreStatus } from '../../gen/kernel/v1/kernel_pb'
 
@@ -81,8 +75,6 @@ const normalizeCoreError = (error: unknown, operation: CoreOperation): string =>
 export const useKernelApiStore = defineStore('kernelApi', () => {
   const logsStore = useLogsStore()
   const profilesStore = useProfilesStore()
-  const subscribesStore = useSubscribesStore()
-  const rulesetsStore = useRulesetsStore()
   const appConfigStore = useAppConfigStore()
   const kernelService = createRpcClient(KernelRuntimeService)
 
@@ -290,14 +282,21 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   const running = ref(false)
   const starting = ref(false)
   const stopping = ref(false)
-  const restarting = ref(false)
+  const localRestarting = ref(false)
+  const backendRestarting = ref(false)
+  const restarting = computed(() => localRestarting.value || backendRestarting.value)
   const needRestart = ref(false)
   const coreStateLoading = ref(true)
   const coreStatus = ref(CoreStatus.STOPPED)
   let pendingRuntimeProfile: IProfile | undefined
   let coreStateQueue = Promise.resolve()
 
-  const applyCoreState = async (status: CoreStatus, pid: number) => {
+  const applyCoreState = async (
+    status: CoreStatus,
+    pid: number,
+    restartRequired = false,
+    restartInProgress = false,
+  ) => {
     const normalizedPID = status === CoreStatus.RUNNING && pid > 0 ? pid : -1
     const wasRunning = running.value
     const previousPID = corePid.value
@@ -306,13 +305,16 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     coreStatus.value = status
     corePid.value = normalizedPID
     running.value = normalizedPID > 0
+    starting.value = status === CoreStatus.STARTING
+    stopping.value = status === CoreStatus.STOPPING
+    backendRestarting.value = restartInProgress
+    needRestart.value = restartRequired
 
     if (running.value) {
       if (pendingRuntimeProfile) {
         runtimeProfile = pendingRuntimeProfile
       }
       if (!wasRunning || previousPID !== normalizedPID) {
-        needRestart.value = false
         initWebsocket()
         await Promise.all([refreshConfig(), refreshProviderProxies()])
       }
@@ -321,7 +323,6 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
 
     destroyWebsocket()
     if (status === CoreStatus.STOPPED || status === CoreStatus.CRASHED) {
-      needRestart.value = false
       runtimeProfile = undefined
       syncRuntimeInbounds()
     } else if (stateChanged) {
@@ -329,8 +330,15 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     }
   }
 
-  const enqueueCoreState = (status: CoreStatus, pid: number) => {
-    const applying = coreStateQueue.then(() => applyCoreState(status, pid))
+  const enqueueCoreState = (
+    status: CoreStatus,
+    pid: number,
+    restartRequired = false,
+    restartInProgress = false,
+  ) => {
+    const applying = coreStateQueue.then(() =>
+      applyCoreState(status, pid, restartRequired, restartInProgress),
+    )
     coreStateQueue = applying.catch((error) => {
       console.error('applyCoreState: ', error)
     })
@@ -338,8 +346,9 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   }
 
   const refreshCoreState = async () => {
-    const { status, pid } = await kernelService.getCoreStatus({})
-    await enqueueCoreState(status, pid)
+    const { status, pid, restartRequired, restarting: restartInProgress } =
+      await kernelService.getCoreStatus({})
+    await enqueueCoreState(status, pid, restartRequired, restartInProgress)
   }
 
   const reconcileCoreStateAfterFailure = async (error: unknown): Promise<never> => {
@@ -360,7 +369,12 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   }
 
   const initCoreState = async () => {
-    let state: { status: CoreStatus; pid: number }
+    let state: {
+      status: CoreStatus
+      pid: number
+      restartRequired: boolean
+      restarting: boolean
+    }
     try {
       state = await kernelService.getCoreStatus({})
     } catch {
@@ -370,7 +384,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     }
 
     try {
-      await enqueueCoreState(state.status, state.pid)
+      await enqueueCoreState(state.status, state.pid, state.restartRequired, state.restarting)
     } catch (error) {
       console.error('applyCoreState: ', error)
     } finally {
@@ -378,11 +392,19 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     }
   }
 
-  EventsOn('kernelStateChanged', (state?: { status?: CoreStatus; pid?: number }) => {
+  EventsOn('kernelStateChanged', (state?: {
+    status?: CoreStatus
+    pid?: number
+    restartRequired?: boolean
+    restarting?: boolean
+  }) => {
     if (typeof state?.status !== 'number') return
-    void enqueueCoreState(state.status, typeof state.pid === 'number' ? state.pid : -1).catch(
-      () => undefined,
-    )
+    void enqueueCoreState(
+      state.status,
+      typeof state.pid === 'number' ? state.pid : -1,
+      state.restartRequired === true,
+      state.restarting === true,
+    ).catch(() => undefined)
   })
 
   const startCore = async (_profile?: IProfile) => {
@@ -427,7 +449,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   }
 
   const restartCore = async (cleanupTask?: () => Promise<any>, keepRuntimeProfile = false) => {
-    restarting.value = true
+    localRestarting.value = true
     try {
       await cleanupTask?.()
       const profile = keepRuntimeProfile ? runtimeProfile : profilesStore.currentProfile
@@ -452,8 +474,7 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
       throw normalizeCoreError(error, 'restart')
     } finally {
       pendingRuntimeProfile = undefined
-      needRestart.value = false
-      restarting.value = false
+      localRestarting.value = false
     }
   }
 
@@ -485,76 +506,6 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     }
     return undefined
   }
-
-  eventBus.on('profileChange', ({ id }) => {
-    if (running.value && id === appConfigStore.config.profile) {
-      needRestart.value = true
-    }
-  })
-
-  eventBus.on('subscriptionChange', ({ id }) => {
-    if (appConfigStore.config.autoRestartKernel) return
-    if (running.value && profilesStore.currentProfile) {
-      const inUse = profilesStore.currentProfile.outbounds.some(({ outbounds }) =>
-        outbounds.some((outbound) => outbound.type === 'Subscription' && outbound.id === id),
-      )
-      if (inUse) {
-        needRestart.value = true
-      }
-    }
-  })
-
-  eventBus.on('subscriptionsChange', () => {
-    if (appConfigStore.config.autoRestartKernel) return
-    if (running.value && profilesStore.currentProfile) {
-      const enabledSubs = subscribesStore.subscribes.flatMap((v) => (v.disabled ? [] : v.id))
-      const inUse = profilesStore.currentProfile.outbounds.some(({ outbounds }) =>
-        outbounds.some(
-          (outbound) => outbound.type === 'Subscription' && enabledSubs.includes(outbound.id),
-        ),
-      )
-      if (inUse) {
-        needRestart.value = true
-      }
-    }
-  })
-
-  const collectRulesetIDs = () => {
-    if (!profilesStore.currentProfile) return []
-    const l1 = profilesStore.currentProfile.route.rule_set.flatMap((ruleset) =>
-      ruleset.type === RulesetType.Local ? ruleset.path : [],
-    )
-    return l1
-  }
-
-  eventBus.on('rulesetChange', ({ id }) => {
-    if (appConfigStore.config.autoRestartKernel) return
-    if (running.value && profilesStore.currentProfile) {
-      const inUse = profilesStore.currentProfile.route.rule_set.some(
-        (ruleset) => ruleset.type === RulesetType.Local && ruleset.path === id,
-      )
-      if (inUse) {
-        needRestart.value = true
-      }
-    }
-  })
-
-  eventBus.on('rulesetsChange', () => {
-    if (appConfigStore.config.autoRestartKernel) return
-    if (running.value && profilesStore.currentProfile) {
-      const enabledRulesets = rulesetsStore.rulesets.flatMap((v) => (v.disabled ? [] : v.id))
-      const inUse = collectRulesetIDs().some((v) => enabledRulesets.includes(v))
-      if (inUse) {
-        needRestart.value = true
-      }
-    }
-  })
-
-  watch(needRestart, (v) => {
-    if (v && appConfigStore.config.autoRestartKernel) {
-      void restartCore().catch((error) => message.error(error))
-    }
-  })
 
   return {
     startCore,

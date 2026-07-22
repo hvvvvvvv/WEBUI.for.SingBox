@@ -5,12 +5,14 @@ import { useI18n } from 'vue-i18n'
 import { ClipboardSetText } from '@/bridge'
 import { DraggableOptions } from '@/constant/app'
 import { useBool } from '@/hooks'
-import { useSubscribesStore } from '@/stores'
+import { isResourceConflict, isResourceNotFound, useSubscribesStore } from '@/stores'
 import { buildSmartRegExp, deepClone, message, sampleID } from '@/utils'
 
 import Button from '@/components/Button/index.vue'
+import ResourceConflictNotice from '@/components/ResourceConflictNotice/index.vue'
 
 import type { Menu, Subscription } from '@/types/app'
+import type { ExpectedRevision } from '../../../../gen/common/v1/sync_pb'
 
 interface Props {
   sub: Subscription
@@ -21,11 +23,14 @@ const props = defineProps<Props>()
 let editId = ''
 const isEdit = ref(false)
 const loading = ref(false)
+const reloading = ref(false)
+const conflict = ref<'changed' | 'deleted' | null>(null)
 const keywords = ref('')
 const proxyType = ref('')
 const details = ref()
 const allFieldsProxies = ref<any[]>([])
 const sub = ref(deepClone(props.sub))
+let baseRevision: Pick<ExpectedRevision, 'instanceId' | 'revision'> | undefined
 
 const [showDetails, toggleDetails] = useBool(false)
 
@@ -117,11 +122,19 @@ const handleSave = async () => {
       proxies.some((vv) => vv.tag === v.tag),
     )
     const sortedArray = proxies.map((v) => filteredProxies.find((vv) => vv.tag === v.tag))
-    await subscribeStore.saveSubscriptionContent(id, JSON.stringify(sortedArray, null, 2))
-    handleSubmit()
+    await subscribeStore.saveSubscriptionContent(
+      id,
+      JSON.stringify(sortedArray, null, 2),
+      baseRevision,
+    )
+    await handleSubmit()
   } catch (error: any) {
-    console.log(error)
-    message.error(error)
+    if (isResourceConflict(error) || isResourceNotFound(error)) {
+      await subscribeStore.setupSubscribes().catch(() => undefined)
+      conflict.value = isResourceNotFound(error) ? 'deleted' : 'changed'
+    } else {
+      message.error(error)
+    }
   }
   loading.value = false
 }
@@ -170,8 +183,31 @@ const onEditEnd = async () => {
 
 const initAllFieldsProxies = async () => {
   if (allFieldsProxies.value.length) return
-  const content = (await subscribeStore.getSubscriptionContent(sub.value!.id)) || '[]'
+  const { content: latestContent, revision } =
+    await subscribeStore.getSubscriptionContentWithRevision(sub.value.id)
+  const content = latestContent || '[]'
   allFieldsProxies.value = JSON.parse(content)
+  baseRevision = revision
+}
+
+const loadLatest = async () => {
+  reloading.value = true
+  try {
+    await subscribeStore.setupSubscribes()
+    const latest = subscribeStore.getSubscribeById(props.sub.id)
+    if (!latest) {
+      conflict.value = 'deleted'
+      return
+    }
+    sub.value = deepClone(latest)
+    allFieldsProxies.value = []
+    await initAllFieldsProxies()
+    conflict.value = null
+  } catch (error: any) {
+    message.error(error.message || error)
+  } finally {
+    reloading.value = false
+  }
 }
 
 const getProxyByTag = async (tag: string) => {
@@ -208,6 +244,12 @@ defineExpose({ modalSlots })
 
 <template>
   <div class="h-full flex flex-col">
+    <ResourceConflictNotice
+      v-if="conflict"
+      :kind="conflict"
+      :loading="reloading"
+      @reload="loadLatest"
+    />
     <div class="flex items-center">
       <span class="mr-8">
         {{ t('subscribes.proxies.type') }}

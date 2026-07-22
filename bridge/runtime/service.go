@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
@@ -21,8 +23,9 @@ import (
 	"guiforcores/bridge/platform"
 	"guiforcores/bridge/rpcutil"
 	"guiforcores/bridge/storage"
+	"guiforcores/bridge/syncstate"
 	"guiforcores/gen/app/v1"
-	kernelv1 "guiforcores/gen/kernel/v1"
+	commonv1 "guiforcores/gen/common/v1"
 
 	connect "connectrpc.com/connect"
 	"github.com/dop251/goja"
@@ -41,8 +44,7 @@ const (
 )
 
 type KernelController interface {
-	Status() (kernelv1.CoreStatus, string)
-	Restart(ctx context.Context, profileID string) error
+	ReferencedResourcesChanged(domain syncstate.Domain, ids []string)
 }
 
 type AppConfigReader interface {
@@ -70,11 +72,15 @@ type appRuntimeService struct {
 	config   AppConfigReader
 	events   EventPublisher
 	kernel   KernelController
+	state    *syncstate.Coordinator
 
-	mu          sync.Mutex
-	taskCancel  chan struct{}
-	runningTask map[string]bool
-	taskLogs    []scheduledTaskLog
+	mu               sync.Mutex
+	subscriptionsMu  sync.Mutex
+	rulesetsMu       sync.Mutex
+	scheduledTasksMu sync.Mutex
+	taskCancel       chan struct{}
+	runningTask      map[string]bool
+	taskLogs         []scheduledTaskLog
 }
 
 type Service = appRuntimeService
@@ -110,8 +116,12 @@ func asConnectError(err error) error {
 	return rpcutil.AsConnectError(err)
 }
 
-func NewService(platformService *platform.Service, paths *storage.Paths, configStore AppConfigReader, events EventPublisher, kernelController KernelController) *Service {
+func NewService(platformService *platform.Service, paths *storage.Paths, configStore AppConfigReader, events EventPublisher, kernelController KernelController, coordinators ...*syncstate.Coordinator) *Service {
 	setRuntimePaths(paths)
+	state := syncstate.NewCoordinator()
+	if len(coordinators) > 0 && coordinators[0] != nil {
+		state = coordinators[0]
+	}
 	logs, _ := loadScheduledTaskLogs()
 	tasks, _ := loadScheduledTasks()
 	logs = trimScheduledTaskLogs(logs, tasks)
@@ -121,6 +131,7 @@ func NewService(platformService *platform.Service, paths *storage.Paths, configS
 		config:      configStore,
 		events:      events,
 		kernel:      kernelController,
+		state:       state,
 		runningTask: map[string]bool{},
 		taskLogs:    logs,
 	}
@@ -136,6 +147,22 @@ func (s *appRuntimeService) publish(eventName string, data ...any) {
 	if s.events != nil {
 		s.events.Publish(eventName, data...)
 	}
+}
+
+func (s *appRuntimeService) publishResourceChanged(domain syncstate.Domain, operation syncstate.Operation, ids []string, state interface {
+	GetInstanceId() string
+	GetStateRevision() uint64
+}) {
+	if ids == nil {
+		ids = []string{}
+	}
+	s.publish("resourceChanged", map[string]any{
+		"domain":        string(domain),
+		"operation":     string(operation),
+		"ids":           ids,
+		"instanceId":    state.GetInstanceId(),
+		"stateRevision": state.GetStateRevision(),
+	})
 }
 
 func (s *appRuntimeService) StartScheduler() {
@@ -176,7 +203,9 @@ func (s *appRuntimeService) schedulerLoop(cancel <-chan struct{}) {
 		case <-cancel:
 			return
 		case now := <-ticker.C:
+			s.scheduledTasksMu.Lock()
 			tasks, err := loadScheduledTasks()
+			s.scheduledTasksMu.Unlock()
 			if err != nil {
 				continue
 			}
@@ -218,14 +247,11 @@ func readRuntimeYAMLFile[T any](path string) (T, error) {
 
 func writeRuntimeYAMLFile(path string, value any) error {
 	fullPath := GetPath(path)
-	if err := os.MkdirAll(filepath.Dir(fullPath), os.ModePerm); err != nil {
-		return err
-	}
 	data, err := yaml.Marshal(value)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(fullPath, data, 0644)
+	return storage.AtomicWriteFile(fullPath, data, 0644)
 }
 
 func validateSourceType(value any, resource string) error {
@@ -269,52 +295,6 @@ func scheduledTasksToJSON(items []scheduledTask) ([]string, error) {
 	return out, nil
 }
 
-func saveScheduledTasksJSON(itemsJSON []string) ([]string, error) {
-	items := make([]scheduledTask, 0, len(itemsJSON))
-	for _, raw := range itemsJSON {
-		var item scheduledTask
-		if err := json.Unmarshal([]byte(raw), &item); err != nil {
-			return nil, err
-		}
-		items = append(items, item)
-	}
-	if err := saveScheduledTasks(items); err != nil {
-		return nil, err
-	}
-	return scheduledTasksToJSON(items)
-}
-
-func upsertScheduledTaskJSON(itemJSON string) (string, error) {
-	var task scheduledTask
-	if err := json.Unmarshal([]byte(itemJSON), &task); err != nil {
-		return "", err
-	}
-	if task.ID == "" {
-		return "", fmt.Errorf("id is required")
-	}
-	tasks, err := loadScheduledTasks()
-	if err != nil {
-		return "", err
-	}
-	found := false
-	for i := range tasks {
-		if tasks[i].ID == task.ID {
-			tasks[i] = task
-			found = true
-			break
-		}
-	}
-	if !found {
-		tasks = append(tasks, task)
-	}
-	if err := saveScheduledTasks(tasks); err != nil {
-		return "", err
-	}
-	task.LogLimit = normalizeScheduledTaskLogLimit(task.LogLimit)
-	data, err := json.Marshal(task)
-	return string(data), err
-}
-
 func loadSubscriptions() ([]subscription, error) {
 	items, err := readRuntimeYAMLFile[[]subscription](subscriptionsFilePath)
 	if err != nil {
@@ -346,59 +326,19 @@ func subscriptionsToJSON(items []subscription) ([]string, error) {
 	return out, nil
 }
 
-func saveSubscriptionsJSON(itemsJSON []string) ([]string, error) {
-	items := make([]subscription, 0, len(itemsJSON))
-	for _, raw := range itemsJSON {
-		var item subscription
-		if err := json.Unmarshal([]byte(raw), &item); err != nil {
-			return nil, err
-		}
-		if item.ID == "" {
-			return nil, fmt.Errorf("id is required")
-		}
-		if err := validateSourceType(item.Type, "subscription"); err != nil {
-			return nil, err
-		}
-		items = append(items, item)
-	}
-	if err := saveSubscriptions(items); err != nil {
-		return nil, err
-	}
-	return subscriptionsToJSON(items)
-}
-
-func upsertSubscriptionJSON(itemJSON string) (string, error) {
+func decodeSubscription(itemJSON string) (subscription, error) {
 	var item subscription
 	if err := json.Unmarshal([]byte(itemJSON), &item); err != nil {
-		return "", err
+		return item, err
 	}
 	if item.ID == "" {
-		return "", fmt.Errorf("id is required")
+		return item, invalidArgumentError{message: "id is required"}
 	}
 	if err := validateSourceType(item.Type, "subscription"); err != nil {
-		return "", err
-	}
-	items, err := loadSubscriptions()
-	if err != nil {
-		return "", err
-	}
-	found := false
-	for i := range items {
-		if items[i].ID == item.ID {
-			items[i] = item
-			found = true
-			break
-		}
-	}
-	if !found {
-		items = append(items, item)
-	}
-	if err := saveSubscriptions(items); err != nil {
-		return "", err
+		return item, err
 	}
 	item.Updating = false
-	data, err := json.Marshal(item)
-	return string(data), err
+	return item, nil
 }
 
 func deleteSubscription(id string) error {
@@ -407,46 +347,62 @@ func deleteSubscription(id string) error {
 		return err
 	}
 	next := items[:0]
+	found := false
 	for _, item := range items {
 		if item.ID == id {
-			_ = os.Remove(GetPath(subscriptionContentPath(id)))
+			found = true
 			continue
 		}
 		next = append(next, item)
 	}
-	return saveSubscriptions(next)
+	if !found {
+		return nil
+	}
+	if err := saveSubscriptions(next); err != nil {
+		return err
+	}
+	_ = os.Remove(GetPath(subscriptionContentPath(id)))
+	return nil
 }
 
-func saveSubscriptionContent(id string, content string) (string, error) {
+func saveSubscriptionContent(id string, content string) (string, bool, error) {
 	sub, items, err := findSubscription(id)
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	if strings.TrimSpace(content) == "" {
 		content = "[]"
 	}
 	var proxies []map[string]any
 	if err := json.Unmarshal([]byte(content), &proxies); err != nil {
-		return "", invalidArgumentError{message: "not a valid subscription json: " + err.Error()}
+		return "", false, invalidArgumentError{message: "not a valid subscription json: " + err.Error()}
 	}
 	data, err := json.MarshalIndent(proxies, "", "  ")
 	if err != nil {
-		return "", err
+		return "", false, err
 	}
 	path := subscriptionContentPath(id)
-	if err := os.MkdirAll(filepath.Dir(GetPath(path)), os.ModePerm); err != nil {
-		return "", err
+	previous, readErr := os.ReadFile(GetPath(path))
+	if readErr != nil && !os.IsNotExist(readErr) {
+		return "", false, readErr
 	}
-	if err := os.WriteFile(GetPath(path), data, 0644); err != nil {
-		return "", err
+	if bytes.Equal(previous, data) {
+		result, marshalErr := json.Marshal(sub)
+		return string(result), false, marshalErr
+	}
+	if err := os.MkdirAll(filepath.Dir(GetPath(path)), os.ModePerm); err != nil {
+		return "", false, err
+	}
+	if err := storage.AtomicWriteFile(GetPath(path), data, 0644); err != nil {
+		return "", false, err
 	}
 	sub.Proxies = proxyRefsFromOutbounds(proxies, sub.Proxies)
 	sub.UpdateTime = time.Now().UnixMilli()
 	if err := saveSubscriptions(items); err != nil {
-		return "", err
+		return "", false, err
 	}
 	result, err := json.Marshal(sub)
-	return string(result), err
+	return string(result), true, err
 }
 
 func findSubscription(id string) (*subscription, []subscription, error) {
@@ -495,93 +451,6 @@ func rulesetsToJSON(items []ruleset) ([]string, error) {
 	return out, nil
 }
 
-func saveRulesetsJSON(itemsJSON []string) ([]string, error) {
-	existing, err := loadRulesets()
-	if err != nil {
-		return nil, err
-	}
-	existingByID := map[string]ruleset{}
-	for _, item := range existing {
-		existingByID[item.ID] = item
-	}
-	items := make([]ruleset, 0, len(itemsJSON))
-	for _, raw := range itemsJSON {
-		var item ruleset
-		if err := json.Unmarshal([]byte(raw), &item); err != nil {
-			return nil, err
-		}
-		if item.ID == "" {
-			return nil, fmt.Errorf("id is required")
-		}
-		if err := validateSourceType(item.Type, "ruleset"); err != nil {
-			return nil, err
-		}
-		prev, ok := existingByID[item.ID]
-		if ok {
-			item.Path = prev.Path
-			if item.Format != prev.Format {
-				item.Path = managedRulesetPath(item.ID, item.Format)
-				migrateRulesetFile(prev.Path, item.Path)
-			}
-		} else {
-			item.Path = managedRulesetPath(item.ID, item.Format)
-		}
-		items = append(items, item)
-	}
-	if err := saveRulesets(items); err != nil {
-		return nil, err
-	}
-	return rulesetsToJSON(items)
-}
-
-func upsertRulesetJSON(itemJSON string) (string, error) {
-	var item ruleset
-	if err := json.Unmarshal([]byte(itemJSON), &item); err != nil {
-		return "", err
-	}
-	if item.ID == "" {
-		return "", fmt.Errorf("id is required")
-	}
-	if err := validateSourceType(item.Type, "ruleset"); err != nil {
-		return "", err
-	}
-	items, err := loadRulesets()
-	if err != nil {
-		return "", err
-	}
-	found := false
-	for i := range items {
-		if items[i].ID != item.ID {
-			continue
-		}
-		prev := items[i]
-		item.Path = prev.Path
-		if item.Format != prev.Format || item.Path == "" {
-			item.Path = managedRulesetPath(item.ID, item.Format)
-			migrateRulesetFile(prev.Path, item.Path)
-		}
-		items[i] = item
-		found = true
-		break
-	}
-	if !found {
-		item.Path = managedRulesetPath(item.ID, item.Format)
-		created, err := ensureDefaultManualRuleSetContent(item)
-		if err != nil {
-			return "", err
-		}
-		if created {
-			item.Count = 0
-		}
-		items = append(items, item)
-	}
-	if err := saveRulesets(items); err != nil {
-		return "", err
-	}
-	data, err := json.Marshal(item)
-	return string(data), err
-}
-
 func deleteRuleset(id string) error {
 	items, err := loadRulesets()
 	if err != nil {
@@ -600,41 +469,55 @@ func deleteRuleset(id string) error {
 	return saveRulesets(next)
 }
 
-func saveRuleSetContent(id string, content string) (string, error) {
-	r, items, err := findRuleset(id)
-	if err != nil {
-		return "", err
-	}
-	if r.Format != "source" {
-		return "", invalidArgumentError{message: "only source rulesets have editable content"}
-	}
+func normalizeRuleSetContent(content string) ([]byte, int, error) {
 	if strings.TrimSpace(content) == "" {
 		content = defaultSourceRuleSetContent
 	}
 	var parsed map[string]any
 	if err := json.Unmarshal([]byte(content), &parsed); err != nil {
-		return "", invalidArgumentError{message: "not a valid ruleset json: " + err.Error()}
+		return nil, 0, invalidArgumentError{message: "not a valid ruleset json: " + err.Error()}
 	}
 	if parsed["rules"] == nil {
-		return "", invalidArgumentError{message: "not a valid ruleset json: missing rules"}
+		return nil, 0, invalidArgumentError{message: "not a valid ruleset json: missing rules"}
 	}
 	data, err := json.MarshalIndent(parsed, "", "  ")
 	if err != nil {
-		return "", err
+		return nil, 0, err
 	}
-	if err := os.MkdirAll(filepath.Dir(GetPath(r.Path)), os.ModePerm); err != nil {
-		return "", err
+	return data, countRules(parsed["rules"]), nil
+}
+
+func saveRuleSetContent(id string, content string) (string, bool, error) {
+	r, items, err := findRuleset(id)
+	if err != nil {
+		return "", false, err
 	}
-	if err := os.WriteFile(GetPath(r.Path), data, 0644); err != nil {
-		return "", err
+	if r.Format != "source" {
+		return "", false, invalidArgumentError{message: "only source rulesets have editable content"}
 	}
-	r.Count = countRules(parsed["rules"])
+	data, count, err := normalizeRuleSetContent(content)
+	if err != nil {
+		return "", false, err
+	}
+	current, readErr := readText(r.Path)
+	if readErr == nil {
+		if currentData, _, normalizeErr := normalizeRuleSetContent(current); normalizeErr == nil && bytes.Equal(currentData, data) {
+			result, marshalErr := json.Marshal(r)
+			return string(result), false, marshalErr
+		}
+	} else if !os.IsNotExist(readErr) {
+		return "", false, readErr
+	}
+	if err := storage.AtomicWriteFile(GetPath(r.Path), data, 0644); err != nil {
+		return "", false, err
+	}
+	r.Count = count
 	r.UpdateTime = time.Now().UnixMilli()
 	if err := saveRulesets(items); err != nil {
-		return "", err
+		return "", false, err
 	}
 	result, err := json.Marshal(r)
-	return string(result), err
+	return string(result), true, err
 }
 
 func ensureDefaultManualRuleSetContent(item ruleset) (bool, error) {
@@ -657,10 +540,7 @@ func ensureDefaultManualRuleSetContent(item ruleset) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
-		return false, err
-	}
-	if err := os.WriteFile(path, data, 0644); err != nil {
+	if err := storage.AtomicWriteFile(path, data, 0644); err != nil {
 		return false, err
 	}
 	return true, nil
@@ -772,6 +652,133 @@ func normalizeScheduledTasks(items []scheduledTask) {
 	for i := range items {
 		items[i].LogLimit = normalizeScheduledTaskLogLimit(items[i].LogLimit)
 	}
+}
+
+func rulesetIDs(items []ruleset) []string {
+	ids := make([]string, 0, len(items))
+	for _, item := range items {
+		if item.ID != "" {
+			ids = append(ids, item.ID)
+		}
+	}
+	return ids
+}
+
+func subscriptionIDs(items []subscription) []string {
+	ids := make([]string, 0, len(items))
+	for _, item := range items {
+		if item.ID != "" {
+			ids = append(ids, item.ID)
+		}
+	}
+	return ids
+}
+
+func scheduledTaskIDs(items []scheduledTask) []string {
+	ids := make([]string, 0, len(items))
+	for _, item := range items {
+		if item.ID != "" {
+			ids = append(ids, item.ID)
+		}
+	}
+	return ids
+}
+
+func stringSlicesEqual(left []string, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func validateRuntimeOrderIDs(resource string, current []string, requested []string) error {
+	if len(current) != len(requested) {
+		return invalidArgumentError{message: fmt.Sprintf("order must contain every %s id exactly once", resource)}
+	}
+	seen := make(map[string]struct{}, len(requested))
+	for _, id := range requested {
+		if _, exists := seen[id]; exists {
+			return invalidArgumentError{message: fmt.Sprintf("duplicate %s id %q in order", resource, id)}
+		}
+		seen[id] = struct{}{}
+	}
+	for _, id := range current {
+		if _, exists := seen[id]; !exists {
+			return invalidArgumentError{message: fmt.Sprintf("order must contain every %s id exactly once", resource)}
+		}
+	}
+	return nil
+}
+
+func rulesetConfigEqual(left ruleset, right ruleset) bool {
+	left.UpdateTime, right.UpdateTime = 0, 0
+	left.Path, right.Path = "", ""
+	left.Count, right.Count = 0, 0
+	left.Updating, right.Updating = false, false
+	return left == right
+}
+
+func subscriptionConfigEqual(left subscription, right subscription) bool {
+	left.Upload, right.Upload = 0, 0
+	left.Download, right.Download = 0, 0
+	left.Total, right.Total = 0, 0
+	left.Expire, right.Expire = 0, 0
+	left.UpdateTime, right.UpdateTime = 0, 0
+	left.Proxies, right.Proxies = nil, nil
+	left.Updating, right.Updating = false, false
+	if len(left.Header.Request) == 0 {
+		left.Header.Request = nil
+	}
+	if len(right.Header.Request) == 0 {
+		right.Header.Request = nil
+	}
+	if len(left.Header.Response) == 0 {
+		left.Header.Response = nil
+	}
+	if len(right.Header.Response) == 0 {
+		right.Header.Response = nil
+	}
+	return reflect.DeepEqual(left, right)
+}
+
+func cloneSubscription(item subscription) subscription {
+	item.Header.Request = cloneStringMap(item.Header.Request)
+	item.Header.Response = cloneStringMap(item.Header.Response)
+	item.Proxies = append([]proxyRef(nil), item.Proxies...)
+	return item
+}
+
+func cloneStringMap(input map[string]string) map[string]string {
+	if input == nil {
+		return nil
+	}
+	output := make(map[string]string, len(input))
+	for key, value := range input {
+		output[key] = value
+	}
+	return output
+}
+
+func scheduledTaskConfigEqual(left scheduledTask, right scheduledTask) bool {
+	left.LastTime, right.LastTime = 0, 0
+	if len(left.Subscriptions) == 0 {
+		left.Subscriptions = nil
+	}
+	if len(right.Subscriptions) == 0 {
+		right.Subscriptions = nil
+	}
+	if len(left.Rulesets) == 0 {
+		left.Rulesets = nil
+	}
+	if len(right.Rulesets) == 0 {
+		right.Rulesets = nil
+	}
+	return reflect.DeepEqual(left, right)
 }
 
 func scheduledTaskLogLimitMap(tasks []scheduledTask) map[string]int {
@@ -1146,6 +1153,8 @@ func updateSubscriptionAt(items []subscription, idx int, defaultUserAgent string
 	if err != nil {
 		return subscriptionFailureResult(sub, err), false
 	}
+	processedSub.ID = sub.ID
+	processedSub.Updating = false
 	*sub = processedSub
 	sub.Proxies = proxyRefsFromOutbounds(processedProxies, sub.Proxies)
 
@@ -1158,7 +1167,7 @@ func updateSubscriptionAt(items []subscription, idx int, defaultUserAgent string
 		if err := os.MkdirAll(filepath.Dir(GetPath(contentPath)), os.ModePerm); err != nil {
 			return subscriptionFailureResult(sub, err), false
 		}
-		if err := os.WriteFile(GetPath(contentPath), data, 0644); err != nil {
+		if err := storage.AtomicWriteFile(GetPath(contentPath), data, 0644); err != nil {
 			return subscriptionFailureResult(sub, err), false
 		}
 	}
@@ -1234,10 +1243,7 @@ func updateRulesetAt(items []ruleset, idx int) (*appv1.TaskResult, bool) {
 		r.Count = countRules(rules["rules"])
 		if (r.Type == "Http" && r.URL != r.Path) || (r.Type == "Manual" && !exists) {
 			data, _ := json.MarshalIndent(rules, "", "  ")
-			if err := os.MkdirAll(filepath.Dir(GetPath(r.Path)), os.ModePerm); err != nil {
-				return taskResult(false, r.ID, r.Tag, err.Error()), false
-			}
-			if err := os.WriteFile(GetPath(r.Path), data, 0644); err != nil {
+			if err := storage.AtomicWriteFile(GetPath(r.Path), data, 0644); err != nil {
 				return taskResult(false, r.ID, r.Tag, err.Error()), false
 			}
 		}
@@ -1253,10 +1259,7 @@ func updateRulesetAt(items []ruleset, idx int) (*appv1.TaskResult, bool) {
 			if err != nil {
 				return taskResult(false, r.ID, r.Tag, err.Error()), false
 			}
-			if err := os.MkdirAll(filepath.Dir(GetPath(r.Path)), os.ModePerm); err != nil {
-				return taskResult(false, r.ID, r.Tag, err.Error()), false
-			}
-			if err := os.WriteFile(GetPath(r.Path), data, 0644); err != nil {
+			if err := storage.AtomicWriteFile(GetPath(r.Path), data, 0644); err != nil {
 				return taskResult(false, r.ID, r.Tag, err.Error()), false
 			}
 		}
@@ -1265,25 +1268,10 @@ func updateRulesetAt(items []ruleset, idx int) (*appv1.TaskResult, bool) {
 	return taskResult(true, r.ID, r.Tag, fmt.Sprintf("Ruleset [%s] updated successfully.", r.Tag)), true
 }
 
-func (s *appRuntimeService) markRuntimeChanged(kind string, id string) {
-	s.publish("runtimeChange", kind, id)
-	if !s.shouldAutoRestartKernel(id) {
-		return
+func (s *appRuntimeService) notifyReferencedResourcesChanged(domain syncstate.Domain, ids []string) {
+	if s.kernel != nil {
+		s.kernel.ReferencedResourcesChanged(domain, ids)
 	}
-	if s.kernel == nil {
-		return
-	}
-	status, profileID := s.kernel.Status()
-	running := status == kernelv1.CoreStatus_CORE_STATUS_RUNNING
-	if running && profileID != "" {
-		go func() {
-			_ = s.kernel.Restart(context.Background(), profileID)
-		}()
-	}
-}
-
-func (s *appRuntimeService) shouldAutoRestartKernel(_ string) bool {
-	return s.config.Current().AutoRestartKernel
 }
 
 func mustRead(path string) []byte {
@@ -1291,76 +1279,142 @@ func mustRead(path string) []byte {
 	return data
 }
 
-func (s *appRuntimeService) updateSubscription(id string) ([]*appv1.TaskResult, error) {
+func (s *appRuntimeService) updateSubscription(id string) ([]*appv1.TaskResult, *commonv1.MutationState, error) {
+	s.subscriptionsMu.Lock()
 	items, err := loadSubscriptions()
 	if err != nil {
-		return nil, err
+		s.subscriptionsMu.Unlock()
+		return nil, nil, err
 	}
 	defaultUserAgent := s.config.Current().UserAgent
 	for i := range items {
 		if items[i].ID == id {
+			before := cloneSubscription(items[i])
 			result, changed := updateSubscriptionAt(items, i, defaultUserAgent)
 			if changed {
 				if err := saveSubscriptions(items); err != nil {
-					return nil, err
+					s.subscriptionsMu.Unlock()
+					return nil, nil, err
 				}
-				s.markRuntimeChanged("subscription", id)
 			}
-			return []*appv1.TaskResult{result}, nil
+			configChanged := changed && !subscriptionConfigEqual(before, items[i])
+			state := s.state.Mutation(syncstate.DomainSubscriptions, subscriptionIDs(items), id)
+			operation := syncstate.OperationRuntime
+			if changed {
+				if configChanged {
+					state = s.state.Advance(syncstate.DomainSubscriptions, subscriptionIDs(items), []string{id}, nil, false, id)
+					operation = syncstate.OperationUpsert
+				} else {
+					state = s.state.AdvanceRuntime(syncstate.DomainSubscriptions, subscriptionIDs(items), id)
+				}
+			}
+			s.subscriptionsMu.Unlock()
+			if changed {
+				s.publishResourceChanged(syncstate.DomainSubscriptions, operation, []string{id}, state)
+				s.notifyReferencedResourcesChanged(syncstate.DomainSubscriptions, []string{id})
+			}
+			return []*appv1.TaskResult{result}, state, nil
 		}
 	}
-	return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("subscription %q not found", id))
+	s.subscriptionsMu.Unlock()
+	return nil, nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("subscription %q not found", id))
 }
 
-func (s *appRuntimeService) updateAllSubscriptions() ([]*appv1.TaskResult, error) {
+func (s *appRuntimeService) updateAllSubscriptions() ([]*appv1.TaskResult, *commonv1.MutationState, error) {
+	s.subscriptionsMu.Lock()
 	items, err := loadSubscriptions()
 	if err != nil {
-		return nil, err
+		s.subscriptionsMu.Unlock()
+		return nil, nil, err
 	}
 	defaultUserAgent := s.config.Current().UserAgent
 	results := make([]*appv1.TaskResult, 0, len(items))
-	changed := false
+	changedIDs := make([]string, 0, len(items))
+	configChangedIDs := make([]string, 0, len(items))
 	for i := range items {
 		if items[i].Disabled {
 			continue
 		}
+		before := cloneSubscription(items[i])
 		result, didChange := updateSubscriptionAt(items, i, defaultUserAgent)
 		results = append(results, result)
-		changed = changed || didChange
-	}
-	if changed {
-		if err := saveSubscriptions(items); err != nil {
-			return nil, err
+		if didChange {
+			changedIDs = append(changedIDs, items[i].ID)
+			if !subscriptionConfigEqual(before, items[i]) {
+				configChangedIDs = append(configChangedIDs, items[i].ID)
+			}
 		}
-		s.markRuntimeChanged("subscriptions", "")
 	}
-	return results, nil
+	if len(changedIDs) > 0 {
+		if err := saveSubscriptions(items); err != nil {
+			s.subscriptionsMu.Unlock()
+			return nil, nil, err
+		}
+	}
+	state := s.state.Mutation(syncstate.DomainSubscriptions, subscriptionIDs(items), "")
+	operation := syncstate.OperationRuntime
+	if len(changedIDs) > 0 {
+		if len(configChangedIDs) > 0 {
+			state = s.state.Advance(syncstate.DomainSubscriptions, subscriptionIDs(items), configChangedIDs, nil, false, "")
+			operation = syncstate.OperationUpsert
+		} else {
+			state = s.state.AdvanceRuntime(syncstate.DomainSubscriptions, subscriptionIDs(items))
+		}
+	}
+	s.subscriptionsMu.Unlock()
+	if len(changedIDs) > 0 {
+		s.publishResourceChanged(syncstate.DomainSubscriptions, operation, changedIDs, state)
+		s.notifyReferencedResourcesChanged(syncstate.DomainSubscriptions, changedIDs)
+	}
+	return results, state, nil
 }
 
-func (s *appRuntimeService) updateRuleset(id string) ([]*appv1.TaskResult, error) {
+func updateRulesetLocked(id string) ([]*appv1.TaskResult, bool, error) {
 	items, err := loadRulesets()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	for i := range items {
 		if items[i].ID == id {
 			result, changed := updateRulesetAt(items, i)
 			if changed {
 				if err := saveRulesets(items); err != nil {
-					return nil, err
+					return nil, false, err
 				}
-				s.markRuntimeChanged("ruleset", id)
 			}
-			return []*appv1.TaskResult{result}, nil
+			return []*appv1.TaskResult{result}, changed, nil
 		}
 	}
-	return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("ruleset %q not found", id))
+	return nil, false, connect.NewError(connect.CodeNotFound, fmt.Errorf("ruleset %q not found", id))
 }
 
-func (s *appRuntimeService) updateAllRulesets() ([]*appv1.TaskResult, error) {
+func (s *appRuntimeService) updateRuleset(id string) ([]*appv1.TaskResult, *commonv1.MutationState, error) {
+	s.rulesetsMu.Lock()
+	results, changed, err := updateRulesetLocked(id)
+	items, loadErr := loadRulesets()
+	if err == nil && loadErr != nil {
+		err = loadErr
+	}
+	var state *commonv1.MutationState
+	if err == nil {
+		if changed {
+			state = s.state.AdvanceRuntime(syncstate.DomainRuleSets, rulesetIDs(items), id)
+		} else {
+			state = s.state.Mutation(syncstate.DomainRuleSets, rulesetIDs(items), id)
+		}
+	}
+	s.rulesetsMu.Unlock()
+	if err == nil && changed {
+		s.publishResourceChanged(syncstate.DomainRuleSets, syncstate.OperationRuntime, []string{id}, state)
+		s.notifyReferencedResourcesChanged(syncstate.DomainRuleSets, []string{id})
+	}
+	return results, state, err
+}
+
+func updateAllRulesetsLocked() ([]*appv1.TaskResult, bool, error) {
 	items, err := loadRulesets()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 	results := make([]*appv1.TaskResult, 0, len(items))
 	changed := false
@@ -1374,11 +1428,33 @@ func (s *appRuntimeService) updateAllRulesets() ([]*appv1.TaskResult, error) {
 	}
 	if changed {
 		if err := saveRulesets(items); err != nil {
-			return nil, err
+			return nil, false, err
 		}
-		s.markRuntimeChanged("rulesets", "")
 	}
-	return results, nil
+	return results, changed, nil
+}
+
+func (s *appRuntimeService) updateAllRulesets() ([]*appv1.TaskResult, *commonv1.MutationState, error) {
+	s.rulesetsMu.Lock()
+	results, changed, err := updateAllRulesetsLocked()
+	items, loadErr := loadRulesets()
+	if err == nil && loadErr != nil {
+		err = loadErr
+	}
+	var state *commonv1.MutationState
+	if err == nil {
+		if changed {
+			state = s.state.AdvanceRuntime(syncstate.DomainRuleSets, rulesetIDs(items))
+		} else {
+			state = s.state.Mutation(syncstate.DomainRuleSets, rulesetIDs(items), "")
+		}
+	}
+	s.rulesetsMu.Unlock()
+	if err == nil && changed {
+		s.publishResourceChanged(syncstate.DomainRuleSets, syncstate.OperationRuntime, nil, state)
+		s.notifyReferencedResourcesChanged(syncstate.DomainRuleSets, rulesetIDs(items))
+	}
+	return results, state, err
 }
 
 func (s *appRuntimeService) runScheduledTask(ctx context.Context, id string, publishCompletion bool) (scheduledTaskLog, error) {
@@ -1388,9 +1464,7 @@ func (s *appRuntimeService) runScheduledTask(ctx context.Context, id string, pub
 		now := time.Now().UnixMilli()
 		result := []*appv1.TaskResult{taskResult(false, id, "", "Skipped: task is already running")}
 		log := s.recordTaskLog(id, "", now, now, result)
-		if publishCompletion {
-			s.publish("scheduledTaskFinished", id)
-		}
+		s.publish("scheduledTaskFinished", id, publishCompletion && s.scheduledTaskNotificationEnabled(id))
 		return log, nil
 	}
 	s.runningTask[id] = true
@@ -1401,7 +1475,9 @@ func (s *appRuntimeService) runScheduledTask(ctx context.Context, id string, pub
 		s.mu.Unlock()
 	}()
 
+	s.scheduledTasksMu.Lock()
 	tasks, err := loadScheduledTasks()
+	s.scheduledTasksMu.Unlock()
 	if err != nil {
 		return scheduledTaskLog{}, err
 	}
@@ -1421,7 +1497,7 @@ func (s *appRuntimeService) runScheduledTask(ctx context.Context, id string, pub
 	switch task.Type {
 	case scheduledTaskUpdateSubscription:
 		for _, subID := range task.Subscriptions {
-			r, err := s.updateSubscription(subID)
+			r, _, err := s.updateSubscription(subID)
 			if err != nil {
 				results = append(results, taskResult(false, subID, "", err.Error()))
 				continue
@@ -1430,7 +1506,7 @@ func (s *appRuntimeService) runScheduledTask(ctx context.Context, id string, pub
 		}
 	case scheduledTaskUpdateRuleset:
 		for _, rulesetID := range task.Rulesets {
-			r, err := s.updateRuleset(rulesetID)
+			r, _, err := s.updateRuleset(rulesetID)
 			if err != nil {
 				results = append(results, taskResult(false, rulesetID, "", err.Error()))
 				continue
@@ -1438,9 +1514,9 @@ func (s *appRuntimeService) runScheduledTask(ctx context.Context, id string, pub
 			results = append(results, r...)
 		}
 	case scheduledTaskUpdateAllSubscription:
-		results, err = s.updateAllSubscriptions()
+		results, _, err = s.updateAllSubscriptions()
 	case scheduledTaskUpdateAllRuleset:
-		results, err = s.updateAllRulesets()
+		results, _, err = s.updateAllRulesets()
 	case scheduledTaskRunScript:
 		results = []*appv1.TaskResult{taskResult(false, task.ID, task.Name, "run::script is not supported by the backend scheduler")}
 	default:
@@ -1450,17 +1526,50 @@ func (s *appRuntimeService) runScheduledTask(ctx context.Context, id string, pub
 		results = append(results, taskResult(false, task.ID, task.Name, err.Error()))
 	}
 	end := time.Now().UnixMilli()
-	tasks[idx].LastTime = end
-	_ = saveScheduledTasks(tasks)
-	log := s.recordTaskLog(task.ID, task.Name, start, end, results)
-	if publishCompletion {
-		s.publish("scheduledTaskFinished", task.ID)
+	var taskState *commonv1.MutationState
+	s.scheduledTasksMu.Lock()
+	latestTasks, loadErr := loadScheduledTasks()
+	if loadErr == nil {
+		for i := range latestTasks {
+			if latestTasks[i].ID == task.ID {
+				latestTasks[i].LastTime = end
+				if saveErr := saveScheduledTasks(latestTasks); saveErr == nil {
+					taskState = s.state.AdvanceRuntime(syncstate.DomainScheduledTasks, scheduledTaskIDs(latestTasks), task.ID)
+				}
+				break
+			}
+		}
 	}
+	s.scheduledTasksMu.Unlock()
+	log := s.recordTaskLog(task.ID, task.Name, start, end, results)
+	if taskState != nil {
+		s.publishResourceChanged(syncstate.DomainScheduledTasks, syncstate.OperationRuntime, []string{task.ID}, taskState)
+	}
+	s.publish("scheduledTaskFinished", task.ID, publishCompletion && task.Notification)
 	_ = ctx
 	return log, nil
 }
 
+func (s *appRuntimeService) scheduledTaskNotificationEnabled(id string) bool {
+	s.scheduledTasksMu.Lock()
+	defer s.scheduledTasksMu.Unlock()
+	tasks, err := loadScheduledTasks()
+	if err != nil {
+		return false
+	}
+	for _, task := range tasks {
+		if task.ID == id {
+			return task.Notification
+		}
+	}
+	return false
+}
+
 func (s *appRuntimeService) recordTaskLog(id string, name string, start int64, end int64, results []*appv1.TaskResult) scheduledTaskLog {
+	s.scheduledTasksMu.Lock()
+	tasks, tasksErr := loadScheduledTasks()
+	s.scheduledTasksMu.Unlock()
+
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	log := scheduledTaskLog{
@@ -1472,8 +1581,7 @@ func (s *appRuntimeService) recordTaskLog(id string, name string, start int64, e
 	}
 	s.taskLogs = append([]scheduledTaskLog{log}, s.taskLogs...)
 
-	tasks, err := loadScheduledTasks()
-	if err == nil {
+	if tasksErr == nil {
 		s.taskLogs = trimScheduledTaskLogs(s.taskLogs, tasks)
 	}
 	_ = saveScheduledTaskLogs(s.taskLogs)
@@ -1481,142 +1589,493 @@ func (s *appRuntimeService) recordTaskLog(id string, name string, start int64, e
 }
 
 func (s *appRuntimeService) ListSubscriptions(ctx context.Context, req *connect.Request[appv1.ListSubscriptionsRequest]) (*connect.Response[appv1.ListSubscriptionsResponse], error) {
+	s.subscriptionsMu.Lock()
 	subscriptions, err := loadSubscriptions()
 	if err != nil {
+		s.subscriptionsMu.Unlock()
 		return nil, asConnectError(err)
 	}
 	items, err := subscriptionsToJSON(subscriptions)
+	state := s.state.Snapshot(syncstate.DomainSubscriptions, subscriptionIDs(subscriptions))
+	s.subscriptionsMu.Unlock()
 	if err != nil {
 		return nil, asConnectError(err)
 	}
-	return connect.NewResponse(&appv1.ListSubscriptionsResponse{SubscriptionsJson: items}), nil
+	return connect.NewResponse(&appv1.ListSubscriptionsResponse{SubscriptionsJson: items, State: state}), nil
 }
 
-func (s *appRuntimeService) SaveSubscriptions(ctx context.Context, req *connect.Request[appv1.SaveSubscriptionsRequest]) (*connect.Response[appv1.SaveSubscriptionsResponse], error) {
-	items, err := saveSubscriptionsJSON(req.Msg.GetSubscriptionsJson())
+func (s *appRuntimeService) CreateSubscription(ctx context.Context, req *connect.Request[appv1.CreateSubscriptionRequest]) (*connect.Response[appv1.CreateSubscriptionResponse], error) {
+	item, err := decodeSubscription(req.Msg.GetSubscriptionJson())
 	if err != nil {
 		return nil, asConnectError(err)
 	}
-	s.markRuntimeChanged("subscriptions", "")
-	return connect.NewResponse(&appv1.SaveSubscriptionsResponse{SubscriptionsJson: items}), nil
+	item.Upload = 0
+	item.Download = 0
+	item.Total = 0
+	item.Expire = 0
+	item.UpdateTime = 0
+	item.Proxies = nil
+	s.subscriptionsMu.Lock()
+	items, err := loadSubscriptions()
+	if err != nil {
+		s.subscriptionsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	for _, existing := range items {
+		if existing.ID == item.ID {
+			s.subscriptionsMu.Unlock()
+			return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("subscription %q already exists", item.ID))
+		}
+	}
+	items = append(items, item)
+	if err := saveSubscriptions(items); err != nil {
+		s.subscriptionsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	state := s.state.Advance(syncstate.DomainSubscriptions, subscriptionIDs(items), []string{item.ID}, nil, true, item.ID)
+	data, err := json.Marshal(item)
+	s.subscriptionsMu.Unlock()
+	if err != nil {
+		return nil, asConnectError(err)
+	}
+	s.publishResourceChanged(syncstate.DomainSubscriptions, syncstate.OperationUpsert, []string{item.ID}, state)
+	s.notifyReferencedResourcesChanged(syncstate.DomainSubscriptions, []string{item.ID})
+	return connect.NewResponse(&appv1.CreateSubscriptionResponse{SubscriptionJson: string(data), State: state}), nil
 }
 
-func (s *appRuntimeService) UpsertSubscription(ctx context.Context, req *connect.Request[appv1.UpsertSubscriptionRequest]) (*connect.Response[appv1.UpsertSubscriptionResponse], error) {
-	item, err := upsertSubscriptionJSON(req.Msg.GetSubscriptionJson())
+func (s *appRuntimeService) UpdateSubscriptionConfig(ctx context.Context, req *connect.Request[appv1.UpdateSubscriptionConfigRequest]) (*connect.Response[appv1.UpdateSubscriptionConfigResponse], error) {
+	requested, err := decodeSubscription(req.Msg.GetSubscriptionJson())
 	if err != nil {
 		return nil, asConnectError(err)
 	}
-	var decoded map[string]any
-	_ = json.Unmarshal([]byte(item), &decoded)
-	id, _ := decoded["id"].(string)
-	s.markRuntimeChanged("subscription", id)
-	return connect.NewResponse(&appv1.UpsertSubscriptionResponse{SubscriptionJson: item}), nil
+	s.subscriptionsMu.Lock()
+	items, err := loadSubscriptions()
+	if err != nil {
+		s.subscriptionsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	idx := -1
+	for index := range items {
+		if items[index].ID == requested.ID {
+			idx = index
+			break
+		}
+	}
+	if idx == -1 {
+		s.subscriptionsMu.Unlock()
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("subscription %q not found", requested.ID))
+	}
+	if err := s.state.CheckItem(syncstate.DomainSubscriptions, subscriptionIDs(items), requested.ID, req.Msg.GetExpectedRevision(), true); err != nil {
+		s.subscriptionsMu.Unlock()
+		return nil, err
+	}
+	existing := items[idx]
+	requested.Upload = existing.Upload
+	requested.Download = existing.Download
+	requested.Total = existing.Total
+	requested.Expire = existing.Expire
+	requested.UpdateTime = existing.UpdateTime
+	requested.Proxies = existing.Proxies
+	requested.Updating = false
+	if subscriptionConfigEqual(existing, requested) {
+		state := s.state.Mutation(syncstate.DomainSubscriptions, subscriptionIDs(items), requested.ID)
+		data, marshalErr := json.Marshal(existing)
+		s.subscriptionsMu.Unlock()
+		if marshalErr != nil {
+			return nil, asConnectError(marshalErr)
+		}
+		return connect.NewResponse(&appv1.UpdateSubscriptionConfigResponse{SubscriptionJson: string(data), State: state}), nil
+	}
+	items[idx] = requested
+	if err := saveSubscriptions(items); err != nil {
+		s.subscriptionsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	state := s.state.Advance(syncstate.DomainSubscriptions, subscriptionIDs(items), []string{requested.ID}, nil, false, requested.ID)
+	data, err := json.Marshal(requested)
+	s.subscriptionsMu.Unlock()
+	if err != nil {
+		return nil, asConnectError(err)
+	}
+	s.publishResourceChanged(syncstate.DomainSubscriptions, syncstate.OperationUpsert, []string{requested.ID}, state)
+	s.notifyReferencedResourcesChanged(syncstate.DomainSubscriptions, []string{requested.ID})
+	return connect.NewResponse(&appv1.UpdateSubscriptionConfigResponse{SubscriptionJson: string(data), State: state}), nil
 }
 
 func (s *appRuntimeService) DeleteSubscription(ctx context.Context, req *connect.Request[appv1.DeleteSubscriptionRequest]) (*connect.Response[appv1.DeleteSubscriptionResponse], error) {
-	if err := deleteSubscription(req.Msg.GetId()); err != nil {
+	s.subscriptionsMu.Lock()
+	items, err := loadSubscriptions()
+	if err != nil {
+		s.subscriptionsMu.Unlock()
 		return nil, asConnectError(err)
 	}
-	s.markRuntimeChanged("subscription", req.Msg.GetId())
-	return connect.NewResponse(&appv1.DeleteSubscriptionResponse{}), nil
+	found := false
+	for _, item := range items {
+		if item.ID == req.Msg.GetId() {
+			found = true
+			break
+		}
+	}
+	if !found {
+		s.subscriptionsMu.Unlock()
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("subscription %q not found", req.Msg.GetId()))
+	}
+	if err := s.state.CheckItem(syncstate.DomainSubscriptions, subscriptionIDs(items), req.Msg.GetId(), req.Msg.GetExpectedRevision(), true); err != nil {
+		s.subscriptionsMu.Unlock()
+		return nil, err
+	}
+	if err := deleteSubscription(req.Msg.GetId()); err != nil {
+		s.subscriptionsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	current, err := loadSubscriptions()
+	if err != nil {
+		s.subscriptionsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	state := s.state.Advance(syncstate.DomainSubscriptions, subscriptionIDs(current), nil, []string{req.Msg.GetId()}, true, req.Msg.GetId())
+	s.subscriptionsMu.Unlock()
+	s.publishResourceChanged(syncstate.DomainSubscriptions, syncstate.OperationDelete, []string{req.Msg.GetId()}, state)
+	s.notifyReferencedResourcesChanged(syncstate.DomainSubscriptions, []string{req.Msg.GetId()})
+	return connect.NewResponse(&appv1.DeleteSubscriptionResponse{State: state}), nil
+}
+
+func (s *appRuntimeService) ReorderSubscriptions(ctx context.Context, req *connect.Request[appv1.ReorderSubscriptionsRequest]) (*connect.Response[appv1.ReorderSubscriptionsResponse], error) {
+	s.subscriptionsMu.Lock()
+	items, err := loadSubscriptions()
+	if err != nil {
+		s.subscriptionsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	currentIDs := subscriptionIDs(items)
+	if err := s.state.CheckOrder(syncstate.DomainSubscriptions, currentIDs, req.Msg.GetExpectedOrderRevision(), true); err != nil {
+		s.subscriptionsMu.Unlock()
+		return nil, err
+	}
+	if err := validateRuntimeOrderIDs("subscription", currentIDs, req.Msg.GetIds()); err != nil {
+		s.subscriptionsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	if stringSlicesEqual(currentIDs, req.Msg.GetIds()) {
+		state := s.state.Mutation(syncstate.DomainSubscriptions, currentIDs, "")
+		s.subscriptionsMu.Unlock()
+		return connect.NewResponse(&appv1.ReorderSubscriptionsResponse{Ids: currentIDs, State: state}), nil
+	}
+	byID := make(map[string]subscription, len(items))
+	for _, item := range items {
+		byID[item.ID] = item
+	}
+	reordered := make([]subscription, 0, len(items))
+	for _, id := range req.Msg.GetIds() {
+		reordered = append(reordered, byID[id])
+	}
+	if err := saveSubscriptions(reordered); err != nil {
+		s.subscriptionsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	state := s.state.Advance(syncstate.DomainSubscriptions, req.Msg.GetIds(), nil, nil, true, "")
+	s.subscriptionsMu.Unlock()
+	s.publishResourceChanged(syncstate.DomainSubscriptions, syncstate.OperationReorder, nil, state)
+	return connect.NewResponse(&appv1.ReorderSubscriptionsResponse{Ids: append([]string(nil), req.Msg.GetIds()...), State: state}), nil
 }
 
 func (s *appRuntimeService) UpdateSubscription(ctx context.Context, req *connect.Request[appv1.UpdateSubscriptionRequest]) (*connect.Response[appv1.UpdateSubscriptionResponse], error) {
-	results, err := s.updateSubscription(req.Msg.GetId())
+	results, state, err := s.updateSubscription(req.Msg.GetId())
 	if err != nil {
 		return nil, asConnectError(err)
 	}
-	return connect.NewResponse(&appv1.UpdateSubscriptionResponse{Results: results}), nil
+	return connect.NewResponse(&appv1.UpdateSubscriptionResponse{Results: results, State: state}), nil
 }
 
 func (s *appRuntimeService) UpdateAllSubscriptions(ctx context.Context, req *connect.Request[appv1.UpdateAllSubscriptionsRequest]) (*connect.Response[appv1.UpdateAllSubscriptionsResponse], error) {
-	results, err := s.updateAllSubscriptions()
+	results, state, err := s.updateAllSubscriptions()
 	if err != nil {
 		return nil, asConnectError(err)
 	}
-	return connect.NewResponse(&appv1.UpdateAllSubscriptionsResponse{Results: results}), nil
+	return connect.NewResponse(&appv1.UpdateAllSubscriptionsResponse{Results: results, State: state}), nil
 }
 
 func (s *appRuntimeService) GetSubscriptionContent(ctx context.Context, req *connect.Request[appv1.GetSubscriptionContentRequest]) (*connect.Response[appv1.GetSubscriptionContentResponse], error) {
-	if _, _, err := findSubscription(req.Msg.GetId()); err != nil {
-		return nil, asConnectError(err)
+	s.subscriptionsMu.Lock()
+	_, items, err := findSubscription(req.Msg.GetId())
+	if err != nil {
+		s.subscriptionsMu.Unlock()
+		return nil, connect.NewError(connect.CodeNotFound, err)
 	}
 	content, err := readText(subscriptionContentPath(req.Msg.GetId()))
 	if os.IsNotExist(err) {
 		content = ""
 		err = nil
 	}
+	revision := s.state.ExpectedItem(syncstate.DomainSubscriptions, subscriptionIDs(items), req.Msg.GetId())
+	s.subscriptionsMu.Unlock()
 	if err != nil {
 		return nil, asConnectError(err)
 	}
-	return connect.NewResponse(&appv1.GetSubscriptionContentResponse{Content: content}), nil
+	return connect.NewResponse(&appv1.GetSubscriptionContentResponse{Content: content, Revision: revision}), nil
 }
 
 func (s *appRuntimeService) SaveSubscriptionContent(ctx context.Context, req *connect.Request[appv1.SaveSubscriptionContentRequest]) (*connect.Response[appv1.SaveSubscriptionContentResponse], error) {
-	item, err := saveSubscriptionContent(req.Msg.GetId(), req.Msg.GetContent())
+	s.subscriptionsMu.Lock()
+	_, items, err := findSubscription(req.Msg.GetId())
 	if err != nil {
+		s.subscriptionsMu.Unlock()
+		return nil, connect.NewError(connect.CodeNotFound, err)
+	}
+	if err := s.state.CheckItem(syncstate.DomainSubscriptions, subscriptionIDs(items), req.Msg.GetId(), req.Msg.GetExpectedRevision(), true); err != nil {
+		s.subscriptionsMu.Unlock()
+		return nil, err
+	}
+	item, changed, err := saveSubscriptionContent(req.Msg.GetId(), req.Msg.GetContent())
+	if err != nil {
+		s.subscriptionsMu.Unlock()
 		return nil, asConnectError(err)
 	}
-	s.markRuntimeChanged("subscription", req.Msg.GetId())
-	return connect.NewResponse(&appv1.SaveSubscriptionContentResponse{SubscriptionJson: item}), nil
+	current, err := loadSubscriptions()
+	if err != nil {
+		s.subscriptionsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	state := s.state.Mutation(syncstate.DomainSubscriptions, subscriptionIDs(current), req.Msg.GetId())
+	if changed {
+		state = s.state.Advance(syncstate.DomainSubscriptions, subscriptionIDs(current), []string{req.Msg.GetId()}, nil, false, req.Msg.GetId())
+	}
+	s.subscriptionsMu.Unlock()
+	if changed {
+		s.publishResourceChanged(syncstate.DomainSubscriptions, syncstate.OperationUpsert, []string{req.Msg.GetId()}, state)
+		s.notifyReferencedResourcesChanged(syncstate.DomainSubscriptions, []string{req.Msg.GetId()})
+	}
+	return connect.NewResponse(&appv1.SaveSubscriptionContentResponse{SubscriptionJson: item, State: state}), nil
 }
 
 func (s *appRuntimeService) ListRuleSets(ctx context.Context, req *connect.Request[appv1.ListRuleSetsRequest]) (*connect.Response[appv1.ListRuleSetsResponse], error) {
+	s.rulesetsMu.Lock()
 	rulesets, err := loadRulesets()
 	if err != nil {
+		s.rulesetsMu.Unlock()
 		return nil, asConnectError(err)
 	}
 	items, err := rulesetsToJSON(rulesets)
-	if err != nil {
-		return nil, asConnectError(err)
-	}
+	state := s.state.Snapshot(syncstate.DomainRuleSets, rulesetIDs(rulesets))
 	hub := string(mustRead(GetPath(rulesetHubPath)))
-	return connect.NewResponse(&appv1.ListRuleSetsResponse{RulesetsJson: items, HubJson: hub}), nil
-}
-
-func (s *appRuntimeService) SaveRuleSets(ctx context.Context, req *connect.Request[appv1.SaveRuleSetsRequest]) (*connect.Response[appv1.SaveRuleSetsResponse], error) {
-	items, err := saveRulesetsJSON(req.Msg.GetRulesetsJson())
+	s.rulesetsMu.Unlock()
 	if err != nil {
 		return nil, asConnectError(err)
 	}
-	s.markRuntimeChanged("rulesets", "")
-	return connect.NewResponse(&appv1.SaveRuleSetsResponse{RulesetsJson: items}), nil
+	return connect.NewResponse(&appv1.ListRuleSetsResponse{RulesetsJson: items, HubJson: hub, State: state}), nil
 }
 
-func (s *appRuntimeService) UpsertRuleSet(ctx context.Context, req *connect.Request[appv1.UpsertRuleSetRequest]) (*connect.Response[appv1.UpsertRuleSetResponse], error) {
-	item, err := upsertRulesetJSON(req.Msg.GetRulesetJson())
+func decodeRuleSet(raw string) (ruleset, error) {
+	var item ruleset
+	if err := json.Unmarshal([]byte(raw), &item); err != nil {
+		return item, err
+	}
+	if item.ID == "" {
+		return item, invalidArgumentError{message: "id is required"}
+	}
+	if err := validateSourceType(item.Type, "ruleset"); err != nil {
+		return item, err
+	}
+	if item.Format == "" {
+		item.Format = "binary"
+	}
+	return item, nil
+}
+
+func (s *appRuntimeService) CreateRuleSet(ctx context.Context, req *connect.Request[appv1.CreateRuleSetRequest]) (*connect.Response[appv1.CreateRuleSetResponse], error) {
+	item, err := decodeRuleSet(req.Msg.GetRulesetJson())
 	if err != nil {
 		return nil, asConnectError(err)
 	}
-	var decoded map[string]any
-	_ = json.Unmarshal([]byte(item), &decoded)
-	id, _ := decoded["id"].(string)
-	s.markRuntimeChanged("ruleset", id)
-	return connect.NewResponse(&appv1.UpsertRuleSetResponse{RulesetJson: item}), nil
+	s.rulesetsMu.Lock()
+	items, err := loadRulesets()
+	if err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	for _, existing := range items {
+		if existing.ID == item.ID {
+			s.rulesetsMu.Unlock()
+			return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("ruleset %q already exists", item.ID))
+		}
+	}
+	item.Path = managedRulesetPath(item.ID, item.Format)
+	if _, err := ensureDefaultManualRuleSetContent(item); err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	item.Updating = false
+	items = append(items, item)
+	if err := saveRulesets(items); err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	state := s.state.Advance(syncstate.DomainRuleSets, rulesetIDs(items), []string{item.ID}, nil, true, item.ID)
+	data, err := json.Marshal(item)
+	s.rulesetsMu.Unlock()
+	if err != nil {
+		return nil, asConnectError(err)
+	}
+	s.publishResourceChanged(syncstate.DomainRuleSets, syncstate.OperationUpsert, []string{item.ID}, state)
+	s.notifyReferencedResourcesChanged(syncstate.DomainRuleSets, []string{item.ID})
+	return connect.NewResponse(&appv1.CreateRuleSetResponse{RulesetJson: string(data), State: state}), nil
+}
+
+func (s *appRuntimeService) UpdateRuleSetConfig(ctx context.Context, req *connect.Request[appv1.UpdateRuleSetConfigRequest]) (*connect.Response[appv1.UpdateRuleSetConfigResponse], error) {
+	requested, err := decodeRuleSet(req.Msg.GetRulesetJson())
+	if err != nil {
+		return nil, asConnectError(err)
+	}
+	s.rulesetsMu.Lock()
+	items, err := loadRulesets()
+	if err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	idx := -1
+	for index := range items {
+		if items[index].ID == requested.ID {
+			idx = index
+			break
+		}
+	}
+	if idx == -1 {
+		s.rulesetsMu.Unlock()
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("ruleset %q not found", requested.ID))
+	}
+	if err := s.state.CheckItem(syncstate.DomainRuleSets, rulesetIDs(items), requested.ID, req.Msg.GetExpectedRevision(), true); err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, err
+	}
+	existing := items[idx]
+	requested.Path = existing.Path
+	requested.Count = existing.Count
+	requested.UpdateTime = existing.UpdateTime
+	requested.Updating = false
+	if requested.Format != existing.Format || requested.Path == "" {
+		requested.Path = managedRulesetPath(requested.ID, requested.Format)
+		migrateRulesetFile(existing.Path, requested.Path)
+	}
+	if rulesetConfigEqual(existing, requested) {
+		state := s.state.Mutation(syncstate.DomainRuleSets, rulesetIDs(items), requested.ID)
+		data, marshalErr := json.Marshal(existing)
+		s.rulesetsMu.Unlock()
+		if marshalErr != nil {
+			return nil, asConnectError(marshalErr)
+		}
+		return connect.NewResponse(&appv1.UpdateRuleSetConfigResponse{RulesetJson: string(data), State: state}), nil
+	}
+	if _, err := ensureDefaultManualRuleSetContent(requested); err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	items[idx] = requested
+	if err := saveRulesets(items); err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	state := s.state.Advance(syncstate.DomainRuleSets, rulesetIDs(items), []string{requested.ID}, nil, false, requested.ID)
+	data, err := json.Marshal(requested)
+	s.rulesetsMu.Unlock()
+	if err != nil {
+		return nil, asConnectError(err)
+	}
+	s.publishResourceChanged(syncstate.DomainRuleSets, syncstate.OperationUpsert, []string{requested.ID}, state)
+	s.notifyReferencedResourcesChanged(syncstate.DomainRuleSets, []string{requested.ID})
+	return connect.NewResponse(&appv1.UpdateRuleSetConfigResponse{RulesetJson: string(data), State: state}), nil
 }
 
 func (s *appRuntimeService) DeleteRuleSet(ctx context.Context, req *connect.Request[appv1.DeleteRuleSetRequest]) (*connect.Response[appv1.DeleteRuleSetResponse], error) {
-	if err := deleteRuleset(req.Msg.GetId()); err != nil {
+	s.rulesetsMu.Lock()
+	items, err := loadRulesets()
+	if err != nil {
+		s.rulesetsMu.Unlock()
 		return nil, asConnectError(err)
 	}
-	s.markRuntimeChanged("ruleset", req.Msg.GetId())
-	return connect.NewResponse(&appv1.DeleteRuleSetResponse{}), nil
+	found := false
+	for _, item := range items {
+		if item.ID == req.Msg.GetId() {
+			found = true
+			break
+		}
+	}
+	if !found {
+		s.rulesetsMu.Unlock()
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("ruleset %q not found", req.Msg.GetId()))
+	}
+	if err := s.state.CheckItem(syncstate.DomainRuleSets, rulesetIDs(items), req.Msg.GetId(), req.Msg.GetExpectedRevision(), true); err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, err
+	}
+	if err := deleteRuleset(req.Msg.GetId()); err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	current, err := loadRulesets()
+	if err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	state := s.state.Advance(syncstate.DomainRuleSets, rulesetIDs(current), nil, []string{req.Msg.GetId()}, true, req.Msg.GetId())
+	s.rulesetsMu.Unlock()
+	s.publishResourceChanged(syncstate.DomainRuleSets, syncstate.OperationDelete, []string{req.Msg.GetId()}, state)
+	s.notifyReferencedResourcesChanged(syncstate.DomainRuleSets, []string{req.Msg.GetId()})
+	return connect.NewResponse(&appv1.DeleteRuleSetResponse{State: state}), nil
+}
+
+func (s *appRuntimeService) ReorderRuleSets(ctx context.Context, req *connect.Request[appv1.ReorderRuleSetsRequest]) (*connect.Response[appv1.ReorderRuleSetsResponse], error) {
+	s.rulesetsMu.Lock()
+	items, err := loadRulesets()
+	if err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	currentIDs := rulesetIDs(items)
+	if err := s.state.CheckOrder(syncstate.DomainRuleSets, currentIDs, req.Msg.GetExpectedOrderRevision(), true); err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, err
+	}
+	if err := validateRuntimeOrderIDs("ruleset", currentIDs, req.Msg.GetIds()); err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	if stringSlicesEqual(currentIDs, req.Msg.GetIds()) {
+		state := s.state.Mutation(syncstate.DomainRuleSets, currentIDs, "")
+		s.rulesetsMu.Unlock()
+		return connect.NewResponse(&appv1.ReorderRuleSetsResponse{Ids: currentIDs, State: state}), nil
+	}
+	byID := make(map[string]ruleset, len(items))
+	for _, item := range items {
+		byID[item.ID] = item
+	}
+	reordered := make([]ruleset, 0, len(items))
+	for _, id := range req.Msg.GetIds() {
+		reordered = append(reordered, byID[id])
+	}
+	if err := saveRulesets(reordered); err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	state := s.state.Advance(syncstate.DomainRuleSets, req.Msg.GetIds(), nil, nil, true, "")
+	s.rulesetsMu.Unlock()
+	s.publishResourceChanged(syncstate.DomainRuleSets, syncstate.OperationReorder, nil, state)
+	return connect.NewResponse(&appv1.ReorderRuleSetsResponse{Ids: append([]string(nil), req.Msg.GetIds()...), State: state}), nil
 }
 
 func (s *appRuntimeService) UpdateRuleSet(ctx context.Context, req *connect.Request[appv1.UpdateRuleSetRequest]) (*connect.Response[appv1.UpdateRuleSetResponse], error) {
-	results, err := s.updateRuleset(req.Msg.GetId())
+	results, state, err := s.updateRuleset(req.Msg.GetId())
 	if err != nil {
 		return nil, asConnectError(err)
 	}
-	return connect.NewResponse(&appv1.UpdateRuleSetResponse{Results: results}), nil
+	return connect.NewResponse(&appv1.UpdateRuleSetResponse{Results: results, State: state}), nil
 }
 
 func (s *appRuntimeService) UpdateAllRuleSets(ctx context.Context, req *connect.Request[appv1.UpdateAllRuleSetsRequest]) (*connect.Response[appv1.UpdateAllRuleSetsResponse], error) {
-	results, err := s.updateAllRulesets()
+	results, state, err := s.updateAllRulesets()
 	if err != nil {
 		return nil, asConnectError(err)
 	}
-	return connect.NewResponse(&appv1.UpdateAllRuleSetsResponse{Results: results}), nil
+	return connect.NewResponse(&appv1.UpdateAllRuleSetsResponse{Results: results, State: state}), nil
 }
 
 func (s *appRuntimeService) UpdateRuleSetHub(ctx context.Context, req *connect.Request[appv1.UpdateRuleSetHubRequest]) (*connect.Response[appv1.UpdateRuleSetHubResponse], error) {
@@ -1628,13 +2087,29 @@ func (s *appRuntimeService) UpdateRuleSetHub(ctx context.Context, req *connect.R
 	if err := json.Unmarshal([]byte(body), &check); err != nil {
 		return nil, asConnectError(err)
 	}
-	if err := os.MkdirAll(filepath.Dir(GetPath(rulesetHubPath)), os.ModePerm); err != nil {
+	s.rulesetsMu.Lock()
+	items, err := loadRulesets()
+	if err != nil {
+		s.rulesetsMu.Unlock()
 		return nil, asConnectError(err)
 	}
-	if err := os.WriteFile(GetPath(rulesetHubPath), []byte(body), 0644); err != nil {
+	changed := !bytes.Equal(mustRead(GetPath(rulesetHubPath)), []byte(body))
+	if changed {
+		err = storage.AtomicWriteFile(GetPath(rulesetHubPath), []byte(body), 0644)
+	}
+	if err != nil {
+		s.rulesetsMu.Unlock()
 		return nil, asConnectError(err)
 	}
-	return connect.NewResponse(&appv1.UpdateRuleSetHubResponse{HubJson: body}), nil
+	state := s.state.Mutation(syncstate.DomainRuleSets, rulesetIDs(items), "")
+	if changed {
+		state = s.state.AdvanceRuntime(syncstate.DomainRuleSets, rulesetIDs(items))
+	}
+	s.rulesetsMu.Unlock()
+	if changed {
+		s.publishResourceChanged(syncstate.DomainRuleSets, syncstate.OperationRuntime, nil, state)
+	}
+	return connect.NewResponse(&appv1.UpdateRuleSetHubResponse{HubJson: body, State: state}), nil
 }
 
 func loadRuleSetHubCache() (rulesetHub, error) {
@@ -1698,7 +2173,9 @@ func (s *appRuntimeService) PreviewRuleSetHub(ctx context.Context, req *connect.
 }
 
 func (s *appRuntimeService) GetRuleSetContent(ctx context.Context, req *connect.Request[appv1.GetRuleSetContentRequest]) (*connect.Response[appv1.GetRuleSetContentResponse], error) {
-	r, _, err := findRuleset(req.Msg.GetId())
+	s.rulesetsMu.Lock()
+	defer s.rulesetsMu.Unlock()
+	r, items, err := findRuleset(req.Msg.GetId())
 	if err != nil {
 		return nil, asConnectError(err)
 	}
@@ -1713,84 +2190,301 @@ func (s *appRuntimeService) GetRuleSetContent(ctx context.Context, req *connect.
 	if err != nil {
 		return nil, asConnectError(err)
 	}
-	return connect.NewResponse(&appv1.GetRuleSetContentResponse{Content: content}), nil
+	return connect.NewResponse(&appv1.GetRuleSetContentResponse{
+		Content:  content,
+		Revision: s.state.ExpectedItem(syncstate.DomainRuleSets, rulesetIDs(items), req.Msg.GetId()),
+	}), nil
 }
 
 func (s *appRuntimeService) SaveRuleSetContent(ctx context.Context, req *connect.Request[appv1.SaveRuleSetContentRequest]) (*connect.Response[appv1.SaveRuleSetContentResponse], error) {
-	item, err := saveRuleSetContent(req.Msg.GetId(), req.Msg.GetContent())
+	s.rulesetsMu.Lock()
+	items, err := loadRulesets()
 	if err != nil {
+		s.rulesetsMu.Unlock()
 		return nil, asConnectError(err)
 	}
-	s.markRuntimeChanged("ruleset", req.Msg.GetId())
-	return connect.NewResponse(&appv1.SaveRuleSetContentResponse{RulesetJson: item}), nil
+	found := false
+	for _, item := range items {
+		if item.ID == req.Msg.GetId() {
+			found = true
+			break
+		}
+	}
+	if !found {
+		s.rulesetsMu.Unlock()
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("ruleset %q not found", req.Msg.GetId()))
+	}
+	if err := s.state.CheckItem(syncstate.DomainRuleSets, rulesetIDs(items), req.Msg.GetId(), req.Msg.GetExpectedRevision(), true); err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, err
+	}
+	item, changed, err := saveRuleSetContent(req.Msg.GetId(), req.Msg.GetContent())
+	if err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	current, err := loadRulesets()
+	if err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	state := s.state.Mutation(syncstate.DomainRuleSets, rulesetIDs(current), req.Msg.GetId())
+	if changed {
+		state = s.state.Advance(syncstate.DomainRuleSets, rulesetIDs(current), []string{req.Msg.GetId()}, nil, false, req.Msg.GetId())
+	}
+	s.rulesetsMu.Unlock()
+	if changed {
+		s.publishResourceChanged(syncstate.DomainRuleSets, syncstate.OperationUpsert, []string{req.Msg.GetId()}, state)
+		s.notifyReferencedResourcesChanged(syncstate.DomainRuleSets, []string{req.Msg.GetId()})
+	}
+	return connect.NewResponse(&appv1.SaveRuleSetContentResponse{RulesetJson: item, State: state}), nil
 }
 
 func (s *appRuntimeService) ClearRuleSetContent(ctx context.Context, req *connect.Request[appv1.ClearRuleSetContentRequest]) (*connect.Response[appv1.ClearRuleSetContentResponse], error) {
-	item, err := saveRuleSetContent(req.Msg.GetId(), defaultSourceRuleSetContent)
+	s.rulesetsMu.Lock()
+	items, err := loadRulesets()
 	if err != nil {
+		s.rulesetsMu.Unlock()
 		return nil, asConnectError(err)
 	}
-	s.markRuntimeChanged("ruleset", req.Msg.GetId())
-	return connect.NewResponse(&appv1.ClearRuleSetContentResponse{RulesetJson: item}), nil
+	found := false
+	for _, item := range items {
+		if item.ID == req.Msg.GetId() {
+			found = true
+			break
+		}
+	}
+	if !found {
+		s.rulesetsMu.Unlock()
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("ruleset %q not found", req.Msg.GetId()))
+	}
+	if err := s.state.CheckItem(syncstate.DomainRuleSets, rulesetIDs(items), req.Msg.GetId(), req.Msg.GetExpectedRevision(), true); err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, err
+	}
+	item, changed, err := saveRuleSetContent(req.Msg.GetId(), defaultSourceRuleSetContent)
+	if err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	current, err := loadRulesets()
+	if err != nil {
+		s.rulesetsMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	state := s.state.Mutation(syncstate.DomainRuleSets, rulesetIDs(current), req.Msg.GetId())
+	if changed {
+		state = s.state.Advance(syncstate.DomainRuleSets, rulesetIDs(current), []string{req.Msg.GetId()}, nil, false, req.Msg.GetId())
+	}
+	s.rulesetsMu.Unlock()
+	if changed {
+		s.publishResourceChanged(syncstate.DomainRuleSets, syncstate.OperationUpsert, []string{req.Msg.GetId()}, state)
+		s.notifyReferencedResourcesChanged(syncstate.DomainRuleSets, []string{req.Msg.GetId()})
+	}
+	return connect.NewResponse(&appv1.ClearRuleSetContentResponse{RulesetJson: item, State: state}), nil
 }
 
 func (s *appRuntimeService) ListScheduledTasks(ctx context.Context, req *connect.Request[appv1.ListScheduledTasksRequest]) (*connect.Response[appv1.ListScheduledTasksResponse], error) {
+	s.scheduledTasksMu.Lock()
 	tasks, err := loadScheduledTasks()
 	if err != nil {
+		s.scheduledTasksMu.Unlock()
 		return nil, asConnectError(err)
 	}
 	items, err := scheduledTasksToJSON(tasks)
+	state := s.state.Snapshot(syncstate.DomainScheduledTasks, scheduledTaskIDs(tasks))
+	s.scheduledTasksMu.Unlock()
 	if err != nil {
 		return nil, asConnectError(err)
 	}
-	return connect.NewResponse(&appv1.ListScheduledTasksResponse{TasksJson: items}), nil
+	return connect.NewResponse(&appv1.ListScheduledTasksResponse{TasksJson: items, State: state}), nil
 }
 
-func (s *appRuntimeService) SaveScheduledTasks(ctx context.Context, req *connect.Request[appv1.SaveScheduledTasksRequest]) (*connect.Response[appv1.SaveScheduledTasksResponse], error) {
-	items, err := saveScheduledTasksJSON(req.Msg.GetTasksJson())
-	if err != nil {
-		return nil, asConnectError(err)
-	}
-	tasks, _ := loadScheduledTasks()
-	s.mu.Lock()
-	s.taskLogs = trimScheduledTaskLogs(s.taskLogs, tasks)
-	_ = saveScheduledTaskLogs(s.taskLogs)
-	s.mu.Unlock()
-	s.restartScheduler()
-	return connect.NewResponse(&appv1.SaveScheduledTasksResponse{TasksJson: items}), nil
-}
-
-func (s *appRuntimeService) UpsertScheduledTask(ctx context.Context, req *connect.Request[appv1.UpsertScheduledTaskRequest]) (*connect.Response[appv1.UpsertScheduledTaskResponse], error) {
+func decodeScheduledTask(raw string) (scheduledTask, error) {
 	var task scheduledTask
-	if err := json.Unmarshal([]byte(req.Msg.GetTaskJson()), &task); err != nil {
-		return nil, asConnectError(err)
+	if err := json.Unmarshal([]byte(raw), &task); err != nil {
+		return task, err
+	}
+	if task.ID == "" {
+		return task, invalidArgumentError{message: "id is required"}
 	}
 	if !task.Disabled && task.Type == scheduledTaskRunScript {
-		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("run::script is not supported by the backend scheduler"))
+		return task, invalidArgumentError{message: "run::script is not supported by the backend scheduler"}
 	}
-	item, err := upsertScheduledTaskJSON(req.Msg.GetTaskJson())
+	task.LogLimit = normalizeScheduledTaskLogLimit(task.LogLimit)
+	return task, nil
+}
+
+func (s *appRuntimeService) CreateScheduledTask(ctx context.Context, req *connect.Request[appv1.CreateScheduledTaskRequest]) (*connect.Response[appv1.CreateScheduledTaskResponse], error) {
+	task, err := decodeScheduledTask(req.Msg.GetTaskJson())
 	if err != nil {
 		return nil, asConnectError(err)
 	}
-	tasks, _ := loadScheduledTasks()
+	task.LastTime = 0
+	s.scheduledTasksMu.Lock()
+	tasks, err := loadScheduledTasks()
+	if err != nil {
+		s.scheduledTasksMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	for _, existing := range tasks {
+		if existing.ID == task.ID {
+			s.scheduledTasksMu.Unlock()
+			return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("scheduled task %q already exists", task.ID))
+		}
+	}
+	tasks = append(tasks, task)
+	if err := saveScheduledTasks(tasks); err != nil {
+		s.scheduledTasksMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	state := s.state.Advance(syncstate.DomainScheduledTasks, scheduledTaskIDs(tasks), []string{task.ID}, nil, true, task.ID)
+	data, err := json.Marshal(task)
+	s.scheduledTasksMu.Unlock()
+	if err != nil {
+		return nil, asConnectError(err)
+	}
+	s.restartScheduler()
+	s.publishResourceChanged(syncstate.DomainScheduledTasks, syncstate.OperationUpsert, []string{task.ID}, state)
+	return connect.NewResponse(&appv1.CreateScheduledTaskResponse{TaskJson: string(data), State: state}), nil
+}
+
+func (s *appRuntimeService) UpdateScheduledTask(ctx context.Context, req *connect.Request[appv1.UpdateScheduledTaskRequest]) (*connect.Response[appv1.UpdateScheduledTaskResponse], error) {
+	requested, err := decodeScheduledTask(req.Msg.GetTaskJson())
+	if err != nil {
+		return nil, asConnectError(err)
+	}
+	s.scheduledTasksMu.Lock()
+	tasks, err := loadScheduledTasks()
+	if err != nil {
+		s.scheduledTasksMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	idx := -1
+	for index := range tasks {
+		if tasks[index].ID == requested.ID {
+			idx = index
+			break
+		}
+	}
+	if idx == -1 {
+		s.scheduledTasksMu.Unlock()
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("scheduled task %q not found", requested.ID))
+	}
+	if err := s.state.CheckItem(syncstate.DomainScheduledTasks, scheduledTaskIDs(tasks), requested.ID, req.Msg.GetExpectedRevision(), true); err != nil {
+		s.scheduledTasksMu.Unlock()
+		return nil, err
+	}
+	existing := tasks[idx]
+	requested.LastTime = existing.LastTime
+	if scheduledTaskConfigEqual(existing, requested) {
+		state := s.state.Mutation(syncstate.DomainScheduledTasks, scheduledTaskIDs(tasks), requested.ID)
+		data, marshalErr := json.Marshal(existing)
+		s.scheduledTasksMu.Unlock()
+		if marshalErr != nil {
+			return nil, asConnectError(marshalErr)
+		}
+		return connect.NewResponse(&appv1.UpdateScheduledTaskResponse{TaskJson: string(data), State: state}), nil
+	}
+	tasks[idx] = requested
+	if err := saveScheduledTasks(tasks); err != nil {
+		s.scheduledTasksMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	state := s.state.Advance(syncstate.DomainScheduledTasks, scheduledTaskIDs(tasks), []string{requested.ID}, nil, false, requested.ID)
+	data, err := json.Marshal(requested)
+	s.scheduledTasksMu.Unlock()
+	if err != nil {
+		return nil, asConnectError(err)
+	}
 	s.mu.Lock()
 	s.taskLogs = trimScheduledTaskLogs(s.taskLogs, tasks)
 	_ = saveScheduledTaskLogs(s.taskLogs)
 	s.mu.Unlock()
 	s.restartScheduler()
-	return connect.NewResponse(&appv1.UpsertScheduledTaskResponse{TaskJson: item}), nil
+	s.publishResourceChanged(syncstate.DomainScheduledTasks, syncstate.OperationUpsert, []string{requested.ID}, state)
+	return connect.NewResponse(&appv1.UpdateScheduledTaskResponse{TaskJson: string(data), State: state}), nil
 }
 
 func (s *appRuntimeService) DeleteScheduledTask(ctx context.Context, req *connect.Request[appv1.DeleteScheduledTaskRequest]) (*connect.Response[appv1.DeleteScheduledTaskResponse], error) {
-	if err := deleteJSONItem(scheduledTasksPath, req.Msg.GetId()); err != nil {
+	s.scheduledTasksMu.Lock()
+	tasks, err := loadScheduledTasks()
+	if err != nil {
+		s.scheduledTasksMu.Unlock()
 		return nil, asConnectError(err)
 	}
+	found := false
+	for _, task := range tasks {
+		if task.ID == req.Msg.GetId() {
+			found = true
+			break
+		}
+	}
+	if !found {
+		s.scheduledTasksMu.Unlock()
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("scheduled task %q not found", req.Msg.GetId()))
+	}
+	if err := s.state.CheckItem(syncstate.DomainScheduledTasks, scheduledTaskIDs(tasks), req.Msg.GetId(), req.Msg.GetExpectedRevision(), true); err != nil {
+		s.scheduledTasksMu.Unlock()
+		return nil, err
+	}
+	if err := deleteJSONItem(scheduledTasksPath, req.Msg.GetId()); err != nil {
+		s.scheduledTasksMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	current, err := loadScheduledTasks()
+	if err != nil {
+		s.scheduledTasksMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	state := s.state.Advance(syncstate.DomainScheduledTasks, scheduledTaskIDs(current), nil, []string{req.Msg.GetId()}, true, req.Msg.GetId())
+	s.scheduledTasksMu.Unlock()
 	s.mu.Lock()
 	s.taskLogs = removeScheduledTaskLogs(s.taskLogs, req.Msg.GetId())
 	_ = saveScheduledTaskLogs(s.taskLogs)
 	s.mu.Unlock()
 	s.restartScheduler()
-	return connect.NewResponse(&appv1.DeleteScheduledTaskResponse{}), nil
+	s.publishResourceChanged(syncstate.DomainScheduledTasks, syncstate.OperationDelete, []string{req.Msg.GetId()}, state)
+	return connect.NewResponse(&appv1.DeleteScheduledTaskResponse{State: state}), nil
+}
+
+func (s *appRuntimeService) ReorderScheduledTasks(ctx context.Context, req *connect.Request[appv1.ReorderScheduledTasksRequest]) (*connect.Response[appv1.ReorderScheduledTasksResponse], error) {
+	s.scheduledTasksMu.Lock()
+	tasks, err := loadScheduledTasks()
+	if err != nil {
+		s.scheduledTasksMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	currentIDs := scheduledTaskIDs(tasks)
+	if err := s.state.CheckOrder(syncstate.DomainScheduledTasks, currentIDs, req.Msg.GetExpectedOrderRevision(), true); err != nil {
+		s.scheduledTasksMu.Unlock()
+		return nil, err
+	}
+	if err := validateRuntimeOrderIDs("scheduled task", currentIDs, req.Msg.GetIds()); err != nil {
+		s.scheduledTasksMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	if stringSlicesEqual(currentIDs, req.Msg.GetIds()) {
+		state := s.state.Mutation(syncstate.DomainScheduledTasks, currentIDs, "")
+		s.scheduledTasksMu.Unlock()
+		return connect.NewResponse(&appv1.ReorderScheduledTasksResponse{Ids: currentIDs, State: state}), nil
+	}
+	byID := make(map[string]scheduledTask, len(tasks))
+	for _, task := range tasks {
+		byID[task.ID] = task
+	}
+	reordered := make([]scheduledTask, 0, len(tasks))
+	for _, id := range req.Msg.GetIds() {
+		reordered = append(reordered, byID[id])
+	}
+	if err := saveScheduledTasks(reordered); err != nil {
+		s.scheduledTasksMu.Unlock()
+		return nil, asConnectError(err)
+	}
+	state := s.state.Advance(syncstate.DomainScheduledTasks, req.Msg.GetIds(), nil, nil, true, "")
+	s.scheduledTasksMu.Unlock()
+	s.publishResourceChanged(syncstate.DomainScheduledTasks, syncstate.OperationReorder, nil, state)
+	return connect.NewResponse(&appv1.ReorderScheduledTasksResponse{Ids: append([]string(nil), req.Msg.GetIds()...), State: state}), nil
 }
 
 func (s *appRuntimeService) RunScheduledTask(ctx context.Context, req *connect.Request[appv1.RunScheduledTaskRequest]) (*connect.Response[appv1.RunScheduledTaskResponse], error) {
@@ -1798,10 +2492,19 @@ func (s *appRuntimeService) RunScheduledTask(ctx context.Context, req *connect.R
 	if err != nil {
 		return nil, asConnectError(err)
 	}
+	s.scheduledTasksMu.Lock()
+	tasks, stateErr := loadScheduledTasks()
+	if stateErr != nil {
+		s.scheduledTasksMu.Unlock()
+		return nil, asConnectError(stateErr)
+	}
+	state := s.state.Mutation(syncstate.DomainScheduledTasks, scheduledTaskIDs(tasks), req.Msg.GetId())
+	s.scheduledTasksMu.Unlock()
 	return connect.NewResponse(&appv1.RunScheduledTaskResponse{
 		Results:   taskResultsToProto(log.Results),
 		StartTime: log.StartTime,
 		EndTime:   log.EndTime,
+		State:     state,
 	}), nil
 }
 

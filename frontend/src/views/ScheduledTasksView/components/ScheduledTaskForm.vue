@@ -4,10 +4,17 @@ import { useI18n } from 'vue-i18n'
 
 import { ScheduledTaskOptions } from '@/constant/app'
 import { ScheduledTasksType } from '@/enums/app'
-import { useScheduledTasksStore, useSubscribesStore, useRulesetsStore } from '@/stores'
+import {
+  isResourceConflict,
+  isResourceNotFound,
+  useScheduledTasksStore,
+  useSubscribesStore,
+  useRulesetsStore,
+} from '@/stores'
 import { alert, deepClone, formatDate, isValidCron, message, sampleID } from '@/utils'
 
 import Button from '@/components/Button/index.vue'
+import ResourceConflictNotice from '@/components/ResourceConflictNotice/index.vue'
 
 import type { ScheduledTask } from '@/types/app'
 import { IsNotificationAvailable, RequestNotificationAuthorization } from '@/bridge'
@@ -19,6 +26,8 @@ interface Props {
 const props = defineProps<Props>()
 
 const loading = ref(false)
+const reloading = ref(false)
+const conflict = ref<'changed' | 'deleted' | null>(null)
 
 const task = ref<ScheduledTask>({
   id: sampleID(),
@@ -38,6 +47,7 @@ const { t } = useI18n()
 const scheduledTasksStore = useScheduledTasksStore()
 const subscribesStore = useSubscribesStore()
 const rulesetsStore = useRulesetsStore()
+let baseRevision = props.id ? scheduledTasksStore.getScheduledTaskRevision(props.id) : undefined
 
 const handleCancel = inject('cancel') as any
 const handleSubmit = inject('submit') as any
@@ -70,17 +80,43 @@ const handleSave = async () => {
 
   try {
     if (props.id) {
-      await scheduledTasksStore.editScheduledTask(props.id, task.value)
+      await scheduledTasksStore.editScheduledTask(props.id, task.value, baseRevision)
     } else {
       await scheduledTasksStore.addScheduledTask(task.value)
     }
     await handleSubmit()
   } catch (error: any) {
     console.error(error)
-    message.error(error)
+    if (isResourceConflict(error) || isResourceNotFound(error)) {
+      await scheduledTasksStore.setupScheduledTasks({ logs: false }).catch(() => undefined)
+      conflict.value = isResourceNotFound(error) ? 'deleted' : 'changed'
+    } else {
+      message.error(error)
+    }
   }
 
   loading.value = false
+}
+
+const loadLatest = async () => {
+  if (!props.id) return
+  reloading.value = true
+  try {
+    await scheduledTasksStore.setupScheduledTasks({ logs: false })
+    const latest = scheduledTasksStore.getScheduledTaskById(props.id)
+    if (!latest) {
+      conflict.value = 'deleted'
+      return
+    }
+    task.value = deepClone(latest)
+    task.value.logLimit = task.value.logLimit && task.value.logLimit > 0 ? task.value.logLimit : 20
+    baseRevision = scheduledTasksStore.getScheduledTaskRevision(props.id)
+    conflict.value = null
+  } catch (error: any) {
+    message.error(error.message || error)
+  } finally {
+    reloading.value = false
+  }
 }
 
 const handleUse = (list: string[], id: string) => {
@@ -169,6 +205,12 @@ defineExpose({ modalSlots })
 
 <template>
   <div>
+    <ResourceConflictNotice
+      v-if="conflict"
+      :kind="conflict"
+      :loading="reloading"
+      @reload="loadLatest"
+    />
     <div class="form-item">
       {{ t('scheduledtask.name') }} *
       <div class="min-w-[75%]">

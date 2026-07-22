@@ -3,7 +3,6 @@ package storage
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 
 	"gopkg.in/yaml.v3"
 )
@@ -28,14 +27,11 @@ func ReadYAML[T any](paths *Paths, path string) (T, error) {
 
 func WriteYAML(paths *Paths, path string, value any) error {
 	fullPath := paths.Resolve(path)
-	if err := os.MkdirAll(filepath.Dir(fullPath), 0o755); err != nil {
-		return fmt.Errorf("create parent directory: %w", err)
-	}
 	data, err := yaml.Marshal(value)
 	if err != nil {
 		return fmt.Errorf("marshal yaml: %w", err)
 	}
-	if err := os.WriteFile(fullPath, data, 0o644); err != nil {
+	if err := AtomicWriteFile(fullPath, data, 0o644); err != nil {
 		return fmt.Errorf("write yaml: %w", err)
 	}
 	return nil

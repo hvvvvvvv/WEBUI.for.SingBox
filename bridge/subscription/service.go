@@ -10,9 +10,10 @@ import (
 
 type Backend interface {
 	ListSubscriptions(context.Context, *connect.Request[appv1.ListSubscriptionsRequest]) (*connect.Response[appv1.ListSubscriptionsResponse], error)
-	SaveSubscriptions(context.Context, *connect.Request[appv1.SaveSubscriptionsRequest]) (*connect.Response[appv1.SaveSubscriptionsResponse], error)
-	UpsertSubscription(context.Context, *connect.Request[appv1.UpsertSubscriptionRequest]) (*connect.Response[appv1.UpsertSubscriptionResponse], error)
+	CreateSubscription(context.Context, *connect.Request[appv1.CreateSubscriptionRequest]) (*connect.Response[appv1.CreateSubscriptionResponse], error)
+	UpdateSubscriptionConfig(context.Context, *connect.Request[appv1.UpdateSubscriptionConfigRequest]) (*connect.Response[appv1.UpdateSubscriptionConfigResponse], error)
 	DeleteSubscription(context.Context, *connect.Request[appv1.DeleteSubscriptionRequest]) (*connect.Response[appv1.DeleteSubscriptionResponse], error)
+	ReorderSubscriptions(context.Context, *connect.Request[appv1.ReorderSubscriptionsRequest]) (*connect.Response[appv1.ReorderSubscriptionsResponse], error)
 	UpdateSubscription(context.Context, *connect.Request[appv1.UpdateSubscriptionRequest]) (*connect.Response[appv1.UpdateSubscriptionResponse], error)
 	UpdateAllSubscriptions(context.Context, *connect.Request[appv1.UpdateAllSubscriptionsRequest]) (*connect.Response[appv1.UpdateAllSubscriptionsResponse], error)
 	GetSubscriptionContent(context.Context, *connect.Request[appv1.GetSubscriptionContentRequest]) (*connect.Response[appv1.GetSubscriptionContentResponse], error)
@@ -31,16 +32,20 @@ func (s *Service) ListSubscriptions(ctx context.Context, req *connect.Request[ap
 	return s.backend.ListSubscriptions(ctx, req)
 }
 
-func (s *Service) SaveSubscriptions(ctx context.Context, req *connect.Request[appv1.SaveSubscriptionsRequest]) (*connect.Response[appv1.SaveSubscriptionsResponse], error) {
-	return s.backend.SaveSubscriptions(ctx, req)
+func (s *Service) CreateSubscription(ctx context.Context, req *connect.Request[appv1.CreateSubscriptionRequest]) (*connect.Response[appv1.CreateSubscriptionResponse], error) {
+	return s.backend.CreateSubscription(ctx, req)
 }
 
-func (s *Service) UpsertSubscription(ctx context.Context, req *connect.Request[appv1.UpsertSubscriptionRequest]) (*connect.Response[appv1.UpsertSubscriptionResponse], error) {
-	return s.backend.UpsertSubscription(ctx, req)
+func (s *Service) UpdateSubscriptionConfig(ctx context.Context, req *connect.Request[appv1.UpdateSubscriptionConfigRequest]) (*connect.Response[appv1.UpdateSubscriptionConfigResponse], error) {
+	return s.backend.UpdateSubscriptionConfig(ctx, req)
 }
 
 func (s *Service) DeleteSubscription(ctx context.Context, req *connect.Request[appv1.DeleteSubscriptionRequest]) (*connect.Response[appv1.DeleteSubscriptionResponse], error) {
 	return s.backend.DeleteSubscription(ctx, req)
+}
+
+func (s *Service) ReorderSubscriptions(ctx context.Context, req *connect.Request[appv1.ReorderSubscriptionsRequest]) (*connect.Response[appv1.ReorderSubscriptionsResponse], error) {
+	return s.backend.ReorderSubscriptions(ctx, req)
 }
 
 func (s *Service) UpdateSubscription(ctx context.Context, req *connect.Request[appv1.UpdateSubscriptionRequest]) (*connect.Response[appv1.UpdateSubscriptionResponse], error) {

@@ -11,6 +11,7 @@ import (
 	"guiforcores/bridge/event"
 	"guiforcores/bridge/rpcutil"
 	"guiforcores/bridge/storage"
+	"guiforcores/bridge/syncstate"
 	profilev1 "guiforcores/gen/profile/v1"
 
 	connect "connectrpc.com/connect"
@@ -22,21 +23,57 @@ import (
 const profilesFilePath = "data/profiles.yaml"
 
 type profileService struct {
-	paths  *storage.Paths
-	events *event.Hub
-	mu     sync.Mutex
+	paths         *storage.Paths
+	events        *event.Hub
+	changeHandler ChangeHandler
+	state         *syncstate.Coordinator
+	mu            sync.Mutex
 }
 
 type Service = profileService
 
-func NewService(paths *storage.Paths, events *event.Hub) *Service {
-	return &profileService{paths: paths, events: events}
+type ChangeHandler interface {
+	ProfilesChanged(ids []string)
+}
+
+func NewService(paths *storage.Paths, events *event.Hub, coordinators ...*syncstate.Coordinator) *Service {
+	state := syncstate.NewCoordinator()
+	if len(coordinators) > 0 && coordinators[0] != nil {
+		state = coordinators[0]
+	}
+	return &profileService{paths: paths, events: events, state: state}
+}
+
+func (s *profileService) SetChangeHandler(handler ChangeHandler) {
+	s.changeHandler = handler
 }
 
 func (s *profileService) publish(eventName string, data ...any) {
 	if s.events != nil {
 		s.events.Publish(eventName, data...)
 	}
+}
+
+func (s *profileService) notifyChanged(ids ...string) {
+	if s.changeHandler != nil && len(ids) > 0 {
+		s.changeHandler.ProfilesChanged(ids)
+	}
+}
+
+func (s *profileService) publishResourceChanged(operation syncstate.Operation, ids []string, state interface {
+	GetInstanceId() string
+	GetStateRevision() uint64
+}) {
+	if ids == nil {
+		ids = []string{}
+	}
+	s.publish("resourceChanged", map[string]any{
+		"domain":        string(syncstate.DomainProfiles),
+		"operation":     string(operation),
+		"ids":           ids,
+		"instanceId":    state.GetInstanceId(),
+		"stateRevision": state.GetStateRevision(),
+	})
 }
 
 type invalidArgumentError struct {
@@ -66,7 +103,10 @@ func (s *profileService) ListProfiles(
 		return nil, asConnectError(err)
 	}
 
-	return connect.NewResponse(&profilev1.ListProfilesResponse{Profiles: cloneProfiles(profiles)}), nil
+	return connect.NewResponse(&profilev1.ListProfilesResponse{
+		Profiles: cloneProfiles(profiles),
+		State:    s.state.Snapshot(syncstate.DomainProfiles, profileIDs(profiles)),
+	}), nil
 }
 
 func (s *profileService) GetProfile(
@@ -104,26 +144,31 @@ func (s *profileService) CreateProfile(
 	}
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	profiles, err := s.loadProfiles()
 	if err != nil {
+		s.mu.Unlock()
 		return nil, asConnectError(err)
 	}
 
 	for _, existing := range profiles {
 		if existing != nil && existing.GetId() == profile.GetId() {
+			s.mu.Unlock()
 			return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("profile %q already exists", profile.GetId()))
 		}
 	}
 
 	profiles = append(profiles, cloneProfile(profile))
 	if err := s.saveProfiles(profiles); err != nil {
+		s.mu.Unlock()
 		return nil, asConnectError(err)
 	}
+	state := s.state.Advance(syncstate.DomainProfiles, profileIDs(profiles), []string{profile.GetId()}, nil, true, profile.GetId())
+	s.mu.Unlock()
 
-	s.publish("profileChange", map[string]any{"id": profile.GetId()})
-	return connect.NewResponse(&profilev1.CreateProfileResponse{Profile: cloneProfile(profile)}), nil
+	s.publishResourceChanged(syncstate.OperationUpsert, []string{profile.GetId()}, state)
+	s.notifyChanged(profile.GetId())
+	return connect.NewResponse(&profilev1.CreateProfileResponse{Profile: cloneProfile(profile), State: state}), nil
 }
 
 func (s *profileService) UpdateProfile(
@@ -136,31 +181,51 @@ func (s *profileService) UpdateProfile(
 	}
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	profiles, err := s.loadProfiles()
 	if err != nil {
+		s.mu.Unlock()
 		return nil, asConnectError(err)
 	}
 
 	updated := false
+	changed := false
+	var saved *profilev1.Profile
 	for idx, existing := range profiles {
 		if existing != nil && existing.GetId() == profile.GetId() {
-			profiles[idx] = cloneProfile(profile)
+			if err := s.state.CheckItem(syncstate.DomainProfiles, profileIDs(profiles), profile.GetId(), req.Msg.GetExpectedRevision(), true); err != nil {
+				s.mu.Unlock()
+				return nil, err
+			}
+			changed = !proto.Equal(existing, profile)
+			if changed {
+				profiles[idx] = cloneProfile(profile)
+			}
+			saved = cloneProfile(profiles[idx])
 			updated = true
 			break
 		}
 	}
 	if !updated {
+		s.mu.Unlock()
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("profile %q not found", profile.GetId()))
 	}
 
+	if !changed {
+		state := s.state.Mutation(syncstate.DomainProfiles, profileIDs(profiles), profile.GetId())
+		s.mu.Unlock()
+		return connect.NewResponse(&profilev1.UpdateProfileResponse{Profile: saved, State: state}), nil
+	}
 	if err := s.saveProfiles(profiles); err != nil {
+		s.mu.Unlock()
 		return nil, asConnectError(err)
 	}
+	state := s.state.Advance(syncstate.DomainProfiles, profileIDs(profiles), []string{profile.GetId()}, nil, false, profile.GetId())
+	s.mu.Unlock()
 
-	s.publish("profileChange", map[string]any{"id": profile.GetId()})
-	return connect.NewResponse(&profilev1.UpdateProfileResponse{Profile: cloneProfile(profile)}), nil
+	s.publishResourceChanged(syncstate.OperationUpsert, []string{profile.GetId()}, state)
+	s.notifyChanged(profile.GetId())
+	return connect.NewResponse(&profilev1.UpdateProfileResponse{Profile: saved, State: state}), nil
 }
 
 func (s *profileService) DeleteProfile(
@@ -173,10 +238,10 @@ func (s *profileService) DeleteProfile(
 	}
 
 	s.mu.Lock()
-	defer s.mu.Unlock()
 
 	profiles, err := s.loadProfiles()
 	if err != nil {
+		s.mu.Unlock()
 		return nil, asConnectError(err)
 	}
 
@@ -190,35 +255,108 @@ func (s *profileService) DeleteProfile(
 		remaining = append(remaining, profile)
 	}
 	if !removed {
+		s.mu.Unlock()
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("profile %q not found", id))
+	}
+	if err := s.state.CheckItem(syncstate.DomainProfiles, profileIDs(profiles), id, req.Msg.GetExpectedRevision(), true); err != nil {
+		s.mu.Unlock()
+		return nil, err
 	}
 
 	if err := s.saveProfiles(remaining); err != nil {
+		s.mu.Unlock()
 		return nil, asConnectError(err)
 	}
+	state := s.state.Advance(syncstate.DomainProfiles, profileIDs(remaining), nil, []string{id}, true, id)
+	s.mu.Unlock()
 
-	s.publish("profileChange", map[string]any{"id": id})
-	return connect.NewResponse(&profilev1.DeleteProfileResponse{}), nil
+	s.publishResourceChanged(syncstate.OperationDelete, []string{id}, state)
+	s.notifyChanged(id)
+	return connect.NewResponse(&profilev1.DeleteProfileResponse{State: state}), nil
 }
 
-func (s *profileService) SaveProfiles(
+func (s *profileService) ReorderProfiles(
 	_ context.Context,
-	req *connect.Request[profilev1.SaveProfilesRequest],
-) (*connect.Response[profilev1.SaveProfilesResponse], error) {
-	profiles := cloneProfiles(req.Msg.GetProfiles())
-	if err := validateProfilesForSave(profiles); err != nil {
-		return nil, asConnectError(err)
-	}
-
+	req *connect.Request[profilev1.ReorderProfilesRequest],
+) (*connect.Response[profilev1.ReorderProfilesResponse], error) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
-
-	if err := s.saveProfiles(profiles); err != nil {
+	profiles, err := s.loadProfiles()
+	if err != nil {
+		s.mu.Unlock()
 		return nil, asConnectError(err)
 	}
+	currentIDs := profileIDs(profiles)
+	if err := s.state.CheckOrder(syncstate.DomainProfiles, currentIDs, req.Msg.GetExpectedOrderRevision(), true); err != nil {
+		s.mu.Unlock()
+		return nil, err
+	}
+	if err := validateOrderIDs(currentIDs, req.Msg.GetIds()); err != nil {
+		s.mu.Unlock()
+		return nil, asConnectError(err)
+	}
+	if slicesEqual(currentIDs, req.Msg.GetIds()) {
+		state := s.state.Mutation(syncstate.DomainProfiles, currentIDs, "")
+		s.mu.Unlock()
+		return connect.NewResponse(&profilev1.ReorderProfilesResponse{Ids: currentIDs, State: state}), nil
+	}
+	byID := make(map[string]*profilev1.Profile, len(profiles))
+	for _, profile := range profiles {
+		byID[profile.GetId()] = profile
+	}
+	reordered := make([]*profilev1.Profile, 0, len(profiles))
+	for _, id := range req.Msg.GetIds() {
+		reordered = append(reordered, byID[id])
+	}
+	if err := s.saveProfiles(reordered); err != nil {
+		s.mu.Unlock()
+		return nil, asConnectError(err)
+	}
+	state := s.state.Advance(syncstate.DomainProfiles, req.Msg.GetIds(), nil, nil, true, "")
+	s.mu.Unlock()
 
-	s.publish("profileChange", map[string]any{"id": ""})
-	return connect.NewResponse(&profilev1.SaveProfilesResponse{Profiles: cloneProfiles(profiles)}), nil
+	s.publishResourceChanged(syncstate.OperationReorder, nil, state)
+	return connect.NewResponse(&profilev1.ReorderProfilesResponse{Ids: append([]string(nil), req.Msg.GetIds()...), State: state}), nil
+}
+
+func profileIDs(profiles []*profilev1.Profile) []string {
+	ids := make([]string, 0, len(profiles))
+	for _, profile := range profiles {
+		if profile != nil && profile.GetId() != "" {
+			ids = append(ids, profile.GetId())
+		}
+	}
+	return ids
+}
+
+func validateOrderIDs(current []string, requested []string) error {
+	if len(current) != len(requested) {
+		return invalidArgumentError{message: "order must contain every profile id exactly once"}
+	}
+	seen := make(map[string]struct{}, len(requested))
+	for _, id := range requested {
+		if _, exists := seen[id]; exists {
+			return invalidArgumentError{message: fmt.Sprintf("duplicate profile id %q in order", id)}
+		}
+		seen[id] = struct{}{}
+	}
+	for _, id := range current {
+		if _, exists := seen[id]; !exists {
+			return invalidArgumentError{message: "order must contain every profile id exactly once"}
+		}
+	}
+	return nil
+}
+
+func slicesEqual(left []string, right []string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for index := range left {
+		if left[index] != right[index] {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *profileService) loadProfiles() ([]*profilev1.Profile, error) {
@@ -285,23 +423,8 @@ func (s *profileService) saveProfiles(profiles []*profilev1.Profile) error {
 	if err != nil {
 		return fmt.Errorf("marshal profiles: %w", err)
 	}
-	if err := os.WriteFile(fullPath, payload, 0644); err != nil {
+	if err := storage.AtomicWriteFile(fullPath, payload, 0644); err != nil {
 		return fmt.Errorf("write profiles file: %w", err)
-	}
-	return nil
-}
-
-func validateProfilesForSave(profiles []*profilev1.Profile) error {
-	seen := make(map[string]struct{}, len(profiles))
-	for idx, profile := range profiles {
-		if profile == nil || profile.GetId() == "" {
-			return invalidArgumentError{message: fmt.Sprintf("profiles[%d].id is required", idx)}
-		}
-		id := profile.GetId()
-		if _, ok := seen[id]; ok {
-			return invalidArgumentError{message: fmt.Sprintf("duplicate profile id %q", id)}
-		}
-		seen[id] = struct{}{}
 	}
 	return nil
 }

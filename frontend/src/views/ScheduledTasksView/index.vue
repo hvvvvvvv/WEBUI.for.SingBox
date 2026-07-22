@@ -3,8 +3,21 @@ import { useI18n, I18nT } from 'vue-i18n'
 
 import { DraggableOptions, ViewOptions } from '@/constant/app'
 import { View } from '@/enums/app'
-import { useAppSettingsStore, useScheduledTasksStore } from '@/stores'
-import { debounce, formatRelativeTime, formatDate, message, alert, confirmDelete } from '@/utils'
+import {
+  isResourceConflict,
+  isResourceNotFound,
+  useAppSettingsStore,
+  useScheduledTasksStore,
+} from '@/stores'
+import {
+  debounce,
+  deepClone,
+  formatRelativeTime,
+  formatDate,
+  message,
+  alert,
+  confirmDelete,
+} from '@/utils'
 
 import { useModal } from '@/components/Modal'
 
@@ -47,6 +60,15 @@ const { t } = useI18n()
 const [Modal, modalApi] = useModal({})
 const scheduledTasksStore = useScheduledTasksStore()
 const appSettingsStore = useAppSettingsStore()
+
+const handleMutationError = async (error: unknown) => {
+  if (isResourceConflict(error) || isResourceNotFound(error)) {
+    await scheduledTasksStore.setupScheduledTasks({ logs: false }).catch(() => undefined)
+    message.error(t('common.operationConflict'))
+    return
+  }
+  message.error((error as any)?.message || error)
+}
 
 const formatTaskRunResults = (results: TaskResult[]) => {
   return results
@@ -106,14 +128,20 @@ const handleDeleteTask = async (s: ScheduledTask) => {
   try {
     await scheduledTasksStore.deleteScheduledTask(s.id)
   } catch (error: any) {
-    console.error('deleteSubscribe: ', error)
-    message.error(error)
+    console.error('deleteScheduledTask: ', error)
+    await handleMutationError(error)
   }
 }
 
 const handleDisableTask = async (s: ScheduledTask) => {
-  s.disabled = !s.disabled
-  await scheduledTasksStore.editScheduledTask(s.id, s)
+  const revision = scheduledTasksStore.getScheduledTaskRevision(s.id)
+  const next = deepClone(s)
+  next.disabled = !next.disabled
+  try {
+    await scheduledTasksStore.editScheduledTask(s.id, next, revision)
+  } catch (error: any) {
+    await handleMutationError(error)
+  }
 }
 
 const handleRefreshTasks = async () => {
@@ -126,7 +154,27 @@ const handleRefreshTasks = async () => {
   }
 }
 
-const onSortUpdate = debounce(scheduledTasksStore.saveScheduledTasks, 1000)
+let sortRevision = scheduledTasksStore.getScheduledTasksOrderRevision()
+let sortStartIDs: string[] = []
+const onSortStart = () => {
+  sortRevision = scheduledTasksStore.getScheduledTasksOrderRevision()
+  sortStartIDs = scheduledTasksStore.scheduledtasks.map((item) => item.id)
+}
+const saveScheduledTaskOrder = debounce(
+  (
+    ids: string[],
+    revision: ReturnType<typeof scheduledTasksStore.getScheduledTasksOrderRevision>,
+    fallbackIDs: string[],
+  ) => scheduledTasksStore.reorderScheduledTasks(ids, revision, fallbackIDs),
+  1000,
+)
+const onSortUpdate = () => {
+  void saveScheduledTaskOrder(
+    scheduledTasksStore.scheduledtasks.map((item) => item.id),
+    sortRevision,
+    sortStartIDs,
+  ).catch((error: any) => void handleMutationError(error))
+}
 </script>
 
 <template>
@@ -167,7 +215,7 @@ const onSortUpdate = debounce(scheduledTasksStore.saveScheduledTasks, 1000)
   <div
     v-draggable="[
       scheduledTasksStore.scheduledtasks,
-      { ...DraggableOptions, onUpdate: onSortUpdate },
+      { ...DraggableOptions, onStart: onSortStart, onUpdate: onSortUpdate },
     ]"
     :class="'grid-list-' + appSettingsStore.app.scheduledtasksView"
   >

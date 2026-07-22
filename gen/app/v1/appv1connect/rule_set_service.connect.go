@@ -36,15 +36,18 @@ const (
 	// RuleSetServiceListRuleSetsProcedure is the fully-qualified name of the RuleSetService's
 	// ListRuleSets RPC.
 	RuleSetServiceListRuleSetsProcedure = "/app.v1.RuleSetService/ListRuleSets"
-	// RuleSetServiceSaveRuleSetsProcedure is the fully-qualified name of the RuleSetService's
-	// SaveRuleSets RPC.
-	RuleSetServiceSaveRuleSetsProcedure = "/app.v1.RuleSetService/SaveRuleSets"
-	// RuleSetServiceUpsertRuleSetProcedure is the fully-qualified name of the RuleSetService's
-	// UpsertRuleSet RPC.
-	RuleSetServiceUpsertRuleSetProcedure = "/app.v1.RuleSetService/UpsertRuleSet"
+	// RuleSetServiceCreateRuleSetProcedure is the fully-qualified name of the RuleSetService's
+	// CreateRuleSet RPC.
+	RuleSetServiceCreateRuleSetProcedure = "/app.v1.RuleSetService/CreateRuleSet"
+	// RuleSetServiceUpdateRuleSetConfigProcedure is the fully-qualified name of the RuleSetService's
+	// UpdateRuleSetConfig RPC.
+	RuleSetServiceUpdateRuleSetConfigProcedure = "/app.v1.RuleSetService/UpdateRuleSetConfig"
 	// RuleSetServiceDeleteRuleSetProcedure is the fully-qualified name of the RuleSetService's
 	// DeleteRuleSet RPC.
 	RuleSetServiceDeleteRuleSetProcedure = "/app.v1.RuleSetService/DeleteRuleSet"
+	// RuleSetServiceReorderRuleSetsProcedure is the fully-qualified name of the RuleSetService's
+	// ReorderRuleSets RPC.
+	RuleSetServiceReorderRuleSetsProcedure = "/app.v1.RuleSetService/ReorderRuleSets"
 	// RuleSetServiceUpdateRuleSetProcedure is the fully-qualified name of the RuleSetService's
 	// UpdateRuleSet RPC.
 	RuleSetServiceUpdateRuleSetProcedure = "/app.v1.RuleSetService/UpdateRuleSet"
@@ -71,9 +74,10 @@ const (
 // RuleSetServiceClient is a client for the app.v1.RuleSetService service.
 type RuleSetServiceClient interface {
 	ListRuleSets(context.Context, *connect.Request[v1.ListRuleSetsRequest]) (*connect.Response[v1.ListRuleSetsResponse], error)
-	SaveRuleSets(context.Context, *connect.Request[v1.SaveRuleSetsRequest]) (*connect.Response[v1.SaveRuleSetsResponse], error)
-	UpsertRuleSet(context.Context, *connect.Request[v1.UpsertRuleSetRequest]) (*connect.Response[v1.UpsertRuleSetResponse], error)
+	CreateRuleSet(context.Context, *connect.Request[v1.CreateRuleSetRequest]) (*connect.Response[v1.CreateRuleSetResponse], error)
+	UpdateRuleSetConfig(context.Context, *connect.Request[v1.UpdateRuleSetConfigRequest]) (*connect.Response[v1.UpdateRuleSetConfigResponse], error)
 	DeleteRuleSet(context.Context, *connect.Request[v1.DeleteRuleSetRequest]) (*connect.Response[v1.DeleteRuleSetResponse], error)
+	ReorderRuleSets(context.Context, *connect.Request[v1.ReorderRuleSetsRequest]) (*connect.Response[v1.ReorderRuleSetsResponse], error)
 	UpdateRuleSet(context.Context, *connect.Request[v1.UpdateRuleSetRequest]) (*connect.Response[v1.UpdateRuleSetResponse], error)
 	UpdateAllRuleSets(context.Context, *connect.Request[v1.UpdateAllRuleSetsRequest]) (*connect.Response[v1.UpdateAllRuleSetsResponse], error)
 	UpdateRuleSetHub(context.Context, *connect.Request[v1.UpdateRuleSetHubRequest]) (*connect.Response[v1.UpdateRuleSetHubResponse], error)
@@ -100,22 +104,28 @@ func NewRuleSetServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(ruleSetServiceMethods.ByName("ListRuleSets")),
 			connect.WithClientOptions(opts...),
 		),
-		saveRuleSets: connect.NewClient[v1.SaveRuleSetsRequest, v1.SaveRuleSetsResponse](
+		createRuleSet: connect.NewClient[v1.CreateRuleSetRequest, v1.CreateRuleSetResponse](
 			httpClient,
-			baseURL+RuleSetServiceSaveRuleSetsProcedure,
-			connect.WithSchema(ruleSetServiceMethods.ByName("SaveRuleSets")),
+			baseURL+RuleSetServiceCreateRuleSetProcedure,
+			connect.WithSchema(ruleSetServiceMethods.ByName("CreateRuleSet")),
 			connect.WithClientOptions(opts...),
 		),
-		upsertRuleSet: connect.NewClient[v1.UpsertRuleSetRequest, v1.UpsertRuleSetResponse](
+		updateRuleSetConfig: connect.NewClient[v1.UpdateRuleSetConfigRequest, v1.UpdateRuleSetConfigResponse](
 			httpClient,
-			baseURL+RuleSetServiceUpsertRuleSetProcedure,
-			connect.WithSchema(ruleSetServiceMethods.ByName("UpsertRuleSet")),
+			baseURL+RuleSetServiceUpdateRuleSetConfigProcedure,
+			connect.WithSchema(ruleSetServiceMethods.ByName("UpdateRuleSetConfig")),
 			connect.WithClientOptions(opts...),
 		),
 		deleteRuleSet: connect.NewClient[v1.DeleteRuleSetRequest, v1.DeleteRuleSetResponse](
 			httpClient,
 			baseURL+RuleSetServiceDeleteRuleSetProcedure,
 			connect.WithSchema(ruleSetServiceMethods.ByName("DeleteRuleSet")),
+			connect.WithClientOptions(opts...),
+		),
+		reorderRuleSets: connect.NewClient[v1.ReorderRuleSetsRequest, v1.ReorderRuleSetsResponse](
+			httpClient,
+			baseURL+RuleSetServiceReorderRuleSetsProcedure,
+			connect.WithSchema(ruleSetServiceMethods.ByName("ReorderRuleSets")),
 			connect.WithClientOptions(opts...),
 		),
 		updateRuleSet: connect.NewClient[v1.UpdateRuleSetRequest, v1.UpdateRuleSetResponse](
@@ -166,9 +176,10 @@ func NewRuleSetServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 // ruleSetServiceClient implements RuleSetServiceClient.
 type ruleSetServiceClient struct {
 	listRuleSets        *connect.Client[v1.ListRuleSetsRequest, v1.ListRuleSetsResponse]
-	saveRuleSets        *connect.Client[v1.SaveRuleSetsRequest, v1.SaveRuleSetsResponse]
-	upsertRuleSet       *connect.Client[v1.UpsertRuleSetRequest, v1.UpsertRuleSetResponse]
+	createRuleSet       *connect.Client[v1.CreateRuleSetRequest, v1.CreateRuleSetResponse]
+	updateRuleSetConfig *connect.Client[v1.UpdateRuleSetConfigRequest, v1.UpdateRuleSetConfigResponse]
 	deleteRuleSet       *connect.Client[v1.DeleteRuleSetRequest, v1.DeleteRuleSetResponse]
+	reorderRuleSets     *connect.Client[v1.ReorderRuleSetsRequest, v1.ReorderRuleSetsResponse]
 	updateRuleSet       *connect.Client[v1.UpdateRuleSetRequest, v1.UpdateRuleSetResponse]
 	updateAllRuleSets   *connect.Client[v1.UpdateAllRuleSetsRequest, v1.UpdateAllRuleSetsResponse]
 	updateRuleSetHub    *connect.Client[v1.UpdateRuleSetHubRequest, v1.UpdateRuleSetHubResponse]
@@ -183,19 +194,24 @@ func (c *ruleSetServiceClient) ListRuleSets(ctx context.Context, req *connect.Re
 	return c.listRuleSets.CallUnary(ctx, req)
 }
 
-// SaveRuleSets calls app.v1.RuleSetService.SaveRuleSets.
-func (c *ruleSetServiceClient) SaveRuleSets(ctx context.Context, req *connect.Request[v1.SaveRuleSetsRequest]) (*connect.Response[v1.SaveRuleSetsResponse], error) {
-	return c.saveRuleSets.CallUnary(ctx, req)
+// CreateRuleSet calls app.v1.RuleSetService.CreateRuleSet.
+func (c *ruleSetServiceClient) CreateRuleSet(ctx context.Context, req *connect.Request[v1.CreateRuleSetRequest]) (*connect.Response[v1.CreateRuleSetResponse], error) {
+	return c.createRuleSet.CallUnary(ctx, req)
 }
 
-// UpsertRuleSet calls app.v1.RuleSetService.UpsertRuleSet.
-func (c *ruleSetServiceClient) UpsertRuleSet(ctx context.Context, req *connect.Request[v1.UpsertRuleSetRequest]) (*connect.Response[v1.UpsertRuleSetResponse], error) {
-	return c.upsertRuleSet.CallUnary(ctx, req)
+// UpdateRuleSetConfig calls app.v1.RuleSetService.UpdateRuleSetConfig.
+func (c *ruleSetServiceClient) UpdateRuleSetConfig(ctx context.Context, req *connect.Request[v1.UpdateRuleSetConfigRequest]) (*connect.Response[v1.UpdateRuleSetConfigResponse], error) {
+	return c.updateRuleSetConfig.CallUnary(ctx, req)
 }
 
 // DeleteRuleSet calls app.v1.RuleSetService.DeleteRuleSet.
 func (c *ruleSetServiceClient) DeleteRuleSet(ctx context.Context, req *connect.Request[v1.DeleteRuleSetRequest]) (*connect.Response[v1.DeleteRuleSetResponse], error) {
 	return c.deleteRuleSet.CallUnary(ctx, req)
+}
+
+// ReorderRuleSets calls app.v1.RuleSetService.ReorderRuleSets.
+func (c *ruleSetServiceClient) ReorderRuleSets(ctx context.Context, req *connect.Request[v1.ReorderRuleSetsRequest]) (*connect.Response[v1.ReorderRuleSetsResponse], error) {
+	return c.reorderRuleSets.CallUnary(ctx, req)
 }
 
 // UpdateRuleSet calls app.v1.RuleSetService.UpdateRuleSet.
@@ -236,9 +252,10 @@ func (c *ruleSetServiceClient) ClearRuleSetContent(ctx context.Context, req *con
 // RuleSetServiceHandler is an implementation of the app.v1.RuleSetService service.
 type RuleSetServiceHandler interface {
 	ListRuleSets(context.Context, *connect.Request[v1.ListRuleSetsRequest]) (*connect.Response[v1.ListRuleSetsResponse], error)
-	SaveRuleSets(context.Context, *connect.Request[v1.SaveRuleSetsRequest]) (*connect.Response[v1.SaveRuleSetsResponse], error)
-	UpsertRuleSet(context.Context, *connect.Request[v1.UpsertRuleSetRequest]) (*connect.Response[v1.UpsertRuleSetResponse], error)
+	CreateRuleSet(context.Context, *connect.Request[v1.CreateRuleSetRequest]) (*connect.Response[v1.CreateRuleSetResponse], error)
+	UpdateRuleSetConfig(context.Context, *connect.Request[v1.UpdateRuleSetConfigRequest]) (*connect.Response[v1.UpdateRuleSetConfigResponse], error)
 	DeleteRuleSet(context.Context, *connect.Request[v1.DeleteRuleSetRequest]) (*connect.Response[v1.DeleteRuleSetResponse], error)
+	ReorderRuleSets(context.Context, *connect.Request[v1.ReorderRuleSetsRequest]) (*connect.Response[v1.ReorderRuleSetsResponse], error)
 	UpdateRuleSet(context.Context, *connect.Request[v1.UpdateRuleSetRequest]) (*connect.Response[v1.UpdateRuleSetResponse], error)
 	UpdateAllRuleSets(context.Context, *connect.Request[v1.UpdateAllRuleSetsRequest]) (*connect.Response[v1.UpdateAllRuleSetsResponse], error)
 	UpdateRuleSetHub(context.Context, *connect.Request[v1.UpdateRuleSetHubRequest]) (*connect.Response[v1.UpdateRuleSetHubResponse], error)
@@ -261,22 +278,28 @@ func NewRuleSetServiceHandler(svc RuleSetServiceHandler, opts ...connect.Handler
 		connect.WithSchema(ruleSetServiceMethods.ByName("ListRuleSets")),
 		connect.WithHandlerOptions(opts...),
 	)
-	ruleSetServiceSaveRuleSetsHandler := connect.NewUnaryHandler(
-		RuleSetServiceSaveRuleSetsProcedure,
-		svc.SaveRuleSets,
-		connect.WithSchema(ruleSetServiceMethods.ByName("SaveRuleSets")),
+	ruleSetServiceCreateRuleSetHandler := connect.NewUnaryHandler(
+		RuleSetServiceCreateRuleSetProcedure,
+		svc.CreateRuleSet,
+		connect.WithSchema(ruleSetServiceMethods.ByName("CreateRuleSet")),
 		connect.WithHandlerOptions(opts...),
 	)
-	ruleSetServiceUpsertRuleSetHandler := connect.NewUnaryHandler(
-		RuleSetServiceUpsertRuleSetProcedure,
-		svc.UpsertRuleSet,
-		connect.WithSchema(ruleSetServiceMethods.ByName("UpsertRuleSet")),
+	ruleSetServiceUpdateRuleSetConfigHandler := connect.NewUnaryHandler(
+		RuleSetServiceUpdateRuleSetConfigProcedure,
+		svc.UpdateRuleSetConfig,
+		connect.WithSchema(ruleSetServiceMethods.ByName("UpdateRuleSetConfig")),
 		connect.WithHandlerOptions(opts...),
 	)
 	ruleSetServiceDeleteRuleSetHandler := connect.NewUnaryHandler(
 		RuleSetServiceDeleteRuleSetProcedure,
 		svc.DeleteRuleSet,
 		connect.WithSchema(ruleSetServiceMethods.ByName("DeleteRuleSet")),
+		connect.WithHandlerOptions(opts...),
+	)
+	ruleSetServiceReorderRuleSetsHandler := connect.NewUnaryHandler(
+		RuleSetServiceReorderRuleSetsProcedure,
+		svc.ReorderRuleSets,
+		connect.WithSchema(ruleSetServiceMethods.ByName("ReorderRuleSets")),
 		connect.WithHandlerOptions(opts...),
 	)
 	ruleSetServiceUpdateRuleSetHandler := connect.NewUnaryHandler(
@@ -325,12 +348,14 @@ func NewRuleSetServiceHandler(svc RuleSetServiceHandler, opts ...connect.Handler
 		switch r.URL.Path {
 		case RuleSetServiceListRuleSetsProcedure:
 			ruleSetServiceListRuleSetsHandler.ServeHTTP(w, r)
-		case RuleSetServiceSaveRuleSetsProcedure:
-			ruleSetServiceSaveRuleSetsHandler.ServeHTTP(w, r)
-		case RuleSetServiceUpsertRuleSetProcedure:
-			ruleSetServiceUpsertRuleSetHandler.ServeHTTP(w, r)
+		case RuleSetServiceCreateRuleSetProcedure:
+			ruleSetServiceCreateRuleSetHandler.ServeHTTP(w, r)
+		case RuleSetServiceUpdateRuleSetConfigProcedure:
+			ruleSetServiceUpdateRuleSetConfigHandler.ServeHTTP(w, r)
 		case RuleSetServiceDeleteRuleSetProcedure:
 			ruleSetServiceDeleteRuleSetHandler.ServeHTTP(w, r)
+		case RuleSetServiceReorderRuleSetsProcedure:
+			ruleSetServiceReorderRuleSetsHandler.ServeHTTP(w, r)
 		case RuleSetServiceUpdateRuleSetProcedure:
 			ruleSetServiceUpdateRuleSetHandler.ServeHTTP(w, r)
 		case RuleSetServiceUpdateAllRuleSetsProcedure:
@@ -358,16 +383,20 @@ func (UnimplementedRuleSetServiceHandler) ListRuleSets(context.Context, *connect
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.RuleSetService.ListRuleSets is not implemented"))
 }
 
-func (UnimplementedRuleSetServiceHandler) SaveRuleSets(context.Context, *connect.Request[v1.SaveRuleSetsRequest]) (*connect.Response[v1.SaveRuleSetsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.RuleSetService.SaveRuleSets is not implemented"))
+func (UnimplementedRuleSetServiceHandler) CreateRuleSet(context.Context, *connect.Request[v1.CreateRuleSetRequest]) (*connect.Response[v1.CreateRuleSetResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.RuleSetService.CreateRuleSet is not implemented"))
 }
 
-func (UnimplementedRuleSetServiceHandler) UpsertRuleSet(context.Context, *connect.Request[v1.UpsertRuleSetRequest]) (*connect.Response[v1.UpsertRuleSetResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.RuleSetService.UpsertRuleSet is not implemented"))
+func (UnimplementedRuleSetServiceHandler) UpdateRuleSetConfig(context.Context, *connect.Request[v1.UpdateRuleSetConfigRequest]) (*connect.Response[v1.UpdateRuleSetConfigResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.RuleSetService.UpdateRuleSetConfig is not implemented"))
 }
 
 func (UnimplementedRuleSetServiceHandler) DeleteRuleSet(context.Context, *connect.Request[v1.DeleteRuleSetRequest]) (*connect.Response[v1.DeleteRuleSetResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.RuleSetService.DeleteRuleSet is not implemented"))
+}
+
+func (UnimplementedRuleSetServiceHandler) ReorderRuleSets(context.Context, *connect.Request[v1.ReorderRuleSetsRequest]) (*connect.Response[v1.ReorderRuleSetsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.RuleSetService.ReorderRuleSets is not implemented"))
 }
 
 func (UnimplementedRuleSetServiceHandler) UpdateRuleSet(context.Context, *connect.Request[v1.UpdateRuleSetRequest]) (*connect.Response[v1.UpdateRuleSetResponse], error) {

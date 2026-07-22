@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
@@ -14,18 +15,38 @@ type SessionValidator interface {
 	ValidateSessionWithoutTouch(token string) bool
 }
 
-type callback struct {
-	id string
-	fn func(data ...any)
+const (
+	clientSendQueueSize = 64
+	writeTimeout        = 10 * time.Second
+	pingInterval        = 30 * time.Second
+	readTimeout         = 60 * time.Second
+)
+
+type client struct {
+	hub       *Hub
+	conn      *websocket.Conn
+	token     string
+	send      chan []byte
+	done      chan struct{}
+	closeOnce sync.Once
+}
+
+func (c *client) close() {
+	c.closeOnce.Do(func() {
+		close(c.done)
+		if c.conn != nil {
+			_ = c.conn.Close()
+		}
+	})
 }
 
 type Hub struct {
 	sessions SessionValidator
 	upgrader websocket.Upgrader
 
-	mu        sync.RWMutex
-	clients   map[*websocket.Conn]string
-	listeners map[string][]callback
+	mu      sync.RWMutex
+	clients map[*client]struct{}
+	closed  bool
 }
 
 type message struct {
@@ -39,8 +60,7 @@ func NewHub(sessions SessionValidator) *Hub {
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(*http.Request) bool { return true },
 		},
-		clients:   make(map[*websocket.Conn]string),
-		listeners: make(map[string][]callback),
+		clients: make(map[*client]struct{}),
 	}
 }
 
@@ -55,86 +75,124 @@ func (h *Hub) ServeWebSocket(w http.ResponseWriter, r *http.Request, token strin
 		return
 	}
 
-	h.mu.Lock()
-	h.clients[conn] = token
-	h.mu.Unlock()
-	defer func() {
-		h.mu.Lock()
-		delete(h.clients, conn)
-		h.mu.Unlock()
-		_ = conn.Close()
-	}()
+	client := &client{
+		hub:   h,
+		conn:  conn,
+		token: token,
+		send:  make(chan []byte, clientSendQueueSize),
+		done:  make(chan struct{}),
+	}
+	if !h.addClient(client) {
+		client.close()
+		return
+	}
+	defer h.removeClient(client)
+	go client.writeLoop()
+
+	_ = conn.SetReadDeadline(time.Now().Add(readTimeout))
+	conn.SetPongHandler(func(string) error {
+		return conn.SetReadDeadline(time.Now().Add(readTimeout))
+	})
 
 	for {
-		_, payload, err := conn.ReadMessage()
+		_, _, err := conn.ReadMessage()
 		if err != nil || !h.sessions.ValidateSession(token) {
 			return
-		}
-		var incoming message
-		if json.Unmarshal(payload, &incoming) == nil {
-			h.dispatch(incoming.Event, incoming.Data...)
 		}
 	}
 }
 
 func (h *Hub) Publish(eventName string, data ...any) {
-	payload, _ := json.Marshal(message{Event: eventName, Data: data})
+	payload, err := json.Marshal(message{Event: eventName, Data: data})
+	if err != nil {
+		return
+	}
 
 	h.mu.RLock()
-	clients := make(map[*websocket.Conn]string, len(h.clients))
-	for conn, token := range h.clients {
-		clients[conn] = token
+	clients := make([]*client, 0, len(h.clients))
+	for client := range h.clients {
+		clients = append(clients, client)
 	}
 	h.mu.RUnlock()
 
-	for conn, token := range clients {
-		if !h.sessions.ValidateSessionWithoutTouch(token) {
-			h.mu.Lock()
-			delete(h.clients, conn)
-			h.mu.Unlock()
-			_ = conn.Close()
+	for _, client := range clients {
+		if !h.sessions.ValidateSessionWithoutTouch(client.token) {
+			h.removeClient(client)
 			continue
 		}
-		_ = conn.WriteMessage(websocket.TextMessage, payload)
-	}
-}
-
-func (h *Hub) Subscribe(eventName, id string, fn func(data ...any)) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	h.listeners[eventName] = append(h.listeners[eventName], callback{id: id, fn: fn})
-}
-
-func (h *Hub) Unsubscribe(eventName, id string) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	callbacks := h.listeners[eventName]
-	for index, item := range callbacks {
-		if item.id == id {
-			h.listeners[eventName] = append(callbacks[:index], callbacks[index+1:]...)
-			break
+		select {
+		case <-client.done:
+		case client.send <- payload:
+		default:
+			h.removeClient(client)
 		}
 	}
-	if len(h.listeners[eventName]) == 0 {
-		delete(h.listeners, eventName)
-	}
 }
 
-func (h *Hub) dispatch(eventName string, data ...any) {
-	h.mu.RLock()
-	callbacks := append([]callback(nil), h.listeners[eventName]...)
-	h.mu.RUnlock()
-	for _, item := range callbacks {
-		item.fn(data...)
+func (h *Hub) addClient(client *client) bool {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	if h.closed {
+		return false
+	}
+	h.clients[client] = struct{}{}
+	return true
+}
+
+func (h *Hub) removeClient(client *client) {
+	h.mu.Lock()
+	delete(h.clients, client)
+	h.mu.Unlock()
+	client.close()
+}
+
+func (c *client) writeLoop() {
+	ticker := time.NewTicker(pingInterval)
+	defer func() {
+		ticker.Stop()
+		c.hub.removeClient(c)
+	}()
+
+	for {
+		select {
+		case payload := <-c.send:
+			if err := c.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
+				return
+			}
+			if err := c.conn.WriteMessage(websocket.TextMessage, payload); err != nil {
+				return
+			}
+		case <-ticker.C:
+			if !c.hub.sessions.ValidateSessionWithoutTouch(c.token) {
+				return
+			}
+			if err := c.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
+				return
+			}
+			if err := c.conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+				return
+			}
+		case <-c.done:
+			return
+		}
 	}
 }
 
 func (h *Hub) Close() {
 	h.mu.Lock()
-	defer h.mu.Unlock()
-	for conn := range h.clients {
-		_ = conn.Close()
+	if h.closed {
+		h.mu.Unlock()
+		return
+	}
+	h.closed = true
+	clients := make([]*client, 0, len(h.clients))
+	for client := range h.clients {
+		clients = append(clients, client)
 	}
 	clear(h.clients)
-	clear(h.listeners)
+	h.mu.Unlock()
+
+	for _, client := range clients {
+		client.close()
+	}
 }

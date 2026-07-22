@@ -22,6 +22,7 @@ import (
 	"guiforcores/bridge/scheduler"
 	"guiforcores/bridge/storage"
 	"guiforcores/bridge/subscription"
+	"guiforcores/bridge/syncstate"
 	httptransport "guiforcores/bridge/transport/http"
 )
 
@@ -66,6 +67,7 @@ func New(options Options) (*Application, error) {
 	paths := storage.NewPaths(options.BaseDir)
 	authService := auth.NewService(paths)
 	events := event.NewHub(authService)
+	resourceState := syncstate.NewCoordinator()
 	privileged, _ := platform.IsPrivileged()
 	platformService := platform.NewService(paths, events, platform.Environment{
 		FromTaskScheduler: slices.Contains(os.Args, "tasksch"),
@@ -82,9 +84,12 @@ func New(options Options) (*Application, error) {
 		return nil, fmt.Errorf("load app config: %w", err)
 	}
 	configService := config.NewService(paths, options.AppName)
-	profileService := profile.NewService(paths, events)
+	profileService := profile.NewService(paths, events, resourceState)
 	kernelService := kernel.NewService(platformService, configService, appConfig, profileService, events)
-	runtimeService := appruntime.NewService(platformService, paths, appConfig, events, kernelService)
+	profileService.SetChangeHandler(kernelService)
+	appConfigService := config.NewAppService(appConfig)
+	appConfigService.SetChangeHandler(kernelService)
+	runtimeService := appruntime.NewService(platformService, paths, appConfig, events, kernelService, resourceState)
 	subscriptionService := subscription.NewService(runtimeService)
 	ruleSetService := ruleset.NewService(runtimeService)
 	schedulerService := scheduler.NewService(runtimeService)
@@ -98,7 +103,7 @@ func New(options Options) (*Application, error) {
 		Auth:          authService,
 		Events:        events,
 		Config:        configService,
-		AppConfig:     config.NewAppService(appConfig),
+		AppConfig:     appConfigService,
 		Profiles:      profileService,
 		Kernel:        kernelService,
 		Subscriptions: subscriptionService,

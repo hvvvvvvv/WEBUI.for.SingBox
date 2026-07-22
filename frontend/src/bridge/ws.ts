@@ -3,8 +3,10 @@ import { useAppSettingsStore } from '@/stores'
 import { checkAuthToken, recoverAuthToken } from './http'
 
 type EventCallback = (...data: any[]) => void
+type ConnectionCallback = () => void
 
 const listeners = new Map<string, Set<EventCallback>>()
+const connectionListeners = new Set<ConnectionCallback>()
 let ws: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let bearerToken: string | null = null
@@ -25,6 +27,10 @@ const connect = () => {
   }
 
   ws = new WebSocket(getWsUrl())
+
+  ws.onopen = () => {
+    connectionListeners.forEach((callback) => callback())
+  }
 
   ws.onmessage = (event) => {
     try {
@@ -80,6 +86,11 @@ export const initWebSocket = (token?: string) => {
   connect()
 }
 
+export const onWebSocketConnected = (callback: ConnectionCallback) => {
+  connectionListeners.add(callback)
+  return () => connectionListeners.delete(callback)
+}
+
 export const EventsOn = (event: string, callback: EventCallback) => {
   if (!listeners.has(event)) {
     listeners.set(event, new Set())
@@ -90,10 +101,4 @@ export const EventsOn = (event: string, callback: EventCallback) => {
 export const EventsOff = (event: string, ...additionalEventNames: string[]) => {
   listeners.delete(event)
   additionalEventNames.forEach((name) => listeners.delete(name))
-}
-
-export const EventsEmit = (event: string, ...data: any[]) => {
-  if (ws?.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ event, data }))
-  }
 }

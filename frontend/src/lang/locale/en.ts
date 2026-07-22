@@ -51,6 +51,10 @@ export default {
     downloading: 'Downloading...',
     empty: 'Data is empty',
     pressAgainToClose: 'Press again to close the modal',
+    resourceConflict: 'This item was changed by another client. Your edits are preserved.',
+    resourceDeleted: 'This item was deleted by another client. Your edits are preserved.',
+    loadLatest: 'Load latest',
+    operationConflict: 'The data changed on another client and has been refreshed.',
   },
   kernel: {
     rule: 'Rule',

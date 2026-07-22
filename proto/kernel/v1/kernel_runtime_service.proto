@@ -41,6 +41,8 @@ message GetCoreStatusRequest {}
 message GetCoreStatusResponse {
   CoreStatus status = 1;
   int32 pid = 2;
+  bool restart_required = 3;
+  bool restarting = 4;
 }
 
 message GetCurrentProfileRequest {}

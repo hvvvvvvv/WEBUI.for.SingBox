@@ -9,6 +9,7 @@ package profilev1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	v1 "guiforcores/gen/common/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -60,6 +61,7 @@ func (*ListProfilesRequest) Descriptor() ([]byte, []int) {
 type ListProfilesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Profiles      []*Profile             `protobuf:"bytes,1,rep,name=profiles,proto3" json:"profiles,omitempty"`
+	State         *v1.ResourceState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -97,6 +99,13 @@ func (*ListProfilesResponse) Descriptor() ([]byte, []int) {
 func (x *ListProfilesResponse) GetProfiles() []*Profile {
 	if x != nil {
 		return x.Profiles
+	}
+	return nil
+}
+
+func (x *ListProfilesResponse) GetState() *v1.ResourceState {
+	if x != nil {
+		return x.State
 	}
 	return nil
 }
@@ -236,6 +245,7 @@ func (x *CreateProfileRequest) GetProfile() *Profile {
 type CreateProfileResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Profile       *Profile               `protobuf:"bytes,1,opt,name=profile,proto3" json:"profile,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -277,11 +287,19 @@ func (x *CreateProfileResponse) GetProfile() *Profile {
 	return nil
 }
 
+func (x *CreateProfileResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
 type UpdateProfileRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Profile       *Profile               `protobuf:"bytes,1,opt,name=profile,proto3" json:"profile,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Profile          *Profile               `protobuf:"bytes,1,opt,name=profile,proto3" json:"profile,omitempty"`
+	ExpectedRevision *v1.ExpectedRevision   `protobuf:"bytes,2,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *UpdateProfileRequest) Reset() {
@@ -321,9 +339,17 @@ func (x *UpdateProfileRequest) GetProfile() *Profile {
 	return nil
 }
 
+func (x *UpdateProfileRequest) GetExpectedRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return nil
+}
+
 type UpdateProfileResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Profile       *Profile               `protobuf:"bytes,1,opt,name=profile,proto3" json:"profile,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -365,11 +391,19 @@ func (x *UpdateProfileResponse) GetProfile() *Profile {
 	return nil
 }
 
+func (x *UpdateProfileResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
 type DeleteProfileRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ExpectedRevision *v1.ExpectedRevision   `protobuf:"bytes,2,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *DeleteProfileRequest) Reset() {
@@ -409,8 +443,16 @@ func (x *DeleteProfileRequest) GetId() string {
 	return ""
 }
 
+func (x *DeleteProfileRequest) GetExpectedRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return nil
+}
+
 type DeleteProfileResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         *v1.MutationState      `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -445,71 +487,87 @@ func (*DeleteProfileResponse) Descriptor() ([]byte, []int) {
 	return file_profile_v1_profile_service_proto_rawDescGZIP(), []int{9}
 }
 
-type SaveProfilesRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Profiles      []*Profile             `protobuf:"bytes,1,rep,name=profiles,proto3" json:"profiles,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *SaveProfilesRequest) Reset() {
-	*x = SaveProfilesRequest{}
-	mi := &file_profile_v1_profile_service_proto_msgTypes[10]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SaveProfilesRequest) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SaveProfilesRequest) ProtoMessage() {}
-
-func (x *SaveProfilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_service_proto_msgTypes[10]
+func (x *DeleteProfileResponse) GetState() *v1.MutationState {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use SaveProfilesRequest.ProtoReflect.Descriptor instead.
-func (*SaveProfilesRequest) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_service_proto_rawDescGZIP(), []int{10}
-}
-
-func (x *SaveProfilesRequest) GetProfiles() []*Profile {
-	if x != nil {
-		return x.Profiles
+		return x.State
 	}
 	return nil
 }
 
-type SaveProfilesResponse struct {
+type ReorderProfilesRequest struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Ids                   []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	ExpectedOrderRevision *v1.ExpectedRevision   `protobuf:"bytes,2,opt,name=expected_order_revision,json=expectedOrderRevision,proto3" json:"expected_order_revision,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *ReorderProfilesRequest) Reset() {
+	*x = ReorderProfilesRequest{}
+	mi := &file_profile_v1_profile_service_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReorderProfilesRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReorderProfilesRequest) ProtoMessage() {}
+
+func (x *ReorderProfilesRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_profile_v1_profile_service_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReorderProfilesRequest.ProtoReflect.Descriptor instead.
+func (*ReorderProfilesRequest) Descriptor() ([]byte, []int) {
+	return file_profile_v1_profile_service_proto_rawDescGZIP(), []int{10}
+}
+
+func (x *ReorderProfilesRequest) GetIds() []string {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+func (x *ReorderProfilesRequest) GetExpectedOrderRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.ExpectedOrderRevision
+	}
+	return nil
+}
+
+type ReorderProfilesResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Profiles      []*Profile             `protobuf:"bytes,1,rep,name=profiles,proto3" json:"profiles,omitempty"`
+	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SaveProfilesResponse) Reset() {
-	*x = SaveProfilesResponse{}
+func (x *ReorderProfilesResponse) Reset() {
+	*x = ReorderProfilesResponse{}
 	mi := &file_profile_v1_profile_service_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SaveProfilesResponse) String() string {
+func (x *ReorderProfilesResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SaveProfilesResponse) ProtoMessage() {}
+func (*ReorderProfilesResponse) ProtoMessage() {}
 
-func (x *SaveProfilesResponse) ProtoReflect() protoreflect.Message {
+func (x *ReorderProfilesResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_profile_v1_profile_service_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -521,14 +579,21 @@ func (x *SaveProfilesResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SaveProfilesResponse.ProtoReflect.Descriptor instead.
-func (*SaveProfilesResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use ReorderProfilesResponse.ProtoReflect.Descriptor instead.
+func (*ReorderProfilesResponse) Descriptor() ([]byte, []int) {
 	return file_profile_v1_profile_service_proto_rawDescGZIP(), []int{11}
 }
 
-func (x *SaveProfilesResponse) GetProfiles() []*Profile {
+func (x *ReorderProfilesResponse) GetIds() []string {
 	if x != nil {
-		return x.Profiles
+		return x.Ids
+	}
+	return nil
+}
+
+func (x *ReorderProfilesResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
 	}
 	return nil
 }
@@ -538,37 +603,45 @@ var File_profile_v1_profile_service_proto protoreflect.FileDescriptor
 const file_profile_v1_profile_service_proto_rawDesc = "" +
 	"\n" +
 	" profile/v1/profile_service.proto\x12\n" +
-	"profile.v1\x1a\x18profile/v1/profile.proto\"\x15\n" +
-	"\x13ListProfilesRequest\"G\n" +
+	"profile.v1\x1a\x18profile/v1/profile.proto\x1a\x14common/v1/sync.proto\"\x15\n" +
+	"\x13ListProfilesRequest\"w\n" +
 	"\x14ListProfilesResponse\x12/\n" +
-	"\bprofiles\x18\x01 \x03(\v2\x13.profile.v1.ProfileR\bprofiles\"#\n" +
+	"\bprofiles\x18\x01 \x03(\v2\x13.profile.v1.ProfileR\bprofiles\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.ResourceStateR\x05state\"#\n" +
 	"\x11GetProfileRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"C\n" +
 	"\x12GetProfileResponse\x12-\n" +
 	"\aprofile\x18\x01 \x01(\v2\x13.profile.v1.ProfileR\aprofile\"E\n" +
 	"\x14CreateProfileRequest\x12-\n" +
-	"\aprofile\x18\x01 \x01(\v2\x13.profile.v1.ProfileR\aprofile\"F\n" +
+	"\aprofile\x18\x01 \x01(\v2\x13.profile.v1.ProfileR\aprofile\"v\n" +
 	"\x15CreateProfileResponse\x12-\n" +
-	"\aprofile\x18\x01 \x01(\v2\x13.profile.v1.ProfileR\aprofile\"E\n" +
+	"\aprofile\x18\x01 \x01(\v2\x13.profile.v1.ProfileR\aprofile\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\"\x8f\x01\n" +
 	"\x14UpdateProfileRequest\x12-\n" +
-	"\aprofile\x18\x01 \x01(\v2\x13.profile.v1.ProfileR\aprofile\"F\n" +
+	"\aprofile\x18\x01 \x01(\v2\x13.profile.v1.ProfileR\aprofile\x12H\n" +
+	"\x11expected_revision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x10expectedRevision\"v\n" +
 	"\x15UpdateProfileResponse\x12-\n" +
-	"\aprofile\x18\x01 \x01(\v2\x13.profile.v1.ProfileR\aprofile\"&\n" +
+	"\aprofile\x18\x01 \x01(\v2\x13.profile.v1.ProfileR\aprofile\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\"p\n" +
 	"\x14DeleteProfileRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x17\n" +
-	"\x15DeleteProfileResponse\"F\n" +
-	"\x13SaveProfilesRequest\x12/\n" +
-	"\bprofiles\x18\x01 \x03(\v2\x13.profile.v1.ProfileR\bprofiles\"G\n" +
-	"\x14SaveProfilesResponse\x12/\n" +
-	"\bprofiles\x18\x01 \x03(\v2\x13.profile.v1.ProfileR\bprofiles2\x85\x04\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12H\n" +
+	"\x11expected_revision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x10expectedRevision\"G\n" +
+	"\x15DeleteProfileResponse\x12.\n" +
+	"\x05state\x18\x01 \x01(\v2\x18.common.v1.MutationStateR\x05state\"\x7f\n" +
+	"\x16ReorderProfilesRequest\x12\x10\n" +
+	"\x03ids\x18\x01 \x03(\tR\x03ids\x12S\n" +
+	"\x17expected_order_revision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x15expectedOrderRevision\"[\n" +
+	"\x17ReorderProfilesResponse\x12\x10\n" +
+	"\x03ids\x18\x01 \x03(\tR\x03ids\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state2\x8e\x04\n" +
 	"\x0eProfileService\x12Q\n" +
 	"\fListProfiles\x12\x1f.profile.v1.ListProfilesRequest\x1a .profile.v1.ListProfilesResponse\x12K\n" +
 	"\n" +
 	"GetProfile\x12\x1d.profile.v1.GetProfileRequest\x1a\x1e.profile.v1.GetProfileResponse\x12T\n" +
 	"\rCreateProfile\x12 .profile.v1.CreateProfileRequest\x1a!.profile.v1.CreateProfileResponse\x12T\n" +
 	"\rUpdateProfile\x12 .profile.v1.UpdateProfileRequest\x1a!.profile.v1.UpdateProfileResponse\x12T\n" +
-	"\rDeleteProfile\x12 .profile.v1.DeleteProfileRequest\x1a!.profile.v1.DeleteProfileResponse\x12Q\n" +
-	"\fSaveProfiles\x12\x1f.profile.v1.SaveProfilesRequest\x1a .profile.v1.SaveProfilesResponseB\x94\x01\n" +
+	"\rDeleteProfile\x12 .profile.v1.DeleteProfileRequest\x1a!.profile.v1.DeleteProfileResponse\x12Z\n" +
+	"\x0fReorderProfiles\x12\".profile.v1.ReorderProfilesRequest\x1a#.profile.v1.ReorderProfilesResponseB\x94\x01\n" +
 	"\x0ecom.profile.v1B\x13ProfileServiceProtoP\x01Z$guiforcores/gen/profile/v1;profilev1\xa2\x02\x03PXX\xaa\x02\n" +
 	"Profile.V1\xca\x02\n" +
 	"Profile\\V1\xe2\x02\x16Profile\\V1\\GPBMetadata\xea\x02\vProfile::V1b\x06proto3"
@@ -587,46 +660,55 @@ func file_profile_v1_profile_service_proto_rawDescGZIP() []byte {
 
 var file_profile_v1_profile_service_proto_msgTypes = make([]protoimpl.MessageInfo, 12)
 var file_profile_v1_profile_service_proto_goTypes = []any{
-	(*ListProfilesRequest)(nil),   // 0: profile.v1.ListProfilesRequest
-	(*ListProfilesResponse)(nil),  // 1: profile.v1.ListProfilesResponse
-	(*GetProfileRequest)(nil),     // 2: profile.v1.GetProfileRequest
-	(*GetProfileResponse)(nil),    // 3: profile.v1.GetProfileResponse
-	(*CreateProfileRequest)(nil),  // 4: profile.v1.CreateProfileRequest
-	(*CreateProfileResponse)(nil), // 5: profile.v1.CreateProfileResponse
-	(*UpdateProfileRequest)(nil),  // 6: profile.v1.UpdateProfileRequest
-	(*UpdateProfileResponse)(nil), // 7: profile.v1.UpdateProfileResponse
-	(*DeleteProfileRequest)(nil),  // 8: profile.v1.DeleteProfileRequest
-	(*DeleteProfileResponse)(nil), // 9: profile.v1.DeleteProfileResponse
-	(*SaveProfilesRequest)(nil),   // 10: profile.v1.SaveProfilesRequest
-	(*SaveProfilesResponse)(nil),  // 11: profile.v1.SaveProfilesResponse
-	(*Profile)(nil),               // 12: profile.v1.Profile
+	(*ListProfilesRequest)(nil),     // 0: profile.v1.ListProfilesRequest
+	(*ListProfilesResponse)(nil),    // 1: profile.v1.ListProfilesResponse
+	(*GetProfileRequest)(nil),       // 2: profile.v1.GetProfileRequest
+	(*GetProfileResponse)(nil),      // 3: profile.v1.GetProfileResponse
+	(*CreateProfileRequest)(nil),    // 4: profile.v1.CreateProfileRequest
+	(*CreateProfileResponse)(nil),   // 5: profile.v1.CreateProfileResponse
+	(*UpdateProfileRequest)(nil),    // 6: profile.v1.UpdateProfileRequest
+	(*UpdateProfileResponse)(nil),   // 7: profile.v1.UpdateProfileResponse
+	(*DeleteProfileRequest)(nil),    // 8: profile.v1.DeleteProfileRequest
+	(*DeleteProfileResponse)(nil),   // 9: profile.v1.DeleteProfileResponse
+	(*ReorderProfilesRequest)(nil),  // 10: profile.v1.ReorderProfilesRequest
+	(*ReorderProfilesResponse)(nil), // 11: profile.v1.ReorderProfilesResponse
+	(*Profile)(nil),                 // 12: profile.v1.Profile
+	(*v1.ResourceState)(nil),        // 13: common.v1.ResourceState
+	(*v1.MutationState)(nil),        // 14: common.v1.MutationState
+	(*v1.ExpectedRevision)(nil),     // 15: common.v1.ExpectedRevision
 }
 var file_profile_v1_profile_service_proto_depIdxs = []int32{
 	12, // 0: profile.v1.ListProfilesResponse.profiles:type_name -> profile.v1.Profile
-	12, // 1: profile.v1.GetProfileResponse.profile:type_name -> profile.v1.Profile
-	12, // 2: profile.v1.CreateProfileRequest.profile:type_name -> profile.v1.Profile
-	12, // 3: profile.v1.CreateProfileResponse.profile:type_name -> profile.v1.Profile
-	12, // 4: profile.v1.UpdateProfileRequest.profile:type_name -> profile.v1.Profile
-	12, // 5: profile.v1.UpdateProfileResponse.profile:type_name -> profile.v1.Profile
-	12, // 6: profile.v1.SaveProfilesRequest.profiles:type_name -> profile.v1.Profile
-	12, // 7: profile.v1.SaveProfilesResponse.profiles:type_name -> profile.v1.Profile
-	0,  // 8: profile.v1.ProfileService.ListProfiles:input_type -> profile.v1.ListProfilesRequest
-	2,  // 9: profile.v1.ProfileService.GetProfile:input_type -> profile.v1.GetProfileRequest
-	4,  // 10: profile.v1.ProfileService.CreateProfile:input_type -> profile.v1.CreateProfileRequest
-	6,  // 11: profile.v1.ProfileService.UpdateProfile:input_type -> profile.v1.UpdateProfileRequest
-	8,  // 12: profile.v1.ProfileService.DeleteProfile:input_type -> profile.v1.DeleteProfileRequest
-	10, // 13: profile.v1.ProfileService.SaveProfiles:input_type -> profile.v1.SaveProfilesRequest
-	1,  // 14: profile.v1.ProfileService.ListProfiles:output_type -> profile.v1.ListProfilesResponse
-	3,  // 15: profile.v1.ProfileService.GetProfile:output_type -> profile.v1.GetProfileResponse
-	5,  // 16: profile.v1.ProfileService.CreateProfile:output_type -> profile.v1.CreateProfileResponse
-	7,  // 17: profile.v1.ProfileService.UpdateProfile:output_type -> profile.v1.UpdateProfileResponse
-	9,  // 18: profile.v1.ProfileService.DeleteProfile:output_type -> profile.v1.DeleteProfileResponse
-	11, // 19: profile.v1.ProfileService.SaveProfiles:output_type -> profile.v1.SaveProfilesResponse
-	14, // [14:20] is the sub-list for method output_type
-	8,  // [8:14] is the sub-list for method input_type
-	8,  // [8:8] is the sub-list for extension type_name
-	8,  // [8:8] is the sub-list for extension extendee
-	0,  // [0:8] is the sub-list for field type_name
+	13, // 1: profile.v1.ListProfilesResponse.state:type_name -> common.v1.ResourceState
+	12, // 2: profile.v1.GetProfileResponse.profile:type_name -> profile.v1.Profile
+	12, // 3: profile.v1.CreateProfileRequest.profile:type_name -> profile.v1.Profile
+	12, // 4: profile.v1.CreateProfileResponse.profile:type_name -> profile.v1.Profile
+	14, // 5: profile.v1.CreateProfileResponse.state:type_name -> common.v1.MutationState
+	12, // 6: profile.v1.UpdateProfileRequest.profile:type_name -> profile.v1.Profile
+	15, // 7: profile.v1.UpdateProfileRequest.expected_revision:type_name -> common.v1.ExpectedRevision
+	12, // 8: profile.v1.UpdateProfileResponse.profile:type_name -> profile.v1.Profile
+	14, // 9: profile.v1.UpdateProfileResponse.state:type_name -> common.v1.MutationState
+	15, // 10: profile.v1.DeleteProfileRequest.expected_revision:type_name -> common.v1.ExpectedRevision
+	14, // 11: profile.v1.DeleteProfileResponse.state:type_name -> common.v1.MutationState
+	15, // 12: profile.v1.ReorderProfilesRequest.expected_order_revision:type_name -> common.v1.ExpectedRevision
+	14, // 13: profile.v1.ReorderProfilesResponse.state:type_name -> common.v1.MutationState
+	0,  // 14: profile.v1.ProfileService.ListProfiles:input_type -> profile.v1.ListProfilesRequest
+	2,  // 15: profile.v1.ProfileService.GetProfile:input_type -> profile.v1.GetProfileRequest
+	4,  // 16: profile.v1.ProfileService.CreateProfile:input_type -> profile.v1.CreateProfileRequest
+	6,  // 17: profile.v1.ProfileService.UpdateProfile:input_type -> profile.v1.UpdateProfileRequest
+	8,  // 18: profile.v1.ProfileService.DeleteProfile:input_type -> profile.v1.DeleteProfileRequest
+	10, // 19: profile.v1.ProfileService.ReorderProfiles:input_type -> profile.v1.ReorderProfilesRequest
+	1,  // 20: profile.v1.ProfileService.ListProfiles:output_type -> profile.v1.ListProfilesResponse
+	3,  // 21: profile.v1.ProfileService.GetProfile:output_type -> profile.v1.GetProfileResponse
+	5,  // 22: profile.v1.ProfileService.CreateProfile:output_type -> profile.v1.CreateProfileResponse
+	7,  // 23: profile.v1.ProfileService.UpdateProfile:output_type -> profile.v1.UpdateProfileResponse
+	9,  // 24: profile.v1.ProfileService.DeleteProfile:output_type -> profile.v1.DeleteProfileResponse
+	11, // 25: profile.v1.ProfileService.ReorderProfiles:output_type -> profile.v1.ReorderProfilesResponse
+	20, // [20:26] is the sub-list for method output_type
+	14, // [14:20] is the sub-list for method input_type
+	14, // [14:14] is the sub-list for extension type_name
+	14, // [14:14] is the sub-list for extension extendee
+	0,  // [0:14] is the sub-list for field type_name
 }
 
 func init() { file_profile_v1_profile_service_proto_init() }

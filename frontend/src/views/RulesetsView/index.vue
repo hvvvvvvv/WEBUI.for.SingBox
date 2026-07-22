@@ -5,8 +5,21 @@ import { useI18n, I18nT } from 'vue-i18n'
 import { DraggableOptions, ViewOptions } from '@/constant/app'
 import { View } from '@/enums/app'
 import { RulesetFormat } from '@/enums/kernel'
-import { type RuleSet, useRulesetsStore, useAppSettingsStore } from '@/stores'
-import { debounce, formatRelativeTime, formatDate, message, confirmDelete } from '@/utils'
+import {
+  isResourceConflict,
+  isResourceNotFound,
+  type RuleSet,
+  useRulesetsStore,
+  useAppSettingsStore,
+} from '@/stores'
+import {
+  debounce,
+  deepClone,
+  formatRelativeTime,
+  formatDate,
+  message,
+  confirmDelete,
+} from '@/utils'
 
 import { useModal } from '@/components/Modal'
 
@@ -41,6 +54,15 @@ const { t } = useI18n()
 const [Modal, modalApi] = useModal({})
 const rulesetsStore = useRulesetsStore()
 const appSettingsStore = useAppSettingsStore()
+
+const handleMutationError = async (error: unknown) => {
+  if (isResourceConflict(error) || isResourceNotFound(error)) {
+    await rulesetsStore.setupRulesets().catch(() => undefined)
+    message.error(t('common.operationConflict'))
+    return
+  }
+  message.error((error as any)?.message || error)
+}
 
 const handleImportRuleset = async () => {
   modalApi.setProps({
@@ -101,13 +123,19 @@ const handleDeleteRuleset = async (r: RuleSet) => {
     await rulesetsStore.deleteRuleset(r.id)
   } catch (error: any) {
     console.error('deleteRuleset: ', error)
-    message.error(error)
+    await handleMutationError(error)
   }
 }
 
 const handleDisableRuleset = async (r: RuleSet) => {
-  r.disabled = !r.disabled
-  rulesetsStore.editRuleset(r.id, r)
+  const revision = rulesetsStore.getRulesetRevision(r.id)
+  const next = deepClone(r)
+  next.disabled = !next.disabled
+  try {
+    await rulesetsStore.editRuleset(r.id, next, revision)
+  } catch (error: any) {
+    await handleMutationError(error)
+  }
 }
 
 const handleClearRuleset = async (id: string) => {
@@ -118,8 +146,8 @@ const handleClearRuleset = async (id: string) => {
   try {
     await rulesetsStore.clearRulesetContent(r.id)
   } catch (error: any) {
-    message.error(error)
     console.error(error)
+    await handleMutationError(error)
   }
 }
 
@@ -132,7 +160,27 @@ const generateMenus = (r: RuleSet) => {
 
 const noUpdateNeeded = computed(() => rulesetsStore.rulesets.every((v) => v.disabled))
 
-const onSortUpdate = debounce(rulesetsStore.saveRulesets, 1000)
+let sortRevision = rulesetsStore.getRulesetsOrderRevision()
+let sortStartIDs: string[] = []
+const onSortStart = () => {
+  sortRevision = rulesetsStore.getRulesetsOrderRevision()
+  sortStartIDs = rulesetsStore.rulesets.map((item) => item.id)
+}
+const saveRulesetOrder = debounce(
+  (
+    ids: string[],
+    revision: ReturnType<typeof rulesetsStore.getRulesetsOrderRevision>,
+    fallbackIDs: string[],
+  ) => rulesetsStore.reorderRulesets(ids, revision, fallbackIDs),
+  1000,
+)
+const onSortUpdate = () => {
+  void saveRulesetOrder(
+    rulesetsStore.rulesets.map((item) => item.id),
+    sortRevision,
+    sortStartIDs,
+  ).catch((error: any) => void handleMutationError(error))
+}
 </script>
 
 <template>
@@ -169,7 +217,10 @@ const onSortUpdate = debounce(rulesetsStore.saveRulesets, 1000)
   </div>
 
   <div
-    v-draggable="[rulesetsStore.rulesets, { ...DraggableOptions, onUpdate: onSortUpdate }]"
+    v-draggable="[
+      rulesetsStore.rulesets,
+      { ...DraggableOptions, onStart: onSortStart, onUpdate: onSortUpdate },
+    ]"
     :class="'grid-list-' + appSettingsStore.app.rulesetsView"
   >
     <Card

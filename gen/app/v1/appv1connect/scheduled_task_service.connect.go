@@ -36,15 +36,18 @@ const (
 	// ScheduledTaskServiceListScheduledTasksProcedure is the fully-qualified name of the
 	// ScheduledTaskService's ListScheduledTasks RPC.
 	ScheduledTaskServiceListScheduledTasksProcedure = "/app.v1.ScheduledTaskService/ListScheduledTasks"
-	// ScheduledTaskServiceSaveScheduledTasksProcedure is the fully-qualified name of the
-	// ScheduledTaskService's SaveScheduledTasks RPC.
-	ScheduledTaskServiceSaveScheduledTasksProcedure = "/app.v1.ScheduledTaskService/SaveScheduledTasks"
-	// ScheduledTaskServiceUpsertScheduledTaskProcedure is the fully-qualified name of the
-	// ScheduledTaskService's UpsertScheduledTask RPC.
-	ScheduledTaskServiceUpsertScheduledTaskProcedure = "/app.v1.ScheduledTaskService/UpsertScheduledTask"
+	// ScheduledTaskServiceCreateScheduledTaskProcedure is the fully-qualified name of the
+	// ScheduledTaskService's CreateScheduledTask RPC.
+	ScheduledTaskServiceCreateScheduledTaskProcedure = "/app.v1.ScheduledTaskService/CreateScheduledTask"
+	// ScheduledTaskServiceUpdateScheduledTaskProcedure is the fully-qualified name of the
+	// ScheduledTaskService's UpdateScheduledTask RPC.
+	ScheduledTaskServiceUpdateScheduledTaskProcedure = "/app.v1.ScheduledTaskService/UpdateScheduledTask"
 	// ScheduledTaskServiceDeleteScheduledTaskProcedure is the fully-qualified name of the
 	// ScheduledTaskService's DeleteScheduledTask RPC.
 	ScheduledTaskServiceDeleteScheduledTaskProcedure = "/app.v1.ScheduledTaskService/DeleteScheduledTask"
+	// ScheduledTaskServiceReorderScheduledTasksProcedure is the fully-qualified name of the
+	// ScheduledTaskService's ReorderScheduledTasks RPC.
+	ScheduledTaskServiceReorderScheduledTasksProcedure = "/app.v1.ScheduledTaskService/ReorderScheduledTasks"
 	// ScheduledTaskServiceRunScheduledTaskProcedure is the fully-qualified name of the
 	// ScheduledTaskService's RunScheduledTask RPC.
 	ScheduledTaskServiceRunScheduledTaskProcedure = "/app.v1.ScheduledTaskService/RunScheduledTask"
@@ -62,9 +65,10 @@ const (
 // ScheduledTaskServiceClient is a client for the app.v1.ScheduledTaskService service.
 type ScheduledTaskServiceClient interface {
 	ListScheduledTasks(context.Context, *connect.Request[v1.ListScheduledTasksRequest]) (*connect.Response[v1.ListScheduledTasksResponse], error)
-	SaveScheduledTasks(context.Context, *connect.Request[v1.SaveScheduledTasksRequest]) (*connect.Response[v1.SaveScheduledTasksResponse], error)
-	UpsertScheduledTask(context.Context, *connect.Request[v1.UpsertScheduledTaskRequest]) (*connect.Response[v1.UpsertScheduledTaskResponse], error)
+	CreateScheduledTask(context.Context, *connect.Request[v1.CreateScheduledTaskRequest]) (*connect.Response[v1.CreateScheduledTaskResponse], error)
+	UpdateScheduledTask(context.Context, *connect.Request[v1.UpdateScheduledTaskRequest]) (*connect.Response[v1.UpdateScheduledTaskResponse], error)
 	DeleteScheduledTask(context.Context, *connect.Request[v1.DeleteScheduledTaskRequest]) (*connect.Response[v1.DeleteScheduledTaskResponse], error)
+	ReorderScheduledTasks(context.Context, *connect.Request[v1.ReorderScheduledTasksRequest]) (*connect.Response[v1.ReorderScheduledTasksResponse], error)
 	RunScheduledTask(context.Context, *connect.Request[v1.RunScheduledTaskRequest]) (*connect.Response[v1.RunScheduledTaskResponse], error)
 	ListScheduledTaskLogs(context.Context, *connect.Request[v1.ListScheduledTaskLogsRequest]) (*connect.Response[v1.ListScheduledTaskLogsResponse], error)
 	ClearScheduledTaskLogs(context.Context, *connect.Request[v1.ClearScheduledTaskLogsRequest]) (*connect.Response[v1.ClearScheduledTaskLogsResponse], error)
@@ -88,22 +92,28 @@ func NewScheduledTaskServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(scheduledTaskServiceMethods.ByName("ListScheduledTasks")),
 			connect.WithClientOptions(opts...),
 		),
-		saveScheduledTasks: connect.NewClient[v1.SaveScheduledTasksRequest, v1.SaveScheduledTasksResponse](
+		createScheduledTask: connect.NewClient[v1.CreateScheduledTaskRequest, v1.CreateScheduledTaskResponse](
 			httpClient,
-			baseURL+ScheduledTaskServiceSaveScheduledTasksProcedure,
-			connect.WithSchema(scheduledTaskServiceMethods.ByName("SaveScheduledTasks")),
+			baseURL+ScheduledTaskServiceCreateScheduledTaskProcedure,
+			connect.WithSchema(scheduledTaskServiceMethods.ByName("CreateScheduledTask")),
 			connect.WithClientOptions(opts...),
 		),
-		upsertScheduledTask: connect.NewClient[v1.UpsertScheduledTaskRequest, v1.UpsertScheduledTaskResponse](
+		updateScheduledTask: connect.NewClient[v1.UpdateScheduledTaskRequest, v1.UpdateScheduledTaskResponse](
 			httpClient,
-			baseURL+ScheduledTaskServiceUpsertScheduledTaskProcedure,
-			connect.WithSchema(scheduledTaskServiceMethods.ByName("UpsertScheduledTask")),
+			baseURL+ScheduledTaskServiceUpdateScheduledTaskProcedure,
+			connect.WithSchema(scheduledTaskServiceMethods.ByName("UpdateScheduledTask")),
 			connect.WithClientOptions(opts...),
 		),
 		deleteScheduledTask: connect.NewClient[v1.DeleteScheduledTaskRequest, v1.DeleteScheduledTaskResponse](
 			httpClient,
 			baseURL+ScheduledTaskServiceDeleteScheduledTaskProcedure,
 			connect.WithSchema(scheduledTaskServiceMethods.ByName("DeleteScheduledTask")),
+			connect.WithClientOptions(opts...),
+		),
+		reorderScheduledTasks: connect.NewClient[v1.ReorderScheduledTasksRequest, v1.ReorderScheduledTasksResponse](
+			httpClient,
+			baseURL+ScheduledTaskServiceReorderScheduledTasksProcedure,
+			connect.WithSchema(scheduledTaskServiceMethods.ByName("ReorderScheduledTasks")),
 			connect.WithClientOptions(opts...),
 		),
 		runScheduledTask: connect.NewClient[v1.RunScheduledTaskRequest, v1.RunScheduledTaskResponse](
@@ -136,9 +146,10 @@ func NewScheduledTaskServiceClient(httpClient connect.HTTPClient, baseURL string
 // scheduledTaskServiceClient implements ScheduledTaskServiceClient.
 type scheduledTaskServiceClient struct {
 	listScheduledTasks     *connect.Client[v1.ListScheduledTasksRequest, v1.ListScheduledTasksResponse]
-	saveScheduledTasks     *connect.Client[v1.SaveScheduledTasksRequest, v1.SaveScheduledTasksResponse]
-	upsertScheduledTask    *connect.Client[v1.UpsertScheduledTaskRequest, v1.UpsertScheduledTaskResponse]
+	createScheduledTask    *connect.Client[v1.CreateScheduledTaskRequest, v1.CreateScheduledTaskResponse]
+	updateScheduledTask    *connect.Client[v1.UpdateScheduledTaskRequest, v1.UpdateScheduledTaskResponse]
 	deleteScheduledTask    *connect.Client[v1.DeleteScheduledTaskRequest, v1.DeleteScheduledTaskResponse]
+	reorderScheduledTasks  *connect.Client[v1.ReorderScheduledTasksRequest, v1.ReorderScheduledTasksResponse]
 	runScheduledTask       *connect.Client[v1.RunScheduledTaskRequest, v1.RunScheduledTaskResponse]
 	listScheduledTaskLogs  *connect.Client[v1.ListScheduledTaskLogsRequest, v1.ListScheduledTaskLogsResponse]
 	clearScheduledTaskLogs *connect.Client[v1.ClearScheduledTaskLogsRequest, v1.ClearScheduledTaskLogsResponse]
@@ -150,19 +161,24 @@ func (c *scheduledTaskServiceClient) ListScheduledTasks(ctx context.Context, req
 	return c.listScheduledTasks.CallUnary(ctx, req)
 }
 
-// SaveScheduledTasks calls app.v1.ScheduledTaskService.SaveScheduledTasks.
-func (c *scheduledTaskServiceClient) SaveScheduledTasks(ctx context.Context, req *connect.Request[v1.SaveScheduledTasksRequest]) (*connect.Response[v1.SaveScheduledTasksResponse], error) {
-	return c.saveScheduledTasks.CallUnary(ctx, req)
+// CreateScheduledTask calls app.v1.ScheduledTaskService.CreateScheduledTask.
+func (c *scheduledTaskServiceClient) CreateScheduledTask(ctx context.Context, req *connect.Request[v1.CreateScheduledTaskRequest]) (*connect.Response[v1.CreateScheduledTaskResponse], error) {
+	return c.createScheduledTask.CallUnary(ctx, req)
 }
 
-// UpsertScheduledTask calls app.v1.ScheduledTaskService.UpsertScheduledTask.
-func (c *scheduledTaskServiceClient) UpsertScheduledTask(ctx context.Context, req *connect.Request[v1.UpsertScheduledTaskRequest]) (*connect.Response[v1.UpsertScheduledTaskResponse], error) {
-	return c.upsertScheduledTask.CallUnary(ctx, req)
+// UpdateScheduledTask calls app.v1.ScheduledTaskService.UpdateScheduledTask.
+func (c *scheduledTaskServiceClient) UpdateScheduledTask(ctx context.Context, req *connect.Request[v1.UpdateScheduledTaskRequest]) (*connect.Response[v1.UpdateScheduledTaskResponse], error) {
+	return c.updateScheduledTask.CallUnary(ctx, req)
 }
 
 // DeleteScheduledTask calls app.v1.ScheduledTaskService.DeleteScheduledTask.
 func (c *scheduledTaskServiceClient) DeleteScheduledTask(ctx context.Context, req *connect.Request[v1.DeleteScheduledTaskRequest]) (*connect.Response[v1.DeleteScheduledTaskResponse], error) {
 	return c.deleteScheduledTask.CallUnary(ctx, req)
+}
+
+// ReorderScheduledTasks calls app.v1.ScheduledTaskService.ReorderScheduledTasks.
+func (c *scheduledTaskServiceClient) ReorderScheduledTasks(ctx context.Context, req *connect.Request[v1.ReorderScheduledTasksRequest]) (*connect.Response[v1.ReorderScheduledTasksResponse], error) {
+	return c.reorderScheduledTasks.CallUnary(ctx, req)
 }
 
 // RunScheduledTask calls app.v1.ScheduledTaskService.RunScheduledTask.
@@ -188,9 +204,10 @@ func (c *scheduledTaskServiceClient) NextScheduledTaskRuns(ctx context.Context, 
 // ScheduledTaskServiceHandler is an implementation of the app.v1.ScheduledTaskService service.
 type ScheduledTaskServiceHandler interface {
 	ListScheduledTasks(context.Context, *connect.Request[v1.ListScheduledTasksRequest]) (*connect.Response[v1.ListScheduledTasksResponse], error)
-	SaveScheduledTasks(context.Context, *connect.Request[v1.SaveScheduledTasksRequest]) (*connect.Response[v1.SaveScheduledTasksResponse], error)
-	UpsertScheduledTask(context.Context, *connect.Request[v1.UpsertScheduledTaskRequest]) (*connect.Response[v1.UpsertScheduledTaskResponse], error)
+	CreateScheduledTask(context.Context, *connect.Request[v1.CreateScheduledTaskRequest]) (*connect.Response[v1.CreateScheduledTaskResponse], error)
+	UpdateScheduledTask(context.Context, *connect.Request[v1.UpdateScheduledTaskRequest]) (*connect.Response[v1.UpdateScheduledTaskResponse], error)
 	DeleteScheduledTask(context.Context, *connect.Request[v1.DeleteScheduledTaskRequest]) (*connect.Response[v1.DeleteScheduledTaskResponse], error)
+	ReorderScheduledTasks(context.Context, *connect.Request[v1.ReorderScheduledTasksRequest]) (*connect.Response[v1.ReorderScheduledTasksResponse], error)
 	RunScheduledTask(context.Context, *connect.Request[v1.RunScheduledTaskRequest]) (*connect.Response[v1.RunScheduledTaskResponse], error)
 	ListScheduledTaskLogs(context.Context, *connect.Request[v1.ListScheduledTaskLogsRequest]) (*connect.Response[v1.ListScheduledTaskLogsResponse], error)
 	ClearScheduledTaskLogs(context.Context, *connect.Request[v1.ClearScheduledTaskLogsRequest]) (*connect.Response[v1.ClearScheduledTaskLogsResponse], error)
@@ -210,22 +227,28 @@ func NewScheduledTaskServiceHandler(svc ScheduledTaskServiceHandler, opts ...con
 		connect.WithSchema(scheduledTaskServiceMethods.ByName("ListScheduledTasks")),
 		connect.WithHandlerOptions(opts...),
 	)
-	scheduledTaskServiceSaveScheduledTasksHandler := connect.NewUnaryHandler(
-		ScheduledTaskServiceSaveScheduledTasksProcedure,
-		svc.SaveScheduledTasks,
-		connect.WithSchema(scheduledTaskServiceMethods.ByName("SaveScheduledTasks")),
+	scheduledTaskServiceCreateScheduledTaskHandler := connect.NewUnaryHandler(
+		ScheduledTaskServiceCreateScheduledTaskProcedure,
+		svc.CreateScheduledTask,
+		connect.WithSchema(scheduledTaskServiceMethods.ByName("CreateScheduledTask")),
 		connect.WithHandlerOptions(opts...),
 	)
-	scheduledTaskServiceUpsertScheduledTaskHandler := connect.NewUnaryHandler(
-		ScheduledTaskServiceUpsertScheduledTaskProcedure,
-		svc.UpsertScheduledTask,
-		connect.WithSchema(scheduledTaskServiceMethods.ByName("UpsertScheduledTask")),
+	scheduledTaskServiceUpdateScheduledTaskHandler := connect.NewUnaryHandler(
+		ScheduledTaskServiceUpdateScheduledTaskProcedure,
+		svc.UpdateScheduledTask,
+		connect.WithSchema(scheduledTaskServiceMethods.ByName("UpdateScheduledTask")),
 		connect.WithHandlerOptions(opts...),
 	)
 	scheduledTaskServiceDeleteScheduledTaskHandler := connect.NewUnaryHandler(
 		ScheduledTaskServiceDeleteScheduledTaskProcedure,
 		svc.DeleteScheduledTask,
 		connect.WithSchema(scheduledTaskServiceMethods.ByName("DeleteScheduledTask")),
+		connect.WithHandlerOptions(opts...),
+	)
+	scheduledTaskServiceReorderScheduledTasksHandler := connect.NewUnaryHandler(
+		ScheduledTaskServiceReorderScheduledTasksProcedure,
+		svc.ReorderScheduledTasks,
+		connect.WithSchema(scheduledTaskServiceMethods.ByName("ReorderScheduledTasks")),
 		connect.WithHandlerOptions(opts...),
 	)
 	scheduledTaskServiceRunScheduledTaskHandler := connect.NewUnaryHandler(
@@ -256,12 +279,14 @@ func NewScheduledTaskServiceHandler(svc ScheduledTaskServiceHandler, opts ...con
 		switch r.URL.Path {
 		case ScheduledTaskServiceListScheduledTasksProcedure:
 			scheduledTaskServiceListScheduledTasksHandler.ServeHTTP(w, r)
-		case ScheduledTaskServiceSaveScheduledTasksProcedure:
-			scheduledTaskServiceSaveScheduledTasksHandler.ServeHTTP(w, r)
-		case ScheduledTaskServiceUpsertScheduledTaskProcedure:
-			scheduledTaskServiceUpsertScheduledTaskHandler.ServeHTTP(w, r)
+		case ScheduledTaskServiceCreateScheduledTaskProcedure:
+			scheduledTaskServiceCreateScheduledTaskHandler.ServeHTTP(w, r)
+		case ScheduledTaskServiceUpdateScheduledTaskProcedure:
+			scheduledTaskServiceUpdateScheduledTaskHandler.ServeHTTP(w, r)
 		case ScheduledTaskServiceDeleteScheduledTaskProcedure:
 			scheduledTaskServiceDeleteScheduledTaskHandler.ServeHTTP(w, r)
+		case ScheduledTaskServiceReorderScheduledTasksProcedure:
+			scheduledTaskServiceReorderScheduledTasksHandler.ServeHTTP(w, r)
 		case ScheduledTaskServiceRunScheduledTaskProcedure:
 			scheduledTaskServiceRunScheduledTaskHandler.ServeHTTP(w, r)
 		case ScheduledTaskServiceListScheduledTaskLogsProcedure:
@@ -283,16 +308,20 @@ func (UnimplementedScheduledTaskServiceHandler) ListScheduledTasks(context.Conte
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.ScheduledTaskService.ListScheduledTasks is not implemented"))
 }
 
-func (UnimplementedScheduledTaskServiceHandler) SaveScheduledTasks(context.Context, *connect.Request[v1.SaveScheduledTasksRequest]) (*connect.Response[v1.SaveScheduledTasksResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.ScheduledTaskService.SaveScheduledTasks is not implemented"))
+func (UnimplementedScheduledTaskServiceHandler) CreateScheduledTask(context.Context, *connect.Request[v1.CreateScheduledTaskRequest]) (*connect.Response[v1.CreateScheduledTaskResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.ScheduledTaskService.CreateScheduledTask is not implemented"))
 }
 
-func (UnimplementedScheduledTaskServiceHandler) UpsertScheduledTask(context.Context, *connect.Request[v1.UpsertScheduledTaskRequest]) (*connect.Response[v1.UpsertScheduledTaskResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.ScheduledTaskService.UpsertScheduledTask is not implemented"))
+func (UnimplementedScheduledTaskServiceHandler) UpdateScheduledTask(context.Context, *connect.Request[v1.UpdateScheduledTaskRequest]) (*connect.Response[v1.UpdateScheduledTaskResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.ScheduledTaskService.UpdateScheduledTask is not implemented"))
 }
 
 func (UnimplementedScheduledTaskServiceHandler) DeleteScheduledTask(context.Context, *connect.Request[v1.DeleteScheduledTaskRequest]) (*connect.Response[v1.DeleteScheduledTaskResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.ScheduledTaskService.DeleteScheduledTask is not implemented"))
+}
+
+func (UnimplementedScheduledTaskServiceHandler) ReorderScheduledTasks(context.Context, *connect.Request[v1.ReorderScheduledTasksRequest]) (*connect.Response[v1.ReorderScheduledTasksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.ScheduledTaskService.ReorderScheduledTasks is not implemented"))
 }
 
 func (UnimplementedScheduledTaskServiceHandler) RunScheduledTask(context.Context, *connect.Request[v1.RunScheduledTaskRequest]) (*connect.Response[v1.RunScheduledTaskResponse], error) {

@@ -5,11 +5,18 @@ import { useI18n, I18nT } from 'vue-i18n'
 import { BrowserOpenURL, ClipboardSetText } from '@/bridge'
 import { DraggableOptions, ViewOptions } from '@/constant/app'
 import { View } from '@/enums/app'
-import { useSubscribesStore, useAppSettingsStore, useAppStore } from '@/stores'
+import {
+  isResourceConflict,
+  isResourceNotFound,
+  useSubscribesStore,
+  useAppSettingsStore,
+  useAppStore,
+} from '@/stores'
 import {
   formatBytes,
   formatRelativeTime,
   debounce,
+  deepClone,
   formatDate,
   message,
   confirmDelete,
@@ -58,6 +65,15 @@ const [Modal, modalApi] = useModal({})
 const appStore = useAppStore()
 const subscribeStore = useSubscribesStore()
 const appSettingsStore = useAppSettingsStore()
+
+const handleMutationError = async (error: unknown) => {
+  if (isResourceConflict(error) || isResourceNotFound(error)) {
+    await subscribeStore.setupSubscribes().catch(() => undefined)
+    message.error(t('common.operationConflict'))
+    return
+  }
+  message.error((error as any)?.message || error)
+}
 
 const generateMenus = (subscription: Subscription) => {
   return menuList
@@ -132,13 +148,19 @@ const handleDeleteSub = async (s: Subscription) => {
     await subscribeStore.deleteSubscribe(s.id)
   } catch (error: any) {
     console.error('deleteSubscribe: ', error)
-    message.error(error)
+    await handleMutationError(error)
   }
 }
 
 const handleDisableSub = async (s: Subscription) => {
-  s.disabled = !s.disabled
-  subscribeStore.editSubscribe(s.id, s)
+  const revision = subscribeStore.getSubscribeRevision(s.id)
+  const next = deepClone(s)
+  next.disabled = !next.disabled
+  try {
+    await subscribeStore.editSubscribe(s.id, next, revision)
+  } catch (error: any) {
+    await handleMutationError(error)
+  }
 }
 
 const noUpdateNeeded = computed(() => subscribeStore.subscribes.every((v) => v.disabled))
@@ -152,7 +174,27 @@ const clacTrafficStatus = (s: Subscription) => {
   return 'primary'
 }
 
-const onSortUpdate = debounce(subscribeStore.saveSubscribes, 1000)
+let sortRevision = subscribeStore.getSubscribesOrderRevision()
+let sortStartIDs: string[] = []
+const onSortStart = () => {
+  sortRevision = subscribeStore.getSubscribesOrderRevision()
+  sortStartIDs = subscribeStore.subscribes.map((item) => item.id)
+}
+const saveSubscribeOrder = debounce(
+  (
+    ids: string[],
+    revision: ReturnType<typeof subscribeStore.getSubscribesOrderRevision>,
+    fallbackIDs: string[],
+  ) => subscribeStore.reorderSubscribes(ids, revision, fallbackIDs),
+  1000,
+)
+const onSortUpdate = () => {
+  void saveSubscribeOrder(
+    subscribeStore.subscribes.map((item) => item.id),
+    sortRevision,
+    sortStartIDs,
+  ).catch((error: any) => void handleMutationError(error))
+}
 </script>
 
 <template>
@@ -187,7 +229,10 @@ const onSortUpdate = debounce(subscribeStore.saveSubscribes, 1000)
   </div>
 
   <div
-    v-draggable="[subscribeStore.subscribes, { ...DraggableOptions, onUpdate: onSortUpdate }]"
+    v-draggable="[
+      subscribeStore.subscribes,
+      { ...DraggableOptions, onStart: onSortStart, onUpdate: onSortUpdate },
+    ]"
     :class="'grid-list-' + appSettingsStore.app.subscribesView"
   >
     <Card

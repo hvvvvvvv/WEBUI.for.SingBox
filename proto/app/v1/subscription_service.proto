@@ -5,34 +5,52 @@ package app.v1;
 option go_package = "guiforcores/proto/app/v1";
 
 import "app/v1/task.proto";
+import "common/v1/sync.proto";
 
 message ListSubscriptionsRequest {}
 
 message ListSubscriptionsResponse {
   repeated string subscriptions_json = 1;
+  common.v1.ResourceState state = 2;
 }
 
-message SaveSubscriptionsRequest {
-  repeated string subscriptions_json = 1;
-}
-
-message SaveSubscriptionsResponse {
-  repeated string subscriptions_json = 1;
-}
-
-message UpsertSubscriptionRequest {
+message CreateSubscriptionRequest {
   string subscription_json = 1;
 }
 
-message UpsertSubscriptionResponse {
+message CreateSubscriptionResponse {
   string subscription_json = 1;
+  common.v1.MutationState state = 2;
+}
+
+message UpdateSubscriptionConfigRequest {
+  string subscription_json = 1;
+  common.v1.ExpectedRevision expected_revision = 2;
+}
+
+message UpdateSubscriptionConfigResponse {
+  string subscription_json = 1;
+  common.v1.MutationState state = 2;
 }
 
 message DeleteSubscriptionRequest {
   string id = 1;
+  common.v1.ExpectedRevision expected_revision = 2;
 }
 
-message DeleteSubscriptionResponse {}
+message DeleteSubscriptionResponse {
+  common.v1.MutationState state = 1;
+}
+
+message ReorderSubscriptionsRequest {
+  repeated string ids = 1;
+  common.v1.ExpectedRevision expected_order_revision = 2;
+}
+
+message ReorderSubscriptionsResponse {
+  repeated string ids = 1;
+  common.v1.MutationState state = 2;
+}
 
 message UpdateSubscriptionRequest {
   string id = 1;
@@ -40,12 +58,14 @@ message UpdateSubscriptionRequest {
 
 message UpdateSubscriptionResponse {
   repeated TaskResult results = 1;
+  common.v1.MutationState state = 2;
 }
 
 message UpdateAllSubscriptionsRequest {}
 
 message UpdateAllSubscriptionsResponse {
   repeated TaskResult results = 1;
+  common.v1.MutationState state = 2;
 }
 
 message GetSubscriptionContentRequest {
@@ -54,22 +74,26 @@ message GetSubscriptionContentRequest {
 
 message GetSubscriptionContentResponse {
   string content = 1;
+  common.v1.ExpectedRevision revision = 2;
 }
 
 message SaveSubscriptionContentRequest {
   string id = 1;
   string content = 2;
+  common.v1.ExpectedRevision expected_revision = 3;
 }
 
 message SaveSubscriptionContentResponse {
   string subscription_json = 1;
+  common.v1.MutationState state = 2;
 }
 
 service SubscriptionService {
   rpc ListSubscriptions(ListSubscriptionsRequest) returns (ListSubscriptionsResponse);
-  rpc SaveSubscriptions(SaveSubscriptionsRequest) returns (SaveSubscriptionsResponse);
-  rpc UpsertSubscription(UpsertSubscriptionRequest) returns (UpsertSubscriptionResponse);
+  rpc CreateSubscription(CreateSubscriptionRequest) returns (CreateSubscriptionResponse);
+  rpc UpdateSubscriptionConfig(UpdateSubscriptionConfigRequest) returns (UpdateSubscriptionConfigResponse);
   rpc DeleteSubscription(DeleteSubscriptionRequest) returns (DeleteSubscriptionResponse);
+  rpc ReorderSubscriptions(ReorderSubscriptionsRequest) returns (ReorderSubscriptionsResponse);
   rpc UpdateSubscription(UpdateSubscriptionRequest) returns (UpdateSubscriptionResponse);
   rpc UpdateAllSubscriptions(UpdateAllSubscriptionsRequest) returns (UpdateAllSubscriptionsResponse);
   rpc GetSubscriptionContent(GetSubscriptionContentRequest) returns (GetSubscriptionContentResponse);

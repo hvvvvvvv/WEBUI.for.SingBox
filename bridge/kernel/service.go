@@ -74,13 +74,23 @@ type Service struct {
 	profiles  ProfileReader
 	events    EventPublisher
 
-	stateEventMu    sync.Mutex
-	mu              sync.Mutex
-	status          kernelv1.CoreStatus
-	activeProfileID string
-	corePID         int
-	currentProfile  *profilev1.Profile
-	downloads       map[string]context.CancelFunc
+	stateEventMu       sync.Mutex
+	restartOperationMu sync.Mutex
+	restartQueueMu     sync.Mutex
+	mu                 sync.Mutex
+	status             kernelv1.CoreStatus
+	activeProfileID    string
+	corePID            int
+	currentProfile     *profilev1.Profile
+	restartRequired    bool
+	restarting         bool
+	restartWorker      bool
+	restartPending     bool
+	restartRequestedAt time.Time
+	restartTargetID    string
+	restartTargetForce bool
+	restartExecutingID string
+	downloads          map[string]context.CancelFunc
 }
 
 var waitKernelAPIReadyFunc = waitKernelAPIReady
@@ -111,6 +121,15 @@ func visibleCorePID(status kernelv1.CoreStatus, pid int) int {
 	return -1
 }
 
+func (s *Service) publishCoreState(status kernelv1.CoreStatus, pid int, restartRequired bool, restarting bool) {
+	s.publish(kernelStateChangedEvent, map[string]any{
+		"status":          status,
+		"pid":             pid,
+		"restartRequired": restartRequired,
+		"restarting":      restarting,
+	})
+}
+
 func (s *Service) updateCoreState(update func()) {
 	s.stateEventMu.Lock()
 	defer s.stateEventMu.Unlock()
@@ -118,13 +137,17 @@ func (s *Service) updateCoreState(update func()) {
 	s.mu.Lock()
 	previousStatus := s.status
 	previousPID := visibleCorePID(s.status, s.corePID)
+	previousRestartRequired := s.restartRequired
+	previousRestarting := s.restarting
 	update()
 	status := s.status
 	pid := visibleCorePID(status, s.corePID)
+	restartRequired := s.restartRequired
+	restarting := s.restarting
 	s.mu.Unlock()
 
-	if status != previousStatus || pid != previousPID {
-		s.publish(kernelStateChangedEvent, map[string]any{"status": status, "pid": pid})
+	if status != previousStatus || pid != previousPID || restartRequired != previousRestartRequired || restarting != previousRestarting {
+		s.publishCoreState(status, pid, restartRequired, restarting)
 	}
 }
 
@@ -141,9 +164,11 @@ func (s *Service) setStarting(profileID string) error {
 	s.activeProfileID = profileID
 	s.corePID = -1
 	s.currentProfile = nil
+	restartRequired := s.restartRequired
+	restarting := s.restarting
 	s.mu.Unlock()
 
-	s.publish(kernelStateChangedEvent, map[string]any{"status": kernelv1.CoreStatus_CORE_STATUS_STARTING, "pid": -1})
+	s.publishCoreState(kernelv1.CoreStatus_CORE_STATUS_STARTING, -1, restartRequired, restarting)
 	return nil
 }
 
@@ -153,6 +178,7 @@ func (s *Service) setRunning(pid int, profileID string, profile *profilev1.Profi
 		s.activeProfileID = profileID
 		s.corePID = pid
 		s.currentProfile = cloneProfile(profile)
+		s.restartRequired = false
 	})
 }
 
@@ -168,9 +194,12 @@ func (s *Service) completeStart(pid int, profileID string, profile *profilev1.Pr
 	s.status = kernelv1.CoreStatus_CORE_STATUS_RUNNING
 	s.activeProfileID = profileID
 	s.currentProfile = cloneProfile(profile)
+	s.restartRequired = false
+	restartRequired := s.restartRequired
+	restarting := s.restarting
 	s.mu.Unlock()
 
-	s.publish(kernelStateChangedEvent, map[string]any{"status": kernelv1.CoreStatus_CORE_STATUS_RUNNING, "pid": pid})
+	s.publishCoreState(kernelv1.CoreStatus_CORE_STATUS_RUNNING, pid, restartRequired, restarting)
 	return true
 }
 
@@ -179,6 +208,9 @@ func (s *Service) setStopped() {
 		s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPED
 		s.corePID = -1
 		s.currentProfile = nil
+		if !s.restarting {
+			s.restartRequired = false
+		}
 	})
 }
 
@@ -187,6 +219,7 @@ func (s *Service) setCrashed() {
 		s.status = kernelv1.CoreStatus_CORE_STATUS_CRASHED
 		s.corePID = -1
 		s.currentProfile = nil
+		s.restartRequired = false
 	})
 }
 
@@ -201,9 +234,11 @@ func (s *Service) beginStopping() (int, error) {
 	}
 	pid := s.corePID
 	s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPING
+	restartRequired := s.restartRequired
+	restarting := s.restarting
 	s.mu.Unlock()
 
-	s.publish(kernelStateChangedEvent, map[string]any{"status": kernelv1.CoreStatus_CORE_STATUS_STOPPING, "pid": -1})
+	s.publishCoreState(kernelv1.CoreStatus_CORE_STATUS_STOPPING, -1, restartRequired, restarting)
 	return pid, nil
 }
 
@@ -231,15 +266,21 @@ func (s *Service) handleCoreProcessExit(pid int, waitErr error) {
 	}
 	if crashed {
 		s.status = kernelv1.CoreStatus_CORE_STATUS_CRASHED
+		s.restartRequired = false
 	} else {
 		s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPED
+		if !s.restarting {
+			s.restartRequired = false
+		}
 	}
 	s.corePID = -1
 	s.currentProfile = nil
 	status = s.status
+	restartRequired := s.restartRequired
+	restarting := s.restarting
 	s.mu.Unlock()
 
-	s.publish(kernelStateChangedEvent, map[string]any{"status": status, "pid": -1})
+	s.publishCoreState(status, -1, restartRequired, restarting)
 	if !crashed {
 		return
 	}
@@ -301,11 +342,6 @@ func (s *Service) Status() (kernelv1.CoreStatus, string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.status, s.activeProfileID
-}
-
-func (s *Service) Restart(ctx context.Context, profileID string) error {
-	_, err := s.RestartCore(ctx, connect.NewRequest(&kernelv1.RestartCoreRequest{ProfileId: profileID}))
-	return err
 }
 
 func (s *Service) StartCore(
@@ -444,10 +480,6 @@ func (s *Service) RestartCore(
 	ctx context.Context,
 	req *connect.Request[kernelv1.RestartCoreRequest],
 ) (*connect.Response[kernelv1.RestartCoreResponse], error) {
-	if _, err := s.StopCore(ctx, connect.NewRequest(&kernelv1.StopCoreRequest{})); err != nil {
-		return nil, err
-	}
-
 	profileID := req.Msg.GetProfileId()
 	if profileID == "" {
 		s.mu.Lock()
@@ -458,11 +490,34 @@ func (s *Service) RestartCore(
 		return nil, rpcutil.AsConnectError(rpcutil.InvalidArgumentError{Message: "profile_id is required for restart when no active profile exists"})
 	}
 
-	startResp, err := s.StartCore(ctx, connect.NewRequest(&kernelv1.StartCoreRequest{ProfileId: profileID}))
+	s.updateCoreState(func() {
+		s.restarting = true
+	})
+	defer s.finishManualRestart()
+
+	s.restartOperationMu.Lock()
+	defer s.restartOperationMu.Unlock()
+	return s.restartCoreOnce(ctx, profileID)
+}
+
+func (s *Service) restartCoreOnce(
+	ctx context.Context,
+	profileID string,
+) (*connect.Response[kernelv1.RestartCoreResponse], error) {
+	profile, err := s.loadProfileByID(profileID)
+	if err != nil {
+		return nil, rpcutil.AsConnectError(err)
+	}
+
+	if _, err := s.StopCore(ctx, connect.NewRequest(&kernelv1.StopCoreRequest{})); err != nil {
+		return nil, err
+	}
+
+	pid, err := s.startCoreWithProfile(ctx, profile)
 	if err != nil {
 		return nil, err
 	}
-	return connect.NewResponse(&kernelv1.RestartCoreResponse{Pid: startResp.Msg.GetPid()}), nil
+	return connect.NewResponse(&kernelv1.RestartCoreResponse{Pid: int32(pid)}), nil
 }
 
 func (s *Service) GetCoreStatus(
@@ -472,11 +527,18 @@ func (s *Service) GetCoreStatus(
 	s.mu.Lock()
 	status := s.status
 	pid := s.corePID
+	restartRequired := s.restartRequired
+	restarting := s.restarting
 	s.mu.Unlock()
 	if status != kernelv1.CoreStatus_CORE_STATUS_RUNNING || pid <= 0 {
 		pid = -1
 	}
-	return connect.NewResponse(&kernelv1.GetCoreStatusResponse{Status: status, Pid: int32(pid)}), nil
+	return connect.NewResponse(&kernelv1.GetCoreStatusResponse{
+		Status:          status,
+		Pid:             int32(pid),
+		RestartRequired: restartRequired,
+		Restarting:      restarting,
+	}), nil
 }
 
 func (s *Service) GetCurrentProfile(

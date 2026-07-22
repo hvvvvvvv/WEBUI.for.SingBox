@@ -79,8 +79,10 @@ export const addToRuleSet = async (
     await rulesetsStoe.addRuleset(ruleset)
   }
 
-  const content =
-    (await rulesetsStoe.getRulesetContent(ruleset.id)) || '{ "version": 2, "rules": [] }'
+  const { content: storedContent, revision } = await rulesetsStoe.getRulesetContentWithRevision(
+    ruleset.id,
+  )
+  const content = storedContent || '{ "version": 2, "rules": [] }'
   const { rules = [] } = JSON.parse(content)
   rules[0] = rules[0] || {}
   payloads.forEach((payload) => {
@@ -98,5 +100,9 @@ export const addToRuleSet = async (
       ]
     }
   })
-  await rulesetsStoe.saveRulesetContent(ruleset.id, JSON.stringify({ version: 2, rules }, null, 2))
+  await rulesetsStoe.saveRulesetContent(
+    ruleset.id,
+    JSON.stringify({ version: 2, rules }, null, 2),
+    revision,
+  )
 }

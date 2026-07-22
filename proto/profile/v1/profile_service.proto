@@ -5,11 +5,13 @@ package profile.v1;
 option go_package = "guiforcores/proto/profile/v1";
 
 import "profile/v1/profile.proto";
+import "common/v1/sync.proto";
 
 message ListProfilesRequest {}
 
 message ListProfilesResponse {
   repeated Profile profiles = 1;
+  common.v1.ResourceState state = 2;
 }
 
 message GetProfileRequest {
@@ -26,28 +28,36 @@ message CreateProfileRequest {
 
 message CreateProfileResponse {
   Profile profile = 1;
+  common.v1.MutationState state = 2;
 }
 
 message UpdateProfileRequest {
   Profile profile = 1;
+  common.v1.ExpectedRevision expected_revision = 2;
 }
 
 message UpdateProfileResponse {
   Profile profile = 1;
+  common.v1.MutationState state = 2;
 }
 
 message DeleteProfileRequest {
   string id = 1;
+  common.v1.ExpectedRevision expected_revision = 2;
 }
 
-message DeleteProfileResponse {}
-
-message SaveProfilesRequest {
-  repeated Profile profiles = 1;
+message DeleteProfileResponse {
+  common.v1.MutationState state = 1;
 }
 
-message SaveProfilesResponse {
-  repeated Profile profiles = 1;
+message ReorderProfilesRequest {
+  repeated string ids = 1;
+  common.v1.ExpectedRevision expected_order_revision = 2;
+}
+
+message ReorderProfilesResponse {
+  repeated string ids = 1;
+  common.v1.MutationState state = 2;
 }
 
 service ProfileService {
@@ -56,5 +66,5 @@ service ProfileService {
   rpc CreateProfile(CreateProfileRequest) returns (CreateProfileResponse);
   rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse);
   rpc DeleteProfile(DeleteProfileRequest) returns (DeleteProfileResponse);
-  rpc SaveProfiles(SaveProfilesRequest) returns (SaveProfilesResponse);
+  rpc ReorderProfiles(ReorderProfilesRequest) returns (ReorderProfilesResponse);
 }

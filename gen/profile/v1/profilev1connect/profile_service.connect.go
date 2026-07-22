@@ -48,9 +48,9 @@ const (
 	// ProfileServiceDeleteProfileProcedure is the fully-qualified name of the ProfileService's
 	// DeleteProfile RPC.
 	ProfileServiceDeleteProfileProcedure = "/profile.v1.ProfileService/DeleteProfile"
-	// ProfileServiceSaveProfilesProcedure is the fully-qualified name of the ProfileService's
-	// SaveProfiles RPC.
-	ProfileServiceSaveProfilesProcedure = "/profile.v1.ProfileService/SaveProfiles"
+	// ProfileServiceReorderProfilesProcedure is the fully-qualified name of the ProfileService's
+	// ReorderProfiles RPC.
+	ProfileServiceReorderProfilesProcedure = "/profile.v1.ProfileService/ReorderProfiles"
 )
 
 // ProfileServiceClient is a client for the profile.v1.ProfileService service.
@@ -60,7 +60,7 @@ type ProfileServiceClient interface {
 	CreateProfile(context.Context, *connect.Request[v1.CreateProfileRequest]) (*connect.Response[v1.CreateProfileResponse], error)
 	UpdateProfile(context.Context, *connect.Request[v1.UpdateProfileRequest]) (*connect.Response[v1.UpdateProfileResponse], error)
 	DeleteProfile(context.Context, *connect.Request[v1.DeleteProfileRequest]) (*connect.Response[v1.DeleteProfileResponse], error)
-	SaveProfiles(context.Context, *connect.Request[v1.SaveProfilesRequest]) (*connect.Response[v1.SaveProfilesResponse], error)
+	ReorderProfiles(context.Context, *connect.Request[v1.ReorderProfilesRequest]) (*connect.Response[v1.ReorderProfilesResponse], error)
 }
 
 // NewProfileServiceClient constructs a client for the profile.v1.ProfileService service. By
@@ -104,10 +104,10 @@ func NewProfileServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(profileServiceMethods.ByName("DeleteProfile")),
 			connect.WithClientOptions(opts...),
 		),
-		saveProfiles: connect.NewClient[v1.SaveProfilesRequest, v1.SaveProfilesResponse](
+		reorderProfiles: connect.NewClient[v1.ReorderProfilesRequest, v1.ReorderProfilesResponse](
 			httpClient,
-			baseURL+ProfileServiceSaveProfilesProcedure,
-			connect.WithSchema(profileServiceMethods.ByName("SaveProfiles")),
+			baseURL+ProfileServiceReorderProfilesProcedure,
+			connect.WithSchema(profileServiceMethods.ByName("ReorderProfiles")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -115,12 +115,12 @@ func NewProfileServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 
 // profileServiceClient implements ProfileServiceClient.
 type profileServiceClient struct {
-	listProfiles  *connect.Client[v1.ListProfilesRequest, v1.ListProfilesResponse]
-	getProfile    *connect.Client[v1.GetProfileRequest, v1.GetProfileResponse]
-	createProfile *connect.Client[v1.CreateProfileRequest, v1.CreateProfileResponse]
-	updateProfile *connect.Client[v1.UpdateProfileRequest, v1.UpdateProfileResponse]
-	deleteProfile *connect.Client[v1.DeleteProfileRequest, v1.DeleteProfileResponse]
-	saveProfiles  *connect.Client[v1.SaveProfilesRequest, v1.SaveProfilesResponse]
+	listProfiles    *connect.Client[v1.ListProfilesRequest, v1.ListProfilesResponse]
+	getProfile      *connect.Client[v1.GetProfileRequest, v1.GetProfileResponse]
+	createProfile   *connect.Client[v1.CreateProfileRequest, v1.CreateProfileResponse]
+	updateProfile   *connect.Client[v1.UpdateProfileRequest, v1.UpdateProfileResponse]
+	deleteProfile   *connect.Client[v1.DeleteProfileRequest, v1.DeleteProfileResponse]
+	reorderProfiles *connect.Client[v1.ReorderProfilesRequest, v1.ReorderProfilesResponse]
 }
 
 // ListProfiles calls profile.v1.ProfileService.ListProfiles.
@@ -148,9 +148,9 @@ func (c *profileServiceClient) DeleteProfile(ctx context.Context, req *connect.R
 	return c.deleteProfile.CallUnary(ctx, req)
 }
 
-// SaveProfiles calls profile.v1.ProfileService.SaveProfiles.
-func (c *profileServiceClient) SaveProfiles(ctx context.Context, req *connect.Request[v1.SaveProfilesRequest]) (*connect.Response[v1.SaveProfilesResponse], error) {
-	return c.saveProfiles.CallUnary(ctx, req)
+// ReorderProfiles calls profile.v1.ProfileService.ReorderProfiles.
+func (c *profileServiceClient) ReorderProfiles(ctx context.Context, req *connect.Request[v1.ReorderProfilesRequest]) (*connect.Response[v1.ReorderProfilesResponse], error) {
+	return c.reorderProfiles.CallUnary(ctx, req)
 }
 
 // ProfileServiceHandler is an implementation of the profile.v1.ProfileService service.
@@ -160,7 +160,7 @@ type ProfileServiceHandler interface {
 	CreateProfile(context.Context, *connect.Request[v1.CreateProfileRequest]) (*connect.Response[v1.CreateProfileResponse], error)
 	UpdateProfile(context.Context, *connect.Request[v1.UpdateProfileRequest]) (*connect.Response[v1.UpdateProfileResponse], error)
 	DeleteProfile(context.Context, *connect.Request[v1.DeleteProfileRequest]) (*connect.Response[v1.DeleteProfileResponse], error)
-	SaveProfiles(context.Context, *connect.Request[v1.SaveProfilesRequest]) (*connect.Response[v1.SaveProfilesResponse], error)
+	ReorderProfiles(context.Context, *connect.Request[v1.ReorderProfilesRequest]) (*connect.Response[v1.ReorderProfilesResponse], error)
 }
 
 // NewProfileServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -200,10 +200,10 @@ func NewProfileServiceHandler(svc ProfileServiceHandler, opts ...connect.Handler
 		connect.WithSchema(profileServiceMethods.ByName("DeleteProfile")),
 		connect.WithHandlerOptions(opts...),
 	)
-	profileServiceSaveProfilesHandler := connect.NewUnaryHandler(
-		ProfileServiceSaveProfilesProcedure,
-		svc.SaveProfiles,
-		connect.WithSchema(profileServiceMethods.ByName("SaveProfiles")),
+	profileServiceReorderProfilesHandler := connect.NewUnaryHandler(
+		ProfileServiceReorderProfilesProcedure,
+		svc.ReorderProfiles,
+		connect.WithSchema(profileServiceMethods.ByName("ReorderProfiles")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/profile.v1.ProfileService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -218,8 +218,8 @@ func NewProfileServiceHandler(svc ProfileServiceHandler, opts ...connect.Handler
 			profileServiceUpdateProfileHandler.ServeHTTP(w, r)
 		case ProfileServiceDeleteProfileProcedure:
 			profileServiceDeleteProfileHandler.ServeHTTP(w, r)
-		case ProfileServiceSaveProfilesProcedure:
-			profileServiceSaveProfilesHandler.ServeHTTP(w, r)
+		case ProfileServiceReorderProfilesProcedure:
+			profileServiceReorderProfilesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -249,6 +249,6 @@ func (UnimplementedProfileServiceHandler) DeleteProfile(context.Context, *connec
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("profile.v1.ProfileService.DeleteProfile is not implemented"))
 }
 
-func (UnimplementedProfileServiceHandler) SaveProfiles(context.Context, *connect.Request[v1.SaveProfilesRequest]) (*connect.Response[v1.SaveProfilesResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("profile.v1.ProfileService.SaveProfiles is not implemented"))
+func (UnimplementedProfileServiceHandler) ReorderProfiles(context.Context, *connect.Request[v1.ReorderProfilesRequest]) (*connect.Response[v1.ReorderProfilesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("profile.v1.ProfileService.ReorderProfiles is not implemented"))
 }

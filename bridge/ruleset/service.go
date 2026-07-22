@@ -10,9 +10,10 @@ import (
 
 type Backend interface {
 	ListRuleSets(context.Context, *connect.Request[appv1.ListRuleSetsRequest]) (*connect.Response[appv1.ListRuleSetsResponse], error)
-	SaveRuleSets(context.Context, *connect.Request[appv1.SaveRuleSetsRequest]) (*connect.Response[appv1.SaveRuleSetsResponse], error)
-	UpsertRuleSet(context.Context, *connect.Request[appv1.UpsertRuleSetRequest]) (*connect.Response[appv1.UpsertRuleSetResponse], error)
+	CreateRuleSet(context.Context, *connect.Request[appv1.CreateRuleSetRequest]) (*connect.Response[appv1.CreateRuleSetResponse], error)
+	UpdateRuleSetConfig(context.Context, *connect.Request[appv1.UpdateRuleSetConfigRequest]) (*connect.Response[appv1.UpdateRuleSetConfigResponse], error)
 	DeleteRuleSet(context.Context, *connect.Request[appv1.DeleteRuleSetRequest]) (*connect.Response[appv1.DeleteRuleSetResponse], error)
+	ReorderRuleSets(context.Context, *connect.Request[appv1.ReorderRuleSetsRequest]) (*connect.Response[appv1.ReorderRuleSetsResponse], error)
 	UpdateRuleSet(context.Context, *connect.Request[appv1.UpdateRuleSetRequest]) (*connect.Response[appv1.UpdateRuleSetResponse], error)
 	UpdateAllRuleSets(context.Context, *connect.Request[appv1.UpdateAllRuleSetsRequest]) (*connect.Response[appv1.UpdateAllRuleSetsResponse], error)
 	UpdateRuleSetHub(context.Context, *connect.Request[appv1.UpdateRuleSetHubRequest]) (*connect.Response[appv1.UpdateRuleSetHubResponse], error)
@@ -34,16 +35,20 @@ func (s *Service) ListRuleSets(ctx context.Context, req *connect.Request[appv1.L
 	return s.backend.ListRuleSets(ctx, req)
 }
 
-func (s *Service) SaveRuleSets(ctx context.Context, req *connect.Request[appv1.SaveRuleSetsRequest]) (*connect.Response[appv1.SaveRuleSetsResponse], error) {
-	return s.backend.SaveRuleSets(ctx, req)
+func (s *Service) CreateRuleSet(ctx context.Context, req *connect.Request[appv1.CreateRuleSetRequest]) (*connect.Response[appv1.CreateRuleSetResponse], error) {
+	return s.backend.CreateRuleSet(ctx, req)
 }
 
-func (s *Service) UpsertRuleSet(ctx context.Context, req *connect.Request[appv1.UpsertRuleSetRequest]) (*connect.Response[appv1.UpsertRuleSetResponse], error) {
-	return s.backend.UpsertRuleSet(ctx, req)
+func (s *Service) UpdateRuleSetConfig(ctx context.Context, req *connect.Request[appv1.UpdateRuleSetConfigRequest]) (*connect.Response[appv1.UpdateRuleSetConfigResponse], error) {
+	return s.backend.UpdateRuleSetConfig(ctx, req)
 }
 
 func (s *Service) DeleteRuleSet(ctx context.Context, req *connect.Request[appv1.DeleteRuleSetRequest]) (*connect.Response[appv1.DeleteRuleSetResponse], error) {
 	return s.backend.DeleteRuleSet(ctx, req)
+}
+
+func (s *Service) ReorderRuleSets(ctx context.Context, req *connect.Request[appv1.ReorderRuleSetsRequest]) (*connect.Response[appv1.ReorderRuleSetsResponse], error) {
+	return s.backend.ReorderRuleSets(ctx, req)
 }
 
 func (s *Service) UpdateRuleSet(ctx context.Context, req *connect.Request[appv1.UpdateRuleSetRequest]) (*connect.Response[appv1.UpdateRuleSetResponse], error) {

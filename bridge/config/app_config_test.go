@@ -84,3 +84,39 @@ func TestAppServiceSavesConfig(t *testing.T) {
 		t.Fatalf("unexpected persisted config: %#v", stored)
 	}
 }
+
+type recordingAppConfigChanges struct {
+	previous AppConfig
+	current  AppConfig
+	calls    int
+}
+
+func (r *recordingAppConfigChanges) AppConfigChanged(previous AppConfig, current AppConfig) {
+	r.previous = previous
+	r.current = current
+	r.calls++
+}
+
+func TestAppServiceReportsPersistedConfigChange(t *testing.T) {
+	paths := storage.NewPaths(t.TempDir())
+	store, err := NewStore(paths)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewAppService(store)
+	handler := &recordingAppConfigChanges{}
+	service.SetChangeHandler(handler)
+
+	_, err = service.SaveAppConfig(context.Background(), connect.NewRequest(&appv1.SaveAppConfigRequest{
+		Config: &appv1.AppConfig{
+			Branch:  appv1.KernelBranch_KERNEL_BRANCH_ALPHA,
+			Profile: "selected",
+		},
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if handler.calls != 1 || handler.previous.Branch != "main" || handler.current.Branch != "alpha" || handler.current.Profile != "selected" {
+		t.Fatalf("config change notification = %#v", handler)
+	}
+}

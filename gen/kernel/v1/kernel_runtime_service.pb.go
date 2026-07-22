@@ -396,11 +396,13 @@ func (*GetCoreStatusRequest) Descriptor() ([]byte, []int) {
 }
 
 type GetCoreStatusResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Status        CoreStatus             `protobuf:"varint,1,opt,name=status,proto3,enum=kernel.v1.CoreStatus" json:"status,omitempty"`
-	Pid           int32                  `protobuf:"varint,2,opt,name=pid,proto3" json:"pid,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state           protoimpl.MessageState `protogen:"open.v1"`
+	Status          CoreStatus             `protobuf:"varint,1,opt,name=status,proto3,enum=kernel.v1.CoreStatus" json:"status,omitempty"`
+	Pid             int32                  `protobuf:"varint,2,opt,name=pid,proto3" json:"pid,omitempty"`
+	RestartRequired bool                   `protobuf:"varint,3,opt,name=restart_required,json=restartRequired,proto3" json:"restart_required,omitempty"`
+	Restarting      bool                   `protobuf:"varint,4,opt,name=restarting,proto3" json:"restarting,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *GetCoreStatusResponse) Reset() {
@@ -445,6 +447,20 @@ func (x *GetCoreStatusResponse) GetPid() int32 {
 		return x.Pid
 	}
 	return 0
+}
+
+func (x *GetCoreStatusResponse) GetRestartRequired() bool {
+	if x != nil {
+		return x.RestartRequired
+	}
+	return false
+}
+
+func (x *GetCoreStatusResponse) GetRestarting() bool {
+	if x != nil {
+		return x.Restarting
+	}
+	return false
 }
 
 type GetCurrentProfileRequest struct {
@@ -1236,10 +1252,14 @@ const file_kernel_v1_kernel_runtime_service_proto_rawDesc = "" +
 	"profile_id\x18\x01 \x01(\tR\tprofileId\"'\n" +
 	"\x13RestartCoreResponse\x12\x10\n" +
 	"\x03pid\x18\x01 \x01(\x05R\x03pid\"\x16\n" +
-	"\x14GetCoreStatusRequest\"X\n" +
+	"\x14GetCoreStatusRequest\"\xa3\x01\n" +
 	"\x15GetCoreStatusResponse\x12-\n" +
 	"\x06status\x18\x01 \x01(\x0e2\x15.kernel.v1.CoreStatusR\x06status\x12\x10\n" +
-	"\x03pid\x18\x02 \x01(\x05R\x03pid\"\x1a\n" +
+	"\x03pid\x18\x02 \x01(\x05R\x03pid\x12)\n" +
+	"\x10restart_required\x18\x03 \x01(\bR\x0frestartRequired\x12\x1e\n" +
+	"\n" +
+	"restarting\x18\x04 \x01(\bR\n" +
+	"restarting\"\x1a\n" +
 	"\x18GetCurrentProfileRequest\"y\n" +
 	"\x19GetCurrentProfileResponse\x12-\n" +
 	"\aprofile\x18\x01 \x01(\v2\x13.profile.v1.ProfileR\aprofile\x12-\n" +

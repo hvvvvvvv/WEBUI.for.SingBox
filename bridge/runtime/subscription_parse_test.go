@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"guiforcores/bridge/config"
+	"guiforcores/bridge/syncstate"
 	appv1 "guiforcores/gen/app/v1"
 
 	connect "connectrpc.com/connect"
@@ -85,7 +86,7 @@ func TestUpdateHTTPSubscriptionFallbackDoesNotOverwriteCacheOnFailure(t *testing
 	}}); err != nil {
 		t.Fatal(err)
 	}
-	service := &appRuntimeService{config: staticAppConfig{value: config.AppConfig{}}}
+	service := &appRuntimeService{config: staticAppConfig{value: config.AppConfig{}}, state: syncstate.NewCoordinator()}
 
 	response, err := service.UpdateSubscription(context.Background(), connect.NewRequest(&appv1.UpdateSubscriptionRequest{Id: "fallback-http"}))
 	if err != nil {
@@ -171,7 +172,7 @@ func TestDisabledHTTPNodeConversionDoesNotOverwriteCache(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	service := &appRuntimeService{config: staticAppConfig{value: config.AppConfig{}}}
+	service := &appRuntimeService{config: staticAppConfig{value: config.AppConfig{}}, state: syncstate.NewCoordinator()}
 	response, err := service.UpdateSubscription(context.Background(), connect.NewRequest(&appv1.UpdateSubscriptionRequest{Id: "conversion-disabled"}))
 	if err != nil {
 		t.Fatal(err)
@@ -228,7 +229,7 @@ func TestHTTPFallbackRunsFilterPrefixAndScriptBeforeCaching(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	service := &appRuntimeService{config: staticAppConfig{value: config.AppConfig{}}}
+	service := &appRuntimeService{config: staticAppConfig{value: config.AppConfig{}}, state: syncstate.NewCoordinator()}
 	response, err := service.UpdateSubscription(context.Background(), connect.NewRequest(&appv1.UpdateSubscriptionRequest{Id: "fallback-pipeline"}))
 	if err != nil {
 		t.Fatal(err)
@@ -280,7 +281,7 @@ func TestSubscriptionRequestErrorDoesNotLeakURLCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	service := &appRuntimeService{config: staticAppConfig{value: config.AppConfig{}}}
+	service := &appRuntimeService{config: staticAppConfig{value: config.AppConfig{}}, state: syncstate.NewCoordinator()}
 	response, err := service.UpdateSubscription(context.Background(), connect.NewRequest(&appv1.UpdateSubscriptionRequest{Id: "request-error-redaction"}))
 	if err != nil {
 		t.Fatal(err)
@@ -425,7 +426,7 @@ func TestUpdateAllSubscriptionsReturnsMixedStructuredResults(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	service := &appRuntimeService{config: staticAppConfig{value: config.AppConfig{}}}
+	service := &appRuntimeService{config: staticAppConfig{value: config.AppConfig{}}, state: syncstate.NewCoordinator()}
 
 	response, err := service.UpdateAllSubscriptions(context.Background(), connect.NewRequest(&appv1.UpdateAllSubscriptionsRequest{}))
 	if err != nil {

@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { ClearRuleSetContentRequest, ClearRuleSetContentResponse, DeleteRuleSetRequest, DeleteRuleSetResponse, GetRuleSetContentRequest, GetRuleSetContentResponse, ListRuleSetsRequest, ListRuleSetsResponse, PreviewRuleSetHubRequest, PreviewRuleSetHubResponse, SaveRuleSetContentRequest, SaveRuleSetContentResponse, SaveRuleSetsRequest, SaveRuleSetsResponse, UpdateAllRuleSetsRequest, UpdateAllRuleSetsResponse, UpdateRuleSetHubRequest, UpdateRuleSetHubResponse, UpdateRuleSetRequest, UpdateRuleSetResponse, UpsertRuleSetRequest, UpsertRuleSetResponse } from "./rule_set_service_pb.js";
+import { ClearRuleSetContentRequest, ClearRuleSetContentResponse, CreateRuleSetRequest, CreateRuleSetResponse, DeleteRuleSetRequest, DeleteRuleSetResponse, GetRuleSetContentRequest, GetRuleSetContentResponse, ListRuleSetsRequest, ListRuleSetsResponse, PreviewRuleSetHubRequest, PreviewRuleSetHubResponse, ReorderRuleSetsRequest, ReorderRuleSetsResponse, SaveRuleSetContentRequest, SaveRuleSetContentResponse, UpdateAllRuleSetsRequest, UpdateAllRuleSetsResponse, UpdateRuleSetConfigRequest, UpdateRuleSetConfigResponse, UpdateRuleSetHubRequest, UpdateRuleSetHubResponse, UpdateRuleSetRequest, UpdateRuleSetResponse } from "./rule_set_service_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -22,21 +22,21 @@ export const RuleSetService = {
       kind: MethodKind.Unary,
     },
     /**
-     * @generated from rpc app.v1.RuleSetService.SaveRuleSets
+     * @generated from rpc app.v1.RuleSetService.CreateRuleSet
      */
-    saveRuleSets: {
-      name: "SaveRuleSets",
-      I: SaveRuleSetsRequest,
-      O: SaveRuleSetsResponse,
+    createRuleSet: {
+      name: "CreateRuleSet",
+      I: CreateRuleSetRequest,
+      O: CreateRuleSetResponse,
       kind: MethodKind.Unary,
     },
     /**
-     * @generated from rpc app.v1.RuleSetService.UpsertRuleSet
+     * @generated from rpc app.v1.RuleSetService.UpdateRuleSetConfig
      */
-    upsertRuleSet: {
-      name: "UpsertRuleSet",
-      I: UpsertRuleSetRequest,
-      O: UpsertRuleSetResponse,
+    updateRuleSetConfig: {
+      name: "UpdateRuleSetConfig",
+      I: UpdateRuleSetConfigRequest,
+      O: UpdateRuleSetConfigResponse,
       kind: MethodKind.Unary,
     },
     /**
@@ -46,6 +46,15 @@ export const RuleSetService = {
       name: "DeleteRuleSet",
       I: DeleteRuleSetRequest,
       O: DeleteRuleSetResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc app.v1.RuleSetService.ReorderRuleSets
+     */
+    reorderRuleSets: {
+      name: "ReorderRuleSets",
+      I: ReorderRuleSetsRequest,
+      O: ReorderRuleSetsResponse,
       kind: MethodKind.Unary,
     },
     /**

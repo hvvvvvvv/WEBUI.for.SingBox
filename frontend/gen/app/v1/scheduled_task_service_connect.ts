@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { ClearScheduledTaskLogsRequest, ClearScheduledTaskLogsResponse, DeleteScheduledTaskRequest, DeleteScheduledTaskResponse, ListScheduledTaskLogsRequest, ListScheduledTaskLogsResponse, ListScheduledTasksRequest, ListScheduledTasksResponse, NextScheduledTaskRunsRequest, NextScheduledTaskRunsResponse, RunScheduledTaskRequest, RunScheduledTaskResponse, SaveScheduledTasksRequest, SaveScheduledTasksResponse, UpsertScheduledTaskRequest, UpsertScheduledTaskResponse } from "./scheduled_task_service_pb.js";
+import { ClearScheduledTaskLogsRequest, ClearScheduledTaskLogsResponse, CreateScheduledTaskRequest, CreateScheduledTaskResponse, DeleteScheduledTaskRequest, DeleteScheduledTaskResponse, ListScheduledTaskLogsRequest, ListScheduledTaskLogsResponse, ListScheduledTasksRequest, ListScheduledTasksResponse, NextScheduledTaskRunsRequest, NextScheduledTaskRunsResponse, ReorderScheduledTasksRequest, ReorderScheduledTasksResponse, RunScheduledTaskRequest, RunScheduledTaskResponse, UpdateScheduledTaskRequest, UpdateScheduledTaskResponse } from "./scheduled_task_service_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -22,21 +22,21 @@ export const ScheduledTaskService = {
       kind: MethodKind.Unary,
     },
     /**
-     * @generated from rpc app.v1.ScheduledTaskService.SaveScheduledTasks
+     * @generated from rpc app.v1.ScheduledTaskService.CreateScheduledTask
      */
-    saveScheduledTasks: {
-      name: "SaveScheduledTasks",
-      I: SaveScheduledTasksRequest,
-      O: SaveScheduledTasksResponse,
+    createScheduledTask: {
+      name: "CreateScheduledTask",
+      I: CreateScheduledTaskRequest,
+      O: CreateScheduledTaskResponse,
       kind: MethodKind.Unary,
     },
     /**
-     * @generated from rpc app.v1.ScheduledTaskService.UpsertScheduledTask
+     * @generated from rpc app.v1.ScheduledTaskService.UpdateScheduledTask
      */
-    upsertScheduledTask: {
-      name: "UpsertScheduledTask",
-      I: UpsertScheduledTaskRequest,
-      O: UpsertScheduledTaskResponse,
+    updateScheduledTask: {
+      name: "UpdateScheduledTask",
+      I: UpdateScheduledTaskRequest,
+      O: UpdateScheduledTaskResponse,
       kind: MethodKind.Unary,
     },
     /**
@@ -46,6 +46,15 @@ export const ScheduledTaskService = {
       name: "DeleteScheduledTask",
       I: DeleteScheduledTaskRequest,
       O: DeleteScheduledTaskResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc app.v1.ScheduledTaskService.ReorderScheduledTasks
+     */
+    reorderScheduledTasks: {
+      name: "ReorderScheduledTasks",
+      I: ReorderScheduledTasksRequest,
+      O: ReorderScheduledTasksResponse,
       kind: MethodKind.Unary,
     },
     /**

@@ -36,15 +36,18 @@ const (
 	// SubscriptionServiceListSubscriptionsProcedure is the fully-qualified name of the
 	// SubscriptionService's ListSubscriptions RPC.
 	SubscriptionServiceListSubscriptionsProcedure = "/app.v1.SubscriptionService/ListSubscriptions"
-	// SubscriptionServiceSaveSubscriptionsProcedure is the fully-qualified name of the
-	// SubscriptionService's SaveSubscriptions RPC.
-	SubscriptionServiceSaveSubscriptionsProcedure = "/app.v1.SubscriptionService/SaveSubscriptions"
-	// SubscriptionServiceUpsertSubscriptionProcedure is the fully-qualified name of the
-	// SubscriptionService's UpsertSubscription RPC.
-	SubscriptionServiceUpsertSubscriptionProcedure = "/app.v1.SubscriptionService/UpsertSubscription"
+	// SubscriptionServiceCreateSubscriptionProcedure is the fully-qualified name of the
+	// SubscriptionService's CreateSubscription RPC.
+	SubscriptionServiceCreateSubscriptionProcedure = "/app.v1.SubscriptionService/CreateSubscription"
+	// SubscriptionServiceUpdateSubscriptionConfigProcedure is the fully-qualified name of the
+	// SubscriptionService's UpdateSubscriptionConfig RPC.
+	SubscriptionServiceUpdateSubscriptionConfigProcedure = "/app.v1.SubscriptionService/UpdateSubscriptionConfig"
 	// SubscriptionServiceDeleteSubscriptionProcedure is the fully-qualified name of the
 	// SubscriptionService's DeleteSubscription RPC.
 	SubscriptionServiceDeleteSubscriptionProcedure = "/app.v1.SubscriptionService/DeleteSubscription"
+	// SubscriptionServiceReorderSubscriptionsProcedure is the fully-qualified name of the
+	// SubscriptionService's ReorderSubscriptions RPC.
+	SubscriptionServiceReorderSubscriptionsProcedure = "/app.v1.SubscriptionService/ReorderSubscriptions"
 	// SubscriptionServiceUpdateSubscriptionProcedure is the fully-qualified name of the
 	// SubscriptionService's UpdateSubscription RPC.
 	SubscriptionServiceUpdateSubscriptionProcedure = "/app.v1.SubscriptionService/UpdateSubscription"
@@ -62,9 +65,10 @@ const (
 // SubscriptionServiceClient is a client for the app.v1.SubscriptionService service.
 type SubscriptionServiceClient interface {
 	ListSubscriptions(context.Context, *connect.Request[v1.ListSubscriptionsRequest]) (*connect.Response[v1.ListSubscriptionsResponse], error)
-	SaveSubscriptions(context.Context, *connect.Request[v1.SaveSubscriptionsRequest]) (*connect.Response[v1.SaveSubscriptionsResponse], error)
-	UpsertSubscription(context.Context, *connect.Request[v1.UpsertSubscriptionRequest]) (*connect.Response[v1.UpsertSubscriptionResponse], error)
+	CreateSubscription(context.Context, *connect.Request[v1.CreateSubscriptionRequest]) (*connect.Response[v1.CreateSubscriptionResponse], error)
+	UpdateSubscriptionConfig(context.Context, *connect.Request[v1.UpdateSubscriptionConfigRequest]) (*connect.Response[v1.UpdateSubscriptionConfigResponse], error)
 	DeleteSubscription(context.Context, *connect.Request[v1.DeleteSubscriptionRequest]) (*connect.Response[v1.DeleteSubscriptionResponse], error)
+	ReorderSubscriptions(context.Context, *connect.Request[v1.ReorderSubscriptionsRequest]) (*connect.Response[v1.ReorderSubscriptionsResponse], error)
 	UpdateSubscription(context.Context, *connect.Request[v1.UpdateSubscriptionRequest]) (*connect.Response[v1.UpdateSubscriptionResponse], error)
 	UpdateAllSubscriptions(context.Context, *connect.Request[v1.UpdateAllSubscriptionsRequest]) (*connect.Response[v1.UpdateAllSubscriptionsResponse], error)
 	GetSubscriptionContent(context.Context, *connect.Request[v1.GetSubscriptionContentRequest]) (*connect.Response[v1.GetSubscriptionContentResponse], error)
@@ -88,22 +92,28 @@ func NewSubscriptionServiceClient(httpClient connect.HTTPClient, baseURL string,
 			connect.WithSchema(subscriptionServiceMethods.ByName("ListSubscriptions")),
 			connect.WithClientOptions(opts...),
 		),
-		saveSubscriptions: connect.NewClient[v1.SaveSubscriptionsRequest, v1.SaveSubscriptionsResponse](
+		createSubscription: connect.NewClient[v1.CreateSubscriptionRequest, v1.CreateSubscriptionResponse](
 			httpClient,
-			baseURL+SubscriptionServiceSaveSubscriptionsProcedure,
-			connect.WithSchema(subscriptionServiceMethods.ByName("SaveSubscriptions")),
+			baseURL+SubscriptionServiceCreateSubscriptionProcedure,
+			connect.WithSchema(subscriptionServiceMethods.ByName("CreateSubscription")),
 			connect.WithClientOptions(opts...),
 		),
-		upsertSubscription: connect.NewClient[v1.UpsertSubscriptionRequest, v1.UpsertSubscriptionResponse](
+		updateSubscriptionConfig: connect.NewClient[v1.UpdateSubscriptionConfigRequest, v1.UpdateSubscriptionConfigResponse](
 			httpClient,
-			baseURL+SubscriptionServiceUpsertSubscriptionProcedure,
-			connect.WithSchema(subscriptionServiceMethods.ByName("UpsertSubscription")),
+			baseURL+SubscriptionServiceUpdateSubscriptionConfigProcedure,
+			connect.WithSchema(subscriptionServiceMethods.ByName("UpdateSubscriptionConfig")),
 			connect.WithClientOptions(opts...),
 		),
 		deleteSubscription: connect.NewClient[v1.DeleteSubscriptionRequest, v1.DeleteSubscriptionResponse](
 			httpClient,
 			baseURL+SubscriptionServiceDeleteSubscriptionProcedure,
 			connect.WithSchema(subscriptionServiceMethods.ByName("DeleteSubscription")),
+			connect.WithClientOptions(opts...),
+		),
+		reorderSubscriptions: connect.NewClient[v1.ReorderSubscriptionsRequest, v1.ReorderSubscriptionsResponse](
+			httpClient,
+			baseURL+SubscriptionServiceReorderSubscriptionsProcedure,
+			connect.WithSchema(subscriptionServiceMethods.ByName("ReorderSubscriptions")),
 			connect.WithClientOptions(opts...),
 		),
 		updateSubscription: connect.NewClient[v1.UpdateSubscriptionRequest, v1.UpdateSubscriptionResponse](
@@ -135,14 +145,15 @@ func NewSubscriptionServiceClient(httpClient connect.HTTPClient, baseURL string,
 
 // subscriptionServiceClient implements SubscriptionServiceClient.
 type subscriptionServiceClient struct {
-	listSubscriptions       *connect.Client[v1.ListSubscriptionsRequest, v1.ListSubscriptionsResponse]
-	saveSubscriptions       *connect.Client[v1.SaveSubscriptionsRequest, v1.SaveSubscriptionsResponse]
-	upsertSubscription      *connect.Client[v1.UpsertSubscriptionRequest, v1.UpsertSubscriptionResponse]
-	deleteSubscription      *connect.Client[v1.DeleteSubscriptionRequest, v1.DeleteSubscriptionResponse]
-	updateSubscription      *connect.Client[v1.UpdateSubscriptionRequest, v1.UpdateSubscriptionResponse]
-	updateAllSubscriptions  *connect.Client[v1.UpdateAllSubscriptionsRequest, v1.UpdateAllSubscriptionsResponse]
-	getSubscriptionContent  *connect.Client[v1.GetSubscriptionContentRequest, v1.GetSubscriptionContentResponse]
-	saveSubscriptionContent *connect.Client[v1.SaveSubscriptionContentRequest, v1.SaveSubscriptionContentResponse]
+	listSubscriptions        *connect.Client[v1.ListSubscriptionsRequest, v1.ListSubscriptionsResponse]
+	createSubscription       *connect.Client[v1.CreateSubscriptionRequest, v1.CreateSubscriptionResponse]
+	updateSubscriptionConfig *connect.Client[v1.UpdateSubscriptionConfigRequest, v1.UpdateSubscriptionConfigResponse]
+	deleteSubscription       *connect.Client[v1.DeleteSubscriptionRequest, v1.DeleteSubscriptionResponse]
+	reorderSubscriptions     *connect.Client[v1.ReorderSubscriptionsRequest, v1.ReorderSubscriptionsResponse]
+	updateSubscription       *connect.Client[v1.UpdateSubscriptionRequest, v1.UpdateSubscriptionResponse]
+	updateAllSubscriptions   *connect.Client[v1.UpdateAllSubscriptionsRequest, v1.UpdateAllSubscriptionsResponse]
+	getSubscriptionContent   *connect.Client[v1.GetSubscriptionContentRequest, v1.GetSubscriptionContentResponse]
+	saveSubscriptionContent  *connect.Client[v1.SaveSubscriptionContentRequest, v1.SaveSubscriptionContentResponse]
 }
 
 // ListSubscriptions calls app.v1.SubscriptionService.ListSubscriptions.
@@ -150,19 +161,24 @@ func (c *subscriptionServiceClient) ListSubscriptions(ctx context.Context, req *
 	return c.listSubscriptions.CallUnary(ctx, req)
 }
 
-// SaveSubscriptions calls app.v1.SubscriptionService.SaveSubscriptions.
-func (c *subscriptionServiceClient) SaveSubscriptions(ctx context.Context, req *connect.Request[v1.SaveSubscriptionsRequest]) (*connect.Response[v1.SaveSubscriptionsResponse], error) {
-	return c.saveSubscriptions.CallUnary(ctx, req)
+// CreateSubscription calls app.v1.SubscriptionService.CreateSubscription.
+func (c *subscriptionServiceClient) CreateSubscription(ctx context.Context, req *connect.Request[v1.CreateSubscriptionRequest]) (*connect.Response[v1.CreateSubscriptionResponse], error) {
+	return c.createSubscription.CallUnary(ctx, req)
 }
 
-// UpsertSubscription calls app.v1.SubscriptionService.UpsertSubscription.
-func (c *subscriptionServiceClient) UpsertSubscription(ctx context.Context, req *connect.Request[v1.UpsertSubscriptionRequest]) (*connect.Response[v1.UpsertSubscriptionResponse], error) {
-	return c.upsertSubscription.CallUnary(ctx, req)
+// UpdateSubscriptionConfig calls app.v1.SubscriptionService.UpdateSubscriptionConfig.
+func (c *subscriptionServiceClient) UpdateSubscriptionConfig(ctx context.Context, req *connect.Request[v1.UpdateSubscriptionConfigRequest]) (*connect.Response[v1.UpdateSubscriptionConfigResponse], error) {
+	return c.updateSubscriptionConfig.CallUnary(ctx, req)
 }
 
 // DeleteSubscription calls app.v1.SubscriptionService.DeleteSubscription.
 func (c *subscriptionServiceClient) DeleteSubscription(ctx context.Context, req *connect.Request[v1.DeleteSubscriptionRequest]) (*connect.Response[v1.DeleteSubscriptionResponse], error) {
 	return c.deleteSubscription.CallUnary(ctx, req)
+}
+
+// ReorderSubscriptions calls app.v1.SubscriptionService.ReorderSubscriptions.
+func (c *subscriptionServiceClient) ReorderSubscriptions(ctx context.Context, req *connect.Request[v1.ReorderSubscriptionsRequest]) (*connect.Response[v1.ReorderSubscriptionsResponse], error) {
+	return c.reorderSubscriptions.CallUnary(ctx, req)
 }
 
 // UpdateSubscription calls app.v1.SubscriptionService.UpdateSubscription.
@@ -188,9 +204,10 @@ func (c *subscriptionServiceClient) SaveSubscriptionContent(ctx context.Context,
 // SubscriptionServiceHandler is an implementation of the app.v1.SubscriptionService service.
 type SubscriptionServiceHandler interface {
 	ListSubscriptions(context.Context, *connect.Request[v1.ListSubscriptionsRequest]) (*connect.Response[v1.ListSubscriptionsResponse], error)
-	SaveSubscriptions(context.Context, *connect.Request[v1.SaveSubscriptionsRequest]) (*connect.Response[v1.SaveSubscriptionsResponse], error)
-	UpsertSubscription(context.Context, *connect.Request[v1.UpsertSubscriptionRequest]) (*connect.Response[v1.UpsertSubscriptionResponse], error)
+	CreateSubscription(context.Context, *connect.Request[v1.CreateSubscriptionRequest]) (*connect.Response[v1.CreateSubscriptionResponse], error)
+	UpdateSubscriptionConfig(context.Context, *connect.Request[v1.UpdateSubscriptionConfigRequest]) (*connect.Response[v1.UpdateSubscriptionConfigResponse], error)
 	DeleteSubscription(context.Context, *connect.Request[v1.DeleteSubscriptionRequest]) (*connect.Response[v1.DeleteSubscriptionResponse], error)
+	ReorderSubscriptions(context.Context, *connect.Request[v1.ReorderSubscriptionsRequest]) (*connect.Response[v1.ReorderSubscriptionsResponse], error)
 	UpdateSubscription(context.Context, *connect.Request[v1.UpdateSubscriptionRequest]) (*connect.Response[v1.UpdateSubscriptionResponse], error)
 	UpdateAllSubscriptions(context.Context, *connect.Request[v1.UpdateAllSubscriptionsRequest]) (*connect.Response[v1.UpdateAllSubscriptionsResponse], error)
 	GetSubscriptionContent(context.Context, *connect.Request[v1.GetSubscriptionContentRequest]) (*connect.Response[v1.GetSubscriptionContentResponse], error)
@@ -210,22 +227,28 @@ func NewSubscriptionServiceHandler(svc SubscriptionServiceHandler, opts ...conne
 		connect.WithSchema(subscriptionServiceMethods.ByName("ListSubscriptions")),
 		connect.WithHandlerOptions(opts...),
 	)
-	subscriptionServiceSaveSubscriptionsHandler := connect.NewUnaryHandler(
-		SubscriptionServiceSaveSubscriptionsProcedure,
-		svc.SaveSubscriptions,
-		connect.WithSchema(subscriptionServiceMethods.ByName("SaveSubscriptions")),
+	subscriptionServiceCreateSubscriptionHandler := connect.NewUnaryHandler(
+		SubscriptionServiceCreateSubscriptionProcedure,
+		svc.CreateSubscription,
+		connect.WithSchema(subscriptionServiceMethods.ByName("CreateSubscription")),
 		connect.WithHandlerOptions(opts...),
 	)
-	subscriptionServiceUpsertSubscriptionHandler := connect.NewUnaryHandler(
-		SubscriptionServiceUpsertSubscriptionProcedure,
-		svc.UpsertSubscription,
-		connect.WithSchema(subscriptionServiceMethods.ByName("UpsertSubscription")),
+	subscriptionServiceUpdateSubscriptionConfigHandler := connect.NewUnaryHandler(
+		SubscriptionServiceUpdateSubscriptionConfigProcedure,
+		svc.UpdateSubscriptionConfig,
+		connect.WithSchema(subscriptionServiceMethods.ByName("UpdateSubscriptionConfig")),
 		connect.WithHandlerOptions(opts...),
 	)
 	subscriptionServiceDeleteSubscriptionHandler := connect.NewUnaryHandler(
 		SubscriptionServiceDeleteSubscriptionProcedure,
 		svc.DeleteSubscription,
 		connect.WithSchema(subscriptionServiceMethods.ByName("DeleteSubscription")),
+		connect.WithHandlerOptions(opts...),
+	)
+	subscriptionServiceReorderSubscriptionsHandler := connect.NewUnaryHandler(
+		SubscriptionServiceReorderSubscriptionsProcedure,
+		svc.ReorderSubscriptions,
+		connect.WithSchema(subscriptionServiceMethods.ByName("ReorderSubscriptions")),
 		connect.WithHandlerOptions(opts...),
 	)
 	subscriptionServiceUpdateSubscriptionHandler := connect.NewUnaryHandler(
@@ -256,12 +279,14 @@ func NewSubscriptionServiceHandler(svc SubscriptionServiceHandler, opts ...conne
 		switch r.URL.Path {
 		case SubscriptionServiceListSubscriptionsProcedure:
 			subscriptionServiceListSubscriptionsHandler.ServeHTTP(w, r)
-		case SubscriptionServiceSaveSubscriptionsProcedure:
-			subscriptionServiceSaveSubscriptionsHandler.ServeHTTP(w, r)
-		case SubscriptionServiceUpsertSubscriptionProcedure:
-			subscriptionServiceUpsertSubscriptionHandler.ServeHTTP(w, r)
+		case SubscriptionServiceCreateSubscriptionProcedure:
+			subscriptionServiceCreateSubscriptionHandler.ServeHTTP(w, r)
+		case SubscriptionServiceUpdateSubscriptionConfigProcedure:
+			subscriptionServiceUpdateSubscriptionConfigHandler.ServeHTTP(w, r)
 		case SubscriptionServiceDeleteSubscriptionProcedure:
 			subscriptionServiceDeleteSubscriptionHandler.ServeHTTP(w, r)
+		case SubscriptionServiceReorderSubscriptionsProcedure:
+			subscriptionServiceReorderSubscriptionsHandler.ServeHTTP(w, r)
 		case SubscriptionServiceUpdateSubscriptionProcedure:
 			subscriptionServiceUpdateSubscriptionHandler.ServeHTTP(w, r)
 		case SubscriptionServiceUpdateAllSubscriptionsProcedure:
@@ -283,16 +308,20 @@ func (UnimplementedSubscriptionServiceHandler) ListSubscriptions(context.Context
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.SubscriptionService.ListSubscriptions is not implemented"))
 }
 
-func (UnimplementedSubscriptionServiceHandler) SaveSubscriptions(context.Context, *connect.Request[v1.SaveSubscriptionsRequest]) (*connect.Response[v1.SaveSubscriptionsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.SubscriptionService.SaveSubscriptions is not implemented"))
+func (UnimplementedSubscriptionServiceHandler) CreateSubscription(context.Context, *connect.Request[v1.CreateSubscriptionRequest]) (*connect.Response[v1.CreateSubscriptionResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.SubscriptionService.CreateSubscription is not implemented"))
 }
 
-func (UnimplementedSubscriptionServiceHandler) UpsertSubscription(context.Context, *connect.Request[v1.UpsertSubscriptionRequest]) (*connect.Response[v1.UpsertSubscriptionResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.SubscriptionService.UpsertSubscription is not implemented"))
+func (UnimplementedSubscriptionServiceHandler) UpdateSubscriptionConfig(context.Context, *connect.Request[v1.UpdateSubscriptionConfigRequest]) (*connect.Response[v1.UpdateSubscriptionConfigResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.SubscriptionService.UpdateSubscriptionConfig is not implemented"))
 }
 
 func (UnimplementedSubscriptionServiceHandler) DeleteSubscription(context.Context, *connect.Request[v1.DeleteSubscriptionRequest]) (*connect.Response[v1.DeleteSubscriptionResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.SubscriptionService.DeleteSubscription is not implemented"))
+}
+
+func (UnimplementedSubscriptionServiceHandler) ReorderSubscriptions(context.Context, *connect.Request[v1.ReorderSubscriptionsRequest]) (*connect.Response[v1.ReorderSubscriptionsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.SubscriptionService.ReorderSubscriptions is not implemented"))
 }
 
 func (UnimplementedSubscriptionServiceHandler) UpdateSubscription(context.Context, *connect.Request[v1.UpdateSubscriptionRequest]) (*connect.Response[v1.UpdateSubscriptionResponse], error) {

@@ -1,12 +1,10 @@
 package runtime
 
 import (
-	"context"
 	"testing"
-	"time"
 
 	"guiforcores/bridge/config"
-	kernelv1 "guiforcores/gen/kernel/v1"
+	"guiforcores/bridge/syncstate"
 )
 
 type staticAppConfig struct {
@@ -17,33 +15,28 @@ func (s staticAppConfig) Current() config.AppConfig {
 	return s.value
 }
 
+type referencedResourceChange struct {
+	domain syncstate.Domain
+	ids    []string
+}
+
 type recordingKernel struct {
-	restarted chan string
+	changes chan referencedResourceChange
 }
 
-func (k recordingKernel) Status() (kernelv1.CoreStatus, string) {
-	return kernelv1.CoreStatus_CORE_STATUS_RUNNING, "active-profile"
+func (k recordingKernel) ReferencedResourcesChanged(domain syncstate.Domain, ids []string) {
+	k.changes <- referencedResourceChange{domain: domain, ids: ids}
 }
 
-func (k recordingKernel) Restart(_ context.Context, profileID string) error {
-	k.restarted <- profileID
-	return nil
-}
-
-func TestRuntimeChangeUsesKernelControllerInterface(t *testing.T) {
-	kernelController := recordingKernel{restarted: make(chan string, 1)}
+func TestReferencedResourceChangeUsesKernelControllerInterface(t *testing.T) {
+	kernelController := recordingKernel{changes: make(chan referencedResourceChange, 1)}
 	service := &appRuntimeService{
-		config: staticAppConfig{value: config.AppConfig{AutoRestartKernel: true}},
 		kernel: kernelController,
 	}
-	service.markRuntimeChanged("ruleset", "changed")
+	service.notifyReferencedResourcesChanged(syncstate.DomainRuleSets, []string{"changed"})
 
-	select {
-	case profileID := <-kernelController.restarted:
-		if profileID != "active-profile" {
-			t.Fatalf("unexpected profile id %q", profileID)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("expected kernel restart")
+	change := <-kernelController.changes
+	if change.domain != syncstate.DomainRuleSets || len(change.ids) != 1 || change.ids[0] != "changed" {
+		t.Fatalf("unexpected referenced resource change: %#v", change)
 	}
 }

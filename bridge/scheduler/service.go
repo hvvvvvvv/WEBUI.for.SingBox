@@ -12,9 +12,10 @@ type Backend interface {
 	StartScheduler()
 	StopScheduler()
 	ListScheduledTasks(context.Context, *connect.Request[appv1.ListScheduledTasksRequest]) (*connect.Response[appv1.ListScheduledTasksResponse], error)
-	SaveScheduledTasks(context.Context, *connect.Request[appv1.SaveScheduledTasksRequest]) (*connect.Response[appv1.SaveScheduledTasksResponse], error)
-	UpsertScheduledTask(context.Context, *connect.Request[appv1.UpsertScheduledTaskRequest]) (*connect.Response[appv1.UpsertScheduledTaskResponse], error)
+	CreateScheduledTask(context.Context, *connect.Request[appv1.CreateScheduledTaskRequest]) (*connect.Response[appv1.CreateScheduledTaskResponse], error)
+	UpdateScheduledTask(context.Context, *connect.Request[appv1.UpdateScheduledTaskRequest]) (*connect.Response[appv1.UpdateScheduledTaskResponse], error)
 	DeleteScheduledTask(context.Context, *connect.Request[appv1.DeleteScheduledTaskRequest]) (*connect.Response[appv1.DeleteScheduledTaskResponse], error)
+	ReorderScheduledTasks(context.Context, *connect.Request[appv1.ReorderScheduledTasksRequest]) (*connect.Response[appv1.ReorderScheduledTasksResponse], error)
 	RunScheduledTask(context.Context, *connect.Request[appv1.RunScheduledTaskRequest]) (*connect.Response[appv1.RunScheduledTaskResponse], error)
 	ListScheduledTaskLogs(context.Context, *connect.Request[appv1.ListScheduledTaskLogsRequest]) (*connect.Response[appv1.ListScheduledTaskLogsResponse], error)
 	ClearScheduledTaskLogs(context.Context, *connect.Request[appv1.ClearScheduledTaskLogsRequest]) (*connect.Response[appv1.ClearScheduledTaskLogsResponse], error)
@@ -41,16 +42,20 @@ func (s *Service) ListScheduledTasks(ctx context.Context, req *connect.Request[a
 	return s.backend.ListScheduledTasks(ctx, req)
 }
 
-func (s *Service) SaveScheduledTasks(ctx context.Context, req *connect.Request[appv1.SaveScheduledTasksRequest]) (*connect.Response[appv1.SaveScheduledTasksResponse], error) {
-	return s.backend.SaveScheduledTasks(ctx, req)
+func (s *Service) CreateScheduledTask(ctx context.Context, req *connect.Request[appv1.CreateScheduledTaskRequest]) (*connect.Response[appv1.CreateScheduledTaskResponse], error) {
+	return s.backend.CreateScheduledTask(ctx, req)
 }
 
-func (s *Service) UpsertScheduledTask(ctx context.Context, req *connect.Request[appv1.UpsertScheduledTaskRequest]) (*connect.Response[appv1.UpsertScheduledTaskResponse], error) {
-	return s.backend.UpsertScheduledTask(ctx, req)
+func (s *Service) UpdateScheduledTask(ctx context.Context, req *connect.Request[appv1.UpdateScheduledTaskRequest]) (*connect.Response[appv1.UpdateScheduledTaskResponse], error) {
+	return s.backend.UpdateScheduledTask(ctx, req)
 }
 
 func (s *Service) DeleteScheduledTask(ctx context.Context, req *connect.Request[appv1.DeleteScheduledTaskRequest]) (*connect.Response[appv1.DeleteScheduledTaskResponse], error) {
 	return s.backend.DeleteScheduledTask(ctx, req)
+}
+
+func (s *Service) ReorderScheduledTasks(ctx context.Context, req *connect.Request[appv1.ReorderScheduledTasksRequest]) (*connect.Response[appv1.ReorderScheduledTasksResponse], error) {
+	return s.backend.ReorderScheduledTasks(ctx, req)
 }
 
 func (s *Service) RunScheduledTask(ctx context.Context, req *connect.Request[appv1.RunScheduledTaskRequest]) (*connect.Response[appv1.RunScheduledTaskResponse], error) {

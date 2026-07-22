@@ -4,10 +4,11 @@ import { useI18n } from 'vue-i18n'
 
 import { RulesetFormatOptions } from '@/constant/kernel'
 import { RulesetFormat } from '@/enums/kernel'
-import { type RuleSet, useRulesetsStore } from '@/stores'
+import { isResourceConflict, isResourceNotFound, type RuleSet, useRulesetsStore } from '@/stores'
 import { deepClone, message, sampleID } from '@/utils'
 
 import Button from '@/components/Button/index.vue'
+import ResourceConflictNotice from '@/components/ResourceConflictNotice/index.vue'
 
 interface Props {
   id?: string
@@ -20,6 +21,8 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const loading = ref(false)
+const reloading = ref(false)
+const conflict = ref<'changed' | 'deleted' | null>(null)
 
 const ruleset = ref<RuleSet>({
   id: sampleID(),
@@ -35,6 +38,7 @@ const ruleset = ref<RuleSet>({
 
 const { t } = useI18n()
 const rulesetsStore = useRulesetsStore()
+let baseRevision = props.isUpdate ? rulesetsStore.getRulesetRevision(props.id) : undefined
 
 const handleCancel = inject('cancel') as any
 
@@ -43,11 +47,16 @@ const handleSubmit = async () => {
 
   if (props.isUpdate) {
     try {
-      await rulesetsStore.editRuleset(props.id, ruleset.value)
+      await rulesetsStore.editRuleset(props.id, ruleset.value, baseRevision)
       handleCancel()
     } catch (error: any) {
       console.error('editRuleset: ', error)
-      message.error(error)
+      if (isResourceConflict(error) || isResourceNotFound(error)) {
+        await rulesetsStore.setupRulesets().catch(() => undefined)
+        conflict.value = isResourceNotFound(error) ? 'deleted' : 'changed'
+      } else {
+        message.error(error)
+      }
     }
 
     loading.value = false
@@ -64,6 +73,26 @@ const handleSubmit = async () => {
   }
 
   loading.value = false
+}
+
+const loadLatest = async () => {
+  if (!props.isUpdate) return
+  reloading.value = true
+  try {
+    await rulesetsStore.setupRulesets()
+    const latest = rulesetsStore.getRulesetById(props.id)
+    if (!latest) {
+      conflict.value = 'deleted'
+      return
+    }
+    ruleset.value = deepClone(latest)
+    baseRevision = rulesetsStore.getRulesetRevision(props.id)
+    conflict.value = null
+  } catch (error: any) {
+    message.error(error.message || error)
+  } finally {
+    reloading.value = false
+  }
 }
 
 const disabled = computed(
@@ -126,6 +155,12 @@ defineExpose({ modalSlots })
 
 <template>
   <div>
+    <ResourceConflictNotice
+      v-if="conflict"
+      :kind="conflict"
+      :loading="reloading"
+      @reload="loadLatest"
+    />
     <div class="form-item">
       {{ t('ruleset.rulesetType') }}
       <Radio
@@ -149,12 +184,7 @@ defineExpose({ modalSlots })
     <div v-show="ruleset.type !== 'Manual'" class="form-item">
       {{ t('ruleset.url') }} *
       <div class="min-w-[75%]">
-        <Input
-          v-model="ruleset.url"
-          allow-paste
-          placeholder="http(s)://"
-          class="w-full"
-        />
+        <Input v-model="ruleset.url" allow-paste placeholder="http(s)://" class="w-full" />
       </div>
     </div>
   </div>

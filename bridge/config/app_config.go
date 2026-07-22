@@ -41,7 +41,12 @@ type Store struct {
 }
 
 type AppService struct {
-	store *Store
+	store         *Store
+	changeHandler AppConfigChangeHandler
+}
+
+type AppConfigChangeHandler interface {
+	AppConfigChanged(previous AppConfig, current AppConfig)
 }
 
 func NewStore(paths *storage.Paths) (*Store, error) {
@@ -56,6 +61,10 @@ func NewStore(paths *storage.Paths) (*Store, error) {
 
 func NewAppService(store *Store) *AppService {
 	return &AppService{store: store}
+}
+
+func (s *AppService) SetChangeHandler(handler AppConfigChangeHandler) {
+	s.changeHandler = handler
 }
 
 func defaultCoreRuntimeConfig() CoreRuntimeConfig {
@@ -255,9 +264,14 @@ func (s *AppService) GetAppConfig(_ context.Context, _ *connect.Request[appv1.Ge
 }
 
 func (s *AppService) SaveAppConfig(_ context.Context, req *connect.Request[appv1.SaveAppConfigRequest]) (*connect.Response[appv1.SaveAppConfigResponse], error) {
+	previous := s.store.Current()
 	cfg := appConfigFromProto(req.Msg.GetConfig())
 	if err := s.store.Save(cfg); err != nil {
 		return nil, rpcutil.AsConnectError(err)
 	}
-	return connect.NewResponse(&appv1.SaveAppConfigResponse{Config: appConfigToProto(s.store.Current())}), nil
+	current := s.store.Current()
+	if s.changeHandler != nil {
+		s.changeHandler.AppConfigChanged(previous, current)
+	}
+	return connect.NewResponse(&appv1.SaveAppConfigResponse{Config: appConfigToProto(current)}), nil
 }

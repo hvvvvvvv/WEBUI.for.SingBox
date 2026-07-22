@@ -9,6 +9,7 @@ package appv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	v1 "guiforcores/gen/common/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -61,6 +62,7 @@ type ListRuleSetsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RulesetsJson  []string               `protobuf:"bytes,1,rep,name=rulesets_json,json=rulesetsJson,proto3" json:"rulesets_json,omitempty"`
 	HubJson       string                 `protobuf:"bytes,2,opt,name=hub_json,json=hubJson,proto3" json:"hub_json,omitempty"`
+	State         *v1.ResourceState      `protobuf:"bytes,3,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -109,27 +111,34 @@ func (x *ListRuleSetsResponse) GetHubJson() string {
 	return ""
 }
 
-type SaveRuleSetsRequest struct {
+func (x *ListRuleSetsResponse) GetState() *v1.ResourceState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
+type CreateRuleSetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	RulesetsJson  []string               `protobuf:"bytes,1,rep,name=rulesets_json,json=rulesetsJson,proto3" json:"rulesets_json,omitempty"`
+	RulesetJson   string                 `protobuf:"bytes,1,opt,name=ruleset_json,json=rulesetJson,proto3" json:"ruleset_json,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SaveRuleSetsRequest) Reset() {
-	*x = SaveRuleSetsRequest{}
+func (x *CreateRuleSetRequest) Reset() {
+	*x = CreateRuleSetRequest{}
 	mi := &file_app_v1_rule_set_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SaveRuleSetsRequest) String() string {
+func (x *CreateRuleSetRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SaveRuleSetsRequest) ProtoMessage() {}
+func (*CreateRuleSetRequest) ProtoMessage() {}
 
-func (x *SaveRuleSetsRequest) ProtoReflect() protoreflect.Message {
+func (x *CreateRuleSetRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_app_v1_rule_set_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -141,39 +150,40 @@ func (x *SaveRuleSetsRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SaveRuleSetsRequest.ProtoReflect.Descriptor instead.
-func (*SaveRuleSetsRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreateRuleSetRequest.ProtoReflect.Descriptor instead.
+func (*CreateRuleSetRequest) Descriptor() ([]byte, []int) {
 	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *SaveRuleSetsRequest) GetRulesetsJson() []string {
+func (x *CreateRuleSetRequest) GetRulesetJson() string {
 	if x != nil {
-		return x.RulesetsJson
+		return x.RulesetJson
 	}
-	return nil
+	return ""
 }
 
-type SaveRuleSetsResponse struct {
+type CreateRuleSetResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	RulesetsJson  []string               `protobuf:"bytes,1,rep,name=rulesets_json,json=rulesetsJson,proto3" json:"rulesets_json,omitempty"`
+	RulesetJson   string                 `protobuf:"bytes,1,opt,name=ruleset_json,json=rulesetJson,proto3" json:"ruleset_json,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SaveRuleSetsResponse) Reset() {
-	*x = SaveRuleSetsResponse{}
+func (x *CreateRuleSetResponse) Reset() {
+	*x = CreateRuleSetResponse{}
 	mi := &file_app_v1_rule_set_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SaveRuleSetsResponse) String() string {
+func (x *CreateRuleSetResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SaveRuleSetsResponse) ProtoMessage() {}
+func (*CreateRuleSetResponse) ProtoMessage() {}
 
-func (x *SaveRuleSetsResponse) ProtoReflect() protoreflect.Message {
+func (x *CreateRuleSetResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_app_v1_rule_set_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -185,39 +195,47 @@ func (x *SaveRuleSetsResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SaveRuleSetsResponse.ProtoReflect.Descriptor instead.
-func (*SaveRuleSetsResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreateRuleSetResponse.ProtoReflect.Descriptor instead.
+func (*CreateRuleSetResponse) Descriptor() ([]byte, []int) {
 	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *SaveRuleSetsResponse) GetRulesetsJson() []string {
+func (x *CreateRuleSetResponse) GetRulesetJson() string {
 	if x != nil {
-		return x.RulesetsJson
+		return x.RulesetJson
+	}
+	return ""
+}
+
+func (x *CreateRuleSetResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
 	}
 	return nil
 }
 
-type UpsertRuleSetRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	RulesetJson   string                 `protobuf:"bytes,1,opt,name=ruleset_json,json=rulesetJson,proto3" json:"ruleset_json,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+type UpdateRuleSetConfigRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	RulesetJson      string                 `protobuf:"bytes,1,opt,name=ruleset_json,json=rulesetJson,proto3" json:"ruleset_json,omitempty"`
+	ExpectedRevision *v1.ExpectedRevision   `protobuf:"bytes,2,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
-func (x *UpsertRuleSetRequest) Reset() {
-	*x = UpsertRuleSetRequest{}
+func (x *UpdateRuleSetConfigRequest) Reset() {
+	*x = UpdateRuleSetConfigRequest{}
 	mi := &file_app_v1_rule_set_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UpsertRuleSetRequest) String() string {
+func (x *UpdateRuleSetConfigRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UpsertRuleSetRequest) ProtoMessage() {}
+func (*UpdateRuleSetConfigRequest) ProtoMessage() {}
 
-func (x *UpsertRuleSetRequest) ProtoReflect() protoreflect.Message {
+func (x *UpdateRuleSetConfigRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_app_v1_rule_set_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -229,39 +247,47 @@ func (x *UpsertRuleSetRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UpsertRuleSetRequest.ProtoReflect.Descriptor instead.
-func (*UpsertRuleSetRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use UpdateRuleSetConfigRequest.ProtoReflect.Descriptor instead.
+func (*UpdateRuleSetConfigRequest) Descriptor() ([]byte, []int) {
 	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *UpsertRuleSetRequest) GetRulesetJson() string {
+func (x *UpdateRuleSetConfigRequest) GetRulesetJson() string {
 	if x != nil {
 		return x.RulesetJson
 	}
 	return ""
 }
 
-type UpsertRuleSetResponse struct {
+func (x *UpdateRuleSetConfigRequest) GetExpectedRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return nil
+}
+
+type UpdateRuleSetConfigResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RulesetJson   string                 `protobuf:"bytes,1,opt,name=ruleset_json,json=rulesetJson,proto3" json:"ruleset_json,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UpsertRuleSetResponse) Reset() {
-	*x = UpsertRuleSetResponse{}
+func (x *UpdateRuleSetConfigResponse) Reset() {
+	*x = UpdateRuleSetConfigResponse{}
 	mi := &file_app_v1_rule_set_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UpsertRuleSetResponse) String() string {
+func (x *UpdateRuleSetConfigResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UpsertRuleSetResponse) ProtoMessage() {}
+func (*UpdateRuleSetConfigResponse) ProtoMessage() {}
 
-func (x *UpsertRuleSetResponse) ProtoReflect() protoreflect.Message {
+func (x *UpdateRuleSetConfigResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_app_v1_rule_set_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -273,23 +299,31 @@ func (x *UpsertRuleSetResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UpsertRuleSetResponse.ProtoReflect.Descriptor instead.
-func (*UpsertRuleSetResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use UpdateRuleSetConfigResponse.ProtoReflect.Descriptor instead.
+func (*UpdateRuleSetConfigResponse) Descriptor() ([]byte, []int) {
 	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *UpsertRuleSetResponse) GetRulesetJson() string {
+func (x *UpdateRuleSetConfigResponse) GetRulesetJson() string {
 	if x != nil {
 		return x.RulesetJson
 	}
 	return ""
 }
 
+func (x *UpdateRuleSetConfigResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
 type DeleteRuleSetRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ExpectedRevision *v1.ExpectedRevision   `protobuf:"bytes,2,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *DeleteRuleSetRequest) Reset() {
@@ -329,8 +363,16 @@ func (x *DeleteRuleSetRequest) GetId() string {
 	return ""
 }
 
+func (x *DeleteRuleSetRequest) GetExpectedRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return nil
+}
+
 type DeleteRuleSetResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         *v1.MutationState      `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -365,6 +407,117 @@ func (*DeleteRuleSetResponse) Descriptor() ([]byte, []int) {
 	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{7}
 }
 
+func (x *DeleteRuleSetResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
+type ReorderRuleSetsRequest struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Ids                   []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	ExpectedOrderRevision *v1.ExpectedRevision   `protobuf:"bytes,2,opt,name=expected_order_revision,json=expectedOrderRevision,proto3" json:"expected_order_revision,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *ReorderRuleSetsRequest) Reset() {
+	*x = ReorderRuleSetsRequest{}
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReorderRuleSetsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReorderRuleSetsRequest) ProtoMessage() {}
+
+func (x *ReorderRuleSetsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReorderRuleSetsRequest.ProtoReflect.Descriptor instead.
+func (*ReorderRuleSetsRequest) Descriptor() ([]byte, []int) {
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ReorderRuleSetsRequest) GetIds() []string {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+func (x *ReorderRuleSetsRequest) GetExpectedOrderRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.ExpectedOrderRevision
+	}
+	return nil
+}
+
+type ReorderRuleSetsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReorderRuleSetsResponse) Reset() {
+	*x = ReorderRuleSetsResponse{}
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReorderRuleSetsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReorderRuleSetsResponse) ProtoMessage() {}
+
+func (x *ReorderRuleSetsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReorderRuleSetsResponse.ProtoReflect.Descriptor instead.
+func (*ReorderRuleSetsResponse) Descriptor() ([]byte, []int) {
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ReorderRuleSetsResponse) GetIds() []string {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+func (x *ReorderRuleSetsResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
 type UpdateRuleSetRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -374,7 +527,7 @@ type UpdateRuleSetRequest struct {
 
 func (x *UpdateRuleSetRequest) Reset() {
 	*x = UpdateRuleSetRequest{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[8]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -386,7 +539,7 @@ func (x *UpdateRuleSetRequest) String() string {
 func (*UpdateRuleSetRequest) ProtoMessage() {}
 
 func (x *UpdateRuleSetRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[8]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -399,7 +552,7 @@ func (x *UpdateRuleSetRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRuleSetRequest.ProtoReflect.Descriptor instead.
 func (*UpdateRuleSetRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{8}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *UpdateRuleSetRequest) GetId() string {
@@ -412,13 +565,14 @@ func (x *UpdateRuleSetRequest) GetId() string {
 type UpdateRuleSetResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Results       []*TaskResult          `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateRuleSetResponse) Reset() {
 	*x = UpdateRuleSetResponse{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[9]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -430,7 +584,7 @@ func (x *UpdateRuleSetResponse) String() string {
 func (*UpdateRuleSetResponse) ProtoMessage() {}
 
 func (x *UpdateRuleSetResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[9]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -443,12 +597,19 @@ func (x *UpdateRuleSetResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRuleSetResponse.ProtoReflect.Descriptor instead.
 func (*UpdateRuleSetResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{9}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *UpdateRuleSetResponse) GetResults() []*TaskResult {
 	if x != nil {
 		return x.Results
+	}
+	return nil
+}
+
+func (x *UpdateRuleSetResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
 	}
 	return nil
 }
@@ -461,7 +622,7 @@ type UpdateAllRuleSetsRequest struct {
 
 func (x *UpdateAllRuleSetsRequest) Reset() {
 	*x = UpdateAllRuleSetsRequest{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[10]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -473,7 +634,7 @@ func (x *UpdateAllRuleSetsRequest) String() string {
 func (*UpdateAllRuleSetsRequest) ProtoMessage() {}
 
 func (x *UpdateAllRuleSetsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[10]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -486,19 +647,20 @@ func (x *UpdateAllRuleSetsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAllRuleSetsRequest.ProtoReflect.Descriptor instead.
 func (*UpdateAllRuleSetsRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{10}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{12}
 }
 
 type UpdateAllRuleSetsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Results       []*TaskResult          `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateAllRuleSetsResponse) Reset() {
 	*x = UpdateAllRuleSetsResponse{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[11]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -510,7 +672,7 @@ func (x *UpdateAllRuleSetsResponse) String() string {
 func (*UpdateAllRuleSetsResponse) ProtoMessage() {}
 
 func (x *UpdateAllRuleSetsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[11]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -523,12 +685,19 @@ func (x *UpdateAllRuleSetsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAllRuleSetsResponse.ProtoReflect.Descriptor instead.
 func (*UpdateAllRuleSetsResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{11}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *UpdateAllRuleSetsResponse) GetResults() []*TaskResult {
 	if x != nil {
 		return x.Results
+	}
+	return nil
+}
+
+func (x *UpdateAllRuleSetsResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
 	}
 	return nil
 }
@@ -541,7 +710,7 @@ type UpdateRuleSetHubRequest struct {
 
 func (x *UpdateRuleSetHubRequest) Reset() {
 	*x = UpdateRuleSetHubRequest{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[12]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -553,7 +722,7 @@ func (x *UpdateRuleSetHubRequest) String() string {
 func (*UpdateRuleSetHubRequest) ProtoMessage() {}
 
 func (x *UpdateRuleSetHubRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[12]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -566,19 +735,20 @@ func (x *UpdateRuleSetHubRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRuleSetHubRequest.ProtoReflect.Descriptor instead.
 func (*UpdateRuleSetHubRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{12}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{14}
 }
 
 type UpdateRuleSetHubResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	HubJson       string                 `protobuf:"bytes,1,opt,name=hub_json,json=hubJson,proto3" json:"hub_json,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateRuleSetHubResponse) Reset() {
 	*x = UpdateRuleSetHubResponse{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[13]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -590,7 +760,7 @@ func (x *UpdateRuleSetHubResponse) String() string {
 func (*UpdateRuleSetHubResponse) ProtoMessage() {}
 
 func (x *UpdateRuleSetHubResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[13]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -603,7 +773,7 @@ func (x *UpdateRuleSetHubResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateRuleSetHubResponse.ProtoReflect.Descriptor instead.
 func (*UpdateRuleSetHubResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{13}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *UpdateRuleSetHubResponse) GetHubJson() string {
@@ -611,6 +781,13 @@ func (x *UpdateRuleSetHubResponse) GetHubJson() string {
 		return x.HubJson
 	}
 	return ""
+}
+
+func (x *UpdateRuleSetHubResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
+	}
+	return nil
 }
 
 type PreviewRuleSetHubRequest struct {
@@ -623,7 +800,7 @@ type PreviewRuleSetHubRequest struct {
 
 func (x *PreviewRuleSetHubRequest) Reset() {
 	*x = PreviewRuleSetHubRequest{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[14]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -635,7 +812,7 @@ func (x *PreviewRuleSetHubRequest) String() string {
 func (*PreviewRuleSetHubRequest) ProtoMessage() {}
 
 func (x *PreviewRuleSetHubRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[14]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -648,7 +825,7 @@ func (x *PreviewRuleSetHubRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewRuleSetHubRequest.ProtoReflect.Descriptor instead.
 func (*PreviewRuleSetHubRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{14}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *PreviewRuleSetHubRequest) GetIndex() int32 {
@@ -674,7 +851,7 @@ type PreviewRuleSetHubResponse struct {
 
 func (x *PreviewRuleSetHubResponse) Reset() {
 	*x = PreviewRuleSetHubResponse{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[15]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -686,7 +863,7 @@ func (x *PreviewRuleSetHubResponse) String() string {
 func (*PreviewRuleSetHubResponse) ProtoMessage() {}
 
 func (x *PreviewRuleSetHubResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[15]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -699,7 +876,7 @@ func (x *PreviewRuleSetHubResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use PreviewRuleSetHubResponse.ProtoReflect.Descriptor instead.
 func (*PreviewRuleSetHubResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{15}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *PreviewRuleSetHubResponse) GetContent() string {
@@ -718,7 +895,7 @@ type GetRuleSetContentRequest struct {
 
 func (x *GetRuleSetContentRequest) Reset() {
 	*x = GetRuleSetContentRequest{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[16]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -730,7 +907,7 @@ func (x *GetRuleSetContentRequest) String() string {
 func (*GetRuleSetContentRequest) ProtoMessage() {}
 
 func (x *GetRuleSetContentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[16]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -743,7 +920,7 @@ func (x *GetRuleSetContentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRuleSetContentRequest.ProtoReflect.Descriptor instead.
 func (*GetRuleSetContentRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{16}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *GetRuleSetContentRequest) GetId() string {
@@ -756,13 +933,14 @@ func (x *GetRuleSetContentRequest) GetId() string {
 type GetRuleSetContentResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Content       string                 `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
+	Revision      *v1.ExpectedRevision   `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetRuleSetContentResponse) Reset() {
 	*x = GetRuleSetContentResponse{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[17]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -774,7 +952,7 @@ func (x *GetRuleSetContentResponse) String() string {
 func (*GetRuleSetContentResponse) ProtoMessage() {}
 
 func (x *GetRuleSetContentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[17]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -787,7 +965,7 @@ func (x *GetRuleSetContentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetRuleSetContentResponse.ProtoReflect.Descriptor instead.
 func (*GetRuleSetContentResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{17}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *GetRuleSetContentResponse) GetContent() string {
@@ -797,17 +975,25 @@ func (x *GetRuleSetContentResponse) GetContent() string {
 	return ""
 }
 
+func (x *GetRuleSetContentResponse) GetRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.Revision
+	}
+	return nil
+}
+
 type SaveRuleSetContentRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Content          string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	ExpectedRevision *v1.ExpectedRevision   `protobuf:"bytes,3,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *SaveRuleSetContentRequest) Reset() {
 	*x = SaveRuleSetContentRequest{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[18]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -819,7 +1005,7 @@ func (x *SaveRuleSetContentRequest) String() string {
 func (*SaveRuleSetContentRequest) ProtoMessage() {}
 
 func (x *SaveRuleSetContentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[18]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -832,7 +1018,7 @@ func (x *SaveRuleSetContentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveRuleSetContentRequest.ProtoReflect.Descriptor instead.
 func (*SaveRuleSetContentRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{18}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *SaveRuleSetContentRequest) GetId() string {
@@ -849,16 +1035,24 @@ func (x *SaveRuleSetContentRequest) GetContent() string {
 	return ""
 }
 
+func (x *SaveRuleSetContentRequest) GetExpectedRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return nil
+}
+
 type SaveRuleSetContentResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RulesetJson   string                 `protobuf:"bytes,1,opt,name=ruleset_json,json=rulesetJson,proto3" json:"ruleset_json,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *SaveRuleSetContentResponse) Reset() {
 	*x = SaveRuleSetContentResponse{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[19]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -870,7 +1064,7 @@ func (x *SaveRuleSetContentResponse) String() string {
 func (*SaveRuleSetContentResponse) ProtoMessage() {}
 
 func (x *SaveRuleSetContentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[19]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -883,7 +1077,7 @@ func (x *SaveRuleSetContentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveRuleSetContentResponse.ProtoReflect.Descriptor instead.
 func (*SaveRuleSetContentResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{19}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *SaveRuleSetContentResponse) GetRulesetJson() string {
@@ -893,16 +1087,24 @@ func (x *SaveRuleSetContentResponse) GetRulesetJson() string {
 	return ""
 }
 
+func (x *SaveRuleSetContentResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
 type ClearRuleSetContentRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ExpectedRevision *v1.ExpectedRevision   `protobuf:"bytes,2,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ClearRuleSetContentRequest) Reset() {
 	*x = ClearRuleSetContentRequest{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[20]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -914,7 +1116,7 @@ func (x *ClearRuleSetContentRequest) String() string {
 func (*ClearRuleSetContentRequest) ProtoMessage() {}
 
 func (x *ClearRuleSetContentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[20]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -927,7 +1129,7 @@ func (x *ClearRuleSetContentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearRuleSetContentRequest.ProtoReflect.Descriptor instead.
 func (*ClearRuleSetContentRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{20}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *ClearRuleSetContentRequest) GetId() string {
@@ -937,16 +1139,24 @@ func (x *ClearRuleSetContentRequest) GetId() string {
 	return ""
 }
 
+func (x *ClearRuleSetContentRequest) GetExpectedRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return nil
+}
+
 type ClearRuleSetContentResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	RulesetJson   string                 `protobuf:"bytes,1,opt,name=ruleset_json,json=rulesetJson,proto3" json:"ruleset_json,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ClearRuleSetContentResponse) Reset() {
 	*x = ClearRuleSetContentResponse{}
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[21]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -958,7 +1168,7 @@ func (x *ClearRuleSetContentResponse) String() string {
 func (*ClearRuleSetContentResponse) ProtoMessage() {}
 
 func (x *ClearRuleSetContentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_rule_set_service_proto_msgTypes[21]
+	mi := &file_app_v1_rule_set_service_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -971,7 +1181,7 @@ func (x *ClearRuleSetContentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearRuleSetContentResponse.ProtoReflect.Descriptor instead.
 func (*ClearRuleSetContentResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{21}
+	return file_app_v1_rule_set_service_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ClearRuleSetContentResponse) GetRulesetJson() string {
@@ -981,59 +1191,87 @@ func (x *ClearRuleSetContentResponse) GetRulesetJson() string {
 	return ""
 }
 
+func (x *ClearRuleSetContentResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
 var File_app_v1_rule_set_service_proto protoreflect.FileDescriptor
 
 const file_app_v1_rule_set_service_proto_rawDesc = "" +
 	"\n" +
-	"\x1dapp/v1/rule_set_service.proto\x12\x06app.v1\x1a\x11app/v1/task.proto\"\x15\n" +
-	"\x13ListRuleSetsRequest\"V\n" +
+	"\x1dapp/v1/rule_set_service.proto\x12\x06app.v1\x1a\x11app/v1/task.proto\x1a\x14common/v1/sync.proto\"\x15\n" +
+	"\x13ListRuleSetsRequest\"\x86\x01\n" +
 	"\x14ListRuleSetsResponse\x12#\n" +
 	"\rrulesets_json\x18\x01 \x03(\tR\frulesetsJson\x12\x19\n" +
-	"\bhub_json\x18\x02 \x01(\tR\ahubJson\":\n" +
-	"\x13SaveRuleSetsRequest\x12#\n" +
-	"\rrulesets_json\x18\x01 \x03(\tR\frulesetsJson\";\n" +
-	"\x14SaveRuleSetsResponse\x12#\n" +
-	"\rrulesets_json\x18\x01 \x03(\tR\frulesetsJson\"9\n" +
-	"\x14UpsertRuleSetRequest\x12!\n" +
-	"\fruleset_json\x18\x01 \x01(\tR\vrulesetJson\":\n" +
-	"\x15UpsertRuleSetResponse\x12!\n" +
-	"\fruleset_json\x18\x01 \x01(\tR\vrulesetJson\"&\n" +
+	"\bhub_json\x18\x02 \x01(\tR\ahubJson\x12.\n" +
+	"\x05state\x18\x03 \x01(\v2\x18.common.v1.ResourceStateR\x05state\"9\n" +
+	"\x14CreateRuleSetRequest\x12!\n" +
+	"\fruleset_json\x18\x01 \x01(\tR\vrulesetJson\"j\n" +
+	"\x15CreateRuleSetResponse\x12!\n" +
+	"\fruleset_json\x18\x01 \x01(\tR\vrulesetJson\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\"\x89\x01\n" +
+	"\x1aUpdateRuleSetConfigRequest\x12!\n" +
+	"\fruleset_json\x18\x01 \x01(\tR\vrulesetJson\x12H\n" +
+	"\x11expected_revision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x10expectedRevision\"p\n" +
+	"\x1bUpdateRuleSetConfigResponse\x12!\n" +
+	"\fruleset_json\x18\x01 \x01(\tR\vrulesetJson\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\"p\n" +
 	"\x14DeleteRuleSetRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x17\n" +
-	"\x15DeleteRuleSetResponse\"&\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12H\n" +
+	"\x11expected_revision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x10expectedRevision\"G\n" +
+	"\x15DeleteRuleSetResponse\x12.\n" +
+	"\x05state\x18\x01 \x01(\v2\x18.common.v1.MutationStateR\x05state\"\x7f\n" +
+	"\x16ReorderRuleSetsRequest\x12\x10\n" +
+	"\x03ids\x18\x01 \x03(\tR\x03ids\x12S\n" +
+	"\x17expected_order_revision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x15expectedOrderRevision\"[\n" +
+	"\x17ReorderRuleSetsResponse\x12\x10\n" +
+	"\x03ids\x18\x01 \x03(\tR\x03ids\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\"&\n" +
 	"\x14UpdateRuleSetRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"E\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"u\n" +
 	"\x15UpdateRuleSetResponse\x12,\n" +
-	"\aresults\x18\x01 \x03(\v2\x12.app.v1.TaskResultR\aresults\"\x1a\n" +
-	"\x18UpdateAllRuleSetsRequest\"I\n" +
+	"\aresults\x18\x01 \x03(\v2\x12.app.v1.TaskResultR\aresults\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\"\x1a\n" +
+	"\x18UpdateAllRuleSetsRequest\"y\n" +
 	"\x19UpdateAllRuleSetsResponse\x12,\n" +
-	"\aresults\x18\x01 \x03(\v2\x12.app.v1.TaskResultR\aresults\"\x19\n" +
-	"\x17UpdateRuleSetHubRequest\"5\n" +
+	"\aresults\x18\x01 \x03(\v2\x12.app.v1.TaskResultR\aresults\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\"\x19\n" +
+	"\x17UpdateRuleSetHubRequest\"e\n" +
 	"\x18UpdateRuleSetHubResponse\x12\x19\n" +
-	"\bhub_json\x18\x01 \x01(\tR\ahubJson\"H\n" +
+	"\bhub_json\x18\x01 \x01(\tR\ahubJson\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\"H\n" +
 	"\x18PreviewRuleSetHubRequest\x12\x14\n" +
 	"\x05index\x18\x01 \x01(\x05R\x05index\x12\x16\n" +
 	"\x06format\x18\x02 \x01(\tR\x06format\"5\n" +
 	"\x19PreviewRuleSetHubResponse\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\tR\acontent\"*\n" +
 	"\x18GetRuleSetContentRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"5\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"n\n" +
 	"\x19GetRuleSetContentResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent\"E\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent\x127\n" +
+	"\brevision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\brevision\"\x8f\x01\n" +
 	"\x19SaveRuleSetContentRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
-	"\acontent\x18\x02 \x01(\tR\acontent\"?\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\x12H\n" +
+	"\x11expected_revision\x18\x03 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x10expectedRevision\"o\n" +
 	"\x1aSaveRuleSetContentResponse\x12!\n" +
-	"\fruleset_json\x18\x01 \x01(\tR\vrulesetJson\",\n" +
+	"\fruleset_json\x18\x01 \x01(\tR\vrulesetJson\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\"v\n" +
 	"\x1aClearRuleSetContentRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"@\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12H\n" +
+	"\x11expected_revision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x10expectedRevision\"p\n" +
 	"\x1bClearRuleSetContentResponse\x12!\n" +
-	"\fruleset_json\x18\x01 \x01(\tR\vrulesetJson2\xb2\a\n" +
+	"\fruleset_json\x18\x01 \x01(\tR\vrulesetJson\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state2\x9b\b\n" +
 	"\x0eRuleSetService\x12I\n" +
-	"\fListRuleSets\x12\x1b.app.v1.ListRuleSetsRequest\x1a\x1c.app.v1.ListRuleSetsResponse\x12I\n" +
-	"\fSaveRuleSets\x12\x1b.app.v1.SaveRuleSetsRequest\x1a\x1c.app.v1.SaveRuleSetsResponse\x12L\n" +
-	"\rUpsertRuleSet\x12\x1c.app.v1.UpsertRuleSetRequest\x1a\x1d.app.v1.UpsertRuleSetResponse\x12L\n" +
-	"\rDeleteRuleSet\x12\x1c.app.v1.DeleteRuleSetRequest\x1a\x1d.app.v1.DeleteRuleSetResponse\x12L\n" +
+	"\fListRuleSets\x12\x1b.app.v1.ListRuleSetsRequest\x1a\x1c.app.v1.ListRuleSetsResponse\x12L\n" +
+	"\rCreateRuleSet\x12\x1c.app.v1.CreateRuleSetRequest\x1a\x1d.app.v1.CreateRuleSetResponse\x12^\n" +
+	"\x13UpdateRuleSetConfig\x12\".app.v1.UpdateRuleSetConfigRequest\x1a#.app.v1.UpdateRuleSetConfigResponse\x12L\n" +
+	"\rDeleteRuleSet\x12\x1c.app.v1.DeleteRuleSetRequest\x1a\x1d.app.v1.DeleteRuleSetResponse\x12R\n" +
+	"\x0fReorderRuleSets\x12\x1e.app.v1.ReorderRuleSetsRequest\x1a\x1f.app.v1.ReorderRuleSetsResponse\x12L\n" +
 	"\rUpdateRuleSet\x12\x1c.app.v1.UpdateRuleSetRequest\x1a\x1d.app.v1.UpdateRuleSetResponse\x12X\n" +
 	"\x11UpdateAllRuleSets\x12 .app.v1.UpdateAllRuleSetsRequest\x1a!.app.v1.UpdateAllRuleSetsResponse\x12U\n" +
 	"\x10UpdateRuleSetHub\x12\x1f.app.v1.UpdateRuleSetHubRequest\x1a .app.v1.UpdateRuleSetHubResponse\x12X\n" +
@@ -1056,62 +1294,85 @@ func file_app_v1_rule_set_service_proto_rawDescGZIP() []byte {
 	return file_app_v1_rule_set_service_proto_rawDescData
 }
 
-var file_app_v1_rule_set_service_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_app_v1_rule_set_service_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_app_v1_rule_set_service_proto_goTypes = []any{
 	(*ListRuleSetsRequest)(nil),         // 0: app.v1.ListRuleSetsRequest
 	(*ListRuleSetsResponse)(nil),        // 1: app.v1.ListRuleSetsResponse
-	(*SaveRuleSetsRequest)(nil),         // 2: app.v1.SaveRuleSetsRequest
-	(*SaveRuleSetsResponse)(nil),        // 3: app.v1.SaveRuleSetsResponse
-	(*UpsertRuleSetRequest)(nil),        // 4: app.v1.UpsertRuleSetRequest
-	(*UpsertRuleSetResponse)(nil),       // 5: app.v1.UpsertRuleSetResponse
+	(*CreateRuleSetRequest)(nil),        // 2: app.v1.CreateRuleSetRequest
+	(*CreateRuleSetResponse)(nil),       // 3: app.v1.CreateRuleSetResponse
+	(*UpdateRuleSetConfigRequest)(nil),  // 4: app.v1.UpdateRuleSetConfigRequest
+	(*UpdateRuleSetConfigResponse)(nil), // 5: app.v1.UpdateRuleSetConfigResponse
 	(*DeleteRuleSetRequest)(nil),        // 6: app.v1.DeleteRuleSetRequest
 	(*DeleteRuleSetResponse)(nil),       // 7: app.v1.DeleteRuleSetResponse
-	(*UpdateRuleSetRequest)(nil),        // 8: app.v1.UpdateRuleSetRequest
-	(*UpdateRuleSetResponse)(nil),       // 9: app.v1.UpdateRuleSetResponse
-	(*UpdateAllRuleSetsRequest)(nil),    // 10: app.v1.UpdateAllRuleSetsRequest
-	(*UpdateAllRuleSetsResponse)(nil),   // 11: app.v1.UpdateAllRuleSetsResponse
-	(*UpdateRuleSetHubRequest)(nil),     // 12: app.v1.UpdateRuleSetHubRequest
-	(*UpdateRuleSetHubResponse)(nil),    // 13: app.v1.UpdateRuleSetHubResponse
-	(*PreviewRuleSetHubRequest)(nil),    // 14: app.v1.PreviewRuleSetHubRequest
-	(*PreviewRuleSetHubResponse)(nil),   // 15: app.v1.PreviewRuleSetHubResponse
-	(*GetRuleSetContentRequest)(nil),    // 16: app.v1.GetRuleSetContentRequest
-	(*GetRuleSetContentResponse)(nil),   // 17: app.v1.GetRuleSetContentResponse
-	(*SaveRuleSetContentRequest)(nil),   // 18: app.v1.SaveRuleSetContentRequest
-	(*SaveRuleSetContentResponse)(nil),  // 19: app.v1.SaveRuleSetContentResponse
-	(*ClearRuleSetContentRequest)(nil),  // 20: app.v1.ClearRuleSetContentRequest
-	(*ClearRuleSetContentResponse)(nil), // 21: app.v1.ClearRuleSetContentResponse
-	(*TaskResult)(nil),                  // 22: app.v1.TaskResult
+	(*ReorderRuleSetsRequest)(nil),      // 8: app.v1.ReorderRuleSetsRequest
+	(*ReorderRuleSetsResponse)(nil),     // 9: app.v1.ReorderRuleSetsResponse
+	(*UpdateRuleSetRequest)(nil),        // 10: app.v1.UpdateRuleSetRequest
+	(*UpdateRuleSetResponse)(nil),       // 11: app.v1.UpdateRuleSetResponse
+	(*UpdateAllRuleSetsRequest)(nil),    // 12: app.v1.UpdateAllRuleSetsRequest
+	(*UpdateAllRuleSetsResponse)(nil),   // 13: app.v1.UpdateAllRuleSetsResponse
+	(*UpdateRuleSetHubRequest)(nil),     // 14: app.v1.UpdateRuleSetHubRequest
+	(*UpdateRuleSetHubResponse)(nil),    // 15: app.v1.UpdateRuleSetHubResponse
+	(*PreviewRuleSetHubRequest)(nil),    // 16: app.v1.PreviewRuleSetHubRequest
+	(*PreviewRuleSetHubResponse)(nil),   // 17: app.v1.PreviewRuleSetHubResponse
+	(*GetRuleSetContentRequest)(nil),    // 18: app.v1.GetRuleSetContentRequest
+	(*GetRuleSetContentResponse)(nil),   // 19: app.v1.GetRuleSetContentResponse
+	(*SaveRuleSetContentRequest)(nil),   // 20: app.v1.SaveRuleSetContentRequest
+	(*SaveRuleSetContentResponse)(nil),  // 21: app.v1.SaveRuleSetContentResponse
+	(*ClearRuleSetContentRequest)(nil),  // 22: app.v1.ClearRuleSetContentRequest
+	(*ClearRuleSetContentResponse)(nil), // 23: app.v1.ClearRuleSetContentResponse
+	(*v1.ResourceState)(nil),            // 24: common.v1.ResourceState
+	(*v1.MutationState)(nil),            // 25: common.v1.MutationState
+	(*v1.ExpectedRevision)(nil),         // 26: common.v1.ExpectedRevision
+	(*TaskResult)(nil),                  // 27: app.v1.TaskResult
 }
 var file_app_v1_rule_set_service_proto_depIdxs = []int32{
-	22, // 0: app.v1.UpdateRuleSetResponse.results:type_name -> app.v1.TaskResult
-	22, // 1: app.v1.UpdateAllRuleSetsResponse.results:type_name -> app.v1.TaskResult
-	0,  // 2: app.v1.RuleSetService.ListRuleSets:input_type -> app.v1.ListRuleSetsRequest
-	2,  // 3: app.v1.RuleSetService.SaveRuleSets:input_type -> app.v1.SaveRuleSetsRequest
-	4,  // 4: app.v1.RuleSetService.UpsertRuleSet:input_type -> app.v1.UpsertRuleSetRequest
-	6,  // 5: app.v1.RuleSetService.DeleteRuleSet:input_type -> app.v1.DeleteRuleSetRequest
-	8,  // 6: app.v1.RuleSetService.UpdateRuleSet:input_type -> app.v1.UpdateRuleSetRequest
-	10, // 7: app.v1.RuleSetService.UpdateAllRuleSets:input_type -> app.v1.UpdateAllRuleSetsRequest
-	12, // 8: app.v1.RuleSetService.UpdateRuleSetHub:input_type -> app.v1.UpdateRuleSetHubRequest
-	14, // 9: app.v1.RuleSetService.PreviewRuleSetHub:input_type -> app.v1.PreviewRuleSetHubRequest
-	16, // 10: app.v1.RuleSetService.GetRuleSetContent:input_type -> app.v1.GetRuleSetContentRequest
-	18, // 11: app.v1.RuleSetService.SaveRuleSetContent:input_type -> app.v1.SaveRuleSetContentRequest
-	20, // 12: app.v1.RuleSetService.ClearRuleSetContent:input_type -> app.v1.ClearRuleSetContentRequest
-	1,  // 13: app.v1.RuleSetService.ListRuleSets:output_type -> app.v1.ListRuleSetsResponse
-	3,  // 14: app.v1.RuleSetService.SaveRuleSets:output_type -> app.v1.SaveRuleSetsResponse
-	5,  // 15: app.v1.RuleSetService.UpsertRuleSet:output_type -> app.v1.UpsertRuleSetResponse
-	7,  // 16: app.v1.RuleSetService.DeleteRuleSet:output_type -> app.v1.DeleteRuleSetResponse
-	9,  // 17: app.v1.RuleSetService.UpdateRuleSet:output_type -> app.v1.UpdateRuleSetResponse
-	11, // 18: app.v1.RuleSetService.UpdateAllRuleSets:output_type -> app.v1.UpdateAllRuleSetsResponse
-	13, // 19: app.v1.RuleSetService.UpdateRuleSetHub:output_type -> app.v1.UpdateRuleSetHubResponse
-	15, // 20: app.v1.RuleSetService.PreviewRuleSetHub:output_type -> app.v1.PreviewRuleSetHubResponse
-	17, // 21: app.v1.RuleSetService.GetRuleSetContent:output_type -> app.v1.GetRuleSetContentResponse
-	19, // 22: app.v1.RuleSetService.SaveRuleSetContent:output_type -> app.v1.SaveRuleSetContentResponse
-	21, // 23: app.v1.RuleSetService.ClearRuleSetContent:output_type -> app.v1.ClearRuleSetContentResponse
-	13, // [13:24] is the sub-list for method output_type
-	2,  // [2:13] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	24, // 0: app.v1.ListRuleSetsResponse.state:type_name -> common.v1.ResourceState
+	25, // 1: app.v1.CreateRuleSetResponse.state:type_name -> common.v1.MutationState
+	26, // 2: app.v1.UpdateRuleSetConfigRequest.expected_revision:type_name -> common.v1.ExpectedRevision
+	25, // 3: app.v1.UpdateRuleSetConfigResponse.state:type_name -> common.v1.MutationState
+	26, // 4: app.v1.DeleteRuleSetRequest.expected_revision:type_name -> common.v1.ExpectedRevision
+	25, // 5: app.v1.DeleteRuleSetResponse.state:type_name -> common.v1.MutationState
+	26, // 6: app.v1.ReorderRuleSetsRequest.expected_order_revision:type_name -> common.v1.ExpectedRevision
+	25, // 7: app.v1.ReorderRuleSetsResponse.state:type_name -> common.v1.MutationState
+	27, // 8: app.v1.UpdateRuleSetResponse.results:type_name -> app.v1.TaskResult
+	25, // 9: app.v1.UpdateRuleSetResponse.state:type_name -> common.v1.MutationState
+	27, // 10: app.v1.UpdateAllRuleSetsResponse.results:type_name -> app.v1.TaskResult
+	25, // 11: app.v1.UpdateAllRuleSetsResponse.state:type_name -> common.v1.MutationState
+	25, // 12: app.v1.UpdateRuleSetHubResponse.state:type_name -> common.v1.MutationState
+	26, // 13: app.v1.GetRuleSetContentResponse.revision:type_name -> common.v1.ExpectedRevision
+	26, // 14: app.v1.SaveRuleSetContentRequest.expected_revision:type_name -> common.v1.ExpectedRevision
+	25, // 15: app.v1.SaveRuleSetContentResponse.state:type_name -> common.v1.MutationState
+	26, // 16: app.v1.ClearRuleSetContentRequest.expected_revision:type_name -> common.v1.ExpectedRevision
+	25, // 17: app.v1.ClearRuleSetContentResponse.state:type_name -> common.v1.MutationState
+	0,  // 18: app.v1.RuleSetService.ListRuleSets:input_type -> app.v1.ListRuleSetsRequest
+	2,  // 19: app.v1.RuleSetService.CreateRuleSet:input_type -> app.v1.CreateRuleSetRequest
+	4,  // 20: app.v1.RuleSetService.UpdateRuleSetConfig:input_type -> app.v1.UpdateRuleSetConfigRequest
+	6,  // 21: app.v1.RuleSetService.DeleteRuleSet:input_type -> app.v1.DeleteRuleSetRequest
+	8,  // 22: app.v1.RuleSetService.ReorderRuleSets:input_type -> app.v1.ReorderRuleSetsRequest
+	10, // 23: app.v1.RuleSetService.UpdateRuleSet:input_type -> app.v1.UpdateRuleSetRequest
+	12, // 24: app.v1.RuleSetService.UpdateAllRuleSets:input_type -> app.v1.UpdateAllRuleSetsRequest
+	14, // 25: app.v1.RuleSetService.UpdateRuleSetHub:input_type -> app.v1.UpdateRuleSetHubRequest
+	16, // 26: app.v1.RuleSetService.PreviewRuleSetHub:input_type -> app.v1.PreviewRuleSetHubRequest
+	18, // 27: app.v1.RuleSetService.GetRuleSetContent:input_type -> app.v1.GetRuleSetContentRequest
+	20, // 28: app.v1.RuleSetService.SaveRuleSetContent:input_type -> app.v1.SaveRuleSetContentRequest
+	22, // 29: app.v1.RuleSetService.ClearRuleSetContent:input_type -> app.v1.ClearRuleSetContentRequest
+	1,  // 30: app.v1.RuleSetService.ListRuleSets:output_type -> app.v1.ListRuleSetsResponse
+	3,  // 31: app.v1.RuleSetService.CreateRuleSet:output_type -> app.v1.CreateRuleSetResponse
+	5,  // 32: app.v1.RuleSetService.UpdateRuleSetConfig:output_type -> app.v1.UpdateRuleSetConfigResponse
+	7,  // 33: app.v1.RuleSetService.DeleteRuleSet:output_type -> app.v1.DeleteRuleSetResponse
+	9,  // 34: app.v1.RuleSetService.ReorderRuleSets:output_type -> app.v1.ReorderRuleSetsResponse
+	11, // 35: app.v1.RuleSetService.UpdateRuleSet:output_type -> app.v1.UpdateRuleSetResponse
+	13, // 36: app.v1.RuleSetService.UpdateAllRuleSets:output_type -> app.v1.UpdateAllRuleSetsResponse
+	15, // 37: app.v1.RuleSetService.UpdateRuleSetHub:output_type -> app.v1.UpdateRuleSetHubResponse
+	17, // 38: app.v1.RuleSetService.PreviewRuleSetHub:output_type -> app.v1.PreviewRuleSetHubResponse
+	19, // 39: app.v1.RuleSetService.GetRuleSetContent:output_type -> app.v1.GetRuleSetContentResponse
+	21, // 40: app.v1.RuleSetService.SaveRuleSetContent:output_type -> app.v1.SaveRuleSetContentResponse
+	23, // 41: app.v1.RuleSetService.ClearRuleSetContent:output_type -> app.v1.ClearRuleSetContentResponse
+	30, // [30:42] is the sub-list for method output_type
+	18, // [18:30] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_app_v1_rule_set_service_proto_init() }
@@ -1126,7 +1387,7 @@ func file_app_v1_rule_set_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_app_v1_rule_set_service_proto_rawDesc), len(file_app_v1_rule_set_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   22,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

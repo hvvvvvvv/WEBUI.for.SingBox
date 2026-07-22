@@ -11,6 +11,8 @@ import {
   useKernelApiStore,
   useSubscribesStore,
   useAppStore,
+  isResourceConflict,
+  isResourceNotFound,
 } from '@/stores'
 import {
   debounce,
@@ -39,6 +41,15 @@ const appSettingsStore = useAppSettingsStore()
 const appConfigStore = useAppConfigStore()
 const kernelApiStore = useKernelApiStore()
 
+const handleMutationError = async (error: unknown) => {
+  if (isResourceConflict(error) || isResourceNotFound(error)) {
+    await profilesStore.setupProfiles().catch(() => undefined)
+    message.error(t('common.operationConflict'))
+    return
+  }
+  message.error((error as any)?.message || error)
+}
+
 const menuList: Menu[] = [
   'profile.step.name',
   'profile.step.general',
@@ -63,11 +74,8 @@ const secondaryMenusList: Menu[] = [
     handler: async (id: string) => {
       appConfigStore.config.profile = id
       try {
-        const e = await kernelApiStore.stopCore().catch((e) => e)
-        if (e && e !== 'The core is not running') {
-          throw e
-        }
-        await kernelApiStore.startCore()
+        await appConfigStore.saveNow()
+        if (!kernelApiStore.running) await kernelApiStore.startCore()
       } catch (error: any) {
         message.error(error)
         console.error(error)
@@ -157,7 +165,7 @@ const handleDeleteProfile = async (p: IProfile) => {
     await profilesStore.deleteProfile(p.id)
   } catch (error: any) {
     console.error('deleteProfile: ', error)
-    message.error(error)
+    await handleMutationError(error)
   }
 }
 
@@ -165,14 +173,11 @@ const handleUseProfile = async (p: IProfile) => {
   if (appConfigStore.config.profile === p.id) return
 
   appConfigStore.config.profile = p.id
-
-  if (kernelApiStore.running) {
-    try {
-      await kernelApiStore.restartCore()
-    } catch (error: any) {
-      console.error('restartCore: ', error)
-      message.error(error.message || error)
-    }
+  try {
+    await appConfigStore.saveNow()
+  } catch (error: any) {
+    console.error('saveAppConfig: ', error)
+    message.error(error.message || error)
   }
 }
 
@@ -182,7 +187,21 @@ const isCreatedBySubscription = (id: string) => {
 
 const showAuto = () => alert('Tips', 'profile.auto')
 
-const saveProfileOrder = debounce((ids: string[]) => profilesStore.saveProfilesOrder(ids), 1000)
+const saveProfileOrder = debounce(
+  (
+    ids: string[],
+    revision: ReturnType<typeof profilesStore.getProfilesOrderRevision>,
+    fallbackIDs: string[],
+  ) => profilesStore.saveProfilesOrder(ids, revision, fallbackIDs),
+  1000,
+)
+
+let sortRevision = profilesStore.getProfilesOrderRevision()
+let sortStartIDs: string[] = []
+const onSortStart = () => {
+  sortRevision = profilesStore.getProfilesOrderRevision()
+  sortStartIDs = profilesStore.profiles.map((profile) => profile.id)
+}
 
 const onSortUpdate = (event: SortableEvent) => {
   const oldIndex = event.oldDraggableIndex ?? event.oldIndex
@@ -194,8 +213,12 @@ const onSortUpdate = (event: SortableEvent) => {
   if (!item) return
   next.splice(newIndex, 0, item)
   profilesStore.profiles.splice(0, profilesStore.profiles.length, ...next)
-  saveProfileOrder(next.map((profile) => profile.id)).catch((error: any) => {
-    message.error(error.message || error)
+  saveProfileOrder(
+    next.map((profile) => profile.id),
+    sortRevision,
+    sortStartIDs,
+  ).catch((error: any) => {
+    void handleMutationError(error)
   })
 }
 </script>
@@ -225,7 +248,10 @@ const onSortUpdate = (event: SortableEvent) => {
   </div>
 
   <div
-    v-draggable="[profilesStore.profiles, { ...DraggableOptions, customUpdate: onSortUpdate }]"
+    v-draggable="[
+      profilesStore.profiles,
+      { ...DraggableOptions, onStart: onSortStart, customUpdate: onSortUpdate },
+    ]"
     :class="'grid-list-' + appSettingsStore.app.profilesView"
   >
     <Card

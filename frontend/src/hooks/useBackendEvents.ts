@@ -1,4 +1,4 @@
-import { EventsOn, Notify } from '@/bridge'
+import { EventsOn, Notify, onWebSocketConnected } from '@/bridge'
 import i18n from '@/lang'
 import {
   useLogsStore,
@@ -6,15 +6,13 @@ import {
   useRulesetsStore,
   useScheduledTasksStore,
   useSubscribesStore,
+  eventRevisionApplied,
+  type ResourceChangedEvent,
+  type ResourceDomain,
 } from '@/stores'
-import { eventBus, message } from '@/utils'
+import { message } from '@/utils'
 
-type RuntimeChangeKind = 'subscription' | 'subscriptions' | 'ruleset' | 'rulesets'
-type RuntimeDomain = 'subscriptions' | 'rulesets'
-type PendingRuntimeChanges = {
-  all: boolean
-  ids: Set<string>
-}
+type ConfigDomain = ResourceDomain
 
 let backendEventsInitialized = false
 
@@ -26,101 +24,118 @@ export const useBackendEvents = () => {
   const subscribesStore = useSubscribesStore()
   const { t } = i18n.global
 
-  const pendingRuntimeChanges: Record<RuntimeDomain, PendingRuntimeChanges> = {
-    subscriptions: { all: false, ids: new Set<string>() },
-    rulesets: { all: false, ids: new Set<string>() },
-  }
-  let runtimeRefreshTimer: ReturnType<typeof setTimeout> | undefined
-  let runtimeRefreshQueue = Promise.resolve()
   let scheduledTaskQueue = Promise.resolve()
+  let configRefreshTimer: ReturnType<typeof setTimeout> | undefined
+  let configSyncPromise: Promise<void> | undefined
+  const pendingConfigDomains = new Set<ConfigDomain>()
+  const pendingResourceEvents = new Map<ConfigDomain, ResourceChangedEvent>()
   const notifiedTaskRuns = new Map<string, number>()
 
-  const flushRuntimeDomain = async (domain: RuntimeDomain) => {
-    const pending = pendingRuntimeChanges[domain]
-    const all = pending.all
-    const ids = [...pending.ids]
-    pending.all = false
-    pending.ids.clear()
-    if (!all && ids.length === 0) return
-
-    if (domain === 'subscriptions') {
-      await subscribesStore.setupSubscribes()
-      if (all) {
-        eventBus.emit('subscriptionsChange', undefined)
-      } else {
-        ids.forEach((id) => eventBus.emit('subscriptionChange', { id }))
-      }
-      return
-    }
-
-    await rulesetsStore.setupRulesets()
-    if (all) {
-      eventBus.emit('rulesetsChange', undefined)
-    } else {
-      ids.forEach((id) => eventBus.emit('rulesetChange', { id }))
+  const refreshConfigDomain = async (domain: ConfigDomain) => {
+    switch (domain) {
+      case 'profiles':
+        await profilesStore.setupProfiles()
+        break
+      case 'subscriptions':
+        await subscribesStore.setupSubscribes()
+        break
+      case 'rulesets':
+        await rulesetsStore.setupRulesets()
+        break
+      case 'scheduledTasks':
+        await scheduledTasksStore.setupScheduledTasks()
+        break
     }
   }
 
-  const flushRuntimeChanges = async () => {
-    await Promise.all([
-      flushRuntimeDomain('subscriptions').catch((error) => {
-        console.error('refresh subscriptions after runtimeChange: ', error)
-      }),
-      flushRuntimeDomain('rulesets').catch((error) => {
-        console.error('refresh rulesets after runtimeChange: ', error)
-      }),
-    ])
-  }
-
-  const scheduleRuntimeRefresh = () => {
-    if (runtimeRefreshTimer !== undefined) return
-    runtimeRefreshTimer = setTimeout(() => {
-      runtimeRefreshTimer = undefined
-      runtimeRefreshQueue = runtimeRefreshQueue.then(flushRuntimeChanges).catch((error) => {
-        console.error('flush runtimeChange events: ', error)
+  const drainConfigSync = async () => {
+    const failures = new Map<ConfigDomain, unknown>()
+    while (pendingConfigDomains.size > 0) {
+      const domains = [...pendingConfigDomains]
+      pendingConfigDomains.clear()
+      const results = await Promise.allSettled(domains.map(refreshConfigDomain))
+      results.forEach((result, index) => {
+        const domain = domains[index]!
+        if (result.status === 'rejected') failures.set(domain, result.reason)
+        else failures.delete(domain)
       })
+    }
+    const firstError = failures.values().next()
+    if (!firstError.done) throw firstError.value
+  }
+
+  const syncConfigStores = (
+    domains: ConfigDomain[] = ['profiles', 'subscriptions', 'rulesets', 'scheduledTasks'],
+  ) => {
+    domains.forEach((domain) => pendingConfigDomains.add(domain))
+    if (!configSyncPromise) {
+      configSyncPromise = drainConfigSync().finally(() => {
+        configSyncPromise = undefined
+        if (pendingConfigDomains.size > 0) {
+          void syncConfigStores([]).catch((error) => {
+            console.error('refresh configuration queued during synchronization: ', error)
+          })
+        }
+      })
+    }
+    return configSyncPromise
+  }
+
+  const resourceState = (domain: ConfigDomain) => {
+    if (domain === 'profiles') return profilesStore.resourceState
+    if (domain === 'subscriptions') return subscribesStore.resourceState
+    if (domain === 'rulesets') return rulesetsStore.resourceState
+    return scheduledTasksStore.resourceState
+  }
+
+  const scheduleResourceRefresh = (event: ResourceChangedEvent) => {
+    if (eventRevisionApplied(resourceState(event.domain), event)) return
+    const pending = pendingResourceEvents.get(event.domain)
+    if (
+      !pending ||
+      pending.instanceId !== event.instanceId ||
+      event.stateRevision > pending.stateRevision
+    ) {
+      pendingResourceEvents.set(event.domain, event)
+    }
+    if (configRefreshTimer !== undefined) return
+    configRefreshTimer = setTimeout(() => {
+      configRefreshTimer = undefined
+      const events = [...pendingResourceEvents.values()]
+      pendingResourceEvents.clear()
+      const domains = events
+        .filter((item) => !eventRevisionApplied(resourceState(item.domain), item))
+        .map((item) => item.domain)
+      if (domains.length === 0) return
+      void syncConfigStores(domains)
+        .then(() => {
+          events.forEach((item) => {
+            if (!eventRevisionApplied(resourceState(item.domain), item)) {
+              scheduleResourceRefresh(item)
+            }
+          })
+        })
+        .catch((error: any) => {
+          console.error('refresh configuration after resourceChanged: ', error)
+          message.error(error.message || error)
+        })
     }, 50)
   }
 
-  const handleRuntimeChange = (kind?: unknown, id?: unknown) => {
-    if (typeof kind !== 'string') return
-    const normalizedKind = kind as RuntimeChangeKind
-    if (!['subscription', 'subscriptions', 'ruleset', 'rulesets'].includes(normalizedKind)) {
-      return
-    }
-
-    const domain: RuntimeDomain = normalizedKind.startsWith('subscription')
-      ? 'subscriptions'
-      : 'rulesets'
-    const pending = pendingRuntimeChanges[domain]
-    if (normalizedKind === domain) {
-      pending.all = true
-      pending.ids.clear()
-    } else if (typeof id === 'string' && id !== '' && !pending.all) {
-      pending.ids.add(id)
-    } else {
-      return
-    }
-    scheduleRuntimeRefresh()
-  }
-
-  const refreshScheduledTask = async (taskID: string) => {
-    await Promise.all([
-      scheduledTasksStore.setupScheduledTasks({ logs: false }),
-      scheduledTasksStore.refreshScheduledTaskLogs(),
-    ])
+  const refreshScheduledTask = async (taskID: string, notify: boolean) => {
+    await scheduledTasksStore.refreshScheduledTaskLogs()
 
     const latestLog = scheduledTasksStore.scheduledtasksLogs.find((log) => log.id === taskID)
     if (!latestLog || latestLog.endTime <= (notifiedTaskRuns.get(taskID) || 0)) return
     notifiedTaskRuns.set(taskID, latestLog.endTime)
 
     const task = scheduledTasksStore.getScheduledTaskById(taskID)
-    if (!task?.notification) return
+    if (!notify) return
 
     const successes = latestLog.results.filter((result) => result.ok).length
     const failures = latestLog.results.length - successes
     await Notify(
-      t('scheduledtasks.notificationTitle', { name: task.name || latestLog.name || taskID }),
+      t('scheduledtasks.notificationTitle', { name: task?.name || latestLog.name || taskID }),
       t('scheduledtasks.notificationBody', { successes, failures }),
     )
   }
@@ -129,25 +144,43 @@ export const useBackendEvents = () => {
     if (backendEventsInitialized) return
     backendEventsInitialized = true
 
-    EventsOn('profileChange', async (data?: { id?: string }) => {
-      try {
-        await profilesStore.setupProfiles()
-        eventBus.emit('profileChange', { id: data?.id || '' })
-      } catch (error: any) {
-        message.error(error.message || error)
-      }
+    onWebSocketConnected(() => {
+      void syncConfigStores().catch((error) => {
+        console.error('refresh configuration after websocket connection: ', error)
+      })
     })
 
     EventsOn('kernelLog', (log?: unknown) => {
       if (typeof log === 'string') logsStore.recordKernelLog(log)
     })
 
-    EventsOn('runtimeChange', handleRuntimeChange)
+    EventsOn('resourceChanged', (event?: unknown) => {
+      if (!event || typeof event !== 'object') return
+      const value = event as Partial<ResourceChangedEvent>
+      if (!['profiles', 'subscriptions', 'rulesets', 'scheduledTasks'].includes(value.domain || ''))
+        return
+      if (
+        !value.instanceId ||
+        typeof value.stateRevision !== 'number' ||
+        !['upsert', 'delete', 'reorder', 'runtime'].includes(value.operation || '')
+      ) {
+        return
+      }
+      scheduleResourceRefresh({
+        domain: value.domain as ResourceDomain,
+        operation: value.operation as ResourceChangedEvent['operation'],
+        ids: Array.isArray(value.ids)
+          ? value.ids.filter((id): id is string => typeof id === 'string')
+          : [],
+        instanceId: value.instanceId,
+        stateRevision: value.stateRevision,
+      })
+    })
 
-    EventsOn('scheduledTaskFinished', (taskID?: unknown) => {
+    EventsOn('scheduledTaskFinished', (taskID?: unknown, notify?: unknown) => {
       if (typeof taskID !== 'string' || taskID === '') return
       scheduledTaskQueue = scheduledTaskQueue
-        .then(() => refreshScheduledTask(taskID))
+        .then(() => refreshScheduledTask(taskID, notify === true))
         .catch((error) => {
           console.error('refresh scheduled task after completion: ', error)
         })
@@ -164,7 +197,11 @@ export const useBackendEvents = () => {
         message.error(t('kernel.crashed', { reason }), 5_000)
       },
     )
+
+    EventsOn('kernelAutoRestartFailed', () => {
+      message.error('kernel.restartFailedCheckLogs', 5_000)
+    })
   }
 
-  return { setupBackendEvents }
+  return { setupBackendEvents, syncConfigStores }
 }

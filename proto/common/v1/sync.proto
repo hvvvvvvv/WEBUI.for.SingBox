@@ -1,0 +1,24 @@
+syntax = "proto3";
+
+package common.v1;
+
+option go_package = "guiforcores/proto/common/v1";
+
+message ExpectedRevision {
+  string instance_id = 1;
+  uint64 revision = 2;
+}
+
+message ResourceState {
+  string instance_id = 1;
+  uint64 state_revision = 2;
+  uint64 order_revision = 3;
+  map<string, uint64> item_revisions = 4;
+}
+
+message MutationState {
+  string instance_id = 1;
+  uint64 state_revision = 2;
+  uint64 item_revision = 3;
+  uint64 order_revision = 4;
+}

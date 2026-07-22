@@ -9,6 +9,7 @@ package appv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	v1 "guiforcores/gen/common/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -60,6 +61,7 @@ func (*ListSubscriptionsRequest) Descriptor() ([]byte, []int) {
 type ListSubscriptionsResponse struct {
 	state             protoimpl.MessageState `protogen:"open.v1"`
 	SubscriptionsJson []string               `protobuf:"bytes,1,rep,name=subscriptions_json,json=subscriptionsJson,proto3" json:"subscriptions_json,omitempty"`
+	State             *v1.ResourceState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
 }
@@ -101,27 +103,34 @@ func (x *ListSubscriptionsResponse) GetSubscriptionsJson() []string {
 	return nil
 }
 
-type SaveSubscriptionsRequest struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	SubscriptionsJson []string               `protobuf:"bytes,1,rep,name=subscriptions_json,json=subscriptionsJson,proto3" json:"subscriptions_json,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+func (x *ListSubscriptionsResponse) GetState() *v1.ResourceState {
+	if x != nil {
+		return x.State
+	}
+	return nil
 }
 
-func (x *SaveSubscriptionsRequest) Reset() {
-	*x = SaveSubscriptionsRequest{}
+type CreateSubscriptionRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	SubscriptionJson string                 `protobuf:"bytes,1,opt,name=subscription_json,json=subscriptionJson,proto3" json:"subscription_json,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
+}
+
+func (x *CreateSubscriptionRequest) Reset() {
+	*x = CreateSubscriptionRequest{}
 	mi := &file_app_v1_subscription_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SaveSubscriptionsRequest) String() string {
+func (x *CreateSubscriptionRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SaveSubscriptionsRequest) ProtoMessage() {}
+func (*CreateSubscriptionRequest) ProtoMessage() {}
 
-func (x *SaveSubscriptionsRequest) ProtoReflect() protoreflect.Message {
+func (x *CreateSubscriptionRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_app_v1_subscription_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -133,39 +142,40 @@ func (x *SaveSubscriptionsRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SaveSubscriptionsRequest.ProtoReflect.Descriptor instead.
-func (*SaveSubscriptionsRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreateSubscriptionRequest.ProtoReflect.Descriptor instead.
+func (*CreateSubscriptionRequest) Descriptor() ([]byte, []int) {
 	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *SaveSubscriptionsRequest) GetSubscriptionsJson() []string {
+func (x *CreateSubscriptionRequest) GetSubscriptionJson() string {
 	if x != nil {
-		return x.SubscriptionsJson
+		return x.SubscriptionJson
 	}
-	return nil
+	return ""
 }
 
-type SaveSubscriptionsResponse struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	SubscriptionsJson []string               `protobuf:"bytes,1,rep,name=subscriptions_json,json=subscriptionsJson,proto3" json:"subscriptions_json,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+type CreateSubscriptionResponse struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	SubscriptionJson string                 `protobuf:"bytes,1,opt,name=subscription_json,json=subscriptionJson,proto3" json:"subscription_json,omitempty"`
+	State            *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
-func (x *SaveSubscriptionsResponse) Reset() {
-	*x = SaveSubscriptionsResponse{}
+func (x *CreateSubscriptionResponse) Reset() {
+	*x = CreateSubscriptionResponse{}
 	mi := &file_app_v1_subscription_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SaveSubscriptionsResponse) String() string {
+func (x *CreateSubscriptionResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SaveSubscriptionsResponse) ProtoMessage() {}
+func (*CreateSubscriptionResponse) ProtoMessage() {}
 
-func (x *SaveSubscriptionsResponse) ProtoReflect() protoreflect.Message {
+func (x *CreateSubscriptionResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_app_v1_subscription_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -177,39 +187,47 @@ func (x *SaveSubscriptionsResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SaveSubscriptionsResponse.ProtoReflect.Descriptor instead.
-func (*SaveSubscriptionsResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreateSubscriptionResponse.ProtoReflect.Descriptor instead.
+func (*CreateSubscriptionResponse) Descriptor() ([]byte, []int) {
 	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *SaveSubscriptionsResponse) GetSubscriptionsJson() []string {
+func (x *CreateSubscriptionResponse) GetSubscriptionJson() string {
 	if x != nil {
-		return x.SubscriptionsJson
+		return x.SubscriptionJson
+	}
+	return ""
+}
+
+func (x *CreateSubscriptionResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
 	}
 	return nil
 }
 
-type UpsertSubscriptionRequest struct {
+type UpdateSubscriptionConfigRequest struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	SubscriptionJson string                 `protobuf:"bytes,1,opt,name=subscription_json,json=subscriptionJson,proto3" json:"subscription_json,omitempty"`
+	ExpectedRevision *v1.ExpectedRevision   `protobuf:"bytes,2,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
-func (x *UpsertSubscriptionRequest) Reset() {
-	*x = UpsertSubscriptionRequest{}
+func (x *UpdateSubscriptionConfigRequest) Reset() {
+	*x = UpdateSubscriptionConfigRequest{}
 	mi := &file_app_v1_subscription_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UpsertSubscriptionRequest) String() string {
+func (x *UpdateSubscriptionConfigRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UpsertSubscriptionRequest) ProtoMessage() {}
+func (*UpdateSubscriptionConfigRequest) ProtoMessage() {}
 
-func (x *UpsertSubscriptionRequest) ProtoReflect() protoreflect.Message {
+func (x *UpdateSubscriptionConfigRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_app_v1_subscription_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -221,39 +239,47 @@ func (x *UpsertSubscriptionRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UpsertSubscriptionRequest.ProtoReflect.Descriptor instead.
-func (*UpsertSubscriptionRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use UpdateSubscriptionConfigRequest.ProtoReflect.Descriptor instead.
+func (*UpdateSubscriptionConfigRequest) Descriptor() ([]byte, []int) {
 	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *UpsertSubscriptionRequest) GetSubscriptionJson() string {
+func (x *UpdateSubscriptionConfigRequest) GetSubscriptionJson() string {
 	if x != nil {
 		return x.SubscriptionJson
 	}
 	return ""
 }
 
-type UpsertSubscriptionResponse struct {
+func (x *UpdateSubscriptionConfigRequest) GetExpectedRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return nil
+}
+
+type UpdateSubscriptionConfigResponse struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	SubscriptionJson string                 `protobuf:"bytes,1,opt,name=subscription_json,json=subscriptionJson,proto3" json:"subscription_json,omitempty"`
+	State            *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
-func (x *UpsertSubscriptionResponse) Reset() {
-	*x = UpsertSubscriptionResponse{}
+func (x *UpdateSubscriptionConfigResponse) Reset() {
+	*x = UpdateSubscriptionConfigResponse{}
 	mi := &file_app_v1_subscription_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UpsertSubscriptionResponse) String() string {
+func (x *UpdateSubscriptionConfigResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UpsertSubscriptionResponse) ProtoMessage() {}
+func (*UpdateSubscriptionConfigResponse) ProtoMessage() {}
 
-func (x *UpsertSubscriptionResponse) ProtoReflect() protoreflect.Message {
+func (x *UpdateSubscriptionConfigResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_app_v1_subscription_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -265,23 +291,31 @@ func (x *UpsertSubscriptionResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UpsertSubscriptionResponse.ProtoReflect.Descriptor instead.
-func (*UpsertSubscriptionResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use UpdateSubscriptionConfigResponse.ProtoReflect.Descriptor instead.
+func (*UpdateSubscriptionConfigResponse) Descriptor() ([]byte, []int) {
 	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *UpsertSubscriptionResponse) GetSubscriptionJson() string {
+func (x *UpdateSubscriptionConfigResponse) GetSubscriptionJson() string {
 	if x != nil {
 		return x.SubscriptionJson
 	}
 	return ""
 }
 
+func (x *UpdateSubscriptionConfigResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
 type DeleteSubscriptionRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ExpectedRevision *v1.ExpectedRevision   `protobuf:"bytes,2,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *DeleteSubscriptionRequest) Reset() {
@@ -321,8 +355,16 @@ func (x *DeleteSubscriptionRequest) GetId() string {
 	return ""
 }
 
+func (x *DeleteSubscriptionRequest) GetExpectedRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return nil
+}
+
 type DeleteSubscriptionResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         *v1.MutationState      `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -357,6 +399,117 @@ func (*DeleteSubscriptionResponse) Descriptor() ([]byte, []int) {
 	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{7}
 }
 
+func (x *DeleteSubscriptionResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
+type ReorderSubscriptionsRequest struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Ids                   []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	ExpectedOrderRevision *v1.ExpectedRevision   `protobuf:"bytes,2,opt,name=expected_order_revision,json=expectedOrderRevision,proto3" json:"expected_order_revision,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *ReorderSubscriptionsRequest) Reset() {
+	*x = ReorderSubscriptionsRequest{}
+	mi := &file_app_v1_subscription_service_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReorderSubscriptionsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReorderSubscriptionsRequest) ProtoMessage() {}
+
+func (x *ReorderSubscriptionsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_app_v1_subscription_service_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReorderSubscriptionsRequest.ProtoReflect.Descriptor instead.
+func (*ReorderSubscriptionsRequest) Descriptor() ([]byte, []int) {
+	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ReorderSubscriptionsRequest) GetIds() []string {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+func (x *ReorderSubscriptionsRequest) GetExpectedOrderRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.ExpectedOrderRevision
+	}
+	return nil
+}
+
+type ReorderSubscriptionsResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReorderSubscriptionsResponse) Reset() {
+	*x = ReorderSubscriptionsResponse{}
+	mi := &file_app_v1_subscription_service_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReorderSubscriptionsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReorderSubscriptionsResponse) ProtoMessage() {}
+
+func (x *ReorderSubscriptionsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_app_v1_subscription_service_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReorderSubscriptionsResponse.ProtoReflect.Descriptor instead.
+func (*ReorderSubscriptionsResponse) Descriptor() ([]byte, []int) {
+	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ReorderSubscriptionsResponse) GetIds() []string {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+func (x *ReorderSubscriptionsResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
 type UpdateSubscriptionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -366,7 +519,7 @@ type UpdateSubscriptionRequest struct {
 
 func (x *UpdateSubscriptionRequest) Reset() {
 	*x = UpdateSubscriptionRequest{}
-	mi := &file_app_v1_subscription_service_proto_msgTypes[8]
+	mi := &file_app_v1_subscription_service_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -378,7 +531,7 @@ func (x *UpdateSubscriptionRequest) String() string {
 func (*UpdateSubscriptionRequest) ProtoMessage() {}
 
 func (x *UpdateSubscriptionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_subscription_service_proto_msgTypes[8]
+	mi := &file_app_v1_subscription_service_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -391,7 +544,7 @@ func (x *UpdateSubscriptionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSubscriptionRequest.ProtoReflect.Descriptor instead.
 func (*UpdateSubscriptionRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{8}
+	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *UpdateSubscriptionRequest) GetId() string {
@@ -404,13 +557,14 @@ func (x *UpdateSubscriptionRequest) GetId() string {
 type UpdateSubscriptionResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Results       []*TaskResult          `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateSubscriptionResponse) Reset() {
 	*x = UpdateSubscriptionResponse{}
-	mi := &file_app_v1_subscription_service_proto_msgTypes[9]
+	mi := &file_app_v1_subscription_service_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -422,7 +576,7 @@ func (x *UpdateSubscriptionResponse) String() string {
 func (*UpdateSubscriptionResponse) ProtoMessage() {}
 
 func (x *UpdateSubscriptionResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_subscription_service_proto_msgTypes[9]
+	mi := &file_app_v1_subscription_service_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -435,12 +589,19 @@ func (x *UpdateSubscriptionResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateSubscriptionResponse.ProtoReflect.Descriptor instead.
 func (*UpdateSubscriptionResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{9}
+	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *UpdateSubscriptionResponse) GetResults() []*TaskResult {
 	if x != nil {
 		return x.Results
+	}
+	return nil
+}
+
+func (x *UpdateSubscriptionResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
 	}
 	return nil
 }
@@ -453,7 +614,7 @@ type UpdateAllSubscriptionsRequest struct {
 
 func (x *UpdateAllSubscriptionsRequest) Reset() {
 	*x = UpdateAllSubscriptionsRequest{}
-	mi := &file_app_v1_subscription_service_proto_msgTypes[10]
+	mi := &file_app_v1_subscription_service_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -465,7 +626,7 @@ func (x *UpdateAllSubscriptionsRequest) String() string {
 func (*UpdateAllSubscriptionsRequest) ProtoMessage() {}
 
 func (x *UpdateAllSubscriptionsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_subscription_service_proto_msgTypes[10]
+	mi := &file_app_v1_subscription_service_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -478,19 +639,20 @@ func (x *UpdateAllSubscriptionsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAllSubscriptionsRequest.ProtoReflect.Descriptor instead.
 func (*UpdateAllSubscriptionsRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{10}
+	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{12}
 }
 
 type UpdateAllSubscriptionsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Results       []*TaskResult          `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *UpdateAllSubscriptionsResponse) Reset() {
 	*x = UpdateAllSubscriptionsResponse{}
-	mi := &file_app_v1_subscription_service_proto_msgTypes[11]
+	mi := &file_app_v1_subscription_service_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -502,7 +664,7 @@ func (x *UpdateAllSubscriptionsResponse) String() string {
 func (*UpdateAllSubscriptionsResponse) ProtoMessage() {}
 
 func (x *UpdateAllSubscriptionsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_subscription_service_proto_msgTypes[11]
+	mi := &file_app_v1_subscription_service_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -515,12 +677,19 @@ func (x *UpdateAllSubscriptionsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateAllSubscriptionsResponse.ProtoReflect.Descriptor instead.
 func (*UpdateAllSubscriptionsResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{11}
+	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *UpdateAllSubscriptionsResponse) GetResults() []*TaskResult {
 	if x != nil {
 		return x.Results
+	}
+	return nil
+}
+
+func (x *UpdateAllSubscriptionsResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
 	}
 	return nil
 }
@@ -534,7 +703,7 @@ type GetSubscriptionContentRequest struct {
 
 func (x *GetSubscriptionContentRequest) Reset() {
 	*x = GetSubscriptionContentRequest{}
-	mi := &file_app_v1_subscription_service_proto_msgTypes[12]
+	mi := &file_app_v1_subscription_service_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -546,7 +715,7 @@ func (x *GetSubscriptionContentRequest) String() string {
 func (*GetSubscriptionContentRequest) ProtoMessage() {}
 
 func (x *GetSubscriptionContentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_subscription_service_proto_msgTypes[12]
+	mi := &file_app_v1_subscription_service_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -559,7 +728,7 @@ func (x *GetSubscriptionContentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSubscriptionContentRequest.ProtoReflect.Descriptor instead.
 func (*GetSubscriptionContentRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{12}
+	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *GetSubscriptionContentRequest) GetId() string {
@@ -572,13 +741,14 @@ func (x *GetSubscriptionContentRequest) GetId() string {
 type GetSubscriptionContentResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Content       string                 `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
+	Revision      *v1.ExpectedRevision   `protobuf:"bytes,2,opt,name=revision,proto3" json:"revision,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *GetSubscriptionContentResponse) Reset() {
 	*x = GetSubscriptionContentResponse{}
-	mi := &file_app_v1_subscription_service_proto_msgTypes[13]
+	mi := &file_app_v1_subscription_service_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -590,7 +760,7 @@ func (x *GetSubscriptionContentResponse) String() string {
 func (*GetSubscriptionContentResponse) ProtoMessage() {}
 
 func (x *GetSubscriptionContentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_subscription_service_proto_msgTypes[13]
+	mi := &file_app_v1_subscription_service_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -603,7 +773,7 @@ func (x *GetSubscriptionContentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetSubscriptionContentResponse.ProtoReflect.Descriptor instead.
 func (*GetSubscriptionContentResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{13}
+	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetSubscriptionContentResponse) GetContent() string {
@@ -613,17 +783,25 @@ func (x *GetSubscriptionContentResponse) GetContent() string {
 	return ""
 }
 
+func (x *GetSubscriptionContentResponse) GetRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.Revision
+	}
+	return nil
+}
+
 type SaveSubscriptionContentRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Content       string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Content          string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
+	ExpectedRevision *v1.ExpectedRevision   `protobuf:"bytes,3,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *SaveSubscriptionContentRequest) Reset() {
 	*x = SaveSubscriptionContentRequest{}
-	mi := &file_app_v1_subscription_service_proto_msgTypes[14]
+	mi := &file_app_v1_subscription_service_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -635,7 +813,7 @@ func (x *SaveSubscriptionContentRequest) String() string {
 func (*SaveSubscriptionContentRequest) ProtoMessage() {}
 
 func (x *SaveSubscriptionContentRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_subscription_service_proto_msgTypes[14]
+	mi := &file_app_v1_subscription_service_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -648,7 +826,7 @@ func (x *SaveSubscriptionContentRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveSubscriptionContentRequest.ProtoReflect.Descriptor instead.
 func (*SaveSubscriptionContentRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{14}
+	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *SaveSubscriptionContentRequest) GetId() string {
@@ -665,16 +843,24 @@ func (x *SaveSubscriptionContentRequest) GetContent() string {
 	return ""
 }
 
+func (x *SaveSubscriptionContentRequest) GetExpectedRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return nil
+}
+
 type SaveSubscriptionContentResponse struct {
 	state            protoimpl.MessageState `protogen:"open.v1"`
 	SubscriptionJson string                 `protobuf:"bytes,1,opt,name=subscription_json,json=subscriptionJson,proto3" json:"subscription_json,omitempty"`
+	State            *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
 
 func (x *SaveSubscriptionContentResponse) Reset() {
 	*x = SaveSubscriptionContentResponse{}
-	mi := &file_app_v1_subscription_service_proto_msgTypes[15]
+	mi := &file_app_v1_subscription_service_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -686,7 +872,7 @@ func (x *SaveSubscriptionContentResponse) String() string {
 func (*SaveSubscriptionContentResponse) ProtoMessage() {}
 
 func (x *SaveSubscriptionContentResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_subscription_service_proto_msgTypes[15]
+	mi := &file_app_v1_subscription_service_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -699,7 +885,7 @@ func (x *SaveSubscriptionContentResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SaveSubscriptionContentResponse.ProtoReflect.Descriptor instead.
 func (*SaveSubscriptionContentResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{15}
+	return file_app_v1_subscription_service_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *SaveSubscriptionContentResponse) GetSubscriptionJson() string {
@@ -709,46 +895,71 @@ func (x *SaveSubscriptionContentResponse) GetSubscriptionJson() string {
 	return ""
 }
 
+func (x *SaveSubscriptionContentResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
 var File_app_v1_subscription_service_proto protoreflect.FileDescriptor
 
 const file_app_v1_subscription_service_proto_rawDesc = "" +
 	"\n" +
-	"!app/v1/subscription_service.proto\x12\x06app.v1\x1a\x11app/v1/task.proto\"\x1a\n" +
-	"\x18ListSubscriptionsRequest\"J\n" +
+	"!app/v1/subscription_service.proto\x12\x06app.v1\x1a\x11app/v1/task.proto\x1a\x14common/v1/sync.proto\"\x1a\n" +
+	"\x18ListSubscriptionsRequest\"z\n" +
 	"\x19ListSubscriptionsResponse\x12-\n" +
-	"\x12subscriptions_json\x18\x01 \x03(\tR\x11subscriptionsJson\"I\n" +
-	"\x18SaveSubscriptionsRequest\x12-\n" +
-	"\x12subscriptions_json\x18\x01 \x03(\tR\x11subscriptionsJson\"J\n" +
-	"\x19SaveSubscriptionsResponse\x12-\n" +
-	"\x12subscriptions_json\x18\x01 \x03(\tR\x11subscriptionsJson\"H\n" +
-	"\x19UpsertSubscriptionRequest\x12+\n" +
-	"\x11subscription_json\x18\x01 \x01(\tR\x10subscriptionJson\"I\n" +
-	"\x1aUpsertSubscriptionResponse\x12+\n" +
-	"\x11subscription_json\x18\x01 \x01(\tR\x10subscriptionJson\"+\n" +
+	"\x12subscriptions_json\x18\x01 \x03(\tR\x11subscriptionsJson\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.ResourceStateR\x05state\"H\n" +
+	"\x19CreateSubscriptionRequest\x12+\n" +
+	"\x11subscription_json\x18\x01 \x01(\tR\x10subscriptionJson\"y\n" +
+	"\x1aCreateSubscriptionResponse\x12+\n" +
+	"\x11subscription_json\x18\x01 \x01(\tR\x10subscriptionJson\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\"\x98\x01\n" +
+	"\x1fUpdateSubscriptionConfigRequest\x12+\n" +
+	"\x11subscription_json\x18\x01 \x01(\tR\x10subscriptionJson\x12H\n" +
+	"\x11expected_revision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x10expectedRevision\"\x7f\n" +
+	" UpdateSubscriptionConfigResponse\x12+\n" +
+	"\x11subscription_json\x18\x01 \x01(\tR\x10subscriptionJson\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\"u\n" +
 	"\x19DeleteSubscriptionRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x1c\n" +
-	"\x1aDeleteSubscriptionResponse\"+\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12H\n" +
+	"\x11expected_revision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x10expectedRevision\"L\n" +
+	"\x1aDeleteSubscriptionResponse\x12.\n" +
+	"\x05state\x18\x01 \x01(\v2\x18.common.v1.MutationStateR\x05state\"\x84\x01\n" +
+	"\x1bReorderSubscriptionsRequest\x12\x10\n" +
+	"\x03ids\x18\x01 \x03(\tR\x03ids\x12S\n" +
+	"\x17expected_order_revision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x15expectedOrderRevision\"`\n" +
+	"\x1cReorderSubscriptionsResponse\x12\x10\n" +
+	"\x03ids\x18\x01 \x03(\tR\x03ids\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\"+\n" +
 	"\x19UpdateSubscriptionRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"J\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"z\n" +
 	"\x1aUpdateSubscriptionResponse\x12,\n" +
-	"\aresults\x18\x01 \x03(\v2\x12.app.v1.TaskResultR\aresults\"\x1f\n" +
-	"\x1dUpdateAllSubscriptionsRequest\"N\n" +
+	"\aresults\x18\x01 \x03(\v2\x12.app.v1.TaskResultR\aresults\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\"\x1f\n" +
+	"\x1dUpdateAllSubscriptionsRequest\"~\n" +
 	"\x1eUpdateAllSubscriptionsResponse\x12,\n" +
-	"\aresults\x18\x01 \x03(\v2\x12.app.v1.TaskResultR\aresults\"/\n" +
+	"\aresults\x18\x01 \x03(\v2\x12.app.v1.TaskResultR\aresults\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\"/\n" +
 	"\x1dGetSubscriptionContentRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\":\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"s\n" +
 	"\x1eGetSubscriptionContentResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontent\"J\n" +
+	"\acontent\x18\x01 \x01(\tR\acontent\x127\n" +
+	"\brevision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\brevision\"\x94\x01\n" +
 	"\x1eSaveSubscriptionContentRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
-	"\acontent\x18\x02 \x01(\tR\acontent\"N\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\x12H\n" +
+	"\x11expected_revision\x18\x03 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x10expectedRevision\"~\n" +
 	"\x1fSaveSubscriptionContentResponse\x12+\n" +
-	"\x11subscription_json\x18\x01 \x01(\tR\x10subscriptionJson2\x9e\x06\n" +
+	"\x11subscription_json\x18\x01 \x01(\tR\x10subscriptionJson\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state2\x96\a\n" +
 	"\x13SubscriptionService\x12X\n" +
-	"\x11ListSubscriptions\x12 .app.v1.ListSubscriptionsRequest\x1a!.app.v1.ListSubscriptionsResponse\x12X\n" +
-	"\x11SaveSubscriptions\x12 .app.v1.SaveSubscriptionsRequest\x1a!.app.v1.SaveSubscriptionsResponse\x12[\n" +
-	"\x12UpsertSubscription\x12!.app.v1.UpsertSubscriptionRequest\x1a\".app.v1.UpsertSubscriptionResponse\x12[\n" +
-	"\x12DeleteSubscription\x12!.app.v1.DeleteSubscriptionRequest\x1a\".app.v1.DeleteSubscriptionResponse\x12[\n" +
+	"\x11ListSubscriptions\x12 .app.v1.ListSubscriptionsRequest\x1a!.app.v1.ListSubscriptionsResponse\x12[\n" +
+	"\x12CreateSubscription\x12!.app.v1.CreateSubscriptionRequest\x1a\".app.v1.CreateSubscriptionResponse\x12m\n" +
+	"\x18UpdateSubscriptionConfig\x12'.app.v1.UpdateSubscriptionConfigRequest\x1a(.app.v1.UpdateSubscriptionConfigResponse\x12[\n" +
+	"\x12DeleteSubscription\x12!.app.v1.DeleteSubscriptionRequest\x1a\".app.v1.DeleteSubscriptionResponse\x12a\n" +
+	"\x14ReorderSubscriptions\x12#.app.v1.ReorderSubscriptionsRequest\x1a$.app.v1.ReorderSubscriptionsResponse\x12[\n" +
 	"\x12UpdateSubscription\x12!.app.v1.UpdateSubscriptionRequest\x1a\".app.v1.UpdateSubscriptionResponse\x12g\n" +
 	"\x16UpdateAllSubscriptions\x12%.app.v1.UpdateAllSubscriptionsRequest\x1a&.app.v1.UpdateAllSubscriptionsResponse\x12g\n" +
 	"\x16GetSubscriptionContent\x12%.app.v1.GetSubscriptionContentRequest\x1a&.app.v1.GetSubscriptionContentResponse\x12j\n" +
@@ -768,50 +979,70 @@ func file_app_v1_subscription_service_proto_rawDescGZIP() []byte {
 	return file_app_v1_subscription_service_proto_rawDescData
 }
 
-var file_app_v1_subscription_service_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_app_v1_subscription_service_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_app_v1_subscription_service_proto_goTypes = []any{
-	(*ListSubscriptionsRequest)(nil),        // 0: app.v1.ListSubscriptionsRequest
-	(*ListSubscriptionsResponse)(nil),       // 1: app.v1.ListSubscriptionsResponse
-	(*SaveSubscriptionsRequest)(nil),        // 2: app.v1.SaveSubscriptionsRequest
-	(*SaveSubscriptionsResponse)(nil),       // 3: app.v1.SaveSubscriptionsResponse
-	(*UpsertSubscriptionRequest)(nil),       // 4: app.v1.UpsertSubscriptionRequest
-	(*UpsertSubscriptionResponse)(nil),      // 5: app.v1.UpsertSubscriptionResponse
-	(*DeleteSubscriptionRequest)(nil),       // 6: app.v1.DeleteSubscriptionRequest
-	(*DeleteSubscriptionResponse)(nil),      // 7: app.v1.DeleteSubscriptionResponse
-	(*UpdateSubscriptionRequest)(nil),       // 8: app.v1.UpdateSubscriptionRequest
-	(*UpdateSubscriptionResponse)(nil),      // 9: app.v1.UpdateSubscriptionResponse
-	(*UpdateAllSubscriptionsRequest)(nil),   // 10: app.v1.UpdateAllSubscriptionsRequest
-	(*UpdateAllSubscriptionsResponse)(nil),  // 11: app.v1.UpdateAllSubscriptionsResponse
-	(*GetSubscriptionContentRequest)(nil),   // 12: app.v1.GetSubscriptionContentRequest
-	(*GetSubscriptionContentResponse)(nil),  // 13: app.v1.GetSubscriptionContentResponse
-	(*SaveSubscriptionContentRequest)(nil),  // 14: app.v1.SaveSubscriptionContentRequest
-	(*SaveSubscriptionContentResponse)(nil), // 15: app.v1.SaveSubscriptionContentResponse
-	(*TaskResult)(nil),                      // 16: app.v1.TaskResult
+	(*ListSubscriptionsRequest)(nil),         // 0: app.v1.ListSubscriptionsRequest
+	(*ListSubscriptionsResponse)(nil),        // 1: app.v1.ListSubscriptionsResponse
+	(*CreateSubscriptionRequest)(nil),        // 2: app.v1.CreateSubscriptionRequest
+	(*CreateSubscriptionResponse)(nil),       // 3: app.v1.CreateSubscriptionResponse
+	(*UpdateSubscriptionConfigRequest)(nil),  // 4: app.v1.UpdateSubscriptionConfigRequest
+	(*UpdateSubscriptionConfigResponse)(nil), // 5: app.v1.UpdateSubscriptionConfigResponse
+	(*DeleteSubscriptionRequest)(nil),        // 6: app.v1.DeleteSubscriptionRequest
+	(*DeleteSubscriptionResponse)(nil),       // 7: app.v1.DeleteSubscriptionResponse
+	(*ReorderSubscriptionsRequest)(nil),      // 8: app.v1.ReorderSubscriptionsRequest
+	(*ReorderSubscriptionsResponse)(nil),     // 9: app.v1.ReorderSubscriptionsResponse
+	(*UpdateSubscriptionRequest)(nil),        // 10: app.v1.UpdateSubscriptionRequest
+	(*UpdateSubscriptionResponse)(nil),       // 11: app.v1.UpdateSubscriptionResponse
+	(*UpdateAllSubscriptionsRequest)(nil),    // 12: app.v1.UpdateAllSubscriptionsRequest
+	(*UpdateAllSubscriptionsResponse)(nil),   // 13: app.v1.UpdateAllSubscriptionsResponse
+	(*GetSubscriptionContentRequest)(nil),    // 14: app.v1.GetSubscriptionContentRequest
+	(*GetSubscriptionContentResponse)(nil),   // 15: app.v1.GetSubscriptionContentResponse
+	(*SaveSubscriptionContentRequest)(nil),   // 16: app.v1.SaveSubscriptionContentRequest
+	(*SaveSubscriptionContentResponse)(nil),  // 17: app.v1.SaveSubscriptionContentResponse
+	(*v1.ResourceState)(nil),                 // 18: common.v1.ResourceState
+	(*v1.MutationState)(nil),                 // 19: common.v1.MutationState
+	(*v1.ExpectedRevision)(nil),              // 20: common.v1.ExpectedRevision
+	(*TaskResult)(nil),                       // 21: app.v1.TaskResult
 }
 var file_app_v1_subscription_service_proto_depIdxs = []int32{
-	16, // 0: app.v1.UpdateSubscriptionResponse.results:type_name -> app.v1.TaskResult
-	16, // 1: app.v1.UpdateAllSubscriptionsResponse.results:type_name -> app.v1.TaskResult
-	0,  // 2: app.v1.SubscriptionService.ListSubscriptions:input_type -> app.v1.ListSubscriptionsRequest
-	2,  // 3: app.v1.SubscriptionService.SaveSubscriptions:input_type -> app.v1.SaveSubscriptionsRequest
-	4,  // 4: app.v1.SubscriptionService.UpsertSubscription:input_type -> app.v1.UpsertSubscriptionRequest
-	6,  // 5: app.v1.SubscriptionService.DeleteSubscription:input_type -> app.v1.DeleteSubscriptionRequest
-	8,  // 6: app.v1.SubscriptionService.UpdateSubscription:input_type -> app.v1.UpdateSubscriptionRequest
-	10, // 7: app.v1.SubscriptionService.UpdateAllSubscriptions:input_type -> app.v1.UpdateAllSubscriptionsRequest
-	12, // 8: app.v1.SubscriptionService.GetSubscriptionContent:input_type -> app.v1.GetSubscriptionContentRequest
-	14, // 9: app.v1.SubscriptionService.SaveSubscriptionContent:input_type -> app.v1.SaveSubscriptionContentRequest
-	1,  // 10: app.v1.SubscriptionService.ListSubscriptions:output_type -> app.v1.ListSubscriptionsResponse
-	3,  // 11: app.v1.SubscriptionService.SaveSubscriptions:output_type -> app.v1.SaveSubscriptionsResponse
-	5,  // 12: app.v1.SubscriptionService.UpsertSubscription:output_type -> app.v1.UpsertSubscriptionResponse
-	7,  // 13: app.v1.SubscriptionService.DeleteSubscription:output_type -> app.v1.DeleteSubscriptionResponse
-	9,  // 14: app.v1.SubscriptionService.UpdateSubscription:output_type -> app.v1.UpdateSubscriptionResponse
-	11, // 15: app.v1.SubscriptionService.UpdateAllSubscriptions:output_type -> app.v1.UpdateAllSubscriptionsResponse
-	13, // 16: app.v1.SubscriptionService.GetSubscriptionContent:output_type -> app.v1.GetSubscriptionContentResponse
-	15, // 17: app.v1.SubscriptionService.SaveSubscriptionContent:output_type -> app.v1.SaveSubscriptionContentResponse
-	10, // [10:18] is the sub-list for method output_type
-	2,  // [2:10] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	18, // 0: app.v1.ListSubscriptionsResponse.state:type_name -> common.v1.ResourceState
+	19, // 1: app.v1.CreateSubscriptionResponse.state:type_name -> common.v1.MutationState
+	20, // 2: app.v1.UpdateSubscriptionConfigRequest.expected_revision:type_name -> common.v1.ExpectedRevision
+	19, // 3: app.v1.UpdateSubscriptionConfigResponse.state:type_name -> common.v1.MutationState
+	20, // 4: app.v1.DeleteSubscriptionRequest.expected_revision:type_name -> common.v1.ExpectedRevision
+	19, // 5: app.v1.DeleteSubscriptionResponse.state:type_name -> common.v1.MutationState
+	20, // 6: app.v1.ReorderSubscriptionsRequest.expected_order_revision:type_name -> common.v1.ExpectedRevision
+	19, // 7: app.v1.ReorderSubscriptionsResponse.state:type_name -> common.v1.MutationState
+	21, // 8: app.v1.UpdateSubscriptionResponse.results:type_name -> app.v1.TaskResult
+	19, // 9: app.v1.UpdateSubscriptionResponse.state:type_name -> common.v1.MutationState
+	21, // 10: app.v1.UpdateAllSubscriptionsResponse.results:type_name -> app.v1.TaskResult
+	19, // 11: app.v1.UpdateAllSubscriptionsResponse.state:type_name -> common.v1.MutationState
+	20, // 12: app.v1.GetSubscriptionContentResponse.revision:type_name -> common.v1.ExpectedRevision
+	20, // 13: app.v1.SaveSubscriptionContentRequest.expected_revision:type_name -> common.v1.ExpectedRevision
+	19, // 14: app.v1.SaveSubscriptionContentResponse.state:type_name -> common.v1.MutationState
+	0,  // 15: app.v1.SubscriptionService.ListSubscriptions:input_type -> app.v1.ListSubscriptionsRequest
+	2,  // 16: app.v1.SubscriptionService.CreateSubscription:input_type -> app.v1.CreateSubscriptionRequest
+	4,  // 17: app.v1.SubscriptionService.UpdateSubscriptionConfig:input_type -> app.v1.UpdateSubscriptionConfigRequest
+	6,  // 18: app.v1.SubscriptionService.DeleteSubscription:input_type -> app.v1.DeleteSubscriptionRequest
+	8,  // 19: app.v1.SubscriptionService.ReorderSubscriptions:input_type -> app.v1.ReorderSubscriptionsRequest
+	10, // 20: app.v1.SubscriptionService.UpdateSubscription:input_type -> app.v1.UpdateSubscriptionRequest
+	12, // 21: app.v1.SubscriptionService.UpdateAllSubscriptions:input_type -> app.v1.UpdateAllSubscriptionsRequest
+	14, // 22: app.v1.SubscriptionService.GetSubscriptionContent:input_type -> app.v1.GetSubscriptionContentRequest
+	16, // 23: app.v1.SubscriptionService.SaveSubscriptionContent:input_type -> app.v1.SaveSubscriptionContentRequest
+	1,  // 24: app.v1.SubscriptionService.ListSubscriptions:output_type -> app.v1.ListSubscriptionsResponse
+	3,  // 25: app.v1.SubscriptionService.CreateSubscription:output_type -> app.v1.CreateSubscriptionResponse
+	5,  // 26: app.v1.SubscriptionService.UpdateSubscriptionConfig:output_type -> app.v1.UpdateSubscriptionConfigResponse
+	7,  // 27: app.v1.SubscriptionService.DeleteSubscription:output_type -> app.v1.DeleteSubscriptionResponse
+	9,  // 28: app.v1.SubscriptionService.ReorderSubscriptions:output_type -> app.v1.ReorderSubscriptionsResponse
+	11, // 29: app.v1.SubscriptionService.UpdateSubscription:output_type -> app.v1.UpdateSubscriptionResponse
+	13, // 30: app.v1.SubscriptionService.UpdateAllSubscriptions:output_type -> app.v1.UpdateAllSubscriptionsResponse
+	15, // 31: app.v1.SubscriptionService.GetSubscriptionContent:output_type -> app.v1.GetSubscriptionContentResponse
+	17, // 32: app.v1.SubscriptionService.SaveSubscriptionContent:output_type -> app.v1.SaveSubscriptionContentResponse
+	24, // [24:33] is the sub-list for method output_type
+	15, // [15:24] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_app_v1_subscription_service_proto_init() }
@@ -826,7 +1057,7 @@ func file_app_v1_subscription_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_app_v1_subscription_service_proto_rawDesc), len(file_app_v1_subscription_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   16,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

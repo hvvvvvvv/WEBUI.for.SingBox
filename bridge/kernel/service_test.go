@@ -85,10 +85,14 @@ func (f fakeConfig) Current() config.AppConfig { return f.value }
 type fakeProfiles struct {
 	findCalls int
 	profile   *profilev1.Profile
+	err       error
 }
 
 func (f *fakeProfiles) FindByID(string) (*profilev1.Profile, error) {
 	f.findCalls++
+	if f.err != nil {
+		return nil, f.err
+	}
 	if f.profile != nil {
 		return f.profile, nil
 	}
@@ -707,16 +711,22 @@ func TestRestartStartFailureEndsInStoppedState(t *testing.T) {
 	}
 	states := events.coreStates()
 	wantStatuses := []kernelv1.CoreStatus{
+		kernelv1.CoreStatus_CORE_STATUS_RUNNING,
 		kernelv1.CoreStatus_CORE_STATUS_STOPPING,
 		kernelv1.CoreStatus_CORE_STATUS_STOPPED,
 		kernelv1.CoreStatus_CORE_STATUS_STARTING,
+		kernelv1.CoreStatus_CORE_STATUS_STOPPED,
 		kernelv1.CoreStatus_CORE_STATUS_STOPPED,
 	}
 	if len(states) != len(wantStatuses) {
 		t.Fatalf("core state event count = %d, want %d: %#v", len(states), len(wantStatuses), states)
 	}
 	for index, status := range wantStatuses {
-		assertCoreStateEvent(t, states[index], status, -1)
+		pid := -1
+		if status == kernelv1.CoreStatus_CORE_STATUS_RUNNING {
+			pid = 9
+		}
+		assertCoreStateEvent(t, states[index], status, pid)
 	}
 }
 

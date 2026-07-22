@@ -33,8 +33,7 @@ export const debounce = (fn: (...args: any) => any, wait: number) => {
       timer && clearTimeout(timer)
       timer = setTimeout(async () => {
         try {
-          await fn(...args)
-          resolve(null)
+          resolve(await fn(...args))
         } catch (error) {
           reject(error)
         }

@@ -125,10 +125,22 @@ export const useAppConfigStore = defineStore('app-config', () => {
 
   const config = ref<AppConfig>(defaultConfig())
 
-  const saveAppConfig = debounce(async (value: AppConfig) => {
-    const result = await service.saveAppConfig({ config: configToProtoConfig(value) })
-    return protoConfigToConfig(result.config)
-  }, 500)
+  let persistenceQueue = Promise.resolve()
+
+  const persistAppConfig = (value: AppConfig) => {
+    const operation = persistenceQueue.then(async () => {
+      const result = await service.saveAppConfig({ config: configToProtoConfig(value) })
+      return protoConfigToConfig(result.config)
+    })
+    persistenceQueue = operation.then(
+      () => undefined,
+      () => undefined,
+    )
+    return operation
+  }
+
+  const saveAppConfig = debounce(persistAppConfig, 500)
+  let immediateSaveInProgress = false
 
   const setupAppConfig = async () => {
     const result = await service.getAppConfig({})
@@ -136,7 +148,24 @@ export const useAppConfigStore = defineStore('app-config', () => {
     latestConfig = stableStringify(config.value)
   }
 
+  const saveNow = async () => {
+    immediateSaveInProgress = true
+    saveAppConfig.cancel()
+    try {
+      const saved = await persistAppConfig(deepClone(normalizeConfig(config.value)))
+      latestConfig = stableStringify(saved)
+      config.value = saved
+      return saved
+    } catch (error) {
+      await setupAppConfig().catch(() => undefined)
+      throw error
+    } finally {
+      immediateSaveInProgress = false
+    }
+  }
+
   watch(config, (value) => {
+    if (immediateSaveInProgress) return
     const normalized = normalizeConfig(value)
     const current = stableStringify(normalized)
     if (latestConfig !== current) {
@@ -151,5 +180,6 @@ export const useAppConfigStore = defineStore('app-config', () => {
   return {
     config,
     setupAppConfig,
+    saveNow,
   }
 })

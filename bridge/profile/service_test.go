@@ -7,11 +7,19 @@ import (
 	"testing"
 
 	"guiforcores/bridge/storage"
+	commonv1 "guiforcores/gen/common/v1"
 	profilev1 "guiforcores/gen/profile/v1"
 
 	connect "connectrpc.com/connect"
 	"gopkg.in/yaml.v3"
 )
+
+func profileExpected(state *commonv1.ResourceState, id string) *commonv1.ExpectedRevision {
+	return &commonv1.ExpectedRevision{
+		InstanceId: state.GetInstanceId(),
+		Revision:   state.GetItemRevisions()[id],
+	}
+}
 
 func TestProfilesIgnoreUnknownFieldsOnReadAndWrite(t *testing.T) {
 	paths := storage.NewPaths(t.TempDir())
@@ -173,33 +181,15 @@ func TestStructuredDNSRuleYAMLRoundTrip(t *testing.T) {
 	}
 }
 
-func TestSaveProfilesPersistsRequestedOrder(t *testing.T) {
-	paths := storage.NewPaths(t.TempDir())
-
-	service := NewService(paths, nil)
-	_, err := service.SaveProfiles(context.Background(), connect.NewRequest(&profilev1.SaveProfilesRequest{
-		Profiles: []*profilev1.Profile{
-			{Id: "second", Name: "Second"},
-			{Id: "first", Name: "First"},
-		},
-	}))
-	if err != nil {
-		t.Fatalf("SaveProfiles returned error: %v", err)
-	}
-
-	profiles, err := service.loadProfiles()
-	if err != nil {
-		t.Fatalf("load profiles: %v", err)
-	}
-	if len(profiles) != 2 {
-		t.Fatalf("expected 2 profiles, got %d", len(profiles))
-	}
-	if profiles[0].GetId() != "second" || profiles[1].GetId() != "first" {
-		t.Fatalf("profiles order was not persisted: %q, %q", profiles[0].GetId(), profiles[1].GetId())
-	}
+type recordingProfileChanges struct {
+	changes [][]string
 }
 
-func TestSaveProfilesPersistsTunAutoRedirect(t *testing.T) {
+func (r *recordingProfileChanges) ProfilesChanged(ids []string) {
+	r.changes = append(r.changes, append([]string(nil), ids...))
+}
+
+func TestProfilePersistenceKeepsTunAutoRedirect(t *testing.T) {
 	paths := storage.NewPaths(t.TempDir())
 	service := NewService(paths, nil)
 	profiles := []*profilev1.Profile{
@@ -227,7 +217,7 @@ func TestSaveProfilesPersistsTunAutoRedirect(t *testing.T) {
 	}
 }
 
-func TestSaveProfilesPersistsBridgeOutbound(t *testing.T) {
+func TestProfilePersistenceKeepsBridgeOutbound(t *testing.T) {
 	paths := storage.NewPaths(t.TempDir())
 	service := NewService(paths, nil)
 	profiles := []*profilev1.Profile{
@@ -258,7 +248,7 @@ func TestSaveProfilesPersistsBridgeOutbound(t *testing.T) {
 	}
 }
 
-func TestSaveProfilesPersistsRoutePreferredBy(t *testing.T) {
+func TestProfilePersistenceKeepsRoutePreferredBy(t *testing.T) {
 	paths := storage.NewPaths(t.TempDir())
 	service := NewService(paths, nil)
 	want := []string{"tailscale", "wireguard", "bridge"}
@@ -287,25 +277,166 @@ func TestSaveProfilesPersistsRoutePreferredBy(t *testing.T) {
 	}
 }
 
-func TestSaveProfilesRejectsDuplicateIDs(t *testing.T) {
+func TestCreateProfileRejectsDuplicateIDs(t *testing.T) {
 	paths := storage.NewPaths(t.TempDir())
-
 	service := NewService(paths, nil)
-	_, err := service.SaveProfiles(context.Background(), connect.NewRequest(&profilev1.SaveProfilesRequest{
-		Profiles: []*profilev1.Profile{
-			{Id: "duplicate", Name: "First"},
-			{Id: "duplicate", Name: "Second"},
-		},
+	if _, err := service.CreateProfile(context.Background(), connect.NewRequest(&profilev1.CreateProfileRequest{
+		Profile: &profilev1.Profile{Id: "duplicate", Name: "First"},
+	})); err != nil {
+		t.Fatal(err)
+	}
+	_, err := service.CreateProfile(context.Background(), connect.NewRequest(&profilev1.CreateProfileRequest{
+		Profile: &profilev1.Profile{Id: "duplicate", Name: "Second"},
 	}))
-	if err == nil {
-		t.Fatal("expected duplicate id error")
+	if connect.CodeOf(err) != connect.CodeAlreadyExists {
+		t.Fatalf("duplicate create code = %v", connect.CodeOf(err))
 	}
 
 	profiles, loadErr := service.loadProfiles()
 	if loadErr != nil {
 		t.Fatalf("load profiles: %v", loadErr)
 	}
-	if len(profiles) != 0 {
-		t.Fatalf("failed SaveProfiles should not persist data, got %d profiles", len(profiles))
+	if len(profiles) != 1 || profiles[0].GetName() != "First" {
+		t.Fatalf("duplicate create changed stored data: %#v", profiles)
+	}
+}
+
+func TestProfileEntityConflictsDoNotOverwriteNewerData(t *testing.T) {
+	paths := storage.NewPaths(t.TempDir())
+	service := NewService(paths, nil)
+	if err := service.saveProfiles([]*profilev1.Profile{{Id: "first", Name: "First"}, {Id: "second", Name: "Second"}}); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := service.ListProfiles(context.Background(), connect.NewRequest(&profilev1.ListProfilesRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstRevision := profileExpected(snapshot.Msg.GetState(), "first")
+	secondRevision := profileExpected(snapshot.Msg.GetState(), "second")
+
+	firstUpdate, err := service.UpdateProfile(context.Background(), connect.NewRequest(&profilev1.UpdateProfileRequest{
+		Profile:          &profilev1.Profile{Id: "first", Name: "First from client A"},
+		ExpectedRevision: firstRevision,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if firstUpdate.Msg.GetState().GetItemRevision() <= firstRevision.GetRevision() {
+		t.Fatalf("item revision did not advance: %#v", firstUpdate.Msg.GetState())
+	}
+
+	_, err = service.UpdateProfile(context.Background(), connect.NewRequest(&profilev1.UpdateProfileRequest{
+		Profile:          &profilev1.Profile{Id: "first", Name: "stale overwrite"},
+		ExpectedRevision: firstRevision,
+	}))
+	if connect.CodeOf(err) != connect.CodeAborted {
+		t.Fatalf("stale update code = %v", connect.CodeOf(err))
+	}
+	stored, err := service.GetProfile(context.Background(), connect.NewRequest(&profilev1.GetProfileRequest{Id: "first"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Msg.GetProfile().GetName() != "First from client A" {
+		t.Fatalf("stale update overwrote profile: %#v", stored.Msg.GetProfile())
+	}
+
+	if _, err := service.UpdateProfile(context.Background(), connect.NewRequest(&profilev1.UpdateProfileRequest{
+		Profile:          &profilev1.Profile{Id: "second", Name: "Second from client B"},
+		ExpectedRevision: secondRevision,
+	})); err != nil {
+		t.Fatalf("editing a different entity should succeed: %v", err)
+	}
+}
+
+func TestProfileOrderingConflictsOnlyWithOrderingChanges(t *testing.T) {
+	paths := storage.NewPaths(t.TempDir())
+	service := NewService(paths, nil)
+	if err := service.saveProfiles([]*profilev1.Profile{{Id: "first", Name: "First"}, {Id: "second", Name: "Second"}}); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := service.ListProfiles(context.Background(), connect.NewRequest(&profilev1.ListProfilesRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	orderRevision := &commonv1.ExpectedRevision{
+		InstanceId: snapshot.Msg.GetState().GetInstanceId(),
+		Revision:   snapshot.Msg.GetState().GetOrderRevision(),
+	}
+
+	if _, err := service.UpdateProfile(context.Background(), connect.NewRequest(&profilev1.UpdateProfileRequest{
+		Profile:          &profilev1.Profile{Id: "first", Name: "Edited"},
+		ExpectedRevision: profileExpected(snapshot.Msg.GetState(), "first"),
+	})); err != nil {
+		t.Fatal(err)
+	}
+	reordered, err := service.ReorderProfiles(context.Background(), connect.NewRequest(&profilev1.ReorderProfilesRequest{
+		Ids:                   []string{"second", "first"},
+		ExpectedOrderRevision: orderRevision,
+	}))
+	if err != nil {
+		t.Fatalf("content edit should not conflict with ordering: %v", err)
+	}
+
+	_, err = service.ReorderProfiles(context.Background(), connect.NewRequest(&profilev1.ReorderProfilesRequest{
+		Ids:                   []string{"first", "second"},
+		ExpectedOrderRevision: orderRevision,
+	}))
+	if connect.CodeOf(err) != connect.CodeAborted {
+		t.Fatalf("stale order code = %v; state = %#v", connect.CodeOf(err), reordered.Msg.GetState())
+	}
+
+	latest, err := service.ListProfiles(context.Background(), connect.NewRequest(&profilev1.ListProfilesRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	beforeCreate := &commonv1.ExpectedRevision{
+		InstanceId: latest.Msg.GetState().GetInstanceId(), Revision: latest.Msg.GetState().GetOrderRevision(),
+	}
+	if _, err := service.CreateProfile(context.Background(), connect.NewRequest(&profilev1.CreateProfileRequest{
+		Profile: &profilev1.Profile{Id: "third", Name: "Third"},
+	})); err != nil {
+		t.Fatal(err)
+	}
+	_, err = service.ReorderProfiles(context.Background(), connect.NewRequest(&profilev1.ReorderProfilesRequest{
+		Ids: []string{"first", "second"}, ExpectedOrderRevision: beforeCreate,
+	}))
+	if connect.CodeOf(err) != connect.CodeAborted {
+		t.Fatalf("create/order conflict code = %v", connect.CodeOf(err))
+	}
+}
+
+func TestProfileNoOpAndServerRestartVersionBehavior(t *testing.T) {
+	paths := storage.NewPaths(t.TempDir())
+	service := NewService(paths, nil)
+	if err := service.saveProfiles([]*profilev1.Profile{{Id: "profile", Name: "Profile"}}); err != nil {
+		t.Fatal(err)
+	}
+	snapshot, err := service.ListProfiles(context.Background(), connect.NewRequest(&profilev1.ListProfilesRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	handler := &recordingProfileChanges{}
+	service.SetChangeHandler(handler)
+	response, err := service.UpdateProfile(context.Background(), connect.NewRequest(&profilev1.UpdateProfileRequest{
+		Profile:          &profilev1.Profile{Id: "profile", Name: "Profile"},
+		ExpectedRevision: profileExpected(snapshot.Msg.GetState(), "profile"),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.Msg.GetState().GetStateRevision() != snapshot.Msg.GetState().GetStateRevision() {
+		t.Fatalf("no-op update advanced state: before=%d after=%d", snapshot.Msg.GetState().GetStateRevision(), response.Msg.GetState().GetStateRevision())
+	}
+	if len(handler.changes) != 0 {
+		t.Fatalf("no-op update notified kernel: %#v", handler.changes)
+	}
+
+	restarted := NewService(paths, nil)
+	_, err = restarted.UpdateProfile(context.Background(), connect.NewRequest(&profilev1.UpdateProfileRequest{
+		Profile:          &profilev1.Profile{Id: "profile", Name: "After restart"},
+		ExpectedRevision: profileExpected(snapshot.Msg.GetState(), "profile"),
+	}))
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Fatalf("old instance revision code = %v", connect.CodeOf(err))
 	}
 }

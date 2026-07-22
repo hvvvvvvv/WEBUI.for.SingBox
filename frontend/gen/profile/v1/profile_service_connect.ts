@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { CreateProfileRequest, CreateProfileResponse, DeleteProfileRequest, DeleteProfileResponse, GetProfileRequest, GetProfileResponse, ListProfilesRequest, ListProfilesResponse, SaveProfilesRequest, SaveProfilesResponse, UpdateProfileRequest, UpdateProfileResponse } from "./profile_service_pb.js";
+import { CreateProfileRequest, CreateProfileResponse, DeleteProfileRequest, DeleteProfileResponse, GetProfileRequest, GetProfileResponse, ListProfilesRequest, ListProfilesResponse, ReorderProfilesRequest, ReorderProfilesResponse, UpdateProfileRequest, UpdateProfileResponse } from "./profile_service_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -58,12 +58,12 @@ export const ProfileService = {
       kind: MethodKind.Unary,
     },
     /**
-     * @generated from rpc profile.v1.ProfileService.SaveProfiles
+     * @generated from rpc profile.v1.ProfileService.ReorderProfiles
      */
-    saveProfiles: {
-      name: "SaveProfiles",
-      I: SaveProfilesRequest,
-      O: SaveProfilesResponse,
+    reorderProfiles: {
+      name: "ReorderProfiles",
+      I: ReorderProfilesRequest,
+      O: ReorderProfilesResponse,
       kind: MethodKind.Unary,
     },
   }

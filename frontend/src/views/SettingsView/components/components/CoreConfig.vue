@@ -3,7 +3,8 @@ import { h, inject, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { DefaultCoreConfig } from '@/constant/kernel'
-import { useAppConfigStore } from '@/stores'
+import { Branch } from '@/enums/app'
+import { useAppConfigStore, useKernelApiStore } from '@/stores'
 import { deepClone, message } from '@/utils'
 
 import Button from '@/components/Button/index.vue'
@@ -25,14 +26,26 @@ const handleSubmit = inject('submit') as any
 
 const { t } = useI18n()
 const appConfig = useAppConfigStore()
+const kernelApiStore = useKernelApiStore()
 
 const source = props.isAlpha ? appConfig.config.alpha : appConfig.config.main
 
 const model = ref(deepClone(source))
 
-const handleSave = () => {
+const handleSave = async () => {
   Object.assign(source, model.value)
-  handleSubmit()
+  try {
+    await appConfig.saveNow()
+    const editingCurrentBranch = props.isAlpha
+      ? appConfig.config.branch === Branch.Alpha
+      : appConfig.config.branch === Branch.Main
+    if (editingCurrentBranch && kernelApiStore.running) {
+      await kernelApiStore.restartCore()
+    }
+    handleSubmit()
+  } catch (error: any) {
+    message.error(error.message || error)
+  }
 }
 
 const modalSlots = {

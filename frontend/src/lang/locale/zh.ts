@@ -51,6 +51,10 @@ export default {
     downloading: '下载中...',
     empty: '数据为空',
     pressAgainToClose: '再按一次关闭弹窗',
+    resourceConflict: '此项目已被其他客户端修改，当前输入已保留。',
+    resourceDeleted: '此项目已被其他客户端删除，当前输入已保留。',
+    loadLatest: '加载最新版',
+    operationConflict: '数据已在其他客户端发生变化，已刷新为最新状态。',
   },
   kernel: {
     rule: '规则',

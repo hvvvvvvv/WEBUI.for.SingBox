@@ -9,6 +9,7 @@ package appv1
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	v1 "guiforcores/gen/common/v1"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -60,6 +61,7 @@ func (*ListScheduledTasksRequest) Descriptor() ([]byte, []int) {
 type ListScheduledTasksResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TasksJson     []string               `protobuf:"bytes,1,rep,name=tasks_json,json=tasksJson,proto3" json:"tasks_json,omitempty"`
+	State         *v1.ResourceState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -101,27 +103,34 @@ func (x *ListScheduledTasksResponse) GetTasksJson() []string {
 	return nil
 }
 
-type SaveScheduledTasksRequest struct {
+func (x *ListScheduledTasksResponse) GetState() *v1.ResourceState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
+type CreateScheduledTaskRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	TasksJson     []string               `protobuf:"bytes,1,rep,name=tasks_json,json=tasksJson,proto3" json:"tasks_json,omitempty"`
+	TaskJson      string                 `protobuf:"bytes,1,opt,name=task_json,json=taskJson,proto3" json:"task_json,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SaveScheduledTasksRequest) Reset() {
-	*x = SaveScheduledTasksRequest{}
+func (x *CreateScheduledTaskRequest) Reset() {
+	*x = CreateScheduledTaskRequest{}
 	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SaveScheduledTasksRequest) String() string {
+func (x *CreateScheduledTaskRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SaveScheduledTasksRequest) ProtoMessage() {}
+func (*CreateScheduledTaskRequest) ProtoMessage() {}
 
-func (x *SaveScheduledTasksRequest) ProtoReflect() protoreflect.Message {
+func (x *CreateScheduledTaskRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -133,39 +142,40 @@ func (x *SaveScheduledTasksRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SaveScheduledTasksRequest.ProtoReflect.Descriptor instead.
-func (*SaveScheduledTasksRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreateScheduledTaskRequest.ProtoReflect.Descriptor instead.
+func (*CreateScheduledTaskRequest) Descriptor() ([]byte, []int) {
 	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *SaveScheduledTasksRequest) GetTasksJson() []string {
+func (x *CreateScheduledTaskRequest) GetTaskJson() string {
 	if x != nil {
-		return x.TasksJson
+		return x.TaskJson
 	}
-	return nil
+	return ""
 }
 
-type SaveScheduledTasksResponse struct {
+type CreateScheduledTaskResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	TasksJson     []string               `protobuf:"bytes,1,rep,name=tasks_json,json=tasksJson,proto3" json:"tasks_json,omitempty"`
+	TaskJson      string                 `protobuf:"bytes,1,opt,name=task_json,json=taskJson,proto3" json:"task_json,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SaveScheduledTasksResponse) Reset() {
-	*x = SaveScheduledTasksResponse{}
+func (x *CreateScheduledTaskResponse) Reset() {
+	*x = CreateScheduledTaskResponse{}
 	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SaveScheduledTasksResponse) String() string {
+func (x *CreateScheduledTaskResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SaveScheduledTasksResponse) ProtoMessage() {}
+func (*CreateScheduledTaskResponse) ProtoMessage() {}
 
-func (x *SaveScheduledTasksResponse) ProtoReflect() protoreflect.Message {
+func (x *CreateScheduledTaskResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -177,39 +187,47 @@ func (x *SaveScheduledTasksResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SaveScheduledTasksResponse.ProtoReflect.Descriptor instead.
-func (*SaveScheduledTasksResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use CreateScheduledTaskResponse.ProtoReflect.Descriptor instead.
+func (*CreateScheduledTaskResponse) Descriptor() ([]byte, []int) {
 	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{3}
 }
 
-func (x *SaveScheduledTasksResponse) GetTasksJson() []string {
+func (x *CreateScheduledTaskResponse) GetTaskJson() string {
 	if x != nil {
-		return x.TasksJson
+		return x.TaskJson
+	}
+	return ""
+}
+
+func (x *CreateScheduledTaskResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
 	}
 	return nil
 }
 
-type UpsertScheduledTaskRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	TaskJson      string                 `protobuf:"bytes,1,opt,name=task_json,json=taskJson,proto3" json:"task_json,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+type UpdateScheduledTaskRequest struct {
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	TaskJson         string                 `protobuf:"bytes,1,opt,name=task_json,json=taskJson,proto3" json:"task_json,omitempty"`
+	ExpectedRevision *v1.ExpectedRevision   `protobuf:"bytes,2,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
-func (x *UpsertScheduledTaskRequest) Reset() {
-	*x = UpsertScheduledTaskRequest{}
+func (x *UpdateScheduledTaskRequest) Reset() {
+	*x = UpdateScheduledTaskRequest{}
 	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UpsertScheduledTaskRequest) String() string {
+func (x *UpdateScheduledTaskRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UpsertScheduledTaskRequest) ProtoMessage() {}
+func (*UpdateScheduledTaskRequest) ProtoMessage() {}
 
-func (x *UpsertScheduledTaskRequest) ProtoReflect() protoreflect.Message {
+func (x *UpdateScheduledTaskRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -221,39 +239,47 @@ func (x *UpsertScheduledTaskRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UpsertScheduledTaskRequest.ProtoReflect.Descriptor instead.
-func (*UpsertScheduledTaskRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use UpdateScheduledTaskRequest.ProtoReflect.Descriptor instead.
+func (*UpdateScheduledTaskRequest) Descriptor() ([]byte, []int) {
 	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{4}
 }
 
-func (x *UpsertScheduledTaskRequest) GetTaskJson() string {
+func (x *UpdateScheduledTaskRequest) GetTaskJson() string {
 	if x != nil {
 		return x.TaskJson
 	}
 	return ""
 }
 
-type UpsertScheduledTaskResponse struct {
+func (x *UpdateScheduledTaskRequest) GetExpectedRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return nil
+}
+
+type UpdateScheduledTaskResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	TaskJson      string                 `protobuf:"bytes,1,opt,name=task_json,json=taskJson,proto3" json:"task_json,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *UpsertScheduledTaskResponse) Reset() {
-	*x = UpsertScheduledTaskResponse{}
+func (x *UpdateScheduledTaskResponse) Reset() {
+	*x = UpdateScheduledTaskResponse{}
 	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *UpsertScheduledTaskResponse) String() string {
+func (x *UpdateScheduledTaskResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*UpsertScheduledTaskResponse) ProtoMessage() {}
+func (*UpdateScheduledTaskResponse) ProtoMessage() {}
 
-func (x *UpsertScheduledTaskResponse) ProtoReflect() protoreflect.Message {
+func (x *UpdateScheduledTaskResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -265,23 +291,31 @@ func (x *UpsertScheduledTaskResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use UpsertScheduledTaskResponse.ProtoReflect.Descriptor instead.
-func (*UpsertScheduledTaskResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use UpdateScheduledTaskResponse.ProtoReflect.Descriptor instead.
+func (*UpdateScheduledTaskResponse) Descriptor() ([]byte, []int) {
 	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *UpsertScheduledTaskResponse) GetTaskJson() string {
+func (x *UpdateScheduledTaskResponse) GetTaskJson() string {
 	if x != nil {
 		return x.TaskJson
 	}
 	return ""
 }
 
+func (x *UpdateScheduledTaskResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
 type DeleteScheduledTaskRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	ExpectedRevision *v1.ExpectedRevision   `protobuf:"bytes,2,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *DeleteScheduledTaskRequest) Reset() {
@@ -321,8 +355,16 @@ func (x *DeleteScheduledTaskRequest) GetId() string {
 	return ""
 }
 
+func (x *DeleteScheduledTaskRequest) GetExpectedRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.ExpectedRevision
+	}
+	return nil
+}
+
 type DeleteScheduledTaskResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
+	State         *v1.MutationState      `protobuf:"bytes,1,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -357,6 +399,117 @@ func (*DeleteScheduledTaskResponse) Descriptor() ([]byte, []int) {
 	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{7}
 }
 
+func (x *DeleteScheduledTaskResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
+type ReorderScheduledTasksRequest struct {
+	state                 protoimpl.MessageState `protogen:"open.v1"`
+	Ids                   []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	ExpectedOrderRevision *v1.ExpectedRevision   `protobuf:"bytes,2,opt,name=expected_order_revision,json=expectedOrderRevision,proto3" json:"expected_order_revision,omitempty"`
+	unknownFields         protoimpl.UnknownFields
+	sizeCache             protoimpl.SizeCache
+}
+
+func (x *ReorderScheduledTasksRequest) Reset() {
+	*x = ReorderScheduledTasksRequest{}
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReorderScheduledTasksRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReorderScheduledTasksRequest) ProtoMessage() {}
+
+func (x *ReorderScheduledTasksRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReorderScheduledTasksRequest.ProtoReflect.Descriptor instead.
+func (*ReorderScheduledTasksRequest) Descriptor() ([]byte, []int) {
+	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{8}
+}
+
+func (x *ReorderScheduledTasksRequest) GetIds() []string {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+func (x *ReorderScheduledTasksRequest) GetExpectedOrderRevision() *v1.ExpectedRevision {
+	if x != nil {
+		return x.ExpectedOrderRevision
+	}
+	return nil
+}
+
+type ReorderScheduledTasksResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,2,opt,name=state,proto3" json:"state,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ReorderScheduledTasksResponse) Reset() {
+	*x = ReorderScheduledTasksResponse{}
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReorderScheduledTasksResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReorderScheduledTasksResponse) ProtoMessage() {}
+
+func (x *ReorderScheduledTasksResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ReorderScheduledTasksResponse.ProtoReflect.Descriptor instead.
+func (*ReorderScheduledTasksResponse) Descriptor() ([]byte, []int) {
+	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{9}
+}
+
+func (x *ReorderScheduledTasksResponse) GetIds() []string {
+	if x != nil {
+		return x.Ids
+	}
+	return nil
+}
+
+func (x *ReorderScheduledTasksResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
 type RunScheduledTaskRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -366,7 +519,7 @@ type RunScheduledTaskRequest struct {
 
 func (x *RunScheduledTaskRequest) Reset() {
 	*x = RunScheduledTaskRequest{}
-	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[8]
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -378,7 +531,7 @@ func (x *RunScheduledTaskRequest) String() string {
 func (*RunScheduledTaskRequest) ProtoMessage() {}
 
 func (x *RunScheduledTaskRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[8]
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -391,7 +544,7 @@ func (x *RunScheduledTaskRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunScheduledTaskRequest.ProtoReflect.Descriptor instead.
 func (*RunScheduledTaskRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{8}
+	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *RunScheduledTaskRequest) GetId() string {
@@ -406,13 +559,14 @@ type RunScheduledTaskResponse struct {
 	Results       []*TaskResult          `protobuf:"bytes,1,rep,name=results,proto3" json:"results,omitempty"`
 	StartTime     int64                  `protobuf:"varint,2,opt,name=start_time,json=startTime,proto3" json:"start_time,omitempty"`
 	EndTime       int64                  `protobuf:"varint,3,opt,name=end_time,json=endTime,proto3" json:"end_time,omitempty"`
+	State         *v1.MutationState      `protobuf:"bytes,4,opt,name=state,proto3" json:"state,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *RunScheduledTaskResponse) Reset() {
 	*x = RunScheduledTaskResponse{}
-	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[9]
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -424,7 +578,7 @@ func (x *RunScheduledTaskResponse) String() string {
 func (*RunScheduledTaskResponse) ProtoMessage() {}
 
 func (x *RunScheduledTaskResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[9]
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -437,7 +591,7 @@ func (x *RunScheduledTaskResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use RunScheduledTaskResponse.ProtoReflect.Descriptor instead.
 func (*RunScheduledTaskResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{9}
+	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *RunScheduledTaskResponse) GetResults() []*TaskResult {
@@ -461,6 +615,13 @@ func (x *RunScheduledTaskResponse) GetEndTime() int64 {
 	return 0
 }
 
+func (x *RunScheduledTaskResponse) GetState() *v1.MutationState {
+	if x != nil {
+		return x.State
+	}
+	return nil
+}
+
 type ListScheduledTaskLogsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -470,7 +631,7 @@ type ListScheduledTaskLogsRequest struct {
 
 func (x *ListScheduledTaskLogsRequest) Reset() {
 	*x = ListScheduledTaskLogsRequest{}
-	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[10]
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -482,7 +643,7 @@ func (x *ListScheduledTaskLogsRequest) String() string {
 func (*ListScheduledTaskLogsRequest) ProtoMessage() {}
 
 func (x *ListScheduledTaskLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[10]
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -495,7 +656,7 @@ func (x *ListScheduledTaskLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListScheduledTaskLogsRequest.ProtoReflect.Descriptor instead.
 func (*ListScheduledTaskLogsRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{10}
+	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *ListScheduledTaskLogsRequest) GetId() string {
@@ -514,7 +675,7 @@ type ListScheduledTaskLogsResponse struct {
 
 func (x *ListScheduledTaskLogsResponse) Reset() {
 	*x = ListScheduledTaskLogsResponse{}
-	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[11]
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -526,7 +687,7 @@ func (x *ListScheduledTaskLogsResponse) String() string {
 func (*ListScheduledTaskLogsResponse) ProtoMessage() {}
 
 func (x *ListScheduledTaskLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[11]
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -539,7 +700,7 @@ func (x *ListScheduledTaskLogsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListScheduledTaskLogsResponse.ProtoReflect.Descriptor instead.
 func (*ListScheduledTaskLogsResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{11}
+	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListScheduledTaskLogsResponse) GetLogs() []*TaskLog {
@@ -557,7 +718,7 @@ type ClearScheduledTaskLogsRequest struct {
 
 func (x *ClearScheduledTaskLogsRequest) Reset() {
 	*x = ClearScheduledTaskLogsRequest{}
-	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[12]
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -569,7 +730,7 @@ func (x *ClearScheduledTaskLogsRequest) String() string {
 func (*ClearScheduledTaskLogsRequest) ProtoMessage() {}
 
 func (x *ClearScheduledTaskLogsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[12]
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -582,7 +743,7 @@ func (x *ClearScheduledTaskLogsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearScheduledTaskLogsRequest.ProtoReflect.Descriptor instead.
 func (*ClearScheduledTaskLogsRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{12}
+	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{14}
 }
 
 type ClearScheduledTaskLogsResponse struct {
@@ -593,7 +754,7 @@ type ClearScheduledTaskLogsResponse struct {
 
 func (x *ClearScheduledTaskLogsResponse) Reset() {
 	*x = ClearScheduledTaskLogsResponse{}
-	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[13]
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -605,7 +766,7 @@ func (x *ClearScheduledTaskLogsResponse) String() string {
 func (*ClearScheduledTaskLogsResponse) ProtoMessage() {}
 
 func (x *ClearScheduledTaskLogsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[13]
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -618,7 +779,7 @@ func (x *ClearScheduledTaskLogsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ClearScheduledTaskLogsResponse.ProtoReflect.Descriptor instead.
 func (*ClearScheduledTaskLogsResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{13}
+	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{15}
 }
 
 type NextScheduledTaskRunsRequest struct {
@@ -631,7 +792,7 @@ type NextScheduledTaskRunsRequest struct {
 
 func (x *NextScheduledTaskRunsRequest) Reset() {
 	*x = NextScheduledTaskRunsRequest{}
-	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[14]
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -643,7 +804,7 @@ func (x *NextScheduledTaskRunsRequest) String() string {
 func (*NextScheduledTaskRunsRequest) ProtoMessage() {}
 
 func (x *NextScheduledTaskRunsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[14]
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -656,7 +817,7 @@ func (x *NextScheduledTaskRunsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NextScheduledTaskRunsRequest.ProtoReflect.Descriptor instead.
 func (*NextScheduledTaskRunsRequest) Descriptor() ([]byte, []int) {
-	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{14}
+	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *NextScheduledTaskRunsRequest) GetCron() string {
@@ -682,7 +843,7 @@ type NextScheduledTaskRunsResponse struct {
 
 func (x *NextScheduledTaskRunsResponse) Reset() {
 	*x = NextScheduledTaskRunsResponse{}
-	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[15]
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -694,7 +855,7 @@ func (x *NextScheduledTaskRunsResponse) String() string {
 func (*NextScheduledTaskRunsResponse) ProtoMessage() {}
 
 func (x *NextScheduledTaskRunsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[15]
+	mi := &file_app_v1_scheduled_task_service_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -707,7 +868,7 @@ func (x *NextScheduledTaskRunsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NextScheduledTaskRunsResponse.ProtoReflect.Descriptor instead.
 func (*NextScheduledTaskRunsResponse) Descriptor() ([]byte, []int) {
-	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{15}
+	return file_app_v1_scheduled_task_service_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *NextScheduledTaskRunsResponse) GetTimes() []int64 {
@@ -721,31 +882,42 @@ var File_app_v1_scheduled_task_service_proto protoreflect.FileDescriptor
 
 const file_app_v1_scheduled_task_service_proto_rawDesc = "" +
 	"\n" +
-	"#app/v1/scheduled_task_service.proto\x12\x06app.v1\x1a\x11app/v1/task.proto\"\x1b\n" +
-	"\x19ListScheduledTasksRequest\";\n" +
+	"#app/v1/scheduled_task_service.proto\x12\x06app.v1\x1a\x11app/v1/task.proto\x1a\x14common/v1/sync.proto\"\x1b\n" +
+	"\x19ListScheduledTasksRequest\"k\n" +
 	"\x1aListScheduledTasksResponse\x12\x1d\n" +
 	"\n" +
-	"tasks_json\x18\x01 \x03(\tR\ttasksJson\":\n" +
-	"\x19SaveScheduledTasksRequest\x12\x1d\n" +
-	"\n" +
-	"tasks_json\x18\x01 \x03(\tR\ttasksJson\";\n" +
-	"\x1aSaveScheduledTasksResponse\x12\x1d\n" +
-	"\n" +
-	"tasks_json\x18\x01 \x03(\tR\ttasksJson\"9\n" +
-	"\x1aUpsertScheduledTaskRequest\x12\x1b\n" +
-	"\ttask_json\x18\x01 \x01(\tR\btaskJson\":\n" +
-	"\x1bUpsertScheduledTaskResponse\x12\x1b\n" +
-	"\ttask_json\x18\x01 \x01(\tR\btaskJson\",\n" +
+	"tasks_json\x18\x01 \x03(\tR\ttasksJson\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.ResourceStateR\x05state\"9\n" +
+	"\x1aCreateScheduledTaskRequest\x12\x1b\n" +
+	"\ttask_json\x18\x01 \x01(\tR\btaskJson\"j\n" +
+	"\x1bCreateScheduledTaskResponse\x12\x1b\n" +
+	"\ttask_json\x18\x01 \x01(\tR\btaskJson\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\"\x83\x01\n" +
+	"\x1aUpdateScheduledTaskRequest\x12\x1b\n" +
+	"\ttask_json\x18\x01 \x01(\tR\btaskJson\x12H\n" +
+	"\x11expected_revision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x10expectedRevision\"j\n" +
+	"\x1bUpdateScheduledTaskResponse\x12\x1b\n" +
+	"\ttask_json\x18\x01 \x01(\tR\btaskJson\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\"v\n" +
 	"\x1aDeleteScheduledTaskRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x1d\n" +
-	"\x1bDeleteScheduledTaskResponse\")\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12H\n" +
+	"\x11expected_revision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x10expectedRevision\"M\n" +
+	"\x1bDeleteScheduledTaskResponse\x12.\n" +
+	"\x05state\x18\x01 \x01(\v2\x18.common.v1.MutationStateR\x05state\"\x85\x01\n" +
+	"\x1cReorderScheduledTasksRequest\x12\x10\n" +
+	"\x03ids\x18\x01 \x03(\tR\x03ids\x12S\n" +
+	"\x17expected_order_revision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x15expectedOrderRevision\"a\n" +
+	"\x1dReorderScheduledTasksResponse\x12\x10\n" +
+	"\x03ids\x18\x01 \x03(\tR\x03ids\x12.\n" +
+	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state\")\n" +
 	"\x17RunScheduledTaskRequest\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\"\x82\x01\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\"\xb2\x01\n" +
 	"\x18RunScheduledTaskResponse\x12,\n" +
 	"\aresults\x18\x01 \x03(\v2\x12.app.v1.TaskResultR\aresults\x12\x1d\n" +
 	"\n" +
 	"start_time\x18\x02 \x01(\x03R\tstartTime\x12\x19\n" +
-	"\bend_time\x18\x03 \x01(\x03R\aendTime\".\n" +
+	"\bend_time\x18\x03 \x01(\x03R\aendTime\x12.\n" +
+	"\x05state\x18\x04 \x01(\v2\x18.common.v1.MutationStateR\x05state\".\n" +
 	"\x1cListScheduledTaskLogsRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"D\n" +
 	"\x1dListScheduledTaskLogsResponse\x12#\n" +
@@ -756,12 +928,13 @@ const file_app_v1_scheduled_task_service_proto_rawDesc = "" +
 	"\x04cron\x18\x01 \x01(\tR\x04cron\x12\x14\n" +
 	"\x05count\x18\x02 \x01(\x05R\x05count\"5\n" +
 	"\x1dNextScheduledTaskRunsResponse\x12\x14\n" +
-	"\x05times\x18\x01 \x03(\x03R\x05times2\x9c\x06\n" +
+	"\x05times\x18\x01 \x03(\x03R\x05times2\x85\a\n" +
 	"\x14ScheduledTaskService\x12[\n" +
-	"\x12ListScheduledTasks\x12!.app.v1.ListScheduledTasksRequest\x1a\".app.v1.ListScheduledTasksResponse\x12[\n" +
-	"\x12SaveScheduledTasks\x12!.app.v1.SaveScheduledTasksRequest\x1a\".app.v1.SaveScheduledTasksResponse\x12^\n" +
-	"\x13UpsertScheduledTask\x12\".app.v1.UpsertScheduledTaskRequest\x1a#.app.v1.UpsertScheduledTaskResponse\x12^\n" +
-	"\x13DeleteScheduledTask\x12\".app.v1.DeleteScheduledTaskRequest\x1a#.app.v1.DeleteScheduledTaskResponse\x12U\n" +
+	"\x12ListScheduledTasks\x12!.app.v1.ListScheduledTasksRequest\x1a\".app.v1.ListScheduledTasksResponse\x12^\n" +
+	"\x13CreateScheduledTask\x12\".app.v1.CreateScheduledTaskRequest\x1a#.app.v1.CreateScheduledTaskResponse\x12^\n" +
+	"\x13UpdateScheduledTask\x12\".app.v1.UpdateScheduledTaskRequest\x1a#.app.v1.UpdateScheduledTaskResponse\x12^\n" +
+	"\x13DeleteScheduledTask\x12\".app.v1.DeleteScheduledTaskRequest\x1a#.app.v1.DeleteScheduledTaskResponse\x12d\n" +
+	"\x15ReorderScheduledTasks\x12$.app.v1.ReorderScheduledTasksRequest\x1a%.app.v1.ReorderScheduledTasksResponse\x12U\n" +
 	"\x10RunScheduledTask\x12\x1f.app.v1.RunScheduledTaskRequest\x1a .app.v1.RunScheduledTaskResponse\x12d\n" +
 	"\x15ListScheduledTaskLogs\x12$.app.v1.ListScheduledTaskLogsRequest\x1a%.app.v1.ListScheduledTaskLogsResponse\x12g\n" +
 	"\x16ClearScheduledTaskLogs\x12%.app.v1.ClearScheduledTaskLogsRequest\x1a&.app.v1.ClearScheduledTaskLogsResponse\x12d\n" +
@@ -781,51 +954,67 @@ func file_app_v1_scheduled_task_service_proto_rawDescGZIP() []byte {
 	return file_app_v1_scheduled_task_service_proto_rawDescData
 }
 
-var file_app_v1_scheduled_task_service_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_app_v1_scheduled_task_service_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_app_v1_scheduled_task_service_proto_goTypes = []any{
 	(*ListScheduledTasksRequest)(nil),      // 0: app.v1.ListScheduledTasksRequest
 	(*ListScheduledTasksResponse)(nil),     // 1: app.v1.ListScheduledTasksResponse
-	(*SaveScheduledTasksRequest)(nil),      // 2: app.v1.SaveScheduledTasksRequest
-	(*SaveScheduledTasksResponse)(nil),     // 3: app.v1.SaveScheduledTasksResponse
-	(*UpsertScheduledTaskRequest)(nil),     // 4: app.v1.UpsertScheduledTaskRequest
-	(*UpsertScheduledTaskResponse)(nil),    // 5: app.v1.UpsertScheduledTaskResponse
+	(*CreateScheduledTaskRequest)(nil),     // 2: app.v1.CreateScheduledTaskRequest
+	(*CreateScheduledTaskResponse)(nil),    // 3: app.v1.CreateScheduledTaskResponse
+	(*UpdateScheduledTaskRequest)(nil),     // 4: app.v1.UpdateScheduledTaskRequest
+	(*UpdateScheduledTaskResponse)(nil),    // 5: app.v1.UpdateScheduledTaskResponse
 	(*DeleteScheduledTaskRequest)(nil),     // 6: app.v1.DeleteScheduledTaskRequest
 	(*DeleteScheduledTaskResponse)(nil),    // 7: app.v1.DeleteScheduledTaskResponse
-	(*RunScheduledTaskRequest)(nil),        // 8: app.v1.RunScheduledTaskRequest
-	(*RunScheduledTaskResponse)(nil),       // 9: app.v1.RunScheduledTaskResponse
-	(*ListScheduledTaskLogsRequest)(nil),   // 10: app.v1.ListScheduledTaskLogsRequest
-	(*ListScheduledTaskLogsResponse)(nil),  // 11: app.v1.ListScheduledTaskLogsResponse
-	(*ClearScheduledTaskLogsRequest)(nil),  // 12: app.v1.ClearScheduledTaskLogsRequest
-	(*ClearScheduledTaskLogsResponse)(nil), // 13: app.v1.ClearScheduledTaskLogsResponse
-	(*NextScheduledTaskRunsRequest)(nil),   // 14: app.v1.NextScheduledTaskRunsRequest
-	(*NextScheduledTaskRunsResponse)(nil),  // 15: app.v1.NextScheduledTaskRunsResponse
-	(*TaskResult)(nil),                     // 16: app.v1.TaskResult
-	(*TaskLog)(nil),                        // 17: app.v1.TaskLog
+	(*ReorderScheduledTasksRequest)(nil),   // 8: app.v1.ReorderScheduledTasksRequest
+	(*ReorderScheduledTasksResponse)(nil),  // 9: app.v1.ReorderScheduledTasksResponse
+	(*RunScheduledTaskRequest)(nil),        // 10: app.v1.RunScheduledTaskRequest
+	(*RunScheduledTaskResponse)(nil),       // 11: app.v1.RunScheduledTaskResponse
+	(*ListScheduledTaskLogsRequest)(nil),   // 12: app.v1.ListScheduledTaskLogsRequest
+	(*ListScheduledTaskLogsResponse)(nil),  // 13: app.v1.ListScheduledTaskLogsResponse
+	(*ClearScheduledTaskLogsRequest)(nil),  // 14: app.v1.ClearScheduledTaskLogsRequest
+	(*ClearScheduledTaskLogsResponse)(nil), // 15: app.v1.ClearScheduledTaskLogsResponse
+	(*NextScheduledTaskRunsRequest)(nil),   // 16: app.v1.NextScheduledTaskRunsRequest
+	(*NextScheduledTaskRunsResponse)(nil),  // 17: app.v1.NextScheduledTaskRunsResponse
+	(*v1.ResourceState)(nil),               // 18: common.v1.ResourceState
+	(*v1.MutationState)(nil),               // 19: common.v1.MutationState
+	(*v1.ExpectedRevision)(nil),            // 20: common.v1.ExpectedRevision
+	(*TaskResult)(nil),                     // 21: app.v1.TaskResult
+	(*TaskLog)(nil),                        // 22: app.v1.TaskLog
 }
 var file_app_v1_scheduled_task_service_proto_depIdxs = []int32{
-	16, // 0: app.v1.RunScheduledTaskResponse.results:type_name -> app.v1.TaskResult
-	17, // 1: app.v1.ListScheduledTaskLogsResponse.logs:type_name -> app.v1.TaskLog
-	0,  // 2: app.v1.ScheduledTaskService.ListScheduledTasks:input_type -> app.v1.ListScheduledTasksRequest
-	2,  // 3: app.v1.ScheduledTaskService.SaveScheduledTasks:input_type -> app.v1.SaveScheduledTasksRequest
-	4,  // 4: app.v1.ScheduledTaskService.UpsertScheduledTask:input_type -> app.v1.UpsertScheduledTaskRequest
-	6,  // 5: app.v1.ScheduledTaskService.DeleteScheduledTask:input_type -> app.v1.DeleteScheduledTaskRequest
-	8,  // 6: app.v1.ScheduledTaskService.RunScheduledTask:input_type -> app.v1.RunScheduledTaskRequest
-	10, // 7: app.v1.ScheduledTaskService.ListScheduledTaskLogs:input_type -> app.v1.ListScheduledTaskLogsRequest
-	12, // 8: app.v1.ScheduledTaskService.ClearScheduledTaskLogs:input_type -> app.v1.ClearScheduledTaskLogsRequest
-	14, // 9: app.v1.ScheduledTaskService.NextScheduledTaskRuns:input_type -> app.v1.NextScheduledTaskRunsRequest
-	1,  // 10: app.v1.ScheduledTaskService.ListScheduledTasks:output_type -> app.v1.ListScheduledTasksResponse
-	3,  // 11: app.v1.ScheduledTaskService.SaveScheduledTasks:output_type -> app.v1.SaveScheduledTasksResponse
-	5,  // 12: app.v1.ScheduledTaskService.UpsertScheduledTask:output_type -> app.v1.UpsertScheduledTaskResponse
-	7,  // 13: app.v1.ScheduledTaskService.DeleteScheduledTask:output_type -> app.v1.DeleteScheduledTaskResponse
-	9,  // 14: app.v1.ScheduledTaskService.RunScheduledTask:output_type -> app.v1.RunScheduledTaskResponse
-	11, // 15: app.v1.ScheduledTaskService.ListScheduledTaskLogs:output_type -> app.v1.ListScheduledTaskLogsResponse
-	13, // 16: app.v1.ScheduledTaskService.ClearScheduledTaskLogs:output_type -> app.v1.ClearScheduledTaskLogsResponse
-	15, // 17: app.v1.ScheduledTaskService.NextScheduledTaskRuns:output_type -> app.v1.NextScheduledTaskRunsResponse
-	10, // [10:18] is the sub-list for method output_type
-	2,  // [2:10] is the sub-list for method input_type
-	2,  // [2:2] is the sub-list for extension type_name
-	2,  // [2:2] is the sub-list for extension extendee
-	0,  // [0:2] is the sub-list for field type_name
+	18, // 0: app.v1.ListScheduledTasksResponse.state:type_name -> common.v1.ResourceState
+	19, // 1: app.v1.CreateScheduledTaskResponse.state:type_name -> common.v1.MutationState
+	20, // 2: app.v1.UpdateScheduledTaskRequest.expected_revision:type_name -> common.v1.ExpectedRevision
+	19, // 3: app.v1.UpdateScheduledTaskResponse.state:type_name -> common.v1.MutationState
+	20, // 4: app.v1.DeleteScheduledTaskRequest.expected_revision:type_name -> common.v1.ExpectedRevision
+	19, // 5: app.v1.DeleteScheduledTaskResponse.state:type_name -> common.v1.MutationState
+	20, // 6: app.v1.ReorderScheduledTasksRequest.expected_order_revision:type_name -> common.v1.ExpectedRevision
+	19, // 7: app.v1.ReorderScheduledTasksResponse.state:type_name -> common.v1.MutationState
+	21, // 8: app.v1.RunScheduledTaskResponse.results:type_name -> app.v1.TaskResult
+	19, // 9: app.v1.RunScheduledTaskResponse.state:type_name -> common.v1.MutationState
+	22, // 10: app.v1.ListScheduledTaskLogsResponse.logs:type_name -> app.v1.TaskLog
+	0,  // 11: app.v1.ScheduledTaskService.ListScheduledTasks:input_type -> app.v1.ListScheduledTasksRequest
+	2,  // 12: app.v1.ScheduledTaskService.CreateScheduledTask:input_type -> app.v1.CreateScheduledTaskRequest
+	4,  // 13: app.v1.ScheduledTaskService.UpdateScheduledTask:input_type -> app.v1.UpdateScheduledTaskRequest
+	6,  // 14: app.v1.ScheduledTaskService.DeleteScheduledTask:input_type -> app.v1.DeleteScheduledTaskRequest
+	8,  // 15: app.v1.ScheduledTaskService.ReorderScheduledTasks:input_type -> app.v1.ReorderScheduledTasksRequest
+	10, // 16: app.v1.ScheduledTaskService.RunScheduledTask:input_type -> app.v1.RunScheduledTaskRequest
+	12, // 17: app.v1.ScheduledTaskService.ListScheduledTaskLogs:input_type -> app.v1.ListScheduledTaskLogsRequest
+	14, // 18: app.v1.ScheduledTaskService.ClearScheduledTaskLogs:input_type -> app.v1.ClearScheduledTaskLogsRequest
+	16, // 19: app.v1.ScheduledTaskService.NextScheduledTaskRuns:input_type -> app.v1.NextScheduledTaskRunsRequest
+	1,  // 20: app.v1.ScheduledTaskService.ListScheduledTasks:output_type -> app.v1.ListScheduledTasksResponse
+	3,  // 21: app.v1.ScheduledTaskService.CreateScheduledTask:output_type -> app.v1.CreateScheduledTaskResponse
+	5,  // 22: app.v1.ScheduledTaskService.UpdateScheduledTask:output_type -> app.v1.UpdateScheduledTaskResponse
+	7,  // 23: app.v1.ScheduledTaskService.DeleteScheduledTask:output_type -> app.v1.DeleteScheduledTaskResponse
+	9,  // 24: app.v1.ScheduledTaskService.ReorderScheduledTasks:output_type -> app.v1.ReorderScheduledTasksResponse
+	11, // 25: app.v1.ScheduledTaskService.RunScheduledTask:output_type -> app.v1.RunScheduledTaskResponse
+	13, // 26: app.v1.ScheduledTaskService.ListScheduledTaskLogs:output_type -> app.v1.ListScheduledTaskLogsResponse
+	15, // 27: app.v1.ScheduledTaskService.ClearScheduledTaskLogs:output_type -> app.v1.ClearScheduledTaskLogsResponse
+	17, // 28: app.v1.ScheduledTaskService.NextScheduledTaskRuns:output_type -> app.v1.NextScheduledTaskRunsResponse
+	20, // [20:29] is the sub-list for method output_type
+	11, // [11:20] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_app_v1_scheduled_task_service_proto_init() }
@@ -840,7 +1029,7 @@ func file_app_v1_scheduled_task_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_app_v1_scheduled_task_service_proto_rawDesc), len(file_app_v1_scheduled_task_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   16,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

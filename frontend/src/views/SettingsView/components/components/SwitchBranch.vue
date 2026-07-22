@@ -2,22 +2,19 @@
 import { useI18n } from 'vue-i18n'
 
 import { Branch } from '@/enums/app'
-import { useAppConfigStore, useKernelApiStore } from '@/stores'
+import { useAppConfigStore } from '@/stores'
 import { message } from '@/utils'
 
 const { t } = useI18n()
 const appConfig = useAppConfigStore()
-const kernelApiStore = useKernelApiStore()
 
 const handleUseBranch = async (branch: Branch) => {
+  if (appConfig.config.branch === branch) return
   appConfig.config.branch = branch
-
-  if (!kernelApiStore.running) return
-
   try {
-    await kernelApiStore.restartCore()
+    await appConfig.saveNow()
   } catch (error: any) {
-    message.error(error)
+    message.error(error.message || error)
   }
 }
 </script>

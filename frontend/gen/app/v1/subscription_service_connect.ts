@@ -3,7 +3,7 @@
 /* eslint-disable */
 // @ts-nocheck
 
-import { DeleteSubscriptionRequest, DeleteSubscriptionResponse, GetSubscriptionContentRequest, GetSubscriptionContentResponse, ListSubscriptionsRequest, ListSubscriptionsResponse, SaveSubscriptionContentRequest, SaveSubscriptionContentResponse, SaveSubscriptionsRequest, SaveSubscriptionsResponse, UpdateAllSubscriptionsRequest, UpdateAllSubscriptionsResponse, UpdateSubscriptionRequest, UpdateSubscriptionResponse, UpsertSubscriptionRequest, UpsertSubscriptionResponse } from "./subscription_service_pb.js";
+import { CreateSubscriptionRequest, CreateSubscriptionResponse, DeleteSubscriptionRequest, DeleteSubscriptionResponse, GetSubscriptionContentRequest, GetSubscriptionContentResponse, ListSubscriptionsRequest, ListSubscriptionsResponse, ReorderSubscriptionsRequest, ReorderSubscriptionsResponse, SaveSubscriptionContentRequest, SaveSubscriptionContentResponse, UpdateAllSubscriptionsRequest, UpdateAllSubscriptionsResponse, UpdateSubscriptionConfigRequest, UpdateSubscriptionConfigResponse, UpdateSubscriptionRequest, UpdateSubscriptionResponse } from "./subscription_service_pb.js";
 import { MethodKind } from "@bufbuild/protobuf";
 
 /**
@@ -22,21 +22,21 @@ export const SubscriptionService = {
       kind: MethodKind.Unary,
     },
     /**
-     * @generated from rpc app.v1.SubscriptionService.SaveSubscriptions
+     * @generated from rpc app.v1.SubscriptionService.CreateSubscription
      */
-    saveSubscriptions: {
-      name: "SaveSubscriptions",
-      I: SaveSubscriptionsRequest,
-      O: SaveSubscriptionsResponse,
+    createSubscription: {
+      name: "CreateSubscription",
+      I: CreateSubscriptionRequest,
+      O: CreateSubscriptionResponse,
       kind: MethodKind.Unary,
     },
     /**
-     * @generated from rpc app.v1.SubscriptionService.UpsertSubscription
+     * @generated from rpc app.v1.SubscriptionService.UpdateSubscriptionConfig
      */
-    upsertSubscription: {
-      name: "UpsertSubscription",
-      I: UpsertSubscriptionRequest,
-      O: UpsertSubscriptionResponse,
+    updateSubscriptionConfig: {
+      name: "UpdateSubscriptionConfig",
+      I: UpdateSubscriptionConfigRequest,
+      O: UpdateSubscriptionConfigResponse,
       kind: MethodKind.Unary,
     },
     /**
@@ -46,6 +46,15 @@ export const SubscriptionService = {
       name: "DeleteSubscription",
       I: DeleteSubscriptionRequest,
       O: DeleteSubscriptionResponse,
+      kind: MethodKind.Unary,
+    },
+    /**
+     * @generated from rpc app.v1.SubscriptionService.ReorderSubscriptions
+     */
+    reorderSubscriptions: {
+      name: "ReorderSubscriptions",
+      I: ReorderSubscriptionsRequest,
+      O: ReorderSubscriptionsResponse,
       kind: MethodKind.Unary,
     },
     /**

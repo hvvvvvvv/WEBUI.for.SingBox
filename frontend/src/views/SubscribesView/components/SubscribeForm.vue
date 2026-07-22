@@ -4,10 +4,11 @@ import { useI18n } from 'vue-i18n'
 
 import { RequestMethodOptions } from '@/constant/app'
 import { useBool } from '@/hooks'
-import { useSubscribesStore } from '@/stores'
+import { isResourceConflict, isResourceNotFound, useSubscribesStore } from '@/stores'
 import { deepClone, message } from '@/utils'
 
 import Button from '@/components/Button/index.vue'
+import ResourceConflictNotice from '@/components/ResourceConflictNotice/index.vue'
 
 import type { Subscription } from '@/types/app'
 
@@ -22,7 +23,10 @@ const [showMore, toggleShowMore] = useBool(false)
 const subscribeStore = useSubscribesStore()
 
 const loading = ref(false)
+const reloading = ref(false)
+const conflict = ref<'changed' | 'deleted' | null>(null)
 const sub = ref<Subscription>(subscribeStore.getSubscribeTemplate())
+let baseRevision = props.id ? subscribeStore.getSubscribeRevision(props.id) : undefined
 
 const isManual = computed(() => sub.value.type === 'Manual')
 const isRemote = computed(() => sub.value.type === 'Http')
@@ -35,17 +39,42 @@ const handleSave = async () => {
 
   try {
     if (props.id) {
-      await subscribeStore.editSubscribe(props.id, sub.value)
+      await subscribeStore.editSubscribe(props.id, sub.value, baseRevision)
     } else {
       await subscribeStore.addSubscribe(sub.value)
     }
     await handleSubmit()
   } catch (error: any) {
     console.error(error)
-    message.error(error)
+    if (isResourceConflict(error) || isResourceNotFound(error)) {
+      await subscribeStore.setupSubscribes().catch(() => undefined)
+      conflict.value = isResourceNotFound(error) ? 'deleted' : 'changed'
+    } else {
+      message.error(error)
+    }
   }
 
   loading.value = false
+}
+
+const loadLatest = async () => {
+  if (!props.id) return
+  reloading.value = true
+  try {
+    await subscribeStore.setupSubscribes()
+    const latest = subscribeStore.getSubscribeById(props.id)
+    if (!latest) {
+      conflict.value = 'deleted'
+      return
+    }
+    sub.value = deepClone(latest)
+    baseRevision = subscribeStore.getSubscribeRevision(props.id)
+    conflict.value = null
+  } catch (error: any) {
+    message.error(error.message || error)
+  } finally {
+    reloading.value = false
+  }
 }
 
 if (props.id) {
@@ -83,6 +112,12 @@ defineExpose({ modalSlots })
 
 <template>
   <div>
+    <ResourceConflictNotice
+      v-if="conflict"
+      :kind="conflict"
+      :loading="reloading"
+      @reload="loadLatest"
+    />
     <div class="form-item">
       {{ t('subscribes.subtype') }}
       <Radio
@@ -102,12 +137,7 @@ defineExpose({ modalSlots })
     <div v-if="!isManual" class="form-item">
       {{ t('subscribe.url') }} *
       <div class="min-w-[75%]">
-        <Input
-          v-model="sub.url"
-          placeholder="http(s)://"
-          allow-paste
-          class="w-full"
-        />
+        <Input v-model="sub.url" placeholder="http(s)://" allow-paste class="w-full" />
       </div>
     </div>
     <Divider v-if="!isManual">

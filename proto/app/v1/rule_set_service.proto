@@ -5,35 +5,53 @@ package app.v1;
 option go_package = "guiforcores/proto/app/v1";
 
 import "app/v1/task.proto";
+import "common/v1/sync.proto";
 
 message ListRuleSetsRequest {}
 
 message ListRuleSetsResponse {
   repeated string rulesets_json = 1;
   string hub_json = 2;
+  common.v1.ResourceState state = 3;
 }
 
-message SaveRuleSetsRequest {
-  repeated string rulesets_json = 1;
-}
-
-message SaveRuleSetsResponse {
-  repeated string rulesets_json = 1;
-}
-
-message UpsertRuleSetRequest {
+message CreateRuleSetRequest {
   string ruleset_json = 1;
 }
 
-message UpsertRuleSetResponse {
+message CreateRuleSetResponse {
   string ruleset_json = 1;
+  common.v1.MutationState state = 2;
+}
+
+message UpdateRuleSetConfigRequest {
+  string ruleset_json = 1;
+  common.v1.ExpectedRevision expected_revision = 2;
+}
+
+message UpdateRuleSetConfigResponse {
+  string ruleset_json = 1;
+  common.v1.MutationState state = 2;
 }
 
 message DeleteRuleSetRequest {
   string id = 1;
+  common.v1.ExpectedRevision expected_revision = 2;
 }
 
-message DeleteRuleSetResponse {}
+message DeleteRuleSetResponse {
+  common.v1.MutationState state = 1;
+}
+
+message ReorderRuleSetsRequest {
+  repeated string ids = 1;
+  common.v1.ExpectedRevision expected_order_revision = 2;
+}
+
+message ReorderRuleSetsResponse {
+  repeated string ids = 1;
+  common.v1.MutationState state = 2;
+}
 
 message UpdateRuleSetRequest {
   string id = 1;
@@ -41,18 +59,21 @@ message UpdateRuleSetRequest {
 
 message UpdateRuleSetResponse {
   repeated TaskResult results = 1;
+  common.v1.MutationState state = 2;
 }
 
 message UpdateAllRuleSetsRequest {}
 
 message UpdateAllRuleSetsResponse {
   repeated TaskResult results = 1;
+  common.v1.MutationState state = 2;
 }
 
 message UpdateRuleSetHubRequest {}
 
 message UpdateRuleSetHubResponse {
   string hub_json = 1;
+  common.v1.MutationState state = 2;
 }
 
 message PreviewRuleSetHubRequest {
@@ -70,30 +91,36 @@ message GetRuleSetContentRequest {
 
 message GetRuleSetContentResponse {
   string content = 1;
+  common.v1.ExpectedRevision revision = 2;
 }
 
 message SaveRuleSetContentRequest {
   string id = 1;
   string content = 2;
+  common.v1.ExpectedRevision expected_revision = 3;
 }
 
 message SaveRuleSetContentResponse {
   string ruleset_json = 1;
+  common.v1.MutationState state = 2;
 }
 
 message ClearRuleSetContentRequest {
   string id = 1;
+  common.v1.ExpectedRevision expected_revision = 2;
 }
 
 message ClearRuleSetContentResponse {
   string ruleset_json = 1;
+  common.v1.MutationState state = 2;
 }
 
 service RuleSetService {
   rpc ListRuleSets(ListRuleSetsRequest) returns (ListRuleSetsResponse);
-  rpc SaveRuleSets(SaveRuleSetsRequest) returns (SaveRuleSetsResponse);
-  rpc UpsertRuleSet(UpsertRuleSetRequest) returns (UpsertRuleSetResponse);
+  rpc CreateRuleSet(CreateRuleSetRequest) returns (CreateRuleSetResponse);
+  rpc UpdateRuleSetConfig(UpdateRuleSetConfigRequest) returns (UpdateRuleSetConfigResponse);
   rpc DeleteRuleSet(DeleteRuleSetRequest) returns (DeleteRuleSetResponse);
+  rpc ReorderRuleSets(ReorderRuleSetsRequest) returns (ReorderRuleSetsResponse);
   rpc UpdateRuleSet(UpdateRuleSetRequest) returns (UpdateRuleSetResponse);
   rpc UpdateAllRuleSets(UpdateAllRuleSetsRequest) returns (UpdateAllRuleSetsResponse);
   rpc UpdateRuleSetHub(UpdateRuleSetHubRequest) returns (UpdateRuleSetHubResponse);
