@@ -90,7 +90,6 @@ export interface ScheduledTask {
   type: ScheduledTasksType
   subscriptions: string[]
   rulesets: string[]
-  script: string
   cron: string
   notification: boolean
   disabled: boolean

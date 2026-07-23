@@ -35,7 +35,6 @@ const task = ref<ScheduledTask>({
   type: ScheduledTasksType.UpdateAllSubscription,
   subscriptions: [],
   rulesets: [],
-  script: '',
   cron: '',
   notification: false,
   disabled: false,
@@ -53,11 +52,6 @@ const handleCancel = inject('cancel') as any
 const handleSubmit = inject('submit') as any
 
 const handleSave = async () => {
-  if (task.value.type === ScheduledTasksType.RunScript) {
-    message.error('run::script is not supported by the backend scheduler')
-    return
-  }
-
   const { ok, reason } = isValidCron(task.value.cron)
   if (!ok) {
     message.error(reason)
@@ -277,9 +271,5 @@ defineExpose({ modalSlots })
       </div>
     </div>
 
-    <div v-else-if="task.type === ScheduledTasksType.RunScript">
-      <Divider>{{ t('scheduledtask.script') }}</Divider>
-      <CodeViewer v-model="task.script" editable lang="javascript" />
-    </div>
   </div>
 </template>

@@ -794,6 +794,89 @@ func (e *recordingRuntimeEvents) Publish(name string, data ...any) {
 	}{name: name, data: data})
 }
 
+func TestScheduledTaskTypeValidation(t *testing.T) {
+	validTypes := []string{
+		scheduledTaskUpdateSubscription,
+		scheduledTaskUpdateRuleset,
+		scheduledTaskUpdateAllSubscription,
+		scheduledTaskUpdateAllRuleset,
+	}
+	for _, taskType := range validTypes {
+		t.Run("accepts "+taskType, func(t *testing.T) {
+			raw, err := json.Marshal(scheduledTask{ID: "task", Type: taskType})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err := decodeScheduledTask(string(raw)); err != nil {
+				t.Fatalf("expected supported type, got %v", err)
+			}
+		})
+	}
+
+	withTempBasePath(t)
+	service := newAppRuntimeService(nil, nil)
+	invalidTypes := []string{"", "run::script", "unknown::task"}
+	for _, taskType := range invalidTypes {
+		t.Run("rejects "+taskType, func(t *testing.T) {
+			raw, err := json.Marshal(scheduledTask{ID: "task", Type: taskType})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = service.CreateScheduledTask(context.Background(), connect.NewRequest(&appv1.CreateScheduledTaskRequest{TaskJson: string(raw)}))
+			if connect.CodeOf(err) != connect.CodeInvalidArgument {
+				t.Fatalf("create unsupported task type code = %v, want %v", connect.CodeOf(err), connect.CodeInvalidArgument)
+			}
+			_, err = service.UpdateScheduledTask(context.Background(), connect.NewRequest(&appv1.UpdateScheduledTaskRequest{TaskJson: string(raw)}))
+			if connect.CodeOf(err) != connect.CodeInvalidArgument {
+				t.Fatalf("update unsupported task type code = %v, want %v", connect.CodeOf(err), connect.CodeInvalidArgument)
+			}
+		})
+	}
+
+	response, err := service.CreateScheduledTask(context.Background(), connect.NewRequest(&appv1.CreateScheduledTaskRequest{
+		TaskJson: `{"id":"supported","type":"update::all::subscription","script":"ignored"}`,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(response.Msg.GetTaskJson(), `"script"`) {
+		t.Fatalf("scheduled task response retained removed script field: %s", response.Msg.GetTaskJson())
+	}
+}
+
+func TestUnsupportedScheduledTaskIsNotSchedulableAndFailsManualRun(t *testing.T) {
+	withTempBasePath(t)
+	if err := saveScheduledTasks([]scheduledTask{{
+		ID:   "unsupported",
+		Name: "Unsupported",
+		Type: "run::script",
+		Cron: "* * * * * *",
+	}}); err != nil {
+		t.Fatal(err)
+	}
+
+	tasks, err := loadScheduledTasks()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(tasks) != 1 {
+		t.Fatalf("expected one persisted task, got %d", len(tasks))
+	}
+	if shouldScheduleTask(tasks[0]) {
+		t.Fatal("unsupported persisted task must not be scheduled")
+	}
+
+	service := newAppRuntimeService(nil, nil)
+	response, err := service.RunScheduledTask(context.Background(), connect.NewRequest(&appv1.RunScheduledTaskRequest{Id: "unsupported"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	results := response.Msg.GetResults()
+	if len(results) != 1 || results[0].GetOk() || results[0].GetResult() != "unsupported scheduled task type: run::script" {
+		t.Fatalf("unexpected unsupported task result: %#v", results)
+	}
+}
+
 func TestTaskResultMetadataRoundTripsScheduledTaskStorage(t *testing.T) {
 	want := &appv1.TaskResult{
 		Ok:            false,

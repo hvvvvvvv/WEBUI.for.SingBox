@@ -210,10 +210,7 @@ func (s *appRuntimeService) schedulerLoop(cancel <-chan struct{}) {
 				continue
 			}
 			for _, task := range tasks {
-				if task.Disabled || task.ID == "" || task.Cron == "" {
-					continue
-				}
-				if task.Type == scheduledTaskRunScript {
+				if !shouldScheduleTask(task) {
 					continue
 				}
 				if cronMatches(task.Cron, now) {
@@ -652,6 +649,22 @@ func normalizeScheduledTasks(items []scheduledTask) {
 	for i := range items {
 		items[i].LogLimit = normalizeScheduledTaskLogLimit(items[i].LogLimit)
 	}
+}
+
+func isSupportedScheduledTaskType(taskType string) bool {
+	switch taskType {
+	case scheduledTaskUpdateSubscription,
+		scheduledTaskUpdateRuleset,
+		scheduledTaskUpdateAllSubscription,
+		scheduledTaskUpdateAllRuleset:
+		return true
+	default:
+		return false
+	}
+}
+
+func shouldScheduleTask(task scheduledTask) bool {
+	return !task.Disabled && task.ID != "" && task.Cron != "" && isSupportedScheduledTaskType(task.Type)
 }
 
 func rulesetIDs(items []ruleset) []string {
@@ -1517,8 +1530,6 @@ func (s *appRuntimeService) runScheduledTask(ctx context.Context, id string, pub
 		results, _, err = s.updateAllSubscriptions()
 	case scheduledTaskUpdateAllRuleset:
 		results, _, err = s.updateAllRulesets()
-	case scheduledTaskRunScript:
-		results = []*appv1.TaskResult{taskResult(false, task.ID, task.Name, "run::script is not supported by the backend scheduler")}
 	default:
 		results = []*appv1.TaskResult{taskResult(false, task.ID, task.Name, "unsupported scheduled task type: "+task.Type)}
 	}
@@ -2308,8 +2319,8 @@ func decodeScheduledTask(raw string) (scheduledTask, error) {
 	if task.ID == "" {
 		return task, invalidArgumentError{message: "id is required"}
 	}
-	if !task.Disabled && task.Type == scheduledTaskRunScript {
-		return task, invalidArgumentError{message: "run::script is not supported by the backend scheduler"}
+	if !isSupportedScheduledTaskType(task.Type) {
+		return task, invalidArgumentError{message: "unsupported scheduled task type: " + task.Type}
 	}
 	task.LogLimit = normalizeScheduledTaskLogLimit(task.LogLimit)
 	return task, nil

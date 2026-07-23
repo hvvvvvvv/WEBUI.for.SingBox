@@ -627,7 +627,6 @@ export default {
   scheduledtask: {
     name: '名称',
     type: '任务类型',
-    script: '脚本代码',
     subscriptions: '订阅列表',
     rulesets: '规则集列表',
     cron: '表达式',
@@ -639,7 +638,6 @@ export default {
     'update::ruleset': '更新规则集',
     'update::all::subscription': '更新所有订阅',
     'update::all::ruleset': '更新所有规则集',
-    'run::script': '运行脚本',
   },
   scheduledtasks: {
     logs: '日志',

@@ -107,7 +107,6 @@ export const DraggableOptions = {
 export const ScheduledTaskOptions = [
   { label: 'scheduledtask.update::subscription', value: ScheduledTasksType.UpdateSubscription },
   { label: 'scheduledtask.update::ruleset', value: ScheduledTasksType.UpdateRuleset },
-  { label: 'scheduledtask.run::script', value: ScheduledTasksType.RunScript },
   {
     label: 'scheduledtask.update::all::subscription',
     value: ScheduledTasksType.UpdateAllSubscription,

@@ -56,7 +56,6 @@ const (
 	scheduledTaskUpdateRuleset         = "update::ruleset"
 	scheduledTaskUpdateAllSubscription = "update::all::subscription"
 	scheduledTaskUpdateAllRuleset      = "update::all::ruleset"
-	scheduledTaskRunScript             = "run::script"
 )
 
 type scheduledTask struct {
@@ -65,7 +64,6 @@ type scheduledTask struct {
 	Type          string   `json:"type" yaml:"type"`
 	Subscriptions []string `json:"subscriptions" yaml:"subscriptions"`
 	Rulesets      []string `json:"rulesets" yaml:"rulesets"`
-	Script        string   `json:"script" yaml:"script"`
 	Cron          string   `json:"cron" yaml:"cron"`
 	Notification  bool     `json:"notification" yaml:"notification"`
 	Disabled      bool     `json:"disabled" yaml:"disabled"`

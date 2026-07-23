@@ -631,7 +631,6 @@ export default {
   scheduledtask: {
     name: 'Name',
     type: 'Type',
-    script: 'Script',
     subscriptions: 'Subscriptions',
     rulesets: 'Rulesets',
     cron: 'Cron',
@@ -643,7 +642,6 @@ export default {
     'update::ruleset': 'update::ruleset',
     'update::all::subscription': 'update::all::subscription',
     'update::all::ruleset': 'update::all::ruleset',
-    'run::script': 'run::script',
   },
   scheduledtasks: {
     logs: 'Logs',

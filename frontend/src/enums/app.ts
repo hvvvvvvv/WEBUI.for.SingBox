@@ -42,7 +42,6 @@ export enum ScheduledTasksType {
   UpdateRuleset = 'update::ruleset',
   UpdateAllSubscription = 'update::all::subscription',
   UpdateAllRuleset = 'update::all::ruleset',
-  RunScript = 'run::script',
 }
 
 export enum RequestMethod {
