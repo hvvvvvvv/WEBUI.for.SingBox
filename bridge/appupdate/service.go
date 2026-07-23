@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -332,10 +331,7 @@ func startUpdateHelper(archivePath string, serviceMode bool) error {
 	}
 
 	args := updateHelperArguments(archivePath, currentExe, os.Getpid(), string(restartArgs), workingDir, serviceMode)
-	cmd := exec.Command(helperPath, args...)
-	cmd.Env = os.Environ()
-	cmd.Dir = workingDir
-	return cmd.Start()
+	return startUpdateProcess(helperPath, args, workingDir, serviceMode)
 }
 
 func updateHelperArguments(archivePath, targetPath string, parentPID int, restartArgs, workingDir string, serviceMode bool) []string {
