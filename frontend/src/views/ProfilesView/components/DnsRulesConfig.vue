@@ -15,7 +15,7 @@ import {
 import { DefaultDnsActionOptions, DefaultDnsRule } from '@/constant/profile'
 import { RuleAction, RuleActionReject, RuleType } from '@/enums/kernel'
 import { useBool } from '@/hooks'
-import { deepClone, message } from '@/utils'
+import { deepClone, message, renderDnsRulePreview } from '@/utils'
 
 import DomainMatchGroup from './DnsRuleEditors/DomainMatchGroup.vue'
 import EvaluateActionEditor from './DnsRuleEditors/EvaluateActionEditor.vue'
@@ -298,45 +298,15 @@ const hasLost = (rule: IDNSRule) => {
   return false
 }
 
-const referenceLabels = (ids: string[], options: { label: string; value: string }[]) =>
-  ids.map((id) => options.find((entry) => entry.value === id)?.label || id).join('|')
-
-const renderRule = (rule: IDNSRule) => {
-  const matches: string[] = []
-  if (rule.inbound.length)
-    matches.push(`inbound=${referenceLabels(rule.inbound, props.inboundOptions)}`)
-  if (rule.clash_mode) matches.push(`clash_mode=${rule.clash_mode}`)
-  if (rule.ip_version) matches.push(`ip_version=${rule.ip_version}`)
-  if (rule.query_type.length) matches.push(`query_type=${rule.query_type.join('|')}`)
-  if (rule.network.length) matches.push(`network=${rule.network.join('|')}`)
-  if (rule.protocol.length) matches.push(`protocol=${rule.protocol.join('|')}`)
-  if (rule.preferred_by.length) matches.push(`preferred_by=${rule.preferred_by.join('|')}`)
-  if (
-    rule.domain.length ||
-    rule.domain_suffix.length ||
-    rule.domain_keyword.length ||
-    rule.domain_regex.length
-  )
-    matches.push(t('kernel.dns.rules.groups.domain'))
-  if (rule.rule_set.length)
-    matches.push(
-      `rule_set=${referenceLabels(
-        rule.rule_set,
-        props.ruleSet.map((item) => ({ label: item.tag, value: item.id })),
-      )}`,
-    )
-  if (rule.match_response || hasResponseDependencies(rule))
-    matches.push(t('kernel.dns.rules.groups.response'))
-  if (rule.process_name.length || rule.process_path.length || rule.process_path_regex.length)
-    matches.push(t('kernel.dns.rules.groups.process'))
-  if (rule.raw.includes('__is_fake_ip')) matches.push('FakeIP')
-  else if (rule.raw.trim()) matches.push('raw')
-
-  const action: string[] = [rule.action]
-  if (rule.action_options.server)
-    action.push(referenceLabels([rule.action_options.server], props.serversOptions))
-  return `${matches.join(', ') || '*'}${rule.invert ? ' (invert)' : ''} → ${action.join(': ')}`
-}
+const renderRule = (rule: IDNSRule) =>
+  renderDnsRulePreview(rule, {
+    inboundOptions: props.inboundOptions,
+    serverOptions: props.serversOptions,
+    ruleSetOptions: props.ruleSet.map((ruleSet) => ({
+      label: ruleSet.tag,
+      value: ruleSet.id,
+    })),
+  })
 </script>
 
 <template>
@@ -365,7 +335,7 @@ const renderRule = (rule: IDNSRule) => {
       </div>
       <div v-else class="flex items-start py-2 gap-8">
         <Switch v-model="rule.enable" border="square" size="small" class="shrink-0" />
-        <div class="font-bold flex-1 rule-content">
+        <div v-tips.fast.overflow="renderRule(rule)" class="font-bold flex-1 rule-content">
           <span
             v-if="hasLost(rule)"
             class="warn cursor-pointer"
@@ -587,6 +557,8 @@ const renderRule = (rule: IDNSRule) => {
 
 .rule-content {
   min-width: 0;
-  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

@@ -13,7 +13,7 @@ import {
 import { DefaultActionOptions, DefaultRouteRule } from '@/constant/profile'
 import { RuleAction, RuleType } from '@/enums/kernel'
 import { useBool } from '@/hooks'
-import { deepClone, message } from '@/utils'
+import { deepClone, message, renderRouteRulePreview } from '@/utils'
 import type { ActionPickerItem } from '@/components/ActionPicker/index.vue'
 
 import BypassActionEditor from './RouteRuleEditors/BypassActionEditor.vue'
@@ -123,10 +123,6 @@ const availableGroupOptions = computed(() =>
 )
 
 const hasActionOptions = computed(() => actionsWithOptions.has(fields.value.action as RuleAction))
-
-const ruleSetOptions = computed(() =>
-  props.ruleSet.map((ruleSet) => ({ label: ruleSet.tag, value: ruleSet.id })),
-)
 
 const inferActiveGroups = (rule: IRule) => {
   const groups = new Set<GroupKey>()
@@ -328,48 +324,16 @@ const hasLost = (rule: IRule) => {
   return false
 }
 
-const referenceLabels = (ids: string[], options: { label: string; value: string }[]) =>
-  ids.map((id) => options.find((entry) => entry.value === id)?.label || id).join('|')
-
-const renderRule = (rule: IRule) => {
-  const matches: string[] = []
-  if (rule.inbound.length)
-    matches.push(`inbound=${referenceLabels(rule.inbound, props.inboundOptions)}`)
-  if (rule.ip_version) matches.push(`ip_version=${rule.ip_version}`)
-  if (rule.network.length) matches.push(`network=${rule.network.join('|')}`)
-  if (rule.preferred_by.length) matches.push(`preferred_by=${rule.preferred_by.join('|')}`)
-  if (rule.protocol.length) matches.push(`protocol=${rule.protocol.join('|')}`)
-  if (rule.clash_mode) matches.push(`clash_mode=${rule.clash_mode}`)
-  if (rule.source_ip_cidr.length || rule.source_port.length || rule.source_port_range.length) {
-    matches.push(t('kernel.route.rules.groups.source'))
-  }
-  if (
-    rule.domain.length ||
-    rule.domain_suffix.length ||
-    rule.domain_keyword.length ||
-    rule.domain_regex.length ||
-    rule.ip_cidr.length ||
-    rule.port.length ||
-    rule.port_range.length
-  ) {
-    matches.push(t('kernel.route.rules.groups.destination'))
-  }
-  if (rule.process_name.length || rule.process_path.length || rule.process_path_regex.length) {
-    matches.push(t('kernel.route.rules.groups.process'))
-  }
-  if (rule.rule_set.length)
-    matches.push(`rule_set=${referenceLabels(rule.rule_set, ruleSetOptions.value)}`)
-  if (rule.raw.trim()) matches.push('raw')
-
-  const action: string[] = [rule.action]
-  if (rule.action_options.outbound) {
-    action.push(referenceLabels([rule.action_options.outbound], props.outboundOptions))
-  }
-  if (rule.action_options.server) {
-    action.push(referenceLabels([rule.action_options.server], props.serverOptions))
-  }
-  return `${matches.join(', ') || '*'}${rule.invert ? ' (invert)' : ''} → ${action.join(': ')}`
-}
+const renderRule = (rule: IRule) =>
+  renderRouteRulePreview(rule, {
+    inboundOptions: props.inboundOptions,
+    outboundOptions: props.outboundOptions,
+    serverOptions: props.serverOptions,
+    ruleSetOptions: props.ruleSet.map((ruleSet) => ({
+      label: ruleSet.tag,
+      value: ruleSet.id,
+    })),
+  })
 </script>
 
 <template>
@@ -398,7 +362,7 @@ const renderRule = (rule: IRule) => {
       </div>
       <div v-else class="flex items-start py-2 gap-8">
         <Switch v-model="rule.enable" border="square" size="small" class="shrink-0" />
-        <div class="font-bold flex-1 rule-content">
+        <div v-tips.fast.overflow="renderRule(rule)" class="font-bold flex-1 rule-content">
           <span
             v-if="hasLost(rule)"
             class="cursor-pointer"
@@ -627,6 +591,8 @@ const renderRule = (rule: IRule) => {
 <style lang="less" scoped>
 .rule-content {
   min-width: 0;
-  word-break: break-all;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

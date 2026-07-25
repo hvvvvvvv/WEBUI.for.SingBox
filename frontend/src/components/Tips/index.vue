@@ -54,6 +54,8 @@ watch(
 
 <style lang="less" scoped>
 .gui-tips {
+  max-width: calc(100vw - 16px);
+  overflow-wrap: anywhere;
   background: var(--menu-bg);
 }
 </style>
