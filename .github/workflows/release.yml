@@ -163,18 +163,26 @@ jobs:
       - name: Build & Pack Linux
         run: |
           build_and_pack() {
-            arch=$1
-            export GOOS=linux GOARCH=$arch
+            goarch=$1
+            archive_arch=$2
+            goarm=$3
+            export GOOS=linux GOARCH=$goarch
+            if [ -n "$goarm" ]; then
+              export GOARM=$goarm CGO_ENABLED=0
+            else
+              unset GOARM CGO_ENABLED
+            fi
 
-            echo "==> Building Linux $arch..."
+            echo "==> Building Linux $archive_arch..."
             make backend BINARY_NAME=$APP_NAME
 
             cd build/bin
-            zip $APP_NAME-linux-$arch.zip $APP_NAME
+            zip $APP_NAME-linux-$archive_arch.zip $APP_NAME
             cd ../..
           }
 
-          build_and_pack amd64
+          build_and_pack amd64 amd64 ""
+          build_and_pack arm armv7 7
 
       - uses: actions/upload-artifact@v6
         with:
