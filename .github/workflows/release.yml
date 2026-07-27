@@ -166,15 +166,19 @@ jobs:
             goarch=$1
             archive_arch=$2
             goarm=$3
-            export GOOS=linux GOARCH=$goarch
+            export GOOS=linux GOARCH=$goarch CGO_ENABLED=0
             if [ -n "$goarm" ]; then
-              export GOARM=$goarm CGO_ENABLED=0
+              export GOARM=$goarm
             else
-              unset GOARM CGO_ENABLED
+              unset GOARM
             fi
 
             echo "==> Building Linux $archive_arch..."
             make backend BINARY_NAME=$APP_NAME
+            if ! go version -m build/bin/$APP_NAME | grep -q "CGO_ENABLED=0"; then
+              echo "Linux $archive_arch binary was not built with CGO_ENABLED=0." >&2
+              exit 1
+            fi
 
             cd build/bin
             zip $APP_NAME-linux-$archive_arch.zip $APP_NAME
@@ -182,6 +186,7 @@ jobs:
           }
 
           build_and_pack amd64 amd64 ""
+          build_and_pack arm64 arm64 ""
           build_and_pack arm armv7 7
 
       - uses: actions/upload-artifact@v6

@@ -303,7 +303,15 @@ func (s *Service) publish(eventName string, data ...any) {
 }
 
 func appUpdateAssetName() string {
-	return fmt.Sprintf("%s-%s-%s.zip", appTitle, runtime.GOOS, runtime.GOARCH)
+	return appUpdateAssetNameForPlatform(runtime.GOOS, runtime.GOARCH)
+}
+
+func appUpdateAssetNameForPlatform(goos, goarch string) string {
+	archiveArch := goarch
+	if goos == "linux" && goarch == "arm" {
+		archiveArch = "armv7"
+	}
+	return fmt.Sprintf("%s-%s-%s.zip", appTitle, goos, archiveArch)
 }
 
 func normalizeVersion(version string) string {
