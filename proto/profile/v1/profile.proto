@@ -212,6 +212,8 @@ message TunInboundConfig {
   bool endpoint_independent_nat = 8;
   TunStack stack = 9;
   bool auto_redirect = 10;
+  optional uint32 iproute2_table_index = 11;
+  optional uint32 iproute2_rule_index = 12;
 }
 
 message Inbound {

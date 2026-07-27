@@ -2,7 +2,8 @@
 import { ref, inject, computed, useTemplateRef, type Ref, h } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { isResourceConflict, isResourceNotFound, useProfilesStore } from '@/stores'
+import { Inbound } from '@/enums/kernel'
+import { isResourceConflict, isResourceNotFound, useAppStore, useProfilesStore } from '@/stores'
 import { deepClone, generateConfigViaRpcByProfile, message, alert } from '@/utils'
 
 import Button from '@/components/Button/index.vue'
@@ -42,6 +43,7 @@ const inboundsRef = useTemplateRef('inboundsRef')
 const outboundsRef = useTemplateRef('outboundsRef')
 const routeRef = useTemplateRef('routeRef')
 const dnsRef = useTemplateRef('dnsRef')
+const appStore = useAppStore()
 const profilesStore = useProfilesStore()
 
 const loading = ref(false)
@@ -99,7 +101,48 @@ const handleSubmit = inject('submit') as any
 const handlePrevStep = () => currentStep.value--
 const handleNextStep = () => currentStep.value++
 
+const MaxIPRoute2Index = 0xffffffff
+
+const validateTunInbounds = () => {
+  if (appStore.platformOS !== 'linux') return ''
+
+  const enabledTunInbounds = profile.value.inbounds.filter(
+    (inbound) =>
+      inbound.enable && inbound.type === Inbound.Tun && inbound.tun?.auto_route && inbound.tun,
+  )
+
+  for (const inbound of enabledTunInbounds) {
+    const tableIndex = inbound.tun!.iproute2_table_index
+    if (
+      tableIndex !== undefined &&
+      (!Number.isInteger(tableIndex) || tableIndex < 1 || tableIndex > MaxIPRoute2Index)
+    ) {
+      return 'kernel.inbounds.tun.iproute2_table_index_invalid'
+    }
+
+    const ruleIndex = inbound.tun!.iproute2_rule_index
+    if (
+      ruleIndex !== undefined &&
+      (!Number.isInteger(ruleIndex) || ruleIndex < 0 || ruleIndex > MaxIPRoute2Index)
+    ) {
+      return 'kernel.inbounds.tun.iproute2_rule_index_invalid'
+    }
+  }
+
+  if (enabledTunInbounds.filter((inbound) => inbound.tun!.auto_redirect).length > 1) {
+    return 'kernel.inbounds.tun.auto_redirect_conflict'
+  }
+  return ''
+}
+
 const handleSave = async () => {
+  const validationError = validateTunInbounds()
+  if (validationError) {
+    currentStep.value = Step.Inbounds
+    message.error(validationError)
+    return
+  }
+
   loading.value = true
   try {
     if (props.id) {

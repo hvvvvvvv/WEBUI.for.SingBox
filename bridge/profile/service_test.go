@@ -205,9 +205,11 @@ func (r *recordingProfileChanges) ProfilesChanged(ids []string) {
 	r.changes = append(r.changes, append([]string(nil), ids...))
 }
 
-func TestProfilePersistenceKeepsTunAutoRedirect(t *testing.T) {
+func TestProfilePersistenceKeepsTunRoutingOptions(t *testing.T) {
 	paths := storage.NewPaths(t.TempDir())
 	service := NewService(paths, nil)
+	tableIndex := uint32(2023)
+	ruleIndex := uint32(0)
 	profiles := []*profilev1.Profile{
 		{
 			Id: "profile",
@@ -215,7 +217,17 @@ func TestProfilePersistenceKeepsTunAutoRedirect(t *testing.T) {
 				{
 					Type:   profilev1.InboundType_INBOUND_TYPE_TUN,
 					Enable: true,
-					Tun:    &profilev1.TunInboundConfig{AutoRoute: true, AutoRedirect: true},
+					Tun: &profilev1.TunInboundConfig{
+						AutoRoute:          true,
+						AutoRedirect:       true,
+						Iproute2TableIndex: &tableIndex,
+						Iproute2RuleIndex:  &ruleIndex,
+					},
+				},
+				{
+					Type:   profilev1.InboundType_INBOUND_TYPE_TUN,
+					Enable: false,
+					Tun:    &profilev1.TunInboundConfig{AutoRoute: true},
 				},
 			},
 		},
@@ -230,6 +242,17 @@ func TestProfilePersistenceKeepsTunAutoRedirect(t *testing.T) {
 	}
 	if !loaded[0].GetInbounds()[0].GetTun().GetAutoRedirect() {
 		t.Fatal("TUN auto_redirect was not persisted")
+	}
+	tun := loaded[0].GetInbounds()[0].GetTun()
+	if tun.Iproute2TableIndex == nil || tun.GetIproute2TableIndex() != tableIndex {
+		t.Fatalf("TUN iproute2_table_index was not persisted: %#v", tun.Iproute2TableIndex)
+	}
+	if tun.Iproute2RuleIndex == nil || tun.GetIproute2RuleIndex() != ruleIndex {
+		t.Fatalf("TUN iproute2_rule_index presence was not persisted: %#v", tun.Iproute2RuleIndex)
+	}
+	unsetTun := loaded[0].GetInbounds()[1].GetTun()
+	if unsetTun.Iproute2TableIndex != nil || unsetTun.Iproute2RuleIndex != nil {
+		t.Fatalf("unset TUN iproute2 indexes should remain absent: %#v", unsetTun)
 	}
 }
 

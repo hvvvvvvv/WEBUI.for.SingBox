@@ -118,6 +118,8 @@ export const DefaultInboundTun = (): NonNullable<IInbound['tun']> => ({
   mtu: 0,
   auto_route: true,
   auto_redirect: false,
+  iproute2_table_index: undefined,
+  iproute2_rule_index: undefined,
   strict_route: true,
   route_address: [],
   route_exclude_address: [],

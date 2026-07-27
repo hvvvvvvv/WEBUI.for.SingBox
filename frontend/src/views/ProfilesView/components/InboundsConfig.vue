@@ -18,6 +18,7 @@ const model = defineModel<IProfile['inbounds']>({ required: true })
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const MaxIPRoute2Index = 0xffffffff
 
 const handleDelete = (index: number) => {
   model.value.splice(index, 1)
@@ -122,9 +123,7 @@ defineExpose({ handleAdd })
       </div>
       <div
         v-if="
-          inbound.type !== Inbound.Tun &&
-          inbound.type !== Inbound.Direct &&
-          inbound[inbound.type]
+          inbound.type !== Inbound.Tun && inbound.type !== Inbound.Direct && inbound[inbound.type]
         "
       >
         <div class="form-item">
@@ -191,10 +190,34 @@ defineExpose({ handleAdd })
           {{ t('kernel.inbounds.tun.auto_route') }}
           <Switch v-model="inbound.tun.auto_route" />
         </div>
-        <div v-if="appStore.platformOS === 'linux' && inbound.tun.auto_route" class="form-item">
-          {{ t('kernel.inbounds.tun.auto_redirect') }}
-          <Switch v-model="inbound.tun.auto_redirect" />
-        </div>
+        <template v-if="appStore.platformOS === 'linux' && inbound.tun.auto_route">
+          <div class="form-item">
+            {{ t('kernel.inbounds.tun.iproute2_table_index') }}
+            <Input
+              v-model="inbound.tun.iproute2_table_index"
+              type="number"
+              :min="1"
+              :max="MaxIPRoute2Index"
+              placeholder="2022"
+              allow-empty
+            />
+          </div>
+          <div class="form-item">
+            {{ t('kernel.inbounds.tun.iproute2_rule_index') }}
+            <Input
+              v-model="inbound.tun.iproute2_rule_index"
+              type="number"
+              :min="0"
+              :max="MaxIPRoute2Index"
+              placeholder="9000"
+              allow-empty
+            />
+          </div>
+          <div class="form-item">
+            {{ t('kernel.inbounds.tun.auto_redirect') }}
+            <Switch v-model="inbound.tun.auto_redirect" />
+          </div>
+        </template>
         <div class="form-item">
           {{ t('kernel.inbounds.tun.strict_route') }}
           <Switch v-model="inbound.tun.strict_route" />

@@ -14,6 +14,7 @@ export interface Props {
   size?: 'default' | 'small'
   editable?: boolean
   clearable?: boolean
+  allowEmpty?: boolean
   allowPaste?: boolean
   autofocus?: boolean
   min?: number
@@ -36,6 +37,7 @@ const props = withDefaults(defineProps<Props>(), {
   min: undefined,
   max: undefined,
   clearable: false,
+  allowEmpty: false,
   disabled: false,
   border: true,
   delay: 0,
@@ -52,8 +54,9 @@ const innerAllowPaste = computed(() => props.allowPaste && props.type !== 'code'
 
 const { t } = useI18n.global
 
-const validate = (val: string | number) => {
+const validate = (val: string | number): string | number | undefined => {
   if (props.type === 'number') {
+    if (props.allowEmpty && val === '') return undefined
     val = Number(val)
     if (Number.isNaN(val)) {
       throw new Error('Please enter a valid number')
@@ -71,13 +74,14 @@ const validate = (val: string | number) => {
 
 const onInput = debounce((e: any) => {
   const val = validate(e.target.value)
-  e.target.value = val
+  e.target.value = val ?? ''
   emits('update:modelValue', val)
   emits('change', val)
 }, props.delay)
 
 const handleClear = () => {
-  const val = props.type === 'number' ? Math.min(props.min || 0, 0) : ''
+  const val =
+    props.type === 'number' ? (props.allowEmpty ? undefined : Math.min(props.min || 0, 0)) : ''
   emits('update:modelValue', val)
   emits('change', val)
   !props.editable && nextTick(() => inputRef.value?.focus())
@@ -99,7 +103,7 @@ const showInput = () => {
 const onSubmit = debounce(
   (e: any) => {
     const val = validate(e.target.value)
-    e.target.value = val
+    e.target.value = val ?? ''
     emits('submit', val)
     props.editable && (showEdit.value = false)
   },

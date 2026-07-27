@@ -322,6 +322,12 @@ func generateInbounds(inbounds []*configv1.Inbound, platformOS string) []any {
 			"stack":                    tunStackString(tun.GetStack()),
 		}
 		if platformOS == "linux" && tun.GetAutoRoute() {
+			if tun.Iproute2TableIndex != nil {
+				item["iproute2_table_index"] = tun.GetIproute2TableIndex()
+			}
+			if tun.Iproute2RuleIndex != nil {
+				item["iproute2_rule_index"] = tun.GetIproute2RuleIndex()
+			}
 			item["auto_redirect"] = tun.GetAutoRedirect()
 		}
 		if len(tun.GetRouteAddress()) > 0 {

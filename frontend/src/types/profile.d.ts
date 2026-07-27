@@ -78,6 +78,8 @@ interface IInbound {
     mtu: number
     auto_route: boolean
     auto_redirect: boolean
+    iproute2_table_index?: number
+    iproute2_rule_index?: number
     strict_route: boolean
     route_address: string[]
     route_exclude_address: string[]

@@ -1042,6 +1042,83 @@ func TestGenerateTunAutoRedirectByPlatformAndAutoRoute(t *testing.T) {
 	}
 }
 
+func TestGenerateTunIPRoute2IndexesByPlatformAndAutoRoute(t *testing.T) {
+	minTableIndex := uint32(1)
+	zeroRuleIndex := uint32(0)
+	maxTableIndex := uint32(4294967295)
+	maxRuleIndex := uint32(4294967295)
+
+	tests := []struct {
+		name        string
+		platformOS  string
+		autoRoute   bool
+		tableIndex  *uint32
+		ruleIndex   *uint32
+		wantIndexes bool
+	}{
+		{
+			name:        "linux minimums including zero rule index",
+			platformOS:  "linux",
+			autoRoute:   true,
+			tableIndex:  &minTableIndex,
+			ruleIndex:   &zeroRuleIndex,
+			wantIndexes: true,
+		},
+		{
+			name:        "linux maximums",
+			platformOS:  "linux",
+			autoRoute:   true,
+			tableIndex:  &maxTableIndex,
+			ruleIndex:   &maxRuleIndex,
+			wantIndexes: true,
+		},
+		{name: "linux unset", platformOS: "linux", autoRoute: true},
+		{
+			name:       "linux auto route disabled",
+			platformOS: "linux",
+			autoRoute:  false,
+			tableIndex: &minTableIndex,
+			ruleIndex:  &zeroRuleIndex,
+		},
+		{
+			name:       "windows",
+			platformOS: "windows",
+			autoRoute:  true,
+			tableIndex: &minTableIndex,
+			ruleIndex:  &zeroRuleIndex,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			generated := generateInbounds([]*profilev1.Inbound{
+				{
+					Type:   profilev1.InboundType_INBOUND_TYPE_TUN,
+					Tag:    "tun-in",
+					Enable: true,
+					Tun: &profilev1.TunInboundConfig{
+						AutoRoute:          tt.autoRoute,
+						Iproute2TableIndex: tt.tableIndex,
+						Iproute2RuleIndex:  tt.ruleIndex,
+					},
+				},
+			}, tt.platformOS)
+			item := generated[0].(map[string]any)
+
+			tableIndex, hasTableIndex := item["iproute2_table_index"]
+			ruleIndex, hasRuleIndex := item["iproute2_rule_index"]
+			if hasTableIndex != tt.wantIndexes || hasRuleIndex != tt.wantIndexes {
+				t.Fatalf("index presence = table:%v rule:%v, want %v: %#v", hasTableIndex, hasRuleIndex, tt.wantIndexes, item)
+			}
+			if tt.wantIndexes {
+				if tableIndex != *tt.tableIndex || ruleIndex != *tt.ruleIndex {
+					t.Fatalf("indexes = table:%#v rule:%#v, want table:%d rule:%d", tableIndex, ruleIndex, *tt.tableIndex, *tt.ruleIndex)
+				}
+			}
+		})
+	}
+}
+
 func TestGenerateBridgeOutbound(t *testing.T) {
 	generator := &configGenerator{}
 	generated, err := generator.generateOutbounds([]*profilev1.Outbound{

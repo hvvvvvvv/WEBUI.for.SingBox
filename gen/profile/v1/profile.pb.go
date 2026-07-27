@@ -1431,6 +1431,8 @@ type TunInboundConfig struct {
 	EndpointIndependentNat bool                   `protobuf:"varint,8,opt,name=endpoint_independent_nat,json=endpointIndependentNat,proto3" json:"endpoint_independent_nat,omitempty"`
 	Stack                  TunStack               `protobuf:"varint,9,opt,name=stack,proto3,enum=profile.v1.TunStack" json:"stack,omitempty"`
 	AutoRedirect           bool                   `protobuf:"varint,10,opt,name=auto_redirect,json=autoRedirect,proto3" json:"auto_redirect,omitempty"`
+	Iproute2TableIndex     *uint32                `protobuf:"varint,11,opt,name=iproute2_table_index,json=iproute2TableIndex,proto3,oneof" json:"iproute2_table_index,omitempty"`
+	Iproute2RuleIndex      *uint32                `protobuf:"varint,12,opt,name=iproute2_rule_index,json=iproute2RuleIndex,proto3,oneof" json:"iproute2_rule_index,omitempty"`
 	unknownFields          protoimpl.UnknownFields
 	sizeCache              protoimpl.SizeCache
 }
@@ -1533,6 +1535,20 @@ func (x *TunInboundConfig) GetAutoRedirect() bool {
 		return x.AutoRedirect
 	}
 	return false
+}
+
+func (x *TunInboundConfig) GetIproute2TableIndex() uint32 {
+	if x != nil && x.Iproute2TableIndex != nil {
+		return *x.Iproute2TableIndex
+	}
+	return 0
+}
+
+func (x *TunInboundConfig) GetIproute2RuleIndex() uint32 {
+	if x != nil && x.Iproute2RuleIndex != nil {
+		return *x.Iproute2RuleIndex
+	}
+	return 0
 }
 
 type Inbound struct {
@@ -3379,7 +3395,7 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\x05users\x18\x02 \x03(\tR\x05users\"~\n" +
 	"\x13DirectInboundConfig\x121\n" +
 	"\x06listen\x18\x01 \x01(\v2\x19.profile.v1.InboundListenR\x06listen\x124\n" +
-	"\anetwork\x18\x02 \x01(\x0e2\x1a.profile.v1.InboundNetworkR\anetwork\"\x8b\x03\n" +
+	"\anetwork\x18\x02 \x01(\x0e2\x1a.profile.v1.InboundNetworkR\anetwork\"\xa8\x04\n" +
 	"\x10TunInboundConfig\x12%\n" +
 	"\x0einterface_name\x18\x01 \x01(\tR\rinterfaceName\x12\x18\n" +
 	"\aaddress\x18\x02 \x03(\tR\aaddress\x12\x10\n" +
@@ -3392,7 +3408,11 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\x18endpoint_independent_nat\x18\b \x01(\bR\x16endpointIndependentNat\x12*\n" +
 	"\x05stack\x18\t \x01(\x0e2\x14.profile.v1.TunStackR\x05stack\x12#\n" +
 	"\rauto_redirect\x18\n" +
-	" \x01(\bR\fautoRedirect\"\xf6\x02\n" +
+	" \x01(\bR\fautoRedirect\x125\n" +
+	"\x14iproute2_table_index\x18\v \x01(\rH\x00R\x12iproute2TableIndex\x88\x01\x01\x123\n" +
+	"\x13iproute2_rule_index\x18\f \x01(\rH\x01R\x11iproute2RuleIndex\x88\x01\x01B\x17\n" +
+	"\x15_iproute2_table_indexB\x16\n" +
+	"\x14_iproute2_rule_index\"\xf6\x02\n" +
 	"\aInbound\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12+\n" +
 	"\x04type\x18\x02 \x01(\x0e2\x17.profile.v1.InboundTypeR\x04type\x12\x10\n" +
@@ -3826,6 +3846,7 @@ func file_profile_v1_profile_proto_init() {
 	if File_profile_v1_profile_proto != nil {
 		return
 	}
+	file_profile_v1_profile_proto_msgTypes[8].OneofWrappers = []any{}
 	file_profile_v1_profile_proto_msgTypes[11].OneofWrappers = []any{}
 	file_profile_v1_profile_proto_msgTypes[16].OneofWrappers = []any{}
 	type x struct{}

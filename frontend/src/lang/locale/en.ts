@@ -105,7 +105,14 @@ export default {
         address: 'IPv4 & IPv6 Prefix',
         mtu: 'MTU',
         auto_route: 'Auto Route',
+        iproute2_table_index: 'iproute2 Table Index',
+        iproute2_rule_index: 'iproute2 Rule Start Index',
         auto_redirect: 'Auto Redirect',
+        iproute2_table_index_invalid:
+          'The iproute2 table index must be an integer between 1 and 4294967295',
+        iproute2_rule_index_invalid:
+          'The iproute2 rule start index must be an integer between 0 and 4294967295',
+        auto_redirect_conflict: 'Only one enabled TUN inbound can enable Auto Redirect',
         strict_route: 'Strict Route',
         route_address: 'Route Address',
         route_exclude_address: 'Route Exclude Address',

@@ -146,6 +146,8 @@ const restoreInbounds = (inbounds: Recordable[], InboundsIds: Recordable): IInbo
         mtu: raw.mtu ?? template.mtu,
         auto_route: raw.auto_route ?? template.auto_route,
         auto_redirect: raw.auto_redirect ?? template.auto_redirect,
+        iproute2_table_index: raw.iproute2_table_index ?? template.iproute2_table_index,
+        iproute2_rule_index: raw.iproute2_rule_index ?? template.iproute2_rule_index,
         strict_route: raw.strict_route ?? template.strict_route,
         route_address: raw.route_address ?? template.route_address,
         route_exclude_address: raw.route_exclude_address ?? template.route_exclude_address,
