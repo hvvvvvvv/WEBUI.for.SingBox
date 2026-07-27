@@ -41,11 +41,12 @@ func TestGenerateDNSRawOverridesStructuredFields(t *testing.T) {
 	generator := &configGenerator{}
 	dns, err := generator.generateDNS(&profilev1.Dns{Rules: []*profilev1.DnsRule{
 		{
-			Enable:    true,
-			Raw:       `{"action":"reject","invert":false,"query_type":["HTTPS"],"disable_cache":false,"nested":{"winner":"inline"}}`,
-			Invert:    true,
-			Action:    profilev1.DnsRuleAction_DNS_RULE_ACTION_ROUTE_OPTIONS,
-			QueryType: []string{"A", "AAAA"},
+			Enable:       true,
+			Raw:          `{"action":"reject","invert":false,"query_type":["HTTPS"],"source_ip_cidr":["203.0.113.0/24"],"disable_cache":false,"nested":{"winner":"inline"}}`,
+			Invert:       true,
+			Action:       profilev1.DnsRuleAction_DNS_RULE_ACTION_ROUTE_OPTIONS,
+			QueryType:    []string{"A", "AAAA"},
+			SourceIpCidr: []string{"10.0.0.0/8"},
 			ActionOptions: &profilev1.DnsActionOptions{
 				DisableCache: true,
 				ClientSubnet: "198.51.100.0/24",
@@ -60,6 +61,9 @@ func TestGenerateDNSRawOverridesStructuredFields(t *testing.T) {
 	if got := rule["query_type"]; !reflect.DeepEqual(got, []any{"HTTPS"}) {
 		t.Fatalf("inline query_type should win, got %#v", got)
 	}
+	if got := rule["source_ip_cidr"]; !reflect.DeepEqual(got, []any{"203.0.113.0/24"}) {
+		t.Fatalf("inline source_ip_cidr should win, got %#v", got)
+	}
 	if rule["action"] != "reject" || rule["disable_cache"] != false {
 		t.Fatalf("raw action fields should win, got %#v", rule)
 	}
@@ -72,6 +76,49 @@ func TestGenerateDNSRawOverridesStructuredFields(t *testing.T) {
 	}
 	if rule["invert"] != false {
 		t.Fatalf("inline invert should win, got %#v", rule)
+	}
+}
+
+func TestGenerateDNSEmptySourceMatchesAreOmitted(t *testing.T) {
+	generator := &configGenerator{}
+	dns, err := generator.generateDNS(&profilev1.Dns{Rules: []*profilev1.DnsRule{{
+		Enable: true,
+		Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_RESPOND,
+	}}}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("generate DNS: %v", err)
+	}
+
+	rule := dns["rules"].([]any)[0].(map[string]any)
+	for _, key := range []string{
+		"source_ip_cidr",
+		"source_ip_is_private",
+		"source_port",
+		"source_port_range",
+	} {
+		if _, exists := rule[key]; exists {
+			t.Fatalf("empty %s should be omitted: %#v", key, rule)
+		}
+	}
+}
+
+func TestGenerateDNSSourceMatchesDoNotRequireResponseMatching(t *testing.T) {
+	generator := &configGenerator{}
+	dns, err := generator.generateDNS(&profilev1.Dns{Rules: []*profilev1.DnsRule{{
+		Enable:            true,
+		Action:            profilev1.DnsRuleAction_DNS_RULE_ACTION_RESPOND,
+		SourceIpCidr:      []string{"10.0.0.0/8"},
+		SourceIpIsPrivate: true,
+		SourcePort:        []uint32{53},
+		SourcePortRange:   []string{"1000:2000"},
+	}}}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("source matches should not require match_response: %v", err)
+	}
+
+	rule := dns["rules"].([]any)[0].(map[string]any)
+	if _, exists := rule["match_response"]; exists {
+		t.Fatalf("source matches should not enable match_response: %#v", rule)
 	}
 }
 
@@ -136,6 +183,10 @@ func TestGenerateDNSStructuredMatches(t *testing.T) {
 		DomainSuffix:             []string{".example.org"},
 		DomainKeyword:            []string{"keyword"},
 		DomainRegex:              []string{"^regex"},
+		SourceIpCidr:             []string{"10.0.0.0/8"},
+		SourceIpIsPrivate:        true,
+		SourcePort:               []uint32{0, 53},
+		SourcePortRange:          []string{"1000:2000"},
 		RuleSet:                  []string{"rs-1"},
 		RuleSetIpCidrMatchSource: true,
 		MatchResponse:            true,
@@ -170,6 +221,10 @@ func TestGenerateDNSStructuredMatches(t *testing.T) {
 		"protocol":                      []any{"dns"},
 		"preferred_by":                  []any{"local", "resolved"},
 		"domain":                        []any{"example.com"},
+		"source_ip_cidr":                []any{"10.0.0.0/8"},
+		"source_ip_is_private":          true,
+		"source_port":                   []any{uint32(0), uint32(53)},
+		"source_port_range":             []any{"1000:2000"},
 		"rule_set":                      []any{"ruleset-tag"},
 		"rule_set_ip_cidr_match_source": true,
 		"match_response":                true,
@@ -254,6 +309,7 @@ func TestGenerateDNSMatchValidation(t *testing.T) {
 	}{
 		{name: "IP version", rule: &profilev1.DnsRule{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_RESPOND, IpVersion: 5}, want: "ip_version"},
 		{name: "numeric query type", rule: &profilev1.DnsRule{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_RESPOND, QueryType: []string{"65536"}}, want: "query_type[0]"},
+		{name: "source port", rule: &profilev1.DnsRule{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_RESPOND, SourcePort: []uint32{65536}}, want: "source_port[0]"},
 		{name: "response dependency", rule: &profilev1.DnsRule{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_RESPOND, IpCidr: []string{"192.0.2.0/24"}}, want: "match_response"},
 		{name: "inline raw required", rule: &profilev1.DnsRule{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_INLINE}, want: ".raw is required"},
 		{name: "inline action required", rule: &profilev1.DnsRule{Enable: true, Action: profilev1.DnsRuleAction_DNS_RULE_ACTION_INLINE, Raw: `{}`}, want: ".raw.action is required"},

@@ -385,6 +385,10 @@ message DnsRule {
   repeated string process_path_regex = 34;
   DnsActionOptions action_options = 35;
   string raw = 36;
+  repeated string source_ip_cidr = 37;
+  bool source_ip_is_private = 38;
+  repeated uint32 source_port = 39;
+  repeated string source_port_range = 40;
 }
 
 message Dns {

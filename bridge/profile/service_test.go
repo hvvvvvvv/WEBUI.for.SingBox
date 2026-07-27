@@ -138,13 +138,17 @@ func TestStructuredDNSRuleYAMLRoundTrip(t *testing.T) {
 	profiles := []*profilev1.Profile{{
 		Id: "profile",
 		Dns: &profilev1.Dns{Rules: []*profilev1.DnsRule{{
-			Id:            "rule",
-			Enable:        true,
-			Action:        profilev1.DnsRuleAction_DNS_RULE_ACTION_EVALUATE,
-			Inbound:       []string{"inbound-id"},
-			QueryType:     []string{"A", "65"},
-			PreferredBy:   []string{"local", "resolved"},
-			MatchResponse: true,
+			Id:                "rule",
+			Enable:            true,
+			Action:            profilev1.DnsRuleAction_DNS_RULE_ACTION_EVALUATE,
+			Inbound:           []string{"inbound-id"},
+			QueryType:         []string{"A", "65"},
+			PreferredBy:       []string{"local", "resolved"},
+			SourceIpCidr:      []string{"10.0.0.0/8"},
+			SourceIpIsPrivate: true,
+			SourcePort:        []uint32{0, 53},
+			SourcePortRange:   []string{"1000:2000"},
+			MatchResponse:     true,
 			ResponseAnswer: []string{
 				"example.com. 60 IN A 192.0.2.1",
 			},
@@ -172,6 +176,18 @@ func TestStructuredDNSRuleYAMLRoundTrip(t *testing.T) {
 	}
 	if !reflect.DeepEqual(rule.GetQueryType(), []string{"A", "65"}) {
 		t.Fatalf("query_type = %#v", rule.GetQueryType())
+	}
+	if !reflect.DeepEqual(rule.GetSourceIpCidr(), []string{"10.0.0.0/8"}) {
+		t.Fatalf("source_ip_cidr = %#v", rule.GetSourceIpCidr())
+	}
+	if !rule.GetSourceIpIsPrivate() {
+		t.Fatal("source_ip_is_private was lost")
+	}
+	if !reflect.DeepEqual(rule.GetSourcePort(), []uint32{0, 53}) {
+		t.Fatalf("source_port = %#v", rule.GetSourcePort())
+	}
+	if !reflect.DeepEqual(rule.GetSourcePortRange(), []string{"1000:2000"}) {
+		t.Fatalf("source_port_range = %#v", rule.GetSourcePortRange())
 	}
 	if rule.GetActionOptions().RewriteTtl == nil || rule.GetActionOptions().GetRewriteTtl() != 0 {
 		t.Fatalf("rewrite_ttl presence was lost: %#v", rule.GetActionOptions())

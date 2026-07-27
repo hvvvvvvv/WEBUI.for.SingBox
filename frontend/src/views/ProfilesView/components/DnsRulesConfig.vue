@@ -27,6 +27,7 @@ import ResponseMatchGroup from './DnsRuleEditors/ResponseMatchGroup.vue'
 import RouteActionEditor from './DnsRuleEditors/RouteActionEditor.vue'
 import RouteOptionsActionEditor from './DnsRuleEditors/RouteOptionsActionEditor.vue'
 import RuleSetMatchGroup from './DnsRuleEditors/RuleSetMatchGroup.vue'
+import SourceMatchGroup from './DnsRuleEditors/SourceMatchGroup.vue'
 
 interface Props {
   inboundOptions: { label: string; value: string; disabled?: boolean }[]
@@ -34,7 +35,7 @@ interface Props {
   ruleSet: IRuleSet[]
 }
 
-type GroupKey = 'domain' | 'rule_set' | 'response' | 'process' | 'inline'
+type GroupKey = 'source' | 'domain' | 'rule_set' | 'response' | 'process' | 'inline'
 
 const DefaultInlineRaw = '{\n  \n}'
 const props = defineProps<Props>()
@@ -47,8 +48,9 @@ const { t } = useI18n()
 const [showEditModal] = useBool(false)
 
 const groupOptions: { key: GroupKey; label: string }[] = [
-  { key: 'domain', label: 'kernel.dns.rules.groups.domain' },
   { key: 'rule_set', label: 'kernel.dns.rules.groups.rule_set' },
+  { key: 'domain', label: 'kernel.dns.rules.groups.domain' },
+  { key: 'source', label: 'kernel.dns.rules.groups.source' },
   { key: 'response', label: 'kernel.dns.rules.groups.response' },
   { key: 'process', label: 'kernel.dns.rules.groups.process' },
   { key: 'inline', label: 'kernel.dns.rules.groups.inline' },
@@ -126,6 +128,13 @@ const hasResponseDependencies = (rule: IDNSRule) =>
 const inferActiveGroups = (rule: IDNSRule) => {
   const groups = new Set<GroupKey>()
   if (
+    rule.source_ip_cidr.length ||
+    rule.source_ip_is_private ||
+    rule.source_port.length ||
+    rule.source_port_range.length
+  )
+    groups.add('source')
+  if (
     rule.domain.length ||
     rule.domain_suffix.length ||
     rule.domain_keyword.length ||
@@ -184,6 +193,11 @@ const validateRule = () => {
   ) {
     return 'kernel.dns.rules.queryTypeInvalid'
   }
+  if (
+    fields.value.source_port.some((port) => !Number.isInteger(port) || port < 0 || port > 65535)
+  ) {
+    return 'kernel.dns.rules.portInvalid'
+  }
   return ''
 }
 
@@ -238,7 +252,12 @@ const removeGroup = (key: GroupKey) => {
   const next = new Set(activeGroups.value)
   next.delete(key)
   activeGroups.value = next
-  if (key === 'domain') {
+  if (key === 'source') {
+    fields.value.source_ip_cidr = []
+    fields.value.source_ip_is_private = false
+    fields.value.source_port = []
+    fields.value.source_port_range = []
+  } else if (key === 'domain') {
     fields.value.domain = []
     fields.value.domain_suffix = []
     fields.value.domain_keyword = []
@@ -402,21 +421,12 @@ const renderRule = (rule: IDNSRule) =>
 
       <template #match>
         <div class="form-item">
-          {{ t('kernel.rules.type.inbound') }}
-          <Select v-model="fields.inbound" :options="inboundOptions" multiple clearable />
-        </div>
-        <div class="form-item">
           {{ t('kernel.rules.type.clash_mode') }}
           <OptionGroup v-model="fields.clash_mode" :options="ModeOptions" clearable />
         </div>
         <div class="form-item">
-          {{ t('kernel.route.rules.fields.ip_version') }}
-          <OptionGroup
-            v-model="fields.ip_version"
-            :options="RouteRuleIPVersionOptions"
-            :empty-value="0"
-            clearable
-          />
+          {{ t('kernel.rules.type.inbound') }}
+          <Select v-model="fields.inbound" :options="inboundOptions" multiple clearable />
         </div>
         <div class="form-item">
           {{ t('kernel.dns.rules.fields.query_type') }}
@@ -427,6 +437,15 @@ const renderRule = (rule: IDNSRule) =>
             clearable
             searchable
             allow-create
+          />
+        </div>
+        <div class="form-item">
+          {{ t('kernel.route.rules.fields.ip_version') }}
+          <OptionGroup
+            v-model="fields.ip_version"
+            :options="RouteRuleIPVersionOptions"
+            :empty-value="0"
+            clearable
           />
         </div>
         <div class="form-item">
@@ -463,6 +482,21 @@ const renderRule = (rule: IDNSRule) =>
         />
 
         <Card
+          v-if="activeGroups.has('rule_set')"
+          :title="t('kernel.dns.rules.groups.rule_set')"
+          class="mb-8"
+        >
+          <template #extra
+            ><Button
+              icon="close"
+              :icon-size="16"
+              type="text"
+              size="small"
+              @click="removeGroup('rule_set')"
+          /></template>
+          <RuleSetMatchGroup v-model="fields" :rule-sets="ruleSet" />
+        </Card>
+        <Card
           v-if="activeGroups.has('domain')"
           :title="t('kernel.dns.rules.groups.domain')"
           class="mb-8"
@@ -478,8 +512,8 @@ const renderRule = (rule: IDNSRule) =>
           <DomainMatchGroup v-model="fields" />
         </Card>
         <Card
-          v-if="activeGroups.has('rule_set')"
-          :title="t('kernel.dns.rules.groups.rule_set')"
+          v-if="activeGroups.has('source')"
+          :title="t('kernel.dns.rules.groups.source')"
           class="mb-8"
         >
           <template #extra
@@ -488,9 +522,9 @@ const renderRule = (rule: IDNSRule) =>
               :icon-size="16"
               type="text"
               size="small"
-              @click="removeGroup('rule_set')"
+              @click="removeGroup('source')"
           /></template>
-          <RuleSetMatchGroup v-model="fields" :rule-sets="ruleSet" />
+          <SourceMatchGroup v-model="fields" />
         </Card>
         <Card
           v-if="activeGroups.has('response')"

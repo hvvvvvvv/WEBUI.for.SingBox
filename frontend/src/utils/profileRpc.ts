@@ -460,6 +460,8 @@ const normalizeDns = (dns: any, fallback: IDNS): IDNS => {
 const normalizeDnsRule = (item: any): IDNSRule => {
   const fallback = Defaults.DefaultDnsRule()
   const strings = (value: any) => (Array.isArray(value) ? value.map(String) : [])
+  const numbers = (value: any) =>
+    Array.isArray(value) ? value.map(Number).filter((entry) => Number.isFinite(entry)) : []
   const rawOptions = item?.action_options || item?.actionoptions || {}
   const actionOptions: IDNSActionOptions = {
     ...Defaults.DefaultDnsActionOptions(),
@@ -489,6 +491,10 @@ const normalizeDnsRule = (item: any): IDNSRule => {
     domain_suffix: strings(item?.domain_suffix),
     domain_keyword: strings(item?.domain_keyword),
     domain_regex: strings(item?.domain_regex),
+    source_ip_cidr: strings(item?.source_ip_cidr),
+    source_ip_is_private: item?.source_ip_is_private ?? false,
+    source_port: numbers(item?.source_port),
+    source_port_range: strings(item?.source_port_range),
     rule_set: strings(item?.rule_set),
     rule_set_ip_cidr_match_source: item?.rule_set_ip_cidr_match_source ?? false,
     match_response: item?.match_response ?? false,

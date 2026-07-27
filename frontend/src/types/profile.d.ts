@@ -287,6 +287,10 @@ interface IDNSRule {
   domain_suffix: string[]
   domain_keyword: string[]
   domain_regex: string[]
+  source_ip_cidr: string[]
+  source_ip_is_private: boolean
+  source_port: number[]
+  source_port_range: string[]
   rule_set: string[]
   rule_set_ip_cidr_match_source: boolean
   match_response: boolean

@@ -2735,6 +2735,10 @@ type DnsRule struct {
 	ProcessPathRegex         []string               `protobuf:"bytes,34,rep,name=process_path_regex,json=processPathRegex,proto3" json:"process_path_regex,omitempty"`
 	ActionOptions            *DnsActionOptions      `protobuf:"bytes,35,opt,name=action_options,json=actionOptions,proto3" json:"action_options,omitempty"`
 	Raw                      string                 `protobuf:"bytes,36,opt,name=raw,proto3" json:"raw,omitempty"`
+	SourceIpCidr             []string               `protobuf:"bytes,37,rep,name=source_ip_cidr,json=sourceIpCidr,proto3" json:"source_ip_cidr,omitempty"`
+	SourceIpIsPrivate        bool                   `protobuf:"varint,38,opt,name=source_ip_is_private,json=sourceIpIsPrivate,proto3" json:"source_ip_is_private,omitempty"`
+	SourcePort               []uint32               `protobuf:"varint,39,rep,packed,name=source_port,json=sourcePort,proto3" json:"source_port,omitempty"`
+	SourcePortRange          []string               `protobuf:"bytes,40,rep,name=source_port_range,json=sourcePortRange,proto3" json:"source_port_range,omitempty"`
 	unknownFields            protoimpl.UnknownFields
 	sizeCache                protoimpl.SizeCache
 }
@@ -2977,6 +2981,34 @@ func (x *DnsRule) GetRaw() string {
 		return x.Raw
 	}
 	return ""
+}
+
+func (x *DnsRule) GetSourceIpCidr() []string {
+	if x != nil {
+		return x.SourceIpCidr
+	}
+	return nil
+}
+
+func (x *DnsRule) GetSourceIpIsPrivate() bool {
+	if x != nil {
+		return x.SourceIpIsPrivate
+	}
+	return false
+}
+
+func (x *DnsRule) GetSourcePort() []uint32 {
+	if x != nil {
+		return x.SourcePort
+	}
+	return nil
+}
+
+func (x *DnsRule) GetSourcePortRange() []string {
+	if x != nil {
+		return x.SourcePortRange
+	}
+	return nil
 }
 
 type Dns struct {
@@ -3502,7 +3534,8 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	" \x03(\tR\x06answer\x12\x0e\n" +
 	"\x02ns\x18\v \x03(\tR\x02ns\x12\x14\n" +
 	"\x05extra\x18\f \x03(\tR\x05extraB\x0e\n" +
-	"\f_rewrite_ttl\"\xeb\b\n" +
+	"\f_rewrite_ttl\"\x8f\n" +
+	"\n" +
 	"\aDnsRule\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
 	"\x06enable\x18\x03 \x01(\bR\x06enable\x121\n" +
@@ -3537,7 +3570,12 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\fprocess_path\x18! \x03(\tR\vprocessPath\x12,\n" +
 	"\x12process_path_regex\x18\" \x03(\tR\x10processPathRegex\x12C\n" +
 	"\x0eaction_options\x18# \x01(\v2\x1c.profile.v1.DnsActionOptionsR\ractionOptions\x12\x10\n" +
-	"\x03raw\x18$ \x01(\tR\x03rawJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05J\x04\b\a\x10\vR\x04typeR\apayloadR\x06serverR\bstrategyR\rdisable_cacheR\rclient_subnet\"\xc7\x02\n" +
+	"\x03raw\x18$ \x01(\tR\x03raw\x12$\n" +
+	"\x0esource_ip_cidr\x18% \x03(\tR\fsourceIpCidr\x12/\n" +
+	"\x14source_ip_is_private\x18& \x01(\bR\x11sourceIpIsPrivate\x12\x1f\n" +
+	"\vsource_port\x18' \x03(\rR\n" +
+	"sourcePort\x12*\n" +
+	"\x11source_port_range\x18( \x03(\tR\x0fsourcePortRangeJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05J\x04\b\a\x10\vR\x04typeR\apayloadR\x06serverR\bstrategyR\rdisable_cacheR\rclient_subnet\"\xc7\x02\n" +
 	"\x03Dns\x12/\n" +
 	"\aservers\x18\x01 \x03(\v2\x15.profile.v1.DnsServerR\aservers\x12)\n" +
 	"\x05rules\x18\x02 \x03(\v2\x13.profile.v1.DnsRuleR\x05rules\x12#\n" +

@@ -382,6 +382,7 @@ export default {
           inline: '通过原始 JSON（raw）提供最终动作。',
         },
         groups: {
+          source: '源地址匹配',
           domain: '查询域名',
           rule_set: '规则集',
           response: 'DNS 响应匹配',
@@ -415,6 +416,7 @@ export default {
         serverRequired: '路由（route）与评估响应（evaluate）动作必须选择 DNS 服务器（server）',
         matchResponseRequired: '填写响应匹配字段时必须启用匹配已评估响应（match_response）',
         queryTypeInvalid: '数字查询类型必须在 0 到 65535 之间',
+        portInvalid: '源端口必须是 0 到 65535 之间的整数',
         invalid: 'DNS 规则参数无效',
       },
     },

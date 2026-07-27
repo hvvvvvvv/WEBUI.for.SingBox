@@ -646,14 +646,14 @@ func generateRouteRuleMatchFields(
 		item["ip_is_private"] = true
 	}
 	if len(rule.GetSourcePort()) > 0 {
-		ports, err := routePortsToAnySlice(rule.GetSourcePort(), path+".source_port")
+		ports, err := rulePortsToAnySlice(rule.GetSourcePort(), path+".source_port")
 		if err != nil {
 			return nil, err
 		}
 		item["source_port"] = ports
 	}
 	if len(rule.GetPort()) > 0 {
-		ports, err := routePortsToAnySlice(rule.GetPort(), path+".port")
+		ports, err := rulePortsToAnySlice(rule.GetPort(), path+".port")
 		if err != nil {
 			return nil, err
 		}
@@ -677,7 +677,7 @@ func generateRouteRuleMatchFields(
 	return item, nil
 }
 
-func routePortsToAnySlice(values []uint32, path string) ([]any, error) {
+func rulePortsToAnySlice(values []uint32, path string) ([]any, error) {
 	result := make([]any, 0, len(values))
 	for index, value := range values {
 		if value > 65535 {
@@ -1064,6 +1064,8 @@ func generateDNSRuleMatchFields(
 	assignStrings("domain_suffix", rule.GetDomainSuffix())
 	assignStrings("domain_keyword", rule.GetDomainKeyword())
 	assignStrings("domain_regex", rule.GetDomainRegex())
+	assignStrings("source_ip_cidr", rule.GetSourceIpCidr())
+	assignStrings("source_port_range", rule.GetSourcePortRange())
 	assignStrings("ip_cidr", rule.GetIpCidr())
 	assignStrings("response_answer", rule.GetResponseAnswer())
 	assignStrings("response_ns", rule.GetResponseNs())
@@ -1072,6 +1074,16 @@ func generateDNSRuleMatchFields(
 	assignStrings("process_path", rule.GetProcessPath())
 	assignStrings("process_path_regex", rule.GetProcessPathRegex())
 
+	if rule.GetSourceIpIsPrivate() {
+		item["source_ip_is_private"] = true
+	}
+	if len(rule.GetSourcePort()) > 0 {
+		ports, err := rulePortsToAnySlice(rule.GetSourcePort(), path+".source_port")
+		if err != nil {
+			return nil, err
+		}
+		item["source_port"] = ports
+	}
 	if len(rule.GetRuleSet()) > 0 {
 		tags := make([]any, 0, len(rule.GetRuleSet()))
 		for index, id := range rule.GetRuleSet() {

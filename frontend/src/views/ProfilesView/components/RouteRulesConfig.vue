@@ -49,10 +49,10 @@ const { t } = useI18n()
 const [showEditModal] = useBool(false)
 
 const groupOptions: { key: GroupKey; label: string }[] = [
-  { key: 'source', label: 'kernel.route.rules.groups.source' },
-  { key: 'destination', label: 'kernel.route.rules.groups.destination' },
-  { key: 'process', label: 'kernel.route.rules.groups.process' },
   { key: 'rule_set', label: 'kernel.route.rules.groups.rule_set' },
+  { key: 'destination', label: 'kernel.route.rules.groups.destination' },
+  { key: 'source', label: 'kernel.route.rules.groups.source' },
+  { key: 'process', label: 'kernel.route.rules.groups.process' },
   { key: 'inline', label: 'kernel.route.rules.groups.inline' },
 ]
 
@@ -435,6 +435,15 @@ const renderRule = (rule: IRule) =>
 
       <template #match>
         <div class="form-item">
+          {{ t('kernel.rules.type.clash_mode') }}
+          <OptionGroup
+            v-model="fields.clash_mode"
+            :options="ModeOptions"
+            :aria-label="t('kernel.rules.type.clash_mode')"
+            clearable
+          />
+        </div>
+        <div class="form-item">
           {{ t('kernel.rules.type.inbound') }}
           <Select v-model="fields.inbound" :options="inboundOptions" multiple clearable />
         </div>
@@ -458,15 +467,6 @@ const renderRule = (rule: IRule) =>
           />
         </div>
         <div class="form-item">
-          {{ t('kernel.route.rules.fields.preferred_by') }}
-          <OptionGroup
-            v-model="fields.preferred_by"
-            :options="RouteRulePreferredByOptions"
-            :aria-label="t('kernel.route.rules.fields.preferred_by')"
-            multiple
-          />
-        </div>
-        <div class="form-item">
           {{ t('kernel.rules.type.protocol') }}
           <Select
             v-model="fields.protocol"
@@ -476,12 +476,12 @@ const renderRule = (rule: IRule) =>
           />
         </div>
         <div class="form-item">
-          {{ t('kernel.rules.type.clash_mode') }}
+          {{ t('kernel.route.rules.fields.preferred_by') }}
           <OptionGroup
-            v-model="fields.clash_mode"
-            :options="ModeOptions"
-            :aria-label="t('kernel.rules.type.clash_mode')"
-            clearable
+            v-model="fields.preferred_by"
+            :options="RouteRulePreferredByOptions"
+            :aria-label="t('kernel.route.rules.fields.preferred_by')"
+            multiple
           />
         </div>
         <div class="form-item">
@@ -496,8 +496,8 @@ const renderRule = (rule: IRule) =>
         />
 
         <Card
-          v-if="activeGroups.has('source')"
-          :title="t('kernel.route.rules.groups.source')"
+          v-if="activeGroups.has('rule_set')"
+          :title="t('kernel.route.rules.groups.rule_set')"
           class="mb-8"
         >
           <template #extra>
@@ -506,10 +506,10 @@ const renderRule = (rule: IRule) =>
               :icon-size="16"
               type="text"
               size="small"
-              @click="removeGroup('source')"
+              @click="removeGroup('rule_set')"
             />
           </template>
-          <SourceMatchGroup v-model="fields" />
+          <RuleSetMatchGroup v-model="fields" :rule-sets="ruleSet" />
         </Card>
         <Card
           v-if="activeGroups.has('destination')"
@@ -528,6 +528,22 @@ const renderRule = (rule: IRule) =>
           <DestinationMatchGroup v-model="fields" />
         </Card>
         <Card
+          v-if="activeGroups.has('source')"
+          :title="t('kernel.route.rules.groups.source')"
+          class="mb-8"
+        >
+          <template #extra>
+            <Button
+              icon="close"
+              :icon-size="16"
+              type="text"
+              size="small"
+              @click="removeGroup('source')"
+            />
+          </template>
+          <SourceMatchGroup v-model="fields" />
+        </Card>
+        <Card
           v-if="activeGroups.has('process')"
           :title="t('kernel.route.rules.groups.process')"
           class="mb-8"
@@ -542,22 +558,6 @@ const renderRule = (rule: IRule) =>
             />
           </template>
           <ProcessMatchGroup v-model="fields" />
-        </Card>
-        <Card
-          v-if="activeGroups.has('rule_set')"
-          :title="t('kernel.route.rules.groups.rule_set')"
-          class="mb-8"
-        >
-          <template #extra>
-            <Button
-              icon="close"
-              :icon-size="16"
-              type="text"
-              size="small"
-              @click="removeGroup('rule_set')"
-            />
-          </template>
-          <RuleSetMatchGroup v-model="fields" :rule-sets="ruleSet" />
         </Card>
         <Card
           v-if="activeGroups.has('inline')"

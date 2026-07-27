@@ -580,6 +580,8 @@ const restoreDnsRules = (
     'domain_suffix',
     'domain_keyword',
     'domain_regex',
+    'source_ip_cidr',
+    'source_port_range',
     'ip_cidr',
     'response_answer',
     'response_ns',
@@ -624,6 +626,10 @@ const restoreDnsRules = (
       rule.query_type = asArray(raw.query_type).map(String)
       consumed.add('query_type')
     }
+    if ('source_port' in raw) {
+      rule.source_port = asArray(raw.source_port).map(Number)
+      consumed.add('source_port')
+    }
     for (const key of arrayMatchKeys) {
       if (!(key in raw)) continue
       ;(rule as unknown as Record<string, unknown>)[key] = asArray(raw[key]).map(String)
@@ -635,6 +641,7 @@ const restoreDnsRules = (
     }
     for (const key of [
       'rule_set_ip_cidr_match_source',
+      'source_ip_is_private',
       'match_response',
       'ip_accept_any',
       'ip_is_private',

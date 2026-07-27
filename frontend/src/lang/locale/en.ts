@@ -385,6 +385,7 @@ export default {
           inline: 'Provide the final action through Raw JSON.',
         },
         groups: {
+          source: 'Source Address',
           domain: 'Query Domain',
           rule_set: 'Rule Set',
           response: 'DNS Response Match',
@@ -418,6 +419,7 @@ export default {
         serverRequired: 'Route and Evaluate actions require a DNS server',
         matchResponseRequired: 'Response match fields require match_response to be enabled',
         queryTypeInvalid: 'Numeric query types must be between 0 and 65535',
+        portInvalid: 'Source ports must be integers between 0 and 65535',
         invalid: 'Invalid DNS rule',
       },
     },
