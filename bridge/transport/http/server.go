@@ -55,8 +55,9 @@ type Options struct {
 }
 
 type Server struct {
-	options Options
-	server  *http.Server
+	options            Options
+	server             *http.Server
+	startedAtUnixMilli int64
 }
 
 type FlagResult = platform.Result
@@ -66,7 +67,10 @@ var websocketUpgrader = websocket.Upgrader{
 }
 
 func NewServer(options Options) (*Server, error) {
-	server := &Server{options: options}
+	server := &Server{
+		options:            options,
+		startedAtUnixMilli: time.Now().UnixMilli(),
+	}
 	handler, err := server.buildHandler()
 	if err != nil {
 		return nil, err
@@ -133,7 +137,7 @@ func (s *Server) buildRootHandler(frontendHandler http.Handler, protectedHandler
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		handler, pattern := protectedHandlerMux.Handler(r)
 		if pattern != "" {
-			if r.URL.Path != "/api/auth/login" {
+			if !isPublicRoute(r.URL.Path) {
 				token := authTokenFromRequest(r)
 				if !s.options.Auth.ValidateSession(token) {
 					http.Error(w, "Unauthorized", http.StatusUnauthorized)
@@ -156,10 +160,30 @@ func (s *Server) buildProtectedMux() *http.ServeMux {
 
 	mux.HandleFunc("/api/kernel/", s.handleKernelProxy)
 	mux.HandleFunc("/ws/kernel/", s.handleKernelWebSocketProxy)
+	s.registerAppRoutes(mux)
 	s.registerRPCRoutes(mux)
 	registerAPIRoutes(mux, s.options.Auth)
 
 	return mux
+}
+
+func isPublicRoute(requestPath string) bool {
+	return requestPath == "/api/auth/login" || requestPath == "/api/app/start-time"
+}
+
+func (s *Server) registerAppRoutes(mux *http.ServeMux) {
+	mux.HandleFunc("/api/app/start-time", func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		jsonResponse(w, struct {
+			StartedAt int64 `json:"started_at"`
+		}{
+			StartedAt: s.startedAtUnixMilli,
+		})
+	})
 }
 
 func (s *Server) buildFrontendHandler(distFS fs.FS) http.Handler {

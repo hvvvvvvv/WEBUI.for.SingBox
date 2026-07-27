@@ -2,9 +2,9 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { createRpcClient, EventsOff, EventsOn, GetPlatform } from '@/bridge'
+import { createRpcClient, EventsOff, EventsOn, GetPlatform, GetServiceStartTime } from '@/bridge'
 import { LanguageOptions } from '@/constant/app'
-import { message, sampleID } from '@/utils'
+import { message, sampleID, sleep } from '@/utils'
 
 import type { CustomAction, CustomActionFn, Menu } from '@/types/app'
 import { AppUpdateService } from '../../gen/app/v1/app_update_service_pb'
@@ -12,6 +12,7 @@ import { AppUpdateService } from '../../gen/app/v1/app_update_service_pb'
 export const useAppStore = defineStore('app', () => {
   const updateService = createRpcClient(AppUpdateService)
   const isAppReloading = ref(false)
+  const appRestartProbeInterval = 1_000
   const platformOS = ref('')
 
   const setupPlatform = async () => {
@@ -133,7 +134,7 @@ export const useAppStore = defineStore('app', () => {
         latestVersion: res.latestVersion,
         updatable: false,
       })
-      message.success('about.updateSuccessfulRestart')
+      message.success('about.updateDownloaded')
     } catch (error: any) {
       console.log(error)
       message.error(error.message || error, 5_000)
@@ -161,10 +162,26 @@ export const useAppStore = defineStore('app', () => {
   }
 
   const applyAppUpdate = async () => {
+    if (isAppReloading.value) return
     try {
+      const previousStartedAt = await GetServiceStartTime()
+      isAppReloading.value = true
       await updateService.applyAppUpdate({})
-      message.info('about.updateSuccessfulRestart', 10_000)
+
+      while (true) {
+        await sleep(appRestartProbeInterval)
+        try {
+          const startedAt = await GetServiceStartTime()
+          if (startedAt !== previousStartedAt) {
+            location.reload()
+            return
+          }
+        } catch {
+          // The service is expected to be temporarily unavailable while it restarts.
+        }
+      }
     } catch (error: any) {
+      isAppReloading.value = false
       console.error(error)
       message.error(error.message || error, 5_000)
     }

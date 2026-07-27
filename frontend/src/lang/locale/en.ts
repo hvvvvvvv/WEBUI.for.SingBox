@@ -750,7 +750,9 @@ export default {
     new: 'New',
     restart: 'Restart APP',
     noDownloadLink: 'No download link found',
-    updateSuccessfulRestart: 'Update completed, please restart the App',
+    updateDownloaded:
+      'The update file has been downloaded. Click “Apply update” to stop, replace, and restart the service.',
+    waitingForServiceRestart: 'Waiting for the service to restart. Please wait.',
     updateSuccessful: 'Update completed',
     newVersion: 'New version found',
     latestVersion: 'Already the latest version',

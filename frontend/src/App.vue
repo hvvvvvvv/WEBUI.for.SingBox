@@ -2,7 +2,14 @@
 import { ref } from 'vue'
 
 import { loadAuthToken, initWebSocket } from '@/bridge'
-import { NavigationBar, TitleBar, SplashView, AboutView, CommandView } from '@/components'
+import {
+  NavigationBar,
+  TitleBar,
+  SplashView,
+  AboutView,
+  CommandView,
+  FullScreenLoading,
+} from '@/components'
 import { useBackendEvents } from '@/hooks/useBackendEvents'
 import LoginView from '@/views/LoginView.vue'
 import * as Stores from '@/stores'
@@ -96,6 +103,10 @@ if (!appSettings.sessionInfo.requireLogin) {
 </script>
 
 <template>
+  <FullScreenLoading
+    v-if="appStore.isAppReloading"
+    message="about.waitingForServiceRestart"
+  />
   <LoginView v-if="appSettings.sessionInfo.requireLogin" @authenticated="handleAuthenticated" />
   <div v-else class="app-shell">
     <div class="app-zoomed">
