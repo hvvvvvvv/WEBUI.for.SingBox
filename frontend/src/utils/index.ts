@@ -1,7 +1,6 @@
 export * from './env'
 export * from './format'
 export * from './generator'
-export * from './restorer'
 export * from './is'
 export * from './others'
 export * from './helper'
