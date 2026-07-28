@@ -4,10 +4,12 @@ import { useI18n } from 'vue-i18n'
 
 import { Inbound } from '@/enums/kernel'
 import { isResourceConflict, isResourceNotFound, useAppStore, useProfilesStore } from '@/stores'
-import { deepClone, generateConfigViaRpcByProfile, message, alert } from '@/utils'
+import { deepClone, generateConfigViaRpcByProfile, message } from '@/utils'
 
 import Button from '@/components/Button/index.vue'
+import CodeViewer from '@/components/CodeViewer/index.vue'
 import Dropdown from '@/components/Dropdown/index.vue'
+import { useModal } from '@/components/Modal'
 import ResourceConflictNotice from '@/components/ResourceConflictNotice/index.vue'
 
 interface Props {
@@ -45,6 +47,7 @@ const routeRef = useTemplateRef('routeRef')
 const dnsRef = useTemplateRef('dnsRef')
 const appStore = useAppStore()
 const profilesStore = useProfilesStore()
+const [PreviewModal, previewModalApi] = useModal({})
 
 const loading = ref(false)
 const conflict = ref<'changed' | 'deleted' | null>(null)
@@ -196,7 +199,22 @@ const handleAdd = () => {
 const handlePreview = async () => {
   try {
     const config = await generateConfigViaRpcByProfile(profile.value)
-    alert(profile.value.name, JSON.stringify(config, null, 2))
+    previewModalApi.setProps({
+      title: profile.value.name,
+      height: '90',
+      width: '60',
+      submit: false,
+      cancelText: 'common.close',
+      maskClosable: true,
+      bodyScrollable: false,
+    })
+    previewModalApi.setContent(CodeViewer, {
+      modelValue: JSON.stringify(config, null, 2),
+      editable: false,
+      lang: 'json',
+      class: 'h-full min-h-0',
+    })
+    previewModalApi.open()
   } catch (error: any) {
     message.error(error.message || error)
   }
@@ -352,5 +370,6 @@ defineExpose({ modalSlots })
     <div v-if="currentStep === Step.MixinScript">
       <MixinAndScript v-model="mixinAndScriptConfig" />
     </div>
+    <PreviewModal />
   </div>
 </template>

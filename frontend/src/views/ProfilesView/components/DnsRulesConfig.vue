@@ -15,7 +15,7 @@ import {
 import { DefaultDnsActionOptions, DefaultDnsRule } from '@/constant/profile'
 import { RuleAction, RuleActionReject, RuleType } from '@/enums/kernel'
 import { useBool } from '@/hooks'
-import { deepClone, message, renderDnsRulePreview } from '@/utils'
+import { deepClone, message, renderDnsRulePreview, sampleID } from '@/utils'
 
 import DomainMatchGroup from './DnsRuleEditors/DomainMatchGroup.vue'
 import EvaluateActionEditor from './DnsRuleEditors/EvaluateActionEditor.vue'
@@ -234,6 +234,14 @@ const handleEdit = (index: number) => {
   showEditModal.value = true
 }
 
+const handleCopy = (index: number) => {
+  ruleIndex = -1
+  fields.value = deepClone(model.value[index]!)
+  fields.value.id = sampleID()
+  inferActiveGroups(fields.value)
+  showEditModal.value = true
+}
+
 const handleAddInsertionPoint = () => {
   const rule = DefaultDnsRule()
   rule.id = RuleType.InsertionPoint
@@ -365,6 +373,12 @@ const renderRule = (rule: IDNSRule) =>
           {{ renderRule(rule) }}
         </div>
         <div class="ml-auto shrink-0">
+          <Button
+            icon="copy"
+            type="text"
+            size="small"
+            @click="handleCopy(index)"
+          />
           <Button icon="edit" type="text" size="small" @click="handleEdit(index)" />
           <Button icon="delete" type="text" size="small" @click="handleDelete(index)" />
         </div>

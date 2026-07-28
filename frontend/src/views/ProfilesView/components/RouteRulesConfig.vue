@@ -13,7 +13,7 @@ import {
 import { DefaultActionOptions, DefaultRouteRule } from '@/constant/profile'
 import { RuleAction, RuleType } from '@/enums/kernel'
 import { useBool } from '@/hooks'
-import { deepClone, message, renderRouteRulePreview } from '@/utils'
+import { deepClone, message, renderRouteRulePreview, sampleID } from '@/utils'
 import type { ActionPickerItem } from '@/components/ActionPicker/index.vue'
 
 import BypassActionEditor from './RouteRuleEditors/BypassActionEditor.vue'
@@ -237,6 +237,14 @@ const handleEdit = (index: number) => {
   showEditModal.value = true
 }
 
+const handleCopy = (index: number) => {
+  ruleIndex = -1
+  fields.value = deepClone(model.value[index]!)
+  fields.value.id = sampleID()
+  inferActiveGroups(fields.value)
+  showEditModal.value = true
+}
+
 const handleDelete = (index: number) => model.value.splice(index, 1)
 
 const addGroup = (key: GroupKey) => {
@@ -374,6 +382,12 @@ const renderRule = (rule: IRule) =>
           {{ renderRule(rule) }}
         </div>
         <div class="ml-auto shrink-0">
+          <Button
+            icon="copy"
+            type="text"
+            size="small"
+            @click="handleCopy(index)"
+          />
           <Button icon="edit" type="text" size="small" @click="handleEdit(index)" />
           <Button icon="delete" type="text" size="small" @click="handleDelete(index)" />
         </div>

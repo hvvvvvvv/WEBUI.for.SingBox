@@ -4,9 +4,11 @@ import { useI18n } from 'vue-i18n'
 
 import { RulesetFormat } from '@/enums/kernel'
 import { useRulesetsStore, type RuleSetHub } from '@/stores'
-import { message, alert } from '@/utils'
+import { message } from '@/utils'
 
 import Button from '@/components/Button/index.vue'
+import CodeViewer from '@/components/CodeViewer/index.vue'
+import { useModal } from '@/components/Modal'
 import Pagination from '@/components/Pagination/index.vue'
 
 const pageSize = 27
@@ -14,6 +16,7 @@ const currentPage = ref(1)
 
 const { t } = useI18n()
 const rulesetsStore = useRulesetsStore()
+const [PreviewModal, previewModalApi] = useModal({})
 
 const keywords = ref('')
 const handleCancel = inject('cancel') as any
@@ -77,8 +80,24 @@ const handlePreview = async (
   const { destroy, error } = message.info('rulesets.fetching', 15_000)
   try {
     const content = await rulesetsStore.previewRuleSetHub(index, format)
+    const formattedContent = JSON.stringify(JSON.parse(content), null, 2)
     destroy()
-    await alert(ruleset.name, JSON.stringify(JSON.parse(content), null, 2))
+    previewModalApi.setProps({
+      title: ruleset.name,
+      height: '90',
+      width: '60',
+      submit: false,
+      cancelText: 'common.close',
+      maskClosable: true,
+      bodyScrollable: false,
+    })
+    previewModalApi.setContent(CodeViewer, {
+      modelValue: formattedContent,
+      editable: false,
+      lang: 'json',
+      class: 'h-full min-h-0',
+    })
+    previewModalApi.open()
   } catch (err: any) {
     error(err.message || err)
     setTimeout(destroy, 2000)
@@ -213,4 +232,5 @@ defineExpose({ modalSlots })
       </div>
     </div>
   </div>
+  <PreviewModal />
 </template>

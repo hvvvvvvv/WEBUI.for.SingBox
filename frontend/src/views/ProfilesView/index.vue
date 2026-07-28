@@ -24,6 +24,7 @@ import {
   confirmDelete,
 } from '@/utils'
 
+import CodeViewer from '@/components/CodeViewer/index.vue'
 import { useModal } from '@/components/Modal'
 
 import type { Menu } from '@/types/app'
@@ -112,7 +113,22 @@ const secondaryMenusList: Menu[] = [
       const p = profilesStore.getProfileById(id)!
       try {
         const config = await generateConfigViaRpc(id)
-        alert(p.name, JSON.stringify(config, null, 2))
+        modalApi.setProps({
+          title: p.name,
+          height: '90',
+          width: '60',
+          submit: false,
+          cancelText: 'common.close',
+          maskClosable: true,
+          bodyScrollable: false,
+        })
+        modalApi.setContent(CodeViewer, {
+          modelValue: JSON.stringify(config, null, 2),
+          editable: false,
+          lang: 'json',
+          class: 'h-full min-h-0',
+        })
+        modalApi.open()
       } catch (error: any) {
         message.error(error.message || error)
       }

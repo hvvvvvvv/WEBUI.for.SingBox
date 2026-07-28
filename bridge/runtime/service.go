@@ -47,6 +47,10 @@ type KernelController interface {
 	ReferencedResourcesChanged(domain syncstate.Domain, ids []string)
 }
 
+type RuleSetDecompiler interface {
+	DecompileRuleSet(sourcePath string) (string, error)
+}
+
 type AppConfigReader interface {
 	Current() config.AppConfig
 }
@@ -2185,25 +2189,47 @@ func (s *appRuntimeService) PreviewRuleSetHub(ctx context.Context, req *connect.
 
 func (s *appRuntimeService) GetRuleSetContent(ctx context.Context, req *connect.Request[appv1.GetRuleSetContentRequest]) (*connect.Response[appv1.GetRuleSetContentResponse], error) {
 	s.rulesetsMu.Lock()
-	defer s.rulesetsMu.Unlock()
 	r, items, err := findRuleset(req.Msg.GetId())
 	if err != nil {
+		s.rulesetsMu.Unlock()
 		return nil, asConnectError(err)
 	}
-	if r.Format != "source" {
-		return nil, asConnectError(invalidArgumentError{message: "only source rulesets have editable content"})
+	item := *r
+	revision := s.state.ExpectedItem(syncstate.DomainRuleSets, rulesetIDs(items), req.Msg.GetId())
+
+	if item.Format == "source" {
+		content, readErr := readText(item.Path)
+		s.rulesetsMu.Unlock()
+		if os.IsNotExist(readErr) {
+			content = ""
+			readErr = nil
+		}
+		if readErr != nil {
+			return nil, asConnectError(readErr)
+		}
+		return connect.NewResponse(&appv1.GetRuleSetContentResponse{
+			Content:  content,
+			Revision: revision,
+		}), nil
 	}
-	content, err := readText(r.Path)
-	if os.IsNotExist(err) {
-		content = ""
-		err = nil
+	s.rulesetsMu.Unlock()
+
+	if item.Format != "binary" {
+		return nil, asConnectError(invalidArgumentError{message: fmt.Sprintf("unsupported ruleset format %q", item.Format)})
 	}
+
+	decompiler, ok := s.kernel.(RuleSetDecompiler)
+	if !ok {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("sing-box core is unavailable for rule-set decompilation"))
+	}
+	content, err := decompiler.DecompileRuleSet(GetPath(item.Path))
 	if err != nil {
 		return nil, asConnectError(err)
 	}
+
 	return connect.NewResponse(&appv1.GetRuleSetContentResponse{
 		Content:  content,
-		Revision: s.state.ExpectedItem(syncstate.DomainRuleSets, rulesetIDs(items), req.Msg.GetId()),
+		Revision: revision,
 	}), nil
 }
 

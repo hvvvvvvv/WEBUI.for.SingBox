@@ -601,6 +601,150 @@ func TestSaveRuleSetContentAndClear(t *testing.T) {
 	}
 }
 
+type rulesetDecompilerStub struct {
+	path    string
+	content string
+	err     error
+	started chan struct{}
+	release chan struct{}
+}
+
+func (*rulesetDecompilerStub) ReferencedResourcesChanged(syncstate.Domain, []string) {}
+
+func (d *rulesetDecompilerStub) DecompileRuleSet(sourcePath string) (string, error) {
+	d.path = sourcePath
+	if d.started != nil {
+		close(d.started)
+	}
+	if d.release != nil {
+		<-d.release
+	}
+	return d.content, d.err
+}
+
+func TestGetBinaryRuleSetContentUsesCoreDecompiler(t *testing.T) {
+	withTempBasePath(t)
+	decompiler := &rulesetDecompilerStub{content: `{"version":2,"rules":[{"domain":["example.com"]}]}`}
+	service := newAppRuntimeService(nil, decompiler)
+	_, err := putRuleSetForTest(
+		service,
+		`{"id":"binary","tag":"Binary","type":"Http","format":"binary","url":"https://example.com/ruleset.srs"}`,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	response, err := service.GetRuleSetContent(
+		context.Background(),
+		connect.NewRequest(&appv1.GetRuleSetContentRequest{Id: "binary"}),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if response.Msg.GetContent() != decompiler.content {
+		t.Fatalf("content = %q, want %q", response.Msg.GetContent(), decompiler.content)
+	}
+	if decompiler.path != GetPath("data/rulesets/binary.srs") {
+		t.Fatalf("decompile path = %q, want managed ruleset path", decompiler.path)
+	}
+	if response.Msg.GetRevision().GetRevision() == 0 {
+		t.Fatal("expected binary content revision")
+	}
+}
+
+func TestGetBinaryRuleSetContentRequiresCoreDecompiler(t *testing.T) {
+	withTempBasePath(t)
+	service := newAppRuntimeService(nil, nil)
+	_, err := putRuleSetForTest(
+		service,
+		`{"id":"binary","tag":"Binary","type":"Http","format":"binary","url":"https://example.com/ruleset.srs"}`,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = service.GetRuleSetContent(
+		context.Background(),
+		connect.NewRequest(&appv1.GetRuleSetContentRequest{Id: "binary"}),
+	)
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Fatalf("error = %v, want failed precondition", err)
+	}
+}
+
+func TestGetBinaryRuleSetContentDoesNotHoldRulesetLockWhileDecompiling(t *testing.T) {
+	withTempBasePath(t)
+	decompiler := &rulesetDecompilerStub{
+		content: `{"version":2,"rules":[]}`,
+		started: make(chan struct{}),
+		release: make(chan struct{}),
+	}
+	service := newAppRuntimeService(nil, decompiler)
+	_, err := putRuleSetForTest(
+		service,
+		`{"id":"binary","tag":"Binary","type":"Http","format":"binary","url":"https://example.com/ruleset.srs"}`,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	getDone := make(chan error, 1)
+	go func() {
+		_, getErr := service.GetRuleSetContent(
+			context.Background(),
+			connect.NewRequest(&appv1.GetRuleSetContentRequest{Id: "binary"}),
+		)
+		getDone <- getErr
+	}()
+	<-decompiler.started
+
+	listDone := make(chan error, 1)
+	go func() {
+		_, listErr := service.ListRuleSets(
+			context.Background(),
+			connect.NewRequest(&appv1.ListRuleSetsRequest{}),
+		)
+		listDone <- listErr
+	}()
+	select {
+	case listErr := <-listDone:
+		if listErr != nil {
+			t.Fatal(listErr)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("ListRuleSets blocked while binary rule-set was being decompiled")
+	}
+
+	close(decompiler.release)
+	if getErr := <-getDone; getErr != nil {
+		t.Fatal(getErr)
+	}
+}
+
+func TestSaveBinaryRuleSetContentRemainsRejected(t *testing.T) {
+	withTempBasePath(t)
+	service := newAppRuntimeService(nil, nil)
+	_, err := putRuleSetForTest(
+		service,
+		`{"id":"binary","tag":"Binary","type":"Http","format":"binary","url":"https://example.com/ruleset.srs"}`,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = service.SaveRuleSetContent(
+		context.Background(),
+		connect.NewRequest(&appv1.SaveRuleSetContentRequest{
+			Id:               "binary",
+			Content:          `{"version":2,"rules":[]}`,
+			ExpectedRevision: rulesetRevision(t, service, "binary"),
+		}),
+	)
+	if connect.CodeOf(err) != connect.CodeInvalidArgument {
+		t.Fatalf("error = %v, want invalid argument", err)
+	}
+}
+
 func TestPreviewRuleSetHub(t *testing.T) {
 	withTempBasePath(t)
 	previousRequest := ruleSetHubHTTPRequest

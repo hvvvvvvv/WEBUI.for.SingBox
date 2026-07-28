@@ -27,9 +27,14 @@ import type { Menu } from '@/types/app'
 
 import RulesetForm from './components/RulesetForm.vue'
 import RulesetHub from './components/RulesetHub.vue'
+import RulesetPreview from './components/RulesetPreview.vue'
 import RulesetView from './components/RulesetView.vue'
 
 const sourceMenuList: Menu[] = [
+  {
+    label: 'rulesets.viewRuleset',
+    handler: (id: string) => handleViewRuleset(id),
+  },
   {
     label: 'rulesets.editRuleset',
     handler: (id: string) => handleEditRulesetList(id),
@@ -42,11 +47,8 @@ const sourceMenuList: Menu[] = [
 
 const binaryMenuList: Menu[] = [
   {
-    label: 'common.none',
-    handler: (id: string) => {
-      console.log(id)
-      message.info('common.none')
-    },
+    label: 'rulesets.viewRuleset',
+    handler: (id: string) => handleViewRuleset(id),
   },
 ]
 
@@ -104,6 +106,19 @@ const handleEditRulesetList = (id: string) => {
     width: '90',
   })
   modalApi.setContent(RulesetView, { id })
+  modalApi.open()
+}
+
+const handleViewRuleset = (id: string) => {
+  modalApi.setProps({
+    title: rulesetsStore.getRulesetById(id)?.tag,
+    height: '90',
+    width: '60',
+    submit: false,
+    cancelText: 'common.close',
+    maskClosable: true,
+  })
+  modalApi.setContent(RulesetPreview, { id })
   modalApi.open()
 }
 
