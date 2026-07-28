@@ -32,7 +32,6 @@ export type RuntimeConfigField =
   | 'socks'
   | 'mixed'
   | 'allow-lan'
-  | 'tun'
   | 'tun-stack'
   | 'tun-device'
   | 'interface-name'
@@ -224,10 +223,6 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
       socks: (value) => patchInboundPort(Inbound.Socks, value),
       mixed: (value) => patchInboundPort(Inbound.Mixed, value),
       'allow-lan': (value) => patchInboundAddress(value),
-      tun: (value) => {
-        Object.assign(tunOptions, value)
-        patchInboundTun(tunOptions)
-      },
       'tun-stack': (value) => {
         Object.assign(tunOptions, value)
         patchInboundTun(tunOptions)

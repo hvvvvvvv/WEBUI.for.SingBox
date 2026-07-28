@@ -10,7 +10,7 @@ export default defineConfigWithVueTs(
     files: ['**/*.{ts,vue}'],
   },
 
-  globalIgnores(['**/dist/**']),
+  globalIgnores(['**/dist/**', '**/gen/**']),
 
   ...pluginVue.configs['flat/recommended'],
   vueTsConfigs.recommended,

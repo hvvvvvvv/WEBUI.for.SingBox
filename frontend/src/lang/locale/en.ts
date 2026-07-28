@@ -452,7 +452,6 @@ export default {
     },
     mode: 'Mode',
     'allow-lan': 'Allow LAN',
-    'disallow-lan': 'Disallow LAN',
     notFound: 'Core Not Found',
     insertionPoint: 'The new rule will be inserted here',
     addInsertionPoint: 'Add insertion point',
@@ -793,8 +792,6 @@ export default {
     startKernel: 'Start Core',
     stopKernel: 'Stop Core',
     restartKernel: 'Restart Core',
-    enableTunMode: 'Enable Tun Mode',
-    disableTunMode: 'Disable Tun Mode',
     restartApp: 'Restart App',
   },
   auth: {

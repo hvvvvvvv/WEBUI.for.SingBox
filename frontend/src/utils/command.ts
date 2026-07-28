@@ -65,26 +65,6 @@ export const getCommands = () => {
           handler: kernelStore.restartCore,
         },
         {
-          label: 'commands.enableTunMode',
-          cmd: 'Enable Tun',
-          handler: () => kernelStore.updateConfig('tun', { enable: true }),
-        },
-        {
-          label: 'commands.disableTunMode',
-          cmd: 'Disable Tun',
-          handler: () => kernelStore.updateConfig('tun', { enable: false }),
-        },
-        {
-          label: 'kernel.allow-lan',
-          cmd: 'Allow Lan',
-          handler: () => kernelStore.updateConfig('allow-lan', true),
-        },
-        {
-          label: 'kernel.disallow-lan',
-          cmd: 'Disallow Lan',
-          handler: () => kernelStore.updateConfig('allow-lan', false),
-        },
-        {
           label: 'kernel.mode',
           cmd: 'Core Mode',
           children: ModeOptions.map((mode) => ({

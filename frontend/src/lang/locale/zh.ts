@@ -447,7 +447,6 @@ export default {
     },
     mode: '工作模式',
     'allow-lan': '允许局域网访问',
-    'disallow-lan': '禁止局域网访问',
     notFound: '无核心',
     insertionPoint: '新规则将插入到这里',
     addInsertionPoint: '添加插入点',
@@ -786,8 +785,6 @@ export default {
     startKernel: '开启核心',
     stopKernel: '关闭核心',
     restartKernel: '重启核心',
-    enableTunMode: '启用 TUN 模式',
-    disableTunMode: '禁用 TUN 模式',
     restartApp: '重启程序',
   },
   auth: {
