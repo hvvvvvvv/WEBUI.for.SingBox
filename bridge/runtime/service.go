@@ -304,10 +304,12 @@ func loadSubscriptions() ([]subscription, error) {
 	if items == nil {
 		items = []subscription{}
 	}
+	normalizeSubscriptions(items)
 	return items, nil
 }
 
 func saveSubscriptions(items []subscription) error {
+	normalizeSubscriptions(items)
 	for i := range items {
 		items[i].Updating = false
 	}
@@ -317,6 +319,7 @@ func saveSubscriptions(items []subscription) error {
 func subscriptionsToJSON(items []subscription) ([]string, error) {
 	out := make([]string, 0, len(items))
 	for _, item := range items {
+		normalizeSubscription(&item)
 		item.Updating = false
 		data, err := json.Marshal(item)
 		if err != nil {
@@ -338,8 +341,21 @@ func decodeSubscription(itemJSON string) (subscription, error) {
 	if err := validateSourceType(item.Type, "subscription"); err != nil {
 		return item, err
 	}
+	normalizeSubscription(&item)
 	item.Updating = false
 	return item, nil
+}
+
+func normalizeSubscription(item *subscription) {
+	if item.Proxies == nil {
+		item.Proxies = []proxyRef{}
+	}
+}
+
+func normalizeSubscriptions(items []subscription) {
+	for i := range items {
+		normalizeSubscription(&items[i])
+	}
 }
 
 func deleteSubscription(id string) error {
@@ -366,7 +382,7 @@ func deleteSubscription(id string) error {
 	return nil
 }
 
-func saveSubscriptionContent(id string, content string) (string, bool, error) {
+func saveSubscriptionContent(id string, content string, proxyIDs []string) (string, bool, error) {
 	sub, items, err := findSubscription(id)
 	if err != nil {
 		return "", false, err
@@ -378,6 +394,19 @@ func saveSubscriptionContent(id string, content string) (string, bool, error) {
 	if err := json.Unmarshal([]byte(content), &proxies); err != nil {
 		return "", false, invalidArgumentError{message: "not a valid subscription json: " + err.Error()}
 	}
+	if proxies == nil {
+		proxies = []map[string]any{}
+	}
+	if len(proxyIDs) != len(proxies) {
+		return "", false, invalidArgumentError{message: fmt.Sprintf("proxy_ids must contain exactly %d entries", len(proxies))}
+	}
+	for _, proxy := range proxies {
+		delete(proxy, "__id_in_gui")
+	}
+	nextProxyRefs, err := proxyRefsFromOutboundsWithIDs(proxies, sub.Proxies, proxyIDs)
+	if err != nil {
+		return "", false, err
+	}
 	data, err := json.MarshalIndent(proxies, "", "  ")
 	if err != nil {
 		return "", false, err
@@ -387,17 +416,21 @@ func saveSubscriptionContent(id string, content string) (string, bool, error) {
 	if readErr != nil && !os.IsNotExist(readErr) {
 		return "", false, readErr
 	}
-	if bytes.Equal(previous, data) {
+	contentChanged := !bytes.Equal(previous, data)
+	proxyRefsChanged := !reflect.DeepEqual(sub.Proxies, nextProxyRefs)
+	if !contentChanged && !proxyRefsChanged {
 		result, marshalErr := json.Marshal(sub)
 		return string(result), false, marshalErr
 	}
-	if err := os.MkdirAll(filepath.Dir(GetPath(path)), os.ModePerm); err != nil {
-		return "", false, err
+	if contentChanged {
+		if err := os.MkdirAll(filepath.Dir(GetPath(path)), os.ModePerm); err != nil {
+			return "", false, err
+		}
+		if err := storage.AtomicWriteFile(GetPath(path), data, 0644); err != nil {
+			return "", false, err
+		}
 	}
-	if err := storage.AtomicWriteFile(GetPath(path), data, 0644); err != nil {
-		return "", false, err
-	}
-	sub.Proxies = proxyRefsFromOutbounds(proxies, sub.Proxies)
+	sub.Proxies = nextProxyRefs
 	sub.UpdateTime = time.Now().UnixMilli()
 	if err := saveSubscriptions(items); err != nil {
 		return "", false, err
@@ -766,7 +799,7 @@ func subscriptionConfigEqual(left subscription, right subscription) bool {
 func cloneSubscription(item subscription) subscription {
 	item.Header.Request = cloneStringMap(item.Header.Request)
 	item.Header.Response = cloneStringMap(item.Header.Response)
-	item.Proxies = append([]proxyRef(nil), item.Proxies...)
+	item.Proxies = append([]proxyRef{}, item.Proxies...)
 	return item
 }
 
@@ -986,11 +1019,22 @@ func compileSmartRegexp(expr string) (*regexp.Regexp, error) {
 }
 
 func previousProxyID(proxies []proxyRef, tag string) string {
+	if id := findPreviousProxyID(proxies, tag); id != "" {
+		return id
+	}
+	return newProxyID()
+}
+
+func findPreviousProxyID(proxies []proxyRef, tag string) string {
 	for _, proxy := range proxies {
 		if proxy.Tag == tag {
 			return proxy.ID
 		}
 	}
+	return ""
+}
+
+func newProxyID() string {
 	return "ID_" + strconv.FormatInt(time.Now().UnixNano(), 36)
 }
 
@@ -1002,6 +1046,44 @@ func proxyRefsFromOutbounds(outbounds []map[string]any, previous []proxyRef) []p
 		refs = append(refs, proxyRef{ID: previousProxyID(previous, tag), Tag: tag, Type: typ})
 	}
 	return refs
+}
+
+func proxyRefsFromOutboundsWithIDs(outbounds []map[string]any, previous []proxyRef, proxyIDs []string) ([]proxyRef, error) {
+	if len(proxyIDs) != len(outbounds) {
+		return nil, invalidArgumentError{message: fmt.Sprintf("proxy_ids must contain exactly %d entries", len(outbounds))}
+	}
+	refs := make([]proxyRef, 0, len(outbounds))
+	seen := make(map[string]struct{}, len(outbounds))
+	reserved := make(map[string]struct{}, len(previous)+len(outbounds))
+	for _, proxy := range previous {
+		reserved[proxy.ID] = struct{}{}
+	}
+	for _, id := range proxyIDs {
+		if id != "" {
+			reserved[id] = struct{}{}
+		}
+	}
+	for index, outbound := range outbounds {
+		tag, _ := outbound["tag"].(string)
+		typ, _ := outbound["type"].(string)
+		id := proxyIDs[index]
+		if id == "" {
+			id = findPreviousProxyID(previous, tag)
+			for id == "" {
+				candidate := newProxyID()
+				if _, exists := reserved[candidate]; !exists {
+					id = candidate
+				}
+			}
+		}
+		if _, exists := seen[id]; exists {
+			return nil, invalidArgumentError{message: fmt.Sprintf("duplicate proxy id %q", id)}
+		}
+		seen[id] = struct{}{}
+		reserved[id] = struct{}{}
+		refs = append(refs, proxyRef{ID: id, Tag: tag, Type: typ})
+	}
+	return refs, nil
 }
 
 func runSubscribeScript(script string, proxies []map[string]any, sub subscription) ([]map[string]any, subscription, error) {
@@ -1629,7 +1711,7 @@ func (s *appRuntimeService) CreateSubscription(ctx context.Context, req *connect
 	item.Total = 0
 	item.Expire = 0
 	item.UpdateTime = 0
-	item.Proxies = nil
+	item.Proxies = []proxyRef{}
 	s.subscriptionsMu.Lock()
 	items, err := loadSubscriptions()
 	if err != nil {
@@ -1841,7 +1923,7 @@ func (s *appRuntimeService) SaveSubscriptionContent(ctx context.Context, req *co
 		s.subscriptionsMu.Unlock()
 		return nil, err
 	}
-	item, changed, err := saveSubscriptionContent(req.Msg.GetId(), req.Msg.GetContent())
+	item, changed, err := saveSubscriptionContent(req.Msg.GetId(), req.Msg.GetContent(), req.Msg.GetProxyIds())
 	if err != nil {
 		s.subscriptionsMu.Unlock()
 		return nil, asConnectError(err)

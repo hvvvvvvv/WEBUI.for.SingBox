@@ -22,6 +22,7 @@ const reloading = ref(false)
 const conflict = ref<'changed' | 'deleted' | null>(null)
 const proxiesText = ref('')
 const sub = ref(deepClone(props.sub))
+sub.value.proxies ??= []
 let baseRevision: Pick<ExpectedRevision, 'instanceId' | 'revision'> | undefined
 
 const { t } = useI18n()
@@ -33,16 +34,15 @@ const handleSubmit = inject('submit') as any
 const handleSave = async () => {
   loading.value = true
   try {
-    const { proxies, id } = sub.value
+    const { id } = sub.value
     const proxiesWithId: Record<string, any>[] = JSON.parse(proxiesText.value)
-    sub.value.proxies = proxiesWithId.map((v) => ({
-      id: proxies.find((proxy) => proxy.id === v.__id_in_gui)?.id || sampleID(),
-      tag: v.tag,
-      type: v.type,
-    }))
+    const proxyIds = proxiesWithId.map((proxy) =>
+      typeof proxy.__id_in_gui === 'string' ? proxy.__id_in_gui : '',
+    )
     await subscribeStore.saveSubscriptionContent(
       id,
       JSON.stringify(omitArray(proxiesWithId, ['__id_in_gui']), null, 2),
+      proxyIds,
       baseRevision,
     )
     await handleSubmit()
@@ -63,9 +63,10 @@ const initProxiesText = async () => {
   const content = latestContent || '[]'
   baseRevision = revision
   const proxies: Subscription['proxies'] = JSON.parse(content)
+  const proxyRefs = sub.value.proxies ?? []
   const proxiesWithId = proxies.map((proxy) => {
     return {
-      __id_in_gui: sub.value.proxies.find((v) => v.tag === proxy.tag)?.id || sampleID(),
+      __id_in_gui: proxyRefs.find((v) => v.tag === proxy.tag)?.id || sampleID(),
       ...proxy,
     }
   })
@@ -82,6 +83,7 @@ const loadLatest = async () => {
       return
     }
     sub.value = deepClone(latest)
+    sub.value.proxies ??= []
     await initProxiesText()
     conflict.value = null
   } catch (error: any) {

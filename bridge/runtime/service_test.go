@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -502,6 +503,7 @@ func TestSaveSubscriptionContent(t *testing.T) {
 	saveResp, err := service.SaveSubscriptionContent(context.Background(), connect.NewRequest(&appv1.SaveSubscriptionContentRequest{
 		Id:               "manual",
 		Content:          `[{"tag":"direct","type":"direct"}]`,
+		ProxyIds:         []string{"ID_direct"},
 		ExpectedRevision: subscriptionRevision(t, service, "manual"),
 	}))
 	if err != nil {
@@ -523,6 +525,279 @@ func TestSaveSubscriptionContent(t *testing.T) {
 	}
 	if !strings.Contains(contentResp.Msg.GetContent(), `"tag": "direct"`) {
 		t.Fatalf("expected saved content, got %s", contentResp.Msg.GetContent())
+	}
+}
+
+func TestSubscriptionResponsesNormalizeEmptyProxies(t *testing.T) {
+	withTempBasePath(t)
+	service := newAppRuntimeService(nil, nil)
+
+	created, err := service.CreateSubscription(context.Background(), connect.NewRequest(&appv1.CreateSubscriptionRequest{
+		SubscriptionJson: `{"id":"created","name":"Created","type":"Manual"}`,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(created.Msg.GetSubscriptionJson(), `"proxies":[]`) {
+		t.Fatalf("created subscription did not normalize proxies: %s", created.Msg.GetSubscriptionJson())
+	}
+
+	legacyYAML := "- id: missing\n  name: Missing\n  type: Manual\n- id: null\n  name: Null\n  type: Manual\n  proxies: null\n"
+	if err := os.WriteFile(GetPath(subscriptionsFilePath), []byte(legacyYAML), 0644); err != nil {
+		t.Fatal(err)
+	}
+	listed, err := service.ListSubscriptions(context.Background(), connect.NewRequest(&appv1.ListSubscriptionsRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(listed.Msg.GetSubscriptionsJson()) != 2 {
+		t.Fatalf("listed subscriptions = %#v", listed.Msg.GetSubscriptionsJson())
+	}
+	for _, raw := range listed.Msg.GetSubscriptionsJson() {
+		if !strings.Contains(raw, `"proxies":[]`) {
+			t.Fatalf("listed subscription did not normalize proxies: %s", raw)
+		}
+	}
+}
+
+func TestSaveSubscriptionContentPreservesExplicitProxyIdentity(t *testing.T) {
+	withTempBasePath(t)
+	events := &recordingRuntimeEvents{}
+	service := NewService(nil, runtimePaths.Load(), staticAppConfig{}, events, nil)
+
+	created, err := service.CreateSubscription(context.Background(), connect.NewRequest(&appv1.CreateSubscriptionRequest{
+		SubscriptionJson: `{"id":"manual","name":"Manual","type":"Manual"}`,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := service.SaveSubscriptionContent(context.Background(), connect.NewRequest(&appv1.SaveSubscriptionContentRequest{
+		Id:               "manual",
+		Content:          `[{"tag":"first","type":"direct"},{"tag":"second","type":"block"}]`,
+		ProxyIds:         []string{"ID_first", "ID_second"},
+		ExpectedRevision: mutationRevision(created.Msg.GetState()),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	events.events = nil
+	renamed, err := service.SaveSubscriptionContent(context.Background(), connect.NewRequest(&appv1.SaveSubscriptionContentRequest{
+		Id:               "manual",
+		Content:          `[{"tag":"second","type":"block"},{"tag":"renamed","type":"direct","__id_in_gui":"ID_first"}]`,
+		ProxyIds:         []string{"ID_second", "ID_first"},
+		ExpectedRevision: mutationRevision(first.Msg.GetState()),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var item subscription
+	if err := json.Unmarshal([]byte(renamed.Msg.GetSubscriptionJson()), &item); err != nil {
+		t.Fatal(err)
+	}
+	want := []proxyRef{
+		{ID: "ID_second", Tag: "second", Type: "block"},
+		{ID: "ID_first", Tag: "renamed", Type: "direct"},
+	}
+	if !reflect.DeepEqual(item.Proxies, want) {
+		t.Fatalf("proxy identities after rename and reorder = %#v, want %#v", item.Proxies, want)
+	}
+	content, err := os.ReadFile(GetPath(subscriptionContentPath("manual")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(content), "__id_in_gui") {
+		t.Fatalf("persisted subscription content leaked GUI identity: %s", content)
+	}
+	if len(events.events) != 1 || events.events[0].name != "resourceChanged" {
+		t.Fatalf("rename and reorder events = %#v", events.events)
+	}
+}
+
+func TestSaveSubscriptionContentResolvesMissingProxyIDs(t *testing.T) {
+	withTempBasePath(t)
+	service := newAppRuntimeService(nil, nil)
+
+	created, err := service.CreateSubscription(context.Background(), connect.NewRequest(&appv1.CreateSubscriptionRequest{
+		SubscriptionJson: `{"id":"manual","name":"Manual","type":"Manual"}`,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := service.SaveSubscriptionContent(context.Background(), connect.NewRequest(&appv1.SaveSubscriptionContentRequest{
+		Id:               "manual",
+		Content:          `[{"tag":"existing","type":"direct"}]`,
+		ProxyIds:         []string{"ID_existing"},
+		ExpectedRevision: mutationRevision(created.Msg.GetState()),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := service.SaveSubscriptionContent(context.Background(), connect.NewRequest(&appv1.SaveSubscriptionContentRequest{
+		Id:               "manual",
+		Content:          `[{"tag":"existing","type":"block"},{"tag":"new","type":"direct"}]`,
+		ProxyIds:         []string{"", ""},
+		ExpectedRevision: mutationRevision(first.Msg.GetState()),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var item subscription
+	if err := json.Unmarshal([]byte(second.Msg.GetSubscriptionJson()), &item); err != nil {
+		t.Fatal(err)
+	}
+	if len(item.Proxies) != 2 || item.Proxies[0].ID != "ID_existing" {
+		t.Fatalf("same-tag fallback did not preserve identity: %#v", item.Proxies)
+	}
+	if item.Proxies[1].ID == "" || item.Proxies[1].ID == item.Proxies[0].ID {
+		t.Fatalf("new proxy did not receive a unique identity: %#v", item.Proxies)
+	}
+}
+
+func TestSaveSubscriptionContentRejectsInvalidProxyIDsAtomically(t *testing.T) {
+	withTempBasePath(t)
+	events := &recordingRuntimeEvents{}
+	service := NewService(nil, runtimePaths.Load(), staticAppConfig{}, events, nil)
+
+	created, err := service.CreateSubscription(context.Background(), connect.NewRequest(&appv1.CreateSubscriptionRequest{
+		SubscriptionJson: `{"id":"manual","name":"Manual","type":"Manual"}`,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	saved, err := service.SaveSubscriptionContent(context.Background(), connect.NewRequest(&appv1.SaveSubscriptionContentRequest{
+		Id:               "manual",
+		Content:          `[{"tag":"existing","type":"direct"}]`,
+		ProxyIds:         []string{"ID_existing"},
+		ExpectedRevision: mutationRevision(created.Msg.GetState()),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	contentBefore, err := os.ReadFile(GetPath(subscriptionContentPath("manual")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	subscriptionsBefore, err := os.ReadFile(GetPath(subscriptionsFilePath))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	tests := []struct {
+		name     string
+		content  string
+		proxyIDs []string
+	}{
+		{name: "length mismatch", content: `[{"tag":"changed","type":"direct"}]`},
+		{
+			name:     "duplicate ids",
+			content:  `[{"tag":"first","type":"direct"},{"tag":"second","type":"block"}]`,
+			proxyIDs: []string{"ID_duplicate", "ID_duplicate"},
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			events.events = nil
+			_, err := service.SaveSubscriptionContent(context.Background(), connect.NewRequest(&appv1.SaveSubscriptionContentRequest{
+				Id:               "manual",
+				Content:          test.content,
+				ProxyIds:         test.proxyIDs,
+				ExpectedRevision: mutationRevision(saved.Msg.GetState()),
+			}))
+			if connect.CodeOf(err) != connect.CodeInvalidArgument {
+				t.Fatalf("error code = %v, want invalid argument", connect.CodeOf(err))
+			}
+			contentAfter, readErr := os.ReadFile(GetPath(subscriptionContentPath("manual")))
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			subscriptionsAfter, readErr := os.ReadFile(GetPath(subscriptionsFilePath))
+			if readErr != nil {
+				t.Fatal(readErr)
+			}
+			if !bytes.Equal(contentAfter, contentBefore) || !bytes.Equal(subscriptionsAfter, subscriptionsBefore) {
+				t.Fatal("invalid proxy identities partially changed subscription data")
+			}
+			listed, listErr := service.ListSubscriptions(context.Background(), connect.NewRequest(&appv1.ListSubscriptionsRequest{}))
+			if listErr != nil {
+				t.Fatal(listErr)
+			}
+			if listed.Msg.GetState().GetItemRevisions()["manual"] != saved.Msg.GetState().GetItemRevision() {
+				t.Fatalf("invalid save advanced item revision: %#v", listed.Msg.GetState())
+			}
+			if len(events.events) != 0 {
+				t.Fatalf("invalid save published events: %#v", events.events)
+			}
+		})
+	}
+}
+
+func TestSaveSubscriptionContentTreatsIdentityChangesAsMutations(t *testing.T) {
+	withTempBasePath(t)
+	events := &recordingRuntimeEvents{}
+	service := NewService(nil, runtimePaths.Load(), staticAppConfig{}, events, nil)
+
+	created, err := service.CreateSubscription(context.Background(), connect.NewRequest(&appv1.CreateSubscriptionRequest{
+		SubscriptionJson: `{"id":"manual","name":"Manual","type":"Manual"}`,
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := service.SaveSubscriptionContent(context.Background(), connect.NewRequest(&appv1.SaveSubscriptionContentRequest{
+		Id:               "manual",
+		Content:          `[{"tag":"same","type":"direct"}]`,
+		ProxyIds:         []string{"ID_old"},
+		ExpectedRevision: mutationRevision(created.Msg.GetState()),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	contentBefore, err := os.ReadFile(GetPath(subscriptionContentPath("manual")))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	events.events = nil
+	changed, err := service.SaveSubscriptionContent(context.Background(), connect.NewRequest(&appv1.SaveSubscriptionContentRequest{
+		Id:               "manual",
+		Content:          `[{"tag":"same","type":"direct"}]`,
+		ProxyIds:         []string{"ID_new"},
+		ExpectedRevision: mutationRevision(first.Msg.GetState()),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if changed.Msg.GetState().GetItemRevision() <= first.Msg.GetState().GetItemRevision() {
+		t.Fatalf("identity-only change did not advance item revision: %#v", changed.Msg.GetState())
+	}
+	contentAfter, err := os.ReadFile(GetPath(subscriptionContentPath("manual")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(contentAfter, contentBefore) {
+		t.Fatal("identity-only change rewrote subscription content")
+	}
+	if len(events.events) != 1 || events.events[0].name != "resourceChanged" {
+		t.Fatalf("identity-only change events = %#v", events.events)
+	}
+
+	events.events = nil
+	noOp, err := service.SaveSubscriptionContent(context.Background(), connect.NewRequest(&appv1.SaveSubscriptionContentRequest{
+		Id:               "manual",
+		Content:          `[{"tag":"same","type":"direct"}]`,
+		ProxyIds:         []string{"ID_new"},
+		ExpectedRevision: mutationRevision(changed.Msg.GetState()),
+	}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if noOp.Msg.GetState().GetStateRevision() != changed.Msg.GetState().GetStateRevision() {
+		t.Fatalf("exact no-op advanced state revision: %#v", noOp.Msg.GetState())
+	}
+	if len(events.events) != 0 {
+		t.Fatalf("exact no-op published events: %#v", events.events)
 	}
 }
 
@@ -1712,7 +1987,7 @@ func TestSubscriptionContentAndOrderVersionsAreIndependent(t *testing.T) {
 		t.Fatal(err)
 	}
 	saved, err := service.SaveSubscriptionContent(context.Background(), connect.NewRequest(&appv1.SaveSubscriptionContentRequest{
-		Id: "first", Content: `[{"type":"direct","tag":"direct"}]`, ExpectedRevision: content.Msg.GetRevision(),
+		Id: "first", Content: `[{"type":"direct","tag":"direct"}]`, ProxyIds: []string{"ID_direct"}, ExpectedRevision: content.Msg.GetRevision(),
 	}))
 	if err != nil {
 		t.Fatal(err)
@@ -1724,7 +1999,7 @@ func TestSubscriptionContentAndOrderVersionsAreIndependent(t *testing.T) {
 		t.Fatalf("content edit should not conflict with subscription reorder: %v", err)
 	}
 	_, err = service.SaveSubscriptionContent(context.Background(), connect.NewRequest(&appv1.SaveSubscriptionContentRequest{
-		Id: "first", Content: `[{"type":"block","tag":"stale"}]`, ExpectedRevision: content.Msg.GetRevision(),
+		Id: "first", Content: `[{"type":"block","tag":"stale"}]`, ProxyIds: []string{"ID_direct"}, ExpectedRevision: content.Msg.GetRevision(),
 	}))
 	if connect.CodeOf(err) != connect.CodeAborted {
 		t.Fatalf("stale subscription content code = %v", connect.CodeOf(err))
@@ -1732,7 +2007,7 @@ func TestSubscriptionContentAndOrderVersionsAreIndependent(t *testing.T) {
 
 	events.events = nil
 	noOp, err := service.SaveSubscriptionContent(context.Background(), connect.NewRequest(&appv1.SaveSubscriptionContentRequest{
-		Id: "first", Content: `[{"type":"direct","tag":"direct"}]`, ExpectedRevision: mutationRevision(saved.Msg.GetState()),
+		Id: "first", Content: `[{"type":"direct","tag":"direct"}]`, ProxyIds: []string{"ID_direct"}, ExpectedRevision: mutationRevision(saved.Msg.GetState()),
 	}))
 	if err != nil {
 		t.Fatal(err)

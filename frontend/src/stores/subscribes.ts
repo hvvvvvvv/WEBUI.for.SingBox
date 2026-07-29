@@ -21,7 +21,13 @@ import type { TaskResult } from '../../gen/app/v1/task_pb'
 
 type Revision = Pick<ExpectedRevision, 'instanceId' | 'revision'>
 
-const parseList = <T>(items: string[]) => items.map((value) => JSON.parse(value) as T)
+const parseSubscription = (value: string): Subscription => {
+  const subscription = JSON.parse(value) as Subscription
+  subscription.proxies ??= []
+  return subscription
+}
+
+const parseSubscriptions = (items: string[]) => items.map(parseSubscription)
 
 export const useSubscribesStore = defineStore('subscribes', () => {
   const subscribes = ref<Subscription[]>([])
@@ -43,7 +49,7 @@ export const useSubscribesStore = defineStore('subscribes', () => {
   const setupSubscribes = async () => {
     const requestID = ++setupRequestID
     const { subscriptionsJson, state } = await service.listSubscriptions({})
-    const items = parseList<Subscription>(subscriptionsJson)
+    const items = parseSubscriptions(subscriptionsJson)
     if (
       state?.instanceId &&
       resourceState.instanceId &&
@@ -104,7 +110,7 @@ export const useSubscribesStore = defineStore('subscribes', () => {
       subscriptionJson: JSON.stringify(subscription),
     })
     if (!(await applySubscribeMutation(state, { id: subscription.id }))) return
-    upsertLocalSubscribe(JSON.parse(subscriptionJson) as Subscription)
+    upsertLocalSubscribe(parseSubscription(subscriptionJson))
   }
 
   const importSubscribe = async (name: string, url: string) => {
@@ -131,7 +137,7 @@ export const useSubscribesStore = defineStore('subscribes', () => {
       expectedRevision: revision,
     })
     if (!(await applySubscribeMutation(state, { id }))) return
-    upsertLocalSubscribe(JSON.parse(subscriptionJson) as Subscription)
+    upsertLocalSubscribe(parseSubscription(subscriptionJson))
   }
 
   const updateSubscribe = async (id: string): Promise<TaskResult[]> => {
@@ -173,15 +179,17 @@ export const useSubscribesStore = defineStore('subscribes', () => {
   const saveSubscriptionContent = async (
     id: string,
     content: string,
+    proxyIds: string[],
     revision: Revision = expectedItemRevision(resourceState, id),
   ) => {
     const { subscriptionJson, state } = await service.saveSubscriptionContent({
       id,
       content,
+      proxyIds,
       expectedRevision: revision,
     })
     if (!(await applySubscribeMutation(state, { id }))) return
-    const item = JSON.parse(subscriptionJson) as Subscription
+    const item = parseSubscription(subscriptionJson)
     upsertLocalSubscribe(item)
     return item
   }

@@ -795,6 +795,7 @@ type SaveSubscriptionContentRequest struct {
 	Id               string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	Content          string                 `protobuf:"bytes,2,opt,name=content,proto3" json:"content,omitempty"`
 	ExpectedRevision *v1.ExpectedRevision   `protobuf:"bytes,3,opt,name=expected_revision,json=expectedRevision,proto3" json:"expected_revision,omitempty"`
+	ProxyIds         []string               `protobuf:"bytes,4,rep,name=proxy_ids,json=proxyIds,proto3" json:"proxy_ids,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
 }
@@ -846,6 +847,13 @@ func (x *SaveSubscriptionContentRequest) GetContent() string {
 func (x *SaveSubscriptionContentRequest) GetExpectedRevision() *v1.ExpectedRevision {
 	if x != nil {
 		return x.ExpectedRevision
+	}
+	return nil
+}
+
+func (x *SaveSubscriptionContentRequest) GetProxyIds() []string {
+	if x != nil {
+		return x.ProxyIds
 	}
 	return nil
 }
@@ -946,11 +954,12 @@ const file_app_v1_subscription_service_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\"s\n" +
 	"\x1eGetSubscriptionContentResponse\x12\x18\n" +
 	"\acontent\x18\x01 \x01(\tR\acontent\x127\n" +
-	"\brevision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\brevision\"\x94\x01\n" +
+	"\brevision\x18\x02 \x01(\v2\x1b.common.v1.ExpectedRevisionR\brevision\"\xb1\x01\n" +
 	"\x1eSaveSubscriptionContentRequest\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
 	"\acontent\x18\x02 \x01(\tR\acontent\x12H\n" +
-	"\x11expected_revision\x18\x03 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x10expectedRevision\"~\n" +
+	"\x11expected_revision\x18\x03 \x01(\v2\x1b.common.v1.ExpectedRevisionR\x10expectedRevision\x12\x1b\n" +
+	"\tproxy_ids\x18\x04 \x03(\tR\bproxyIds\"~\n" +
 	"\x1fSaveSubscriptionContentResponse\x12+\n" +
 	"\x11subscription_json\x18\x01 \x01(\tR\x10subscriptionJson\x12.\n" +
 	"\x05state\x18\x02 \x01(\v2\x18.common.v1.MutationStateR\x05state2\x96\a\n" +

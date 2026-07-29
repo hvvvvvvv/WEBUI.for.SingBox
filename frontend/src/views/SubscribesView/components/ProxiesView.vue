@@ -30,6 +30,7 @@ const proxyType = ref('')
 const details = ref()
 const allFieldsProxies = ref<any[]>([])
 const sub = ref(deepClone(props.sub))
+sub.value.proxies ??= []
 let baseRevision: Pick<ExpectedRevision, 'instanceId' | 'revision'> | undefined
 
 const [showDetails, toggleDetails] = useBool(false)
@@ -125,6 +126,7 @@ const handleSave = async () => {
     await subscribeStore.saveSubscriptionContent(
       id,
       JSON.stringify(sortedArray, null, 2),
+      proxies.map((proxy) => proxy.id),
       baseRevision,
     )
     await handleSubmit()
@@ -200,6 +202,7 @@ const loadLatest = async () => {
       return
     }
     sub.value = deepClone(latest)
+    sub.value.proxies ??= []
     allFieldsProxies.value = []
     await initAllFieldsProxies()
     conflict.value = null

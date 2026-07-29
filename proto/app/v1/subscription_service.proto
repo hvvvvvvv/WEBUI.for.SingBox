@@ -81,6 +81,7 @@ message SaveSubscriptionContentRequest {
   string id = 1;
   string content = 2;
   common.v1.ExpectedRevision expected_revision = 3;
+  repeated string proxy_ids = 4;
 }
 
 message SaveSubscriptionContentResponse {
