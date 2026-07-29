@@ -1,5 +1,5 @@
 OUTPUT_DIR ?= build/bin
-APP_VERSION ?= 1.1.1
+APP_VERSION ?= 1.1.2
 VERSION ?= $(APP_VERSION)
 BUF ?= buf
 
