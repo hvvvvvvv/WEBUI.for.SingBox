@@ -31,6 +31,7 @@ import type { Menu } from '@/types/app'
 import type { SortableEvent } from 'vue-draggable-plus'
 
 import ProfileForm from './components/ProfileForm.vue'
+import QRSShareDialog from './components/QRSShareDialog.vue'
 
 const { t } = useI18n()
 const [Modal, modalApi] = useModal({})
@@ -131,6 +132,31 @@ const secondaryMenusList: Menu[] = [
       } catch (error: any) {
         message.error(error.message || error)
       }
+    },
+  },
+  {
+    label: 'profiles.qrs.share',
+    handler: (id: string) => {
+      const profile = profilesStore.getProfileById(id)
+      if (!profile) return
+
+      modalApi.setProps({
+        title: 'profiles.qrs.title',
+        footer: false,
+        maxHeight: '95',
+        maxWidth: '95',
+        minWidth: '0',
+        maskClosable: true,
+        bodyScrollable: true,
+        toolbar: { maximize: false },
+      })
+      modalApi
+        .setContent(QRSShareDialog, {
+          profileId: profile.id,
+          profileName: profile.name,
+          onClose: () => modalApi.close(),
+        })
+        .open()
     },
   },
 ]
