@@ -631,6 +631,7 @@ export default {
     qrs: {
       share: 'Share to Mobile (QRS)',
       title: 'Share to Mobile (QRS)',
+      editTitle: 'Edit QRS Share Configuration',
       loading: 'Generating configuration…',
       encoding: 'Generating QRS frames…',
       fps: 'Frame rate',
@@ -639,6 +640,7 @@ export default {
       qrTooLarge: 'This frame exceeds QR capacity. Adjust the slice size.',
       loadFailed: 'Failed to generate configuration: {error}',
       generateFailed: 'Failed to generate QRS: {error}',
+      invalidJson: 'Invalid JSON: {error}',
       rulesetConversionFailed: 'Failed to convert rule set “{ruleSet}”: {reason}',
       rulesetError: {
         resourceNotFound: 'The matching local rule-set resource was not found.',

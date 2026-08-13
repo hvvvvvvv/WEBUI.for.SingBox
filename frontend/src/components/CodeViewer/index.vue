@@ -74,6 +74,11 @@ const searchLocaleCompartment = new Compartment()
 const domRef = useTemplateRef('domRef')
 const appSettings = useAppSettingsStore()
 
+const getContent = () =>
+  (editorView || mergeView?.b)?.state.doc.toString() ?? props.modelValue
+
+defineExpose({ getContent })
+
 const getEditorViews = () =>
   editorView ? [editorView] : mergeView ? [mergeView.a, mergeView.b] : []
 

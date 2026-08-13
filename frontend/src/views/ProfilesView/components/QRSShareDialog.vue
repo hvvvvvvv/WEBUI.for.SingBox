@@ -1,14 +1,26 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue'
+import {
+  computed,
+  h,
+  nextTick,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  useTemplateRef,
+  watch,
+  withDirectives,
+} from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import QRCode from 'qrcode'
 
 import { BrowserOpenURL } from '@/bridge'
+import vTips from '@/directives/tips'
 import { useRulesetsStore } from '@/stores'
 import {
   buildProfileQRS,
   generateConfigViaRpc,
+  message,
   prepareConfigForQRS,
   ProfileType,
   QRSConfigPreparationError,
@@ -20,6 +32,10 @@ import {
   QRS_MIN_SLICE_SIZE,
   type QRSFrame,
 } from '@/utils'
+
+import Button from '@/components/Button/index.vue'
+import CodeViewer from '@/components/CodeViewer/index.vue'
+import { useModal } from '@/components/Modal'
 
 const props = defineProps<{
   profileId: string
@@ -36,12 +52,14 @@ const REBUILD_DELAY = 180
 const { t } = useI18n()
 const rulesetsStore = useRulesetsStore()
 const canvas = useTemplateRef<HTMLCanvasElement>('canvas')
+const configEditor = useTemplateRef<{ getContent: () => string }>('configEditor')
 
 const fps = ref(QRS_DEFAULT_FPS)
 const sliceSize = ref(QRS_DEFAULT_SLICE_SIZE)
 const frames = ref<QRSFrame[]>([])
 const currentFrame = ref(0)
 const configText = ref<string>()
+const editorText = ref('')
 const loading = ref(true)
 const encoding = ref(false)
 const errorMessage = ref('')
@@ -176,6 +194,56 @@ const loadProfile = async () => {
   }
 }
 
+const applyEditedConfig = async () => {
+  const nextConfigText = configEditor.value?.getContent() ?? editorText.value
+  try {
+    JSON.parse(nextConfigText)
+  } catch (error) {
+    message.error(t('profiles.qrs.invalidJson', { error: describeError(error) }))
+    return false
+  }
+
+  configText.value = nextConfigText
+  await rebuildFrames()
+  return true
+}
+
+const [ConfigEditorModal, configEditorModalApi] = useModal({
+  title: 'profiles.qrs.editTitle',
+  height: '90',
+  width: '60',
+  maxHeight: '90',
+  maxWidth: '90',
+  bodyScrollable: false,
+  onOk: applyEditedConfig,
+  afterClose: (isOk) => {
+    if (!isOk && !disposed) void startPlayback()
+  },
+})
+
+const openConfigEditor = () => {
+  if (busy.value || configText.value === undefined) return
+  stopPlayback()
+  editorText.value = configText.value
+  configEditorModalApi.open()
+}
+
+const modalSlots = {
+  toolbar: () =>
+    withDirectives(
+      h(Button, {
+        type: 'text',
+        size: 'small',
+        icon: 'edit',
+        disabled: busy.value || configText.value === undefined,
+        onClick: openConfigEditor,
+      }),
+      [[vTips, 'common.edit']],
+    ),
+}
+
+defineExpose({ modalSlots })
+
 watch(fps, () => void startPlayback())
 watch(sliceSize, () => {
   if (rebuildTimer !== undefined) window.clearTimeout(rebuildTimer)
@@ -252,6 +320,16 @@ onBeforeUnmount(() => {
       </Button>
     </div>
   </div>
+
+  <ConfigEditorModal>
+    <CodeViewer
+      ref="configEditor"
+      v-model="editorText"
+      lang="json"
+      editable
+      class="h-full min-h-0"
+    />
+  </ConfigEditorModal>
 </template>
 
 <style scoped lang="less">

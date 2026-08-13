@@ -625,6 +625,7 @@ export default {
     qrs: {
       share: '分享到手机客户端（QRS）',
       title: '分享到手机客户端（QRS）',
+      editTitle: '编辑 QRS 分享配置',
       loading: '正在生成配置…',
       encoding: '正在生成 QRS 帧…',
       fps: '帧率',
@@ -633,6 +634,7 @@ export default {
       qrTooLarge: '当前帧超出二维码容量，请调整分块大小。',
       loadFailed: '生成配置失败：{error}',
       generateFailed: '生成 QRS 失败：{error}',
+      invalidJson: 'JSON 格式无效：{error}',
       rulesetConversionFailed: '无法转换规则集“{ruleSet}”：{reason}',
       rulesetError: {
         resourceNotFound: '找不到对应的本地规则集资源。',
