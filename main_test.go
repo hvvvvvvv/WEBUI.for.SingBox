@@ -166,14 +166,71 @@ func TestServiceCommands(t *testing.T) {
 	}
 }
 
-func TestServiceConfigOmitsSystemdDependenciesOnOtherPlatforms(t *testing.T) {
+func TestServiceConfigUsesPlatformNetworkStartup(t *testing.T) {
 	originalPlatform := currentServicePlatform
 	t.Cleanup(func() { currentServicePlatform = originalPlatform })
-	currentServicePlatform = func() string { return "windows-service" }
 
-	config := makeServiceConfig("/opt/webui", nil)
-	if len(config.Dependencies) != 0 {
-		t.Fatalf("service dependencies = %#v, want none", config.Dependencies)
+	tests := []struct {
+		name             string
+		platform         string
+		dependencies     []string
+		delayedAutoStart bool
+		runAtLoad        bool
+		launchdConfig    bool
+	}{
+		{
+			name:         "systemd",
+			platform:     systemdServicePlatform,
+			dependencies: []string{"Wants=network-online.target", "After=network-online.target"},
+			runAtLoad:    true,
+		},
+		{
+			name:         "OpenRC",
+			platform:     openRCServicePlatform,
+			dependencies: []string{"need net"},
+			runAtLoad:    true,
+		},
+		{
+			name:             "Windows",
+			platform:         windowsServicePlatform,
+			delayedAutoStart: true,
+			runAtLoad:        true,
+		},
+		{
+			name:          "launchd",
+			platform:      launchdServicePlatform,
+			runAtLoad:     false,
+			launchdConfig: true,
+		},
+		{
+			name:      "other",
+			platform:  "unix-systemv",
+			runAtLoad: true,
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			currentServicePlatform = func() string { return test.platform }
+			config := makeServiceConfig("/opt/webui", nil)
+
+			if !reflect.DeepEqual(config.Dependencies, test.dependencies) {
+				t.Errorf("dependencies = %#v, want %#v", config.Dependencies, test.dependencies)
+			}
+			if got, _ := config.Option["DelayedAutoStart"].(bool); got != test.delayedAutoStart {
+				t.Errorf("DelayedAutoStart = %v, want %v", got, test.delayedAutoStart)
+			}
+			if got, _ := config.Option["RunAtLoad"].(bool); got != test.runAtLoad {
+				t.Errorf("RunAtLoad = %v, want %v", got, test.runAtLoad)
+			}
+			launchdConfig, _ := config.Option["LaunchdConfig"].(string)
+			if (launchdConfig != "") != test.launchdConfig {
+				t.Errorf("LaunchdConfig present = %v, want %v", launchdConfig != "", test.launchdConfig)
+			}
+			if test.launchdConfig && !strings.Contains(launchdConfig, "<key>NetworkState</key>") {
+				t.Error("LaunchdConfig does not wait for network state")
+			}
+		})
 	}
 }
 

@@ -280,12 +280,7 @@ func makeServiceConfig(executable string, arguments []string) *service.Config {
 			"OnFailure":   "restart",
 		},
 	}
-	if currentServicePlatform() == "linux-systemd" {
-		config.Dependencies = []string{
-			"Wants=network-online.target",
-			"After=network-online.target",
-		}
-	}
+	configureServicePlatform(config, currentServicePlatform())
 	return config
 }
 
