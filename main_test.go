@@ -103,12 +103,15 @@ func (a *fakeApplication) SetAuthSecret(secret string) error {
 func TestServiceCommands(t *testing.T) {
 	originalExecutable := currentExecutable
 	originalFactory := newSystemService
+	originalPlatform := currentServicePlatform
 	defer func() {
 		currentExecutable = originalExecutable
 		newSystemService = originalFactory
+		currentServicePlatform = originalPlatform
 	}()
 
 	currentExecutable = func() (string, error) { return filepath.Join("tmp", "webui"), nil }
+	currentServicePlatform = func() string { return "linux-systemd" }
 	manager := &fakeSystemService{errors: map[string]error{}}
 	var config *service.Config
 	newSystemService = func(_ service.Interface, received *service.Config) (systemService, error) {
@@ -133,6 +136,12 @@ func TestServiceCommands(t *testing.T) {
 	if !reflect.DeepEqual(config.Arguments, []string{"--addr", "127.0.0.1:8080"}) {
 		t.Fatalf("service arguments = %#v", config.Arguments)
 	}
+	if !reflect.DeepEqual(config.Dependencies, []string{
+		"Wants=network-online.target",
+		"After=network-online.target",
+	}) {
+		t.Fatalf("service dependencies = %#v", config.Dependencies)
+	}
 	for key, want := range map[string]any{
 		"UserService": false,
 		"RunAtLoad":   true,
@@ -154,6 +163,17 @@ func TestServiceCommands(t *testing.T) {
 		if code != 0 || !reflect.DeepEqual(manager.calls, []string{action}) {
 			t.Errorf("%s result: code=%d calls=%#v stderr=%q", action, code, manager.calls, stderr.String())
 		}
+	}
+}
+
+func TestServiceConfigOmitsSystemdDependenciesOnOtherPlatforms(t *testing.T) {
+	originalPlatform := currentServicePlatform
+	t.Cleanup(func() { currentServicePlatform = originalPlatform })
+	currentServicePlatform = func() string { return "windows-service" }
+
+	config := makeServiceConfig("/opt/webui", nil)
+	if len(config.Dependencies) != 0 {
+		t.Fatalf("service dependencies = %#v, want none", config.Dependencies)
 	}
 }
 

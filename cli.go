@@ -64,7 +64,10 @@ type commandRuntime struct {
 	stdout io.Writer
 }
 
-var runUpdateHelper = appupdate.RunHelper
+var (
+	runUpdateHelper        = appupdate.RunHelper
+	currentServicePlatform = service.Platform
+)
 
 func run(args []string, stdout, stderr io.Writer) int {
 	cli := &commandLine{}
@@ -261,7 +264,7 @@ func executablePath() (string, error) {
 
 func makeServiceConfig(executable string, arguments []string) *service.Config {
 	executable = filepath.Clean(executable)
-	return &service.Config{
+	config := &service.Config{
 		Name:             serviceName,
 		DisplayName:      serviceDisplayName,
 		Description:      serviceDescription,
@@ -277,6 +280,13 @@ func makeServiceConfig(executable string, arguments []string) *service.Config {
 			"OnFailure":   "restart",
 		},
 	}
+	if currentServicePlatform() == "linux-systemd" {
+		config.Dependencies = []string{
+			"Wants=network-online.target",
+			"After=network-online.target",
+		}
+	}
+	return config
 }
 
 func serviceCommandError(action string, err error) error {
