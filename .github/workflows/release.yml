@@ -7,7 +7,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
+
+env:
+  REGISTRY: ghcr.io
 
 jobs:
   Prepare:
@@ -194,9 +197,106 @@ jobs:
           name: linux-builds
           path: build/bin/*.zip
 
-  Release:
-    needs: [Prepare, Build-Windows, Build-macOS, Build-Linux]
+  Build-Container:
+    needs: Prepare
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Normalize container image name
+        id: image
+        run: echo "name=${GITHUB_REPOSITORY,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate container metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
+          tags: |
+            type=semver,pattern={{version}},value=${{ needs.Prepare.outputs.app_version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.Prepare.outputs.app_version }}
+            type=semver,pattern={{major}},value=${{ needs.Prepare.outputs.app_version }}
+            type=sha,format=long
+
+      - name: Build and push container image
+        id: push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha,scope=release-container
+          cache-to: type=gha,mode=max,scope=release-container
+          provenance: false
+
+      - name: Verify multi-platform image manifest
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          docker buildx imagetools inspect "$IMAGE@$DIGEST" --raw | jq -e '
+            any(.manifests[].platform; .os == "linux" and .architecture == "amd64") and
+            any(.manifests[].platform; .os == "linux" and .architecture == "arm64") and
+            any(.manifests[].platform; .os == "linux" and .architecture == "arm" and .variant == "v7")
+          '
+
+      - name: Smoke test published image
+        env:
+          IMAGE: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+        run: |
+          container_name="webui-for-singbox-smoke"
+          trap 'docker rm --force "$container_name" >/dev/null 2>&1 || true' EXIT
+
+          docker run --detach \
+            --name "$container_name" \
+            --publish 127.0.0.1:9090:9090 \
+            "$IMAGE@$DIGEST"
+
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error \
+              http://127.0.0.1:9090/api/app/start-time >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+
+          docker logs "$container_name"
+          exit 1
+
+      - name: Attest container image
+        uses: actions/attest@v4
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ steps.image.outputs.name }}
+          subject-digest: ${{ steps.push.outputs.digest }}
+          push-to-registry: true
+
+  Release:
+    needs: [Prepare, Build-Windows, Build-macOS, Build-Linux, Build-Container]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/download-artifact@v8
         with:

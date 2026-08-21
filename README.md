@@ -39,6 +39,29 @@ make build
 ./build/bin/webui.for.singbox.server --addr 0.0.0.0:9090
 ```
 
+## 容器部署
+
+版本发布时，GitHub Actions 会构建 `amd64`、`arm64` 和 `arm/v7` 镜像并推送到 GitHub Container Registry。稳定版本同时提供完整版本号、主次版本号、主版本号和 `latest` 标签；预发布版本只提供完整版本号和对应的提交 SHA 标签。
+
+拉取并运行最新稳定版本：
+
+```bash
+docker pull ghcr.io/hvvvvvvv/webui.for.singbox:latest
+
+docker run -d \
+  --name webui-for-singbox \
+  --restart unless-stopped \
+  -p 9090:9090 \
+  -v webui-for-singbox-data:/app/data \
+  -e GFS_HOST=0.0.0.0 \
+  -e GFS_PORT=9090 \
+  ghcr.io/hvvvvvvv/webui.for.singbox:latest
+```
+
+Web UI 默认监听 `0.0.0.0:9090`，持久化数据保存在 `/app/data`。如修改 `GFS_PORT`，需要同步调整 `docker run` 的容器端口映射。需要固定版本时，可将 `latest` 替换为具体版本标签，例如 `1.1.3`。
+
+容器包首次发布后默认为私有。仓库维护者需要在 GitHub Packages 的包设置中将其可见性改为 Public，之后用户无需登录 GHCR 即可拉取。
+
 ## 系统服务
 
 同一二进制可以注册为 Windows、Linux 或 macOS 的系统级服务。安装和卸载服务需要管理员权限；启动、停止和重启通常也需要管理员权限。
