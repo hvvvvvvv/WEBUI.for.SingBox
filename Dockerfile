@@ -1,20 +1,35 @@
-# Stage 1: Build application
-FROM golang:1.26-alpine AS builder
-WORKDIR /src
-RUN apk add --no-cache make nodejs npm \
-  && npm install --global pnpm@latest
-COPY go.mod go.sum Makefile ./
-COPY frontend/package.json frontend/pnpm-lock.yaml ./frontend/
-RUN go mod download
-RUN pnpm --dir frontend install --frozen-lockfile
-COPY . .
-RUN CGO_ENABLED=0 make build OUTPUT_DIR=/out
+# syntax=docker/dockerfile:1
 
-# Stage 2: Runtime
+# Build the frontend once on the native builder platform. Some frontend build
+# dependencies do not ship native binaries for every target architecture.
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend-builder
+WORKDIR /src/frontend
+RUN npm install --global pnpm@latest
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+COPY frontend/ ./
+RUN pnpm build
+
+# Cross-compile the Go backend on the native builder platform for each target.
+FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS backend-builder
+ARG TARGETOS
+ARG TARGETARCH
+ARG TARGETVARIANT
+WORKDIR /src
+RUN apk add --no-cache make
+COPY go.mod go.sum Makefile ./
+RUN go mod download
+COPY . .
+COPY --from=frontend-builder /src/frontend/dist ./frontend/dist
+RUN export CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH"; \
+  if [ "$TARGETARCH" = "arm" ]; then export GOARM="${TARGETVARIANT#v}"; fi; \
+  make backend OUTPUT_DIR=/out
+
+# Runtime image for the selected target platform.
 FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
-COPY --from=builder /out/webui.for.singbox.server ./
+COPY --from=backend-builder /out/webui.for.singbox.server ./
 
 VOLUME /app/data
 
