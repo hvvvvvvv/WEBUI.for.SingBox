@@ -165,7 +165,13 @@ const handleDisableSub = async (s: Subscription) => {
 
 const noUpdateNeeded = computed(() => subscribeStore.subscribes.every((v) => v.disabled))
 
-const clacTrafficPercent = (s: Subscription) => ((s.upload + s.download) / s.total) * 100
+const clacTrafficPercent = (s: Subscription) => {
+  const total = Number(s.total)
+  if (!Number.isFinite(total) || total <= 0) return 0
+
+  const used = Number(s.upload) + Number(s.download)
+  return Number.isFinite(used) ? (used / total) * 100 : 0
+}
 
 const clacTrafficStatus = (s: Subscription) => {
   const percent = clacTrafficPercent(s)

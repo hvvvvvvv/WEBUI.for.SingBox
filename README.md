@@ -49,6 +49,10 @@ docker pull ghcr.io/hvvvvvvv/webui.for.singbox:latest
 docker run -d \
   --name webui-for-singbox \
   --restart unless-stopped \
+  --cap-add NET_ADMIN \
+  --device /dev/net/tun:/dev/net/tun \
+  --sysctl net.ipv4.ip_forward=1 \
+  --sysctl net.ipv6.conf.all.forwarding=1 \
   -p 9090:9090 \
   -v webui-for-singbox-data:/app/data \
   -e GFS_HOST=0.0.0.0 \
