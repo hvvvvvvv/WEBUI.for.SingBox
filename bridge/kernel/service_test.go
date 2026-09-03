@@ -468,7 +468,8 @@ func TestRestartCoreReturnsPID(t *testing.T) {
 		waitKernelAPIReadyFunc = previousWait
 	})
 
-	service := NewService(fakeProcesses{}, &fakeGenerator{}, fakeConfig{}, &fakeProfiles{}, fakeEvents{})
+	events := &recordingEvents{}
+	service := NewService(fakeProcesses{}, &fakeGenerator{}, fakeConfig{}, &fakeProfiles{}, events)
 	service.mu.Lock()
 	service.status = kernelv1.CoreStatus_CORE_STATUS_RUNNING
 	service.corePID = 1
@@ -483,6 +484,9 @@ func TestRestartCoreReturnsPID(t *testing.T) {
 	}
 	if resp.Msg.GetPid() != 1 {
 		t.Fatalf("expected restarted pid 1, got %d", resp.Msg.GetPid())
+	}
+	if crashes := events.named("kernelCrashed"); len(crashes) != 0 {
+		t.Fatalf("successful restart published %d kernel crash events", len(crashes))
 	}
 }
 

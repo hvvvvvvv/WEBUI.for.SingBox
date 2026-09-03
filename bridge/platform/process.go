@@ -3,6 +3,7 @@ package platform
 import (
 	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -89,15 +90,7 @@ func (a *App) ExecBackground(path string, args []string, outEvent string, option
 	}
 
 	pid := strconv.Itoa(cmd.Process.Pid)
-
-	if pidPath != "" {
-		err := os.WriteFile(pidPath, []byte(pid), os.ModePerm)
-		if err != nil {
-			_ = SendExitSignal(cmd.Process)
-			_ = waitForProcessExitWithTimeout(cmd.Process, 10)
-			return FlagResult{false, err.Error()}
-		}
-	}
+	pidNumber := cmd.Process.Pid
 
 	if outEvent != "" {
 		scanAndEmit := func(reader io.Reader) {
@@ -124,17 +117,56 @@ func (a *App) ExecBackground(path string, args []string, outEvent string, option
 		go scanAndEmit(stdout)
 	}
 
-	if options.OnExit != nil {
-		go func() {
-			waitErr := cmd.Wait()
-			if pidPath != "" {
-				_ = os.Remove(pidPath)
-			}
-			options.OnExit(cmd.Process.Pid, waitErr)
-		}()
+	if pidPath != "" {
+		err := os.WriteFile(pidPath, []byte(pid), os.ModePerm)
+		if err != nil {
+			exited := make(chan struct{})
+			go func() {
+				_ = cmd.Wait()
+				close(exited)
+			}()
+			_ = SendExitSignal(cmd.Process)
+			_ = waitForExitNotification(exited, 10*time.Second, cmd.Process.Kill)
+			return FlagResult{false, err.Error()}
+		}
 	}
 
+	exited := make(chan struct{})
+	managed := &managedProcess{process: cmd.Process, exited: exited}
+	a.trackProcess(pidNumber, managed)
+	go func() {
+		waitErr := cmd.Wait()
+		if pidPath != "" {
+			_ = os.Remove(pidPath)
+		}
+		close(exited)
+		a.untrackProcess(pidNumber, managed)
+		if options.OnExit != nil {
+			options.OnExit(cmd.Process.Pid, waitErr)
+		}
+	}()
+
 	return FlagResult{true, pid}
+}
+
+func (a *App) trackProcess(pid int, process *managedProcess) {
+	a.managedProcessMu.Lock()
+	a.managedProcesses[pid] = process
+	a.managedProcessMu.Unlock()
+}
+
+func (a *App) untrackProcess(pid int, process *managedProcess) {
+	a.managedProcessMu.Lock()
+	if a.managedProcesses[pid] == process {
+		delete(a.managedProcesses, pid)
+	}
+	a.managedProcessMu.Unlock()
+}
+
+func (a *App) trackedProcess(pid int) *managedProcess {
+	a.managedProcessMu.Lock()
+	defer a.managedProcessMu.Unlock()
+	return a.managedProcesses[pid]
 }
 
 func (a *App) ProcessInfo(pid int32) FlagResult {
@@ -172,20 +204,55 @@ func (a *App) ProcessMemory(pid int32) FlagResult {
 func (a *App) KillProcess(pid int, timeout int) FlagResult {
 	log.Printf("KillProcess: %d %d", pid, timeout)
 
-	process, err := os.FindProcess(pid)
+	managed := a.trackedProcess(pid)
+	var target *os.Process
+	if managed != nil {
+		target = managed.process
+	} else {
+		process, err := os.FindProcess(pid)
+		if err != nil {
+			return FlagResult{false, err.Error()}
+		}
+		target = process
+	}
+
+	if err := SendExitSignal(target); err != nil {
+		log.Printf("SendExitSignal Err: %s", err.Error())
+	}
+
+	var err error
+	if managed != nil {
+		err = waitForTrackedProcessExitWithTimeout(target, managed.exited, timeout)
+	} else {
+		err = waitForProcessExitWithTimeout(target, timeout)
+	}
 	if err != nil {
 		return FlagResult{false, err.Error()}
 	}
 
-	if err := SendExitSignal(process); err != nil {
-		log.Printf("SendExitSignal Err: %s", err.Error())
-	}
-
-	if err := waitForProcessExitWithTimeout(process, timeout); err != nil {
-		return FlagResult{false, err.Error()}
-	}
-
 	return FlagResult{true, "Success"}
+}
+
+func waitForTrackedProcessExitWithTimeout(process *os.Process, exited <-chan struct{}, timeoutSeconds int) error {
+	if err := waitForExitNotification(exited, time.Duration(timeoutSeconds)*time.Second, process.Kill); err != nil {
+		return fmt.Errorf("timed out after %d seconds waiting for process %d, and failed to kill it: %w", timeoutSeconds, process.Pid, err)
+	}
+	return nil
+}
+
+func waitForExitNotification(exited <-chan struct{}, timeout time.Duration, forceKill func() error) error {
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	select {
+	case <-exited:
+		return nil
+	case <-timer.C:
+		if err := forceKill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+			return err
+		}
+		return nil
+	}
 }
 
 func waitForProcessExitWithTimeout(process *os.Process, timeoutSeconds int) error {
@@ -198,7 +265,7 @@ func waitForProcessExitWithTimeout(process *os.Process, timeoutSeconds int) erro
 	for {
 		select {
 		case <-ctx.Done():
-			if killErr := process.Kill(); killErr != nil {
+			if killErr := process.Kill(); killErr != nil && !errors.Is(killErr, os.ErrProcessDone) {
 				return fmt.Errorf("timed out after %d seconds waiting for process %d, and failed to kill it: %w", timeoutSeconds, process.Pid, killErr)
 			}
 			return nil
