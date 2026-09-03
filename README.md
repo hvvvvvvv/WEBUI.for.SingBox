@@ -13,7 +13,6 @@
 - 更新了项目名称、发布信息和检查更新地址，使其指向当前仓库。
 - 更适合透明代理部署场景，可作为远程管理界面运行在网关、旁路由或服务器上。
 
-
 ## 构建
 
 需要准备：
@@ -38,6 +37,27 @@ make build
 ```bash
 ./build/bin/webui.for.singbox.server --addr 0.0.0.0:9090
 ```
+
+## 手动安装 sing-box core
+
+如果运行环境无法访问 GitHub，因而不能在 Web UI 中在线下载 core，可以先通过其他可用网络获取与运行平台、CPU 架构相匹配的 sing-box 发布包，解压后将其中的 core 可执行文件手动放到 WebUI 可执行文件所在目录下的 `data/sing-box` 目录中（目录不存在时请自行创建）。
+
+文件名必须符合以下约定：
+
+- 稳定版：`data/sing-box/sing-box`，Windows 下为 `data/sing-box/sing-box.exe`
+- 测试版（Alpha）：`data/sing-box/sing-box-latest`，Windows 下为 `data/sing-box/sing-box-latest.exe`
+
+Linux 和 macOS 用户还需为文件添加执行权限：
+
+```bash
+# 稳定版
+chmod +x data/sing-box/sing-box
+
+# 测试版（Alpha）
+chmod +x data/sing-box/sing-box-latest
+```
+
+如果使用容器部署，对应的容器内目录为 `/app/data/sing-box`；使用上述示例中的命名卷时，需要将 core 放入该卷对应的目录。替换已有 core 前请先停止正在运行的 core，放置完成后刷新 Web UI 或重启服务即可识别本地版本。
 
 ## 容器部署
 
