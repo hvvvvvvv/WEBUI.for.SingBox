@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"fmt"
+	"log/slog"
+	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -16,6 +16,7 @@ import (
 
 	"guiforcores/bridge"
 	"guiforcores/bridge/appupdate"
+	"guiforcores/bridge/logging"
 )
 
 type fakeSystemService struct {
@@ -23,7 +24,6 @@ type fakeSystemService struct {
 	statusErr error
 	errors    map[string]error
 	calls     []string
-	logger    service.Logger
 }
 
 func (f *fakeSystemService) call(name string) error {
@@ -40,37 +40,6 @@ func (f *fakeSystemService) Uninstall() error { return f.call("uninstall") }
 func (f *fakeSystemService) Status() (service.Status, error) {
 	f.calls = append(f.calls, "status")
 	return f.status, f.statusErr
-}
-func (f *fakeSystemService) Logger(chan<- error) (service.Logger, error) {
-	if f.logger == nil {
-		f.logger = &fakeServiceLogger{}
-	}
-	return f.logger, f.errors["logger"]
-}
-
-type fakeServiceLogger struct {
-	mu       sync.Mutex
-	messages []string
-}
-
-func (l *fakeServiceLogger) add(values ...any) error {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	l.messages = append(l.messages, strings.TrimSpace(fmt.Sprint(values...)))
-	return nil
-}
-
-func (l *fakeServiceLogger) Error(values ...any) error   { return l.add(values...) }
-func (l *fakeServiceLogger) Warning(values ...any) error { return l.add(values...) }
-func (l *fakeServiceLogger) Info(values ...any) error    { return l.add(values...) }
-func (l *fakeServiceLogger) Errorf(format string, values ...any) error {
-	return l.add(fmt.Sprintf(format, values...))
-}
-func (l *fakeServiceLogger) Warningf(format string, values ...any) error {
-	return l.add(fmt.Sprintf(format, values...))
-}
-func (l *fakeServiceLogger) Infof(format string, values ...any) error {
-	return l.add(fmt.Sprintf(format, values...))
 }
 
 type fakeApplication struct {
@@ -120,7 +89,7 @@ func TestServiceCommands(t *testing.T) {
 	}
 
 	var stdout, stderr bytes.Buffer
-	code := run([]string{"service", "install", "--addr", "127.0.0.1:8080"}, &stdout, &stderr)
+	code := run([]string{"service", "install", "--addr", "127.0.0.1:8080", "--log-level", "warn", "--log-days", "30"}, &stdout, &stderr)
 	if code != 0 || stderr.Len() != 0 || stdout.String() != "service install: ok\n" {
 		t.Fatalf("install result: code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
 	}
@@ -133,7 +102,7 @@ func TestServiceCommands(t *testing.T) {
 	if !filepath.IsAbs(config.Executable) || config.WorkingDirectory != filepath.Dir(config.Executable) {
 		t.Fatalf("unexpected service paths: %#v", config)
 	}
-	if !reflect.DeepEqual(config.Arguments, []string{"--addr", "127.0.0.1:8080"}) {
+	if !reflect.DeepEqual(config.Arguments, []string{"--addr", "127.0.0.1:8080", "--log-level", "warn", "--log-days", "30"}) {
 		t.Fatalf("service arguments = %#v", config.Arguments)
 	}
 	if !reflect.DeepEqual(config.Dependencies, []string{
@@ -162,6 +131,88 @@ func TestServiceCommands(t *testing.T) {
 		code = run([]string{"service", action}, &stdout, &stderr)
 		if code != 0 || !reflect.DeepEqual(manager.calls, []string{action}) {
 			t.Errorf("%s result: code=%d calls=%#v stderr=%q", action, code, manager.calls, stderr.String())
+		}
+		if config.Arguments != nil {
+			t.Errorf("%s service arguments = %#v, want installed arguments", action, config.Arguments)
+		}
+	}
+}
+
+func TestServiceInstallAcceptsAllLogLevels(t *testing.T) {
+	originalExecutable := currentExecutable
+	originalFactory := newSystemService
+	defer func() {
+		currentExecutable = originalExecutable
+		newSystemService = originalFactory
+	}()
+	currentExecutable = func() (string, error) { return "/opt/webui", nil }
+	manager := &fakeSystemService{errors: map[string]error{}}
+	var arguments []string
+	newSystemService = func(_ service.Interface, config *service.Config) (systemService, error) {
+		arguments = append([]string(nil), config.Arguments...)
+		return manager, nil
+	}
+
+	for _, level := range []string{"debug", "info", "warn", "error"} {
+		var stdout, stderr bytes.Buffer
+		if code := run([]string{"service", "install", "--log-level", level}, &stdout, &stderr); code != 0 {
+			t.Fatalf("install level %q failed: code=%d stderr=%q", level, code, stderr.String())
+		}
+		want := []string{"--addr", defaultAddress, "--log-level", level, "--log-days", "7"}
+		if !reflect.DeepEqual(arguments, want) {
+			t.Errorf("level %q arguments = %#v, want %#v", level, arguments, want)
+		}
+	}
+}
+
+func TestServiceInstallDefaultsToInfo(t *testing.T) {
+	originalExecutable := currentExecutable
+	originalFactory := newSystemService
+	defer func() {
+		currentExecutable = originalExecutable
+		newSystemService = originalFactory
+	}()
+	currentExecutable = func() (string, error) { return "/opt/webui", nil }
+	manager := &fakeSystemService{errors: map[string]error{}}
+	var arguments []string
+	newSystemService = func(_ service.Interface, config *service.Config) (systemService, error) {
+		arguments = append([]string(nil), config.Arguments...)
+		return manager, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	if code := run([]string{"service", "install"}, &stdout, &stderr); code != 0 {
+		t.Fatalf("install failed: code=%d stderr=%q", code, stderr.String())
+	}
+	want := []string{"--addr", defaultAddress, "--log-level", "info", "--log-days", "7"}
+	if !reflect.DeepEqual(arguments, want) {
+		t.Fatalf("service arguments = %#v, want %#v", arguments, want)
+	}
+}
+
+func TestServiceInstallAcceptsLogDays(t *testing.T) {
+	originalExecutable := currentExecutable
+	originalFactory := newSystemService
+	defer func() {
+		currentExecutable = originalExecutable
+		newSystemService = originalFactory
+	}()
+	currentExecutable = func() (string, error) { return "/opt/webui", nil }
+	manager := &fakeSystemService{errors: map[string]error{}}
+	var arguments []string
+	newSystemService = func(_ service.Interface, config *service.Config) (systemService, error) {
+		arguments = append([]string(nil), config.Arguments...)
+		return manager, nil
+	}
+
+	for _, days := range []string{"30", "0", "-2"} {
+		var stdout, stderr bytes.Buffer
+		if code := run([]string{"service", "install", "--log-days", days}, &stdout, &stderr); code != 0 {
+			t.Fatalf("install log days %q failed: code=%d stderr=%q", days, code, stderr.String())
+		}
+		want := []string{"--addr", defaultAddress, "--log-level", "info", "--log-days", days}
+		if !reflect.DeepEqual(arguments, want) {
+			t.Errorf("log days %q arguments = %#v, want %#v", days, arguments, want)
 		}
 	}
 }
@@ -308,6 +359,8 @@ func TestServiceCommandSyntaxAndErrors(t *testing.T) {
 	for _, args := range [][]string{
 		{"unknown"},
 		{"--unknown-flag"},
+		{"--log-level", "trace"},
+		{"--log-days", "invalid"},
 		{"service", "start", "--addr", "127.0.0.1:8080"},
 		{"service", "install", "extra"},
 	} {
@@ -329,11 +382,17 @@ func TestDefaultServerAndResetAuthCommands(t *testing.T) {
 		newSystemService = originalFactory
 	}()
 
-	currentExecutable = func() (string, error) { return "/opt/webui", nil }
+	serverDirectory := t.TempDir()
+	currentExecutable = func() (string, error) { return filepath.Join(serverDirectory, "webui"), nil }
 	manager := &fakeSystemService{errors: map[string]error{}}
 	var addresses []string
+	var levels []logging.Level
+	var logDays []int
 	newSystemService = func(program service.Interface, _ *service.Config) (systemService, error) {
-		addresses = append(addresses, program.(*serviceProgram).options.Address)
+		options := program.(*serviceProgram).options
+		addresses = append(addresses, options.Address)
+		levels = append(levels, options.LogLevel)
+		logDays = append(logDays, options.LogDays)
 		return manager, nil
 	}
 
@@ -343,6 +402,9 @@ func TestDefaultServerAndResetAuthCommands(t *testing.T) {
 	}{
 		{name: "no arguments"},
 		{name: "address", args: []string{"--addr", "127.0.0.1:8080"}},
+		{name: "debug level", args: []string{"--log-level", "debug"}},
+		{name: "file logging disabled", args: []string{"--log-days", "0"}},
+		{name: "negative log days", args: []string{"--log-days", "-2"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			manager.calls = nil
@@ -355,8 +417,14 @@ func TestDefaultServerAndResetAuthCommands(t *testing.T) {
 			}
 		})
 	}
-	if !reflect.DeepEqual(addresses, []string{defaultAddress, "127.0.0.1:8080"}) {
+	if !reflect.DeepEqual(addresses, []string{defaultAddress, "127.0.0.1:8080", defaultAddress, defaultAddress, defaultAddress}) {
 		t.Fatalf("server addresses = %#v", addresses)
+	}
+	if !reflect.DeepEqual(levels, []logging.Level{logging.LevelInfo, logging.LevelInfo, logging.LevelDebug, logging.LevelInfo, logging.LevelInfo}) {
+		t.Fatalf("server log levels = %#v", levels)
+	}
+	if !reflect.DeepEqual(logDays, []int{7, 7, 7, 0, -2}) {
+		t.Fatalf("server log days = %#v", logDays)
 	}
 
 	app := &fakeApplication{}
@@ -371,6 +439,70 @@ func TestDefaultServerAndResetAuthCommands(t *testing.T) {
 	}
 	if options.Address != "127.0.0.1:8081" || app.reset != "new-secret" || stdout.String() != "Auth secret updated.\n" {
 		t.Fatalf("options=%#v reset=%q stdout=%q", options, app.reset, stdout.String())
+	}
+}
+
+func TestServerAcceptsAllLogLevels(t *testing.T) {
+	originalExecutable := currentExecutable
+	originalFactory := newSystemService
+	defer func() {
+		currentExecutable = originalExecutable
+		newSystemService = originalFactory
+	}()
+	serverDirectory := t.TempDir()
+	currentExecutable = func() (string, error) { return filepath.Join(serverDirectory, "webui"), nil }
+	manager := &fakeSystemService{errors: map[string]error{}}
+	var received logging.Level
+	newSystemService = func(program service.Interface, _ *service.Config) (systemService, error) {
+		received = program.(*serviceProgram).options.LogLevel
+		return manager, nil
+	}
+
+	for _, level := range []logging.Level{logging.LevelDebug, logging.LevelInfo, logging.LevelWarn, logging.LevelError} {
+		var stdout, stderr bytes.Buffer
+		if code := run([]string{"server", "--log-level", level.String()}, &stdout, &stderr); code != 0 {
+			t.Fatalf("server level %q failed: code=%d stderr=%q", level, code, stderr.String())
+		}
+		if received != level {
+			t.Errorf("server level = %q, want %q", received, level)
+		}
+	}
+}
+
+func TestServerRuntimeErrorUsesStructuredStdout(t *testing.T) {
+	originalExecutable := currentExecutable
+	originalFactory := newSystemService
+	defer func() {
+		currentExecutable = originalExecutable
+		newSystemService = originalFactory
+	}()
+	serverDirectory := t.TempDir()
+	currentExecutable = func() (string, error) { return filepath.Join(serverDirectory, "webui"), nil }
+	manager := &fakeSystemService{errors: map[string]error{"run": errors.New("listen failed")}}
+	newSystemService = func(service.Interface, *service.Config) (systemService, error) {
+		return manager, nil
+	}
+
+	var stdout, stderr bytes.Buffer
+	code := run([]string{"--log-level", "error"}, &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	for _, fragment := range []string{`ERROR`, `component=app`, `operation=run`, `msg="application service failed"`, `error="listen failed"`} {
+		if !strings.Contains(stdout.String(), fragment) {
+			t.Fatalf("stdout %q does not contain %q", stdout.String(), fragment)
+		}
+	}
+	if !strings.Contains(stderr.String(), "application service failed") {
+		t.Fatalf("stderr = %q", stderr.String())
+	}
+	logPath := filepath.Join(serverDirectory, "data", "logs", "app", time.Now().In(time.Local).Format("2006-01-02")+".log")
+	content, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != stdout.String() {
+		t.Fatalf("file log differs from stdout: file=%q stdout=%q", content, stdout.String())
 	}
 }
 
@@ -391,6 +523,7 @@ func TestUpdaterCommandMapsHelperOptions(t *testing.T) {
 		"--parent-pid", "42",
 		"--restart-args", `["--addr","127.0.0.1:8080"]`,
 		"--working-dir", "/opt",
+		"--log-days", "0",
 		"--service-mode",
 	}, &stdout, &stderr)
 	if code != 0 {
@@ -422,7 +555,7 @@ func TestCommandHelpHidesUpdater(t *testing.T) {
 	}
 
 	serverHelp := renderCommandHelp(t, "server", "--help")
-	if !strings.Contains(serverHelp, "--addr") || !strings.Contains(serverHelp, "--reset-auth") {
+	if !strings.Contains(serverHelp, "--addr") || !strings.Contains(serverHelp, "--reset-auth") || !strings.Contains(serverHelp, "--log-level") || !strings.Contains(serverHelp, "--log-days") {
 		t.Fatalf("server flags missing from contextual help: %q", serverHelp)
 	}
 }
@@ -509,12 +642,15 @@ func TestServiceProgramInitializationAndRuntimeFailure(t *testing.T) {
 		t.Fatalf("Start error = %v", err)
 	}
 
-	logger := &fakeServiceLogger{}
+	var logOutput bytes.Buffer
+	previousLogger := slog.Default()
+	slog.SetDefault(logging.New(&logOutput, logging.LevelInfo))
+	defer slog.SetDefault(previousLogger)
 	exited := make(chan int, 1)
 	newApplication = func(bridge.Options) (application, error) {
 		return &fakeApplication{run: func(context.Context) error { return errors.New("listen failed") }}, nil
 	}
-	program := &serviceProgram{logger: logger, exit: func(code int) { exited <- code }}
+	program := &serviceProgram{exit: func(code int) { exited <- code }}
 	if err := program.Start(nil); err != nil {
 		t.Fatal(err)
 	}
@@ -526,8 +662,8 @@ func TestServiceProgramInitializationAndRuntimeFailure(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("runtime failure did not trigger exit")
 	}
-	if len(logger.messages) == 0 || !strings.Contains(logger.messages[0], "listen failed") {
-		t.Fatalf("logged messages = %#v", logger.messages)
+	if !strings.Contains(logOutput.String(), "listen failed") {
+		t.Fatalf("logged output = %q", logOutput.String())
 	}
 }
 

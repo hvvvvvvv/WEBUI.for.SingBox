@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -35,6 +36,8 @@ var (
 )
 
 func RunHelper(opts HelperOptions) error {
+	started := time.Now()
+	slog.Info("update helper started", "component", "app_update", "operation", "replace", "target", opts.TargetPath, "service_mode", opts.ServiceMode)
 	if opts.ServiceMode {
 		time.Sleep(serviceControlDelay)
 		if err := controlUpdatedService(opts.TargetPath, opts.WorkingDir, "stop"); err != nil {
@@ -64,9 +67,14 @@ func RunHelper(opts HelperOptions) error {
 		if err := controlUpdatedService(opts.TargetPath, opts.WorkingDir, "start"); err != nil {
 			return fmt.Errorf("start system service: %w", err)
 		}
+		slog.Info("update helper completed", "component", "app_update", "operation", "replace", "target", opts.TargetPath, "service_mode", true, "duration", time.Since(started), "result", "success")
 		return nil
 	}
-	return startUpdatedApplication(opts.TargetPath, opts.RestartArgs, opts.WorkingDir)
+	if err := startUpdatedApplication(opts.TargetPath, opts.RestartArgs, opts.WorkingDir); err != nil {
+		return err
+	}
+	slog.Info("update helper completed", "component", "app_update", "operation", "replace", "target", opts.TargetPath, "service_mode", false, "duration", time.Since(started), "result", "success")
+	return nil
 }
 
 func runServiceControl(targetPath, workingDir, action string) error {
@@ -89,6 +97,8 @@ func runServiceControl(targetPath, workingDir, action string) error {
 func startApplication(targetPath string, args []string, workingDir string) error {
 	cmd := exec.Command(targetPath, args...)
 	cmd.Env = os.Environ()
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 	if workingDir != "" {
 		cmd.Dir = workingDir
 	}

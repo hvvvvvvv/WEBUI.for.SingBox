@@ -2,7 +2,7 @@ package kernel
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"guiforcores/bridge/config"
@@ -154,7 +154,10 @@ func (s *Service) requestConfigRestart(profileID string, force bool) {
 		}
 	})
 	if queued {
+		slog.Info("automatic core restart queued", "component", "kernel", "operation", "auto_restart", "profile_id", profileID, "force", force)
 		s.enqueueAutomaticRestart(profileID, force)
+	} else if !shouldRestart {
+		slog.Info("core restart required", "component", "kernel", "operation", "auto_restart", "profile_id", profileID, "result", "skipped")
 	}
 }
 
@@ -217,19 +220,22 @@ func (s *Service) runAutomaticRestartQueue() {
 		s.restartQueueMu.Unlock()
 
 		s.restartOperationMu.Lock()
+		started := time.Now()
 		_, err := s.restartCoreOnce(context.Background(), profileID)
 		s.restartOperationMu.Unlock()
 		s.restartQueueMu.Lock()
 		s.restartExecutingID = ""
 		s.restartQueueMu.Unlock()
 		if err != nil {
-			log.Printf("AutoRestartCore: failed: %v", err)
+			slog.Error("automatic core restart failed", "component", "kernel", "operation", "auto_restart", "profile_id", profileID, "duration", time.Since(started), "result", "failure", "error", err)
 			s.publish("kernelAutoRestartFailed", map[string]any{"reason": sanitizeCoreCrashReason(err.Error())})
 			s.updateCoreState(func() {
 				if s.status != kernelv1.CoreStatus_CORE_STATUS_RUNNING {
 					s.restartRequired = false
 				}
 			})
+		} else {
+			slog.Info("automatic core restart completed", "component", "kernel", "operation", "auto_restart", "profile_id", profileID, "duration", time.Since(started), "result", "success")
 		}
 	}
 }

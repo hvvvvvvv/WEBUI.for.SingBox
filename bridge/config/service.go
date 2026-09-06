@@ -7,7 +7,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
+	"guiforcores/bridge/logging"
 	"guiforcores/bridge/rpcutil"
 	"guiforcores/bridge/storage"
 	kernelv1 "guiforcores/gen/kernel/v1"
@@ -49,9 +51,14 @@ func (s *Service) GenerateDnsServerUrl(
 }
 
 func (s *Service) GenerateConfig(
-	_ context.Context,
+	ctx context.Context,
 	req *connect.Request[kernelv1.GenerateConfigRequest],
-) (*connect.Response[kernelv1.GenerateConfigResponse], error) {
+) (response *connect.Response[kernelv1.GenerateConfigResponse], responseErr error) {
+	started := time.Now()
+	profileID := req.Msg.GetProfile().GetId()
+	defer func() {
+		logging.Complete(ctx, "config", "generate", "core configuration generated", started, responseErr, "profile_id", profileID)
+	}()
 	config, err := s.Generate(req.Msg.GetProfile(), req.Msg.GetOptions())
 	if err != nil {
 		return nil, asConnectError(err)
@@ -66,9 +73,14 @@ func (s *Service) GenerateConfig(
 }
 
 func (s *Service) GenerateConfigFile(
-	_ context.Context,
+	ctx context.Context,
 	req *connect.Request[kernelv1.GenerateConfigFileRequest],
-) (*connect.Response[kernelv1.GenerateConfigFileResponse], error) {
+) (response *connect.Response[kernelv1.GenerateConfigFileResponse], responseErr error) {
+	started := time.Now()
+	profileID := req.Msg.GetProfile().GetId()
+	defer func() {
+		logging.Complete(ctx, "config", "generate_file", "core configuration file generated", started, responseErr, "profile_id", profileID, "path", CoreConfigFilePath)
+	}()
 	config, err := s.Generate(req.Msg.GetProfile(), req.Msg.GetOptions())
 	if err != nil {
 		return nil, asConnectError(err)

@@ -5,13 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/alecthomas/kong"
 	"github.com/kardianos/service"
 
 	"guiforcores/bridge"
 	"guiforcores/bridge/appupdate"
+	"guiforcores/bridge/logging"
 )
 
 const (
@@ -29,6 +33,8 @@ type commandLine struct {
 
 type serverCommand struct {
 	Addr      string `name:"addr" default:"${defaultAddress}" help:"HTTP server listen address."`
+	LogLevel  string `name:"log-level" default:"info" enum:"debug,info,warn,error" help:"Minimum backend log level."`
+	LogDays   int    `name:"log-days" default:"7" help:"Number of local calendar days to retain application log files; <= 0 disables file logging."`
 	ResetAuth string `name:"reset-auth" help:"Reset auth secret (provide new secret, or 'clear' to remove)."`
 }
 
@@ -42,7 +48,9 @@ type serviceCommand struct {
 }
 
 type serviceInstallCommand struct {
-	Addr string `name:"addr" default:"${defaultAddress}" help:"HTTP server listen address."`
+	Addr     string `name:"addr" default:"${defaultAddress}" help:"HTTP server listen address."`
+	LogLevel string `name:"log-level" default:"info" enum:"debug,info,warn,error" help:"Minimum backend log level."`
+	LogDays  int    `name:"log-days" default:"7" help:"Number of local calendar days to retain application log files; <= 0 disables file logging."`
 }
 
 type serviceUninstallCommand struct{}
@@ -58,6 +66,8 @@ type updaterCommand struct {
 	RestartArgs string `name:"restart-args" default:"[]"`
 	WorkingDir  string `name:"working-dir"`
 	ServiceMode bool   `name:"service-mode"`
+	LogLevel    string `name:"log-level" default:"info" enum:"debug,info,warn,error" hidden:""`
+	LogDays     int    `name:"log-days" default:"7" hidden:""`
 }
 
 type commandRuntime struct {
@@ -76,7 +86,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "Failed to initialize command line: %v\n", err)
 		return 1
 	}
-	ctx, err := parser.Parse(args)
+	ctx, err := parser.Parse(normalizeSignedLogDays(args))
 	if err != nil {
 		var parseError *kong.ParseError
 		if errors.As(err, &parseError) && parseError.Context != nil {
@@ -91,6 +101,21 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return 1
 	}
 	return 0
+}
+
+func normalizeSignedLogDays(args []string) []string {
+	normalized := append([]string(nil), args...)
+	for index := 0; index+1 < len(normalized); index++ {
+		if normalized[index] != "--log-days" || !strings.HasPrefix(normalized[index+1], "-") {
+			continue
+		}
+		if _, err := strconv.Atoi(normalized[index+1]); err != nil {
+			continue
+		}
+		normalized[index] += "=" + normalized[index+1]
+		normalized = append(normalized[:index+1], normalized[index+2:]...)
+	}
+	return normalized
 }
 
 func newCommandParser(cli *commandLine, stdout, stderr io.Writer, exit func(int)) (*kong.Kong, error) {
@@ -108,7 +133,11 @@ func (c *serverCommand) Run(runtime *commandRuntime) error {
 	if c.ResetAuth != "" {
 		return resetAuth(c.Addr, c.ResetAuth, runtime.stdout)
 	}
-	return runApplication(c.Addr)
+	level, err := logging.ParseLevel(c.LogLevel)
+	if err != nil {
+		return err
+	}
+	return runApplication(c.Addr, runtime.stdout, level, c.LogDays)
 }
 
 func resetAuth(addr, secret string, stdout io.Writer) error {
@@ -132,7 +161,11 @@ func resetAuth(addr, secret string, stdout io.Writer) error {
 }
 
 func (c *serviceInstallCommand) Run(runtime *commandRuntime) error {
-	manager, err := systemServiceManager([]string{"--addr", c.Addr})
+	level, err := logging.ParseLevel(c.LogLevel)
+	if err != nil {
+		return err
+	}
+	manager, err := systemServiceManager([]string{"--addr", c.Addr, "--log-level", level.String(), "--log-days", strconv.Itoa(c.LogDays)})
 	if err != nil {
 		return serviceCommandError("install", err)
 	}
@@ -224,7 +257,7 @@ func (*serviceStatusCommand) Run(runtime *commandRuntime) error {
 	return nil
 }
 
-func (c *updaterCommand) Run(*commandRuntime) error {
+func (c *updaterCommand) Run(runtime *commandRuntime) error {
 	if c.ParentPID <= 0 {
 		return errors.New("updater helper failed: parent-pid must be greater than zero")
 	}
@@ -232,6 +265,20 @@ func (c *updaterCommand) Run(*commandRuntime) error {
 	if err := json.Unmarshal([]byte(c.RestartArgs), &restartArgs); err != nil {
 		return fmt.Errorf("updater helper failed: decode restart arguments: %w", err)
 	}
+	level, err := logging.ParseLevel(c.LogLevel)
+	if err != nil {
+		return fmt.Errorf("updater helper failed: %w", err)
+	}
+	previousLogger := slog.Default()
+	logger, closer := logging.NewRuntime(runtime.stdout, level, logging.FileOptions{
+		Directory:     filepath.Join(filepath.Dir(c.TargetPath), "data", "logs", "app"),
+		RetentionDays: c.LogDays,
+	})
+	slog.SetDefault(logger)
+	defer func() {
+		_ = closer.Close()
+		slog.SetDefault(previousLogger)
+	}()
 	opts := appupdate.HelperOptions{
 		ArchivePath: c.ArchivePath,
 		TargetPath:  c.TargetPath,
@@ -241,6 +288,7 @@ func (c *updaterCommand) Run(*commandRuntime) error {
 		ServiceMode: c.ServiceMode,
 	}
 	if err := runUpdateHelper(opts); err != nil {
+		slog.Error("update helper failed", "component", "app_update", "operation", "replace", "target", c.TargetPath, "service_mode", c.ServiceMode, "result", "failure", "error", err)
 		return fmt.Errorf("updater helper failed: %w", err)
 	}
 	return nil

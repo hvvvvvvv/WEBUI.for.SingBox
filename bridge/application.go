@@ -4,10 +4,12 @@ import (
 	"context"
 	"embed"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
+	"time"
 
 	"guiforcores/bridge/appsystem"
 	"guiforcores/bridge/appupdate"
@@ -15,6 +17,7 @@ import (
 	"guiforcores/bridge/config"
 	"guiforcores/bridge/event"
 	"guiforcores/bridge/kernel"
+	"guiforcores/bridge/logging"
 	"guiforcores/bridge/platform"
 	"guiforcores/bridge/profile"
 	"guiforcores/bridge/ruleset"
@@ -33,6 +36,8 @@ type Options struct {
 	AppName     string
 	AppVersion  string
 	ServiceMode bool
+	LogLevel    logging.Level
+	LogDays     int
 }
 
 type Application struct {
@@ -43,6 +48,7 @@ type Application struct {
 	update    *appupdate.Service
 	system    *appsystem.Service
 	server    *httptransport.Server
+	options   Options
 }
 
 func New(options Options) (*Application, error) {
@@ -62,6 +68,9 @@ func New(options Options) (*Application, error) {
 	}
 	if options.AppVersion == "" {
 		options.AppVersion = "unknown"
+	}
+	if _, err := logging.ParseLevel(options.LogLevel.String()); err != nil {
+		options.LogLevel = logging.LevelInfo
 	}
 
 	paths := storage.NewPaths(options.BaseDir)
@@ -93,7 +102,7 @@ func New(options Options) (*Application, error) {
 	subscriptionService := subscription.NewService(runtimeService)
 	ruleSetService := ruleset.NewService(runtimeService)
 	schedulerService := scheduler.NewService(runtimeService)
-	updateService := appupdate.NewService(platformService, appConfig, events, options.AppVersion, options.ServiceMode)
+	updateService := appupdate.NewService(platformService, appConfig, events, options.AppVersion, options.ServiceMode, options.LogLevel, options.LogDays)
 	systemService := appsystem.NewService(platformService)
 
 	server, err := httptransport.NewServer(httptransport.Options{
@@ -127,13 +136,30 @@ func New(options Options) (*Application, error) {
 		update:    updateService,
 		system:    systemService,
 		server:    server,
+		options:   options,
 	}, nil
 }
 
 func (a *Application) Run(ctx context.Context) error {
+	slog.Info("application starting",
+		"component", "app",
+		"operation", "start",
+		"version", a.options.AppVersion,
+		"address", a.options.Address,
+		"os", runtime.GOOS,
+		"arch", runtime.GOARCH,
+		"base_directory", a.options.BaseDir,
+		"log_level", a.options.LogLevel.String(),
+		"log_days", a.options.LogDays,
+	)
 	a.scheduler.Start()
 	go a.kernel.AutoStart(ctx)
-	return a.server.Run(ctx)
+	err := a.server.Run(ctx)
+	if err != nil {
+		return err
+	}
+	slog.Info("application run completed", "component", "app", "operation", "run", "result", "success")
+	return nil
 }
 
 func (a *Application) SetAuthSecret(secret string) error {
@@ -141,8 +167,14 @@ func (a *Application) SetAuthSecret(secret string) error {
 }
 
 func (a *Application) Close(ctx context.Context) error {
+	started := time.Now()
 	a.scheduler.Stop()
 	err := a.server.Close(ctx)
 	a.events.Close()
+	if err != nil {
+		slog.Error("application shutdown failed", "component", "app", "operation", "shutdown", "duration", time.Since(started), "result", "failure", "error", err)
+		return err
+	}
+	slog.Info("application stopped", "component", "app", "operation", "shutdown", "duration", time.Since(started), "result", "success")
 	return err
 }

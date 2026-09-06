@@ -35,7 +35,7 @@ make build
 运行：
 
 ```bash
-./build/bin/webui.for.singbox.server --addr 0.0.0.0:9090
+./build/bin/webui.for.singbox.server --addr 0.0.0.0:9090 --log-level info --log-days 7
 ```
 
 ## 手动安装 sing-box core
@@ -84,22 +84,22 @@ docker run -d \
 
 同一二进制可以注册为 Windows、Linux 或 macOS 的系统级服务。安装和卸载服务需要管理员权限；启动、停止和重启通常也需要管理员权限。
 
-安装服务时可以指定监听地址。该地址会写入服务启动参数；安装操作只注册服务，不会立即启动：
+安装服务时可以指定监听地址、后端日志级别和日志文件保留天数。这些值会写入服务启动参数；安装操作只注册服务，不会立即启动：
 
 ```bash
 # Linux / macOS
-sudo ./webui.for.singbox service install --addr 0.0.0.0:9090
+sudo ./webui.for.singbox service install --addr 0.0.0.0:9090 --log-level info --log-days 7
 sudo ./webui.for.singbox service start
 
 # Windows（管理员 PowerShell）
-.\webui.for.singbox.exe service install --addr 0.0.0.0:9090
+.\webui.for.singbox.exe service install --addr 0.0.0.0:9090 --log-level info --log-days 7
 .\webui.for.singbox.exe service start
 ```
 
 支持的管理命令如下：
 
 ```text
-webui.for.singbox service install [--addr 0.0.0.0:9090]
+webui.for.singbox service install [--addr 0.0.0.0:9090] [--log-level info] [--log-days 7]
 webui.for.singbox service uninstall
 webui.for.singbox service start
 webui.for.singbox service stop
@@ -109,6 +109,15 @@ webui.for.singbox service status
 
 `status` 输出 `running`、`stopped` 或 `not-installed`。卸载正在运行的服务时，程序会先正常停止服务再删除注册信息。
 
+`--log-level` 支持 `debug`、`info`、`warn` 和 `error`，默认为 `info`。该参数采用最低级别门槛语义，并在进程启动后保持不变。修改已安装服务的日志级别时，需要重新安装服务：
+
+```bash
+webui.for.singbox service uninstall
+webui.for.singbox service install --log-level warn
+```
+
+`--log-days` 指定应用日志文件保留的本地自然日数量，默认为 `7`。例如 `7` 表示保留当天及之前 6 天；设置为 `0` 或负数会关闭日志文件的创建、滚动和清理，但不会删除已有文件。修改已安装服务的保留天数同样需要卸载后重新安装。
+
 服务直接引用执行 `install` 命令时的二进制绝对路径，并继续把二进制所在目录作为数据目录。安装后不要移动或删除二进制；如需更换位置，应先卸载，再从新位置重新安装。服务会随系统启动，并使用系统默认的高权限服务账户运行。
 
-运行日志写入平台的系统服务日志：Windows 使用事件查看器，Linux 使用对应服务管理器的日志（systemd 环境可使用 `journalctl -u webui.for.singbox`），macOS 可查看 launchd/system log 以及 `/var/log/webui.for.singbox.*.log`。
+应用日志始终以单行、无颜色格式写入标准输出。启用文件日志时，相同内容会同时追加到二进制所在目录的 `data/logs/app/yyyy-MM-dd.log`，并在启动及跨日后的首次写入时清理过期日期文件。文件日志发生创建、写入或清理错误时，程序会继续运行并保留标准输出。

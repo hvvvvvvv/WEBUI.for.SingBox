@@ -2,10 +2,12 @@ package event
 
 import (
 	"encoding/json"
-	"log"
+	"log/slog"
 	"net/http"
 	"sync"
 	"time"
+
+	"guiforcores/bridge/logging"
 
 	"github.com/gorilla/websocket"
 )
@@ -65,15 +67,18 @@ func NewHub(sessions SessionValidator) *Hub {
 }
 
 func (h *Hub) ServeWebSocket(w http.ResponseWriter, r *http.Request, token string) {
+	logger := logging.FromContext(r.Context()).With("component", "websocket", "remote_addr", r.RemoteAddr)
 	if !h.sessions.ValidateSession(token) {
+		logger.WarnContext(r.Context(), "websocket unauthorized", "operation", "connect", "result", "failure")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
 	conn, err := h.upgrader.Upgrade(w, r, nil)
 	if err != nil {
-		log.Printf("WebSocket upgrade error: %v", err)
+		logger.ErrorContext(r.Context(), "websocket upgrade failed", "operation", "connect", "result", "failure", "error", err)
 		return
 	}
+	logger.DebugContext(r.Context(), "websocket connected", "operation", "connect", "result", "success")
 
 	client := &client{
 		hub:   h,
@@ -87,6 +92,7 @@ func (h *Hub) ServeWebSocket(w http.ResponseWriter, r *http.Request, token strin
 		return
 	}
 	defer h.removeClient(client)
+	defer logger.DebugContext(r.Context(), "websocket disconnected", "operation", "disconnect", "result", "success")
 	go client.writeLoop()
 
 	_ = conn.SetReadDeadline(time.Now().Add(readTimeout))
@@ -105,6 +111,7 @@ func (h *Hub) ServeWebSocket(w http.ResponseWriter, r *http.Request, token strin
 func (h *Hub) Publish(eventName string, data ...any) {
 	payload, err := json.Marshal(message{Event: eventName, Data: data})
 	if err != nil {
+		slog.Error("event serialization failed", "component", "websocket", "operation", "publish", "event", eventName, "result", "failure", "error", err)
 		return
 	}
 
@@ -114,6 +121,7 @@ func (h *Hub) Publish(eventName string, data ...any) {
 		clients = append(clients, client)
 	}
 	h.mu.RUnlock()
+	slog.Debug("event published", "component", "websocket", "operation", "publish", "event", eventName, "client_count", len(clients), "result", "success")
 
 	for _, client := range clients {
 		if !h.sessions.ValidateSessionWithoutTouch(client.token) {

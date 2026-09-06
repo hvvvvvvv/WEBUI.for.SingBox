@@ -10,11 +10,13 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"guiforcores/bridge/config"
+	"guiforcores/bridge/logging"
 	"guiforcores/bridge/platform"
 	appv1 "guiforcores/gen/app/v1"
 
@@ -42,6 +44,8 @@ type Service struct {
 	events         EventPublisher
 	currentVersion string
 	serviceMode    bool
+	logLevel       logging.Level
+	logDays        int
 
 	mu             sync.Mutex
 	updatedVersion string
@@ -63,19 +67,25 @@ func NewService(
 	appConfig AppConfigReader,
 	events EventPublisher,
 	currentVersion string,
-	serviceModes ...bool,
+	serviceMode bool,
+	logLevel logging.Level,
+	logDays int,
 ) *Service {
 	currentVersion = strings.TrimSpace(currentVersion)
 	if currentVersion == "" {
 		currentVersion = "unknown"
 	}
-	serviceMode := len(serviceModes) > 0 && serviceModes[0]
+	if _, err := logging.ParseLevel(logLevel.String()); err != nil {
+		logLevel = logging.LevelInfo
+	}
 	return &Service{
 		platform:       platformService,
 		appConfig:      appConfig,
 		events:         events,
 		currentVersion: currentVersion,
 		serviceMode:    serviceMode,
+		logLevel:       logLevel,
+		logDays:        logDays,
 		updatedVersion: currentVersion,
 		downloads:      map[string]context.CancelFunc{},
 	}
@@ -95,7 +105,15 @@ func (s *Service) GetAppVersion(
 func (s *Service) CheckAppUpdate(
 	ctx context.Context,
 	_ *connect.Request[appv1.CheckAppUpdateRequest],
-) (*connect.Response[appv1.CheckAppUpdateResponse], error) {
+) (response *connect.Response[appv1.CheckAppUpdateResponse], responseErr error) {
+	started := time.Now()
+	defer func() {
+		latest := ""
+		if response != nil {
+			latest = response.Msg.GetLatestVersion()
+		}
+		logging.Complete(ctx, "app_update", "check", "application update checked", started, responseErr, "latest_version", latest)
+	}()
 	release, _, err := s.fetchLatestAsset(ctx)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -114,8 +132,12 @@ func (s *Service) CheckAppUpdate(
 func (s *Service) DownloadAppUpdate(
 	ctx context.Context,
 	req *connect.Request[appv1.DownloadAppUpdateRequest],
-) (*connect.Response[appv1.DownloadAppUpdateResponse], error) {
+) (response *connect.Response[appv1.DownloadAppUpdateResponse], responseErr error) {
+	started := time.Now()
 	progressEvent := strings.TrimSpace(req.Msg.GetProgressEvent())
+	defer func() {
+		logging.Complete(ctx, "app_update", "download", "application update downloaded", started, responseErr, "progress_event", progressEvent)
+	}()
 	if progressEvent == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("progress_event is required"))
 	}
@@ -164,7 +186,7 @@ func (s *Service) DownloadAppUpdate(
 }
 
 func (s *Service) CancelAppUpdate(
-	_ context.Context,
+	ctx context.Context,
 	req *connect.Request[appv1.CancelAppUpdateRequest],
 ) (*connect.Response[appv1.CancelAppUpdateResponse], error) {
 	progressEvent := strings.TrimSpace(req.Msg.GetProgressEvent())
@@ -178,13 +200,18 @@ func (s *Service) CancelAppUpdate(
 		}
 	}
 	_ = os.Remove(s.platform.ResolvePath(appUpdateCacheFilePath))
+	logging.FromContext(ctx).InfoContext(ctx, "application update download cancelled", "component", "app_update", "operation", "cancel_download", "progress_event", progressEvent, "result", "cancelled")
 	return connect.NewResponse(&appv1.CancelAppUpdateResponse{}), nil
 }
 
 func (s *Service) ApplyAppUpdate(
-	_ context.Context,
+	ctx context.Context,
 	_ *connect.Request[appv1.ApplyAppUpdateRequest],
-) (*connect.Response[appv1.ApplyAppUpdateResponse], error) {
+) (response *connect.Response[appv1.ApplyAppUpdateResponse], responseErr error) {
+	started := time.Now()
+	defer func() {
+		logging.Complete(ctx, "app_update", "apply", "application update started", started, responseErr, "service_mode", s.serviceMode)
+	}()
 	current, updated := s.versions()
 	if current == updated {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("no downloaded update is available"))
@@ -193,7 +220,7 @@ func (s *Service) ApplyAppUpdate(
 	if !fileExists(archivePath) {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("update cache file is missing"))
 	}
-	if err := startUpdateHelper(archivePath, s.serviceMode); err != nil {
+	if err := startUpdateHelper(archivePath, s.serviceMode, s.logLevel, s.logDays); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	if !s.serviceMode {
@@ -323,7 +350,7 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
-func startUpdateHelper(archivePath string, serviceMode bool) error {
+func startUpdateHelper(archivePath string, serviceMode bool, logLevel logging.Level, logDays int) error {
 	currentExe, err := os.Executable()
 	if err != nil {
 		return err
@@ -338,11 +365,11 @@ func startUpdateHelper(archivePath string, serviceMode bool) error {
 		return err
 	}
 
-	args := updateHelperArguments(archivePath, currentExe, os.Getpid(), string(restartArgs), workingDir, serviceMode)
+	args := updateHelperArguments(archivePath, currentExe, os.Getpid(), string(restartArgs), workingDir, serviceMode, logLevel, logDays)
 	return startUpdateProcess(helperPath, args, workingDir, serviceMode)
 }
 
-func updateHelperArguments(archivePath, targetPath string, parentPID int, restartArgs, workingDir string, serviceMode bool) []string {
+func updateHelperArguments(archivePath, targetPath string, parentPID int, restartArgs, workingDir string, serviceMode bool, logLevel logging.Level, logDays int) []string {
 	args := []string{
 		appUpdateHelperCommand,
 		"--archive-path", archivePath,
@@ -350,6 +377,8 @@ func updateHelperArguments(archivePath, targetPath string, parentPID int, restar
 		"--parent-pid", fmt.Sprintf("%d", parentPID),
 		"--restart-args", restartArgs,
 		"--working-dir", workingDir,
+		"--log-level", logLevel.String(),
+		"--log-days", strconv.Itoa(logDays),
 	}
 	if serviceMode {
 		args = append(args, "--service-mode")

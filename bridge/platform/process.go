@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"os"
 	"os/exec"
 	"strconv"
@@ -17,7 +17,7 @@ import (
 )
 
 func (a *App) Exec(path string, args []string, options ExecOptions) FlagResult {
-	log.Printf("Exec: %s %s %v", path, args, options)
+	started := time.Now()
 
 	exePath := a.ResolvePath(path)
 
@@ -45,18 +45,19 @@ func (a *App) Exec(path string, args []string, options ExecOptions) FlagResult {
 	}
 
 	if err != nil {
+		slog.Debug("process execution failed", "component", "process", "operation", "execute", "executable", exePath, "args", args, "working_directory", options.WorkingDirectory, "duration", time.Since(started), "result", "failure", "error", err)
 		if output == "" {
 			output = err.Error()
 		}
 		return FlagResult{false, output}
 	}
+	slog.Info("process executed", "component", "process", "operation", "execute", "executable", exePath, "args", args, "working_directory", options.WorkingDirectory, "duration", time.Since(started), "result", "success")
 
 	return FlagResult{true, output}
 }
 
 func (a *App) ExecBackground(path string, args []string, outEvent string, options ExecOptions) FlagResult {
-	log.Printf("ExecBackground: %s %s %s %v", path, args, outEvent, options)
-
+	started := time.Now()
 	exePath := a.ResolvePath(path)
 	pidPath := ""
 
@@ -80,12 +81,14 @@ func (a *App) ExecBackground(path string, args []string, outEvent string, option
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
+		slog.Debug("process output pipe failed", "component", "process", "operation", "start", "executable", exePath, "args", args, "result", "failure", "error", err)
 		return FlagResult{false, err.Error()}
 	}
 
 	cmd.Stderr = cmd.Stdout
 
 	if err := cmd.Start(); err != nil {
+		slog.Debug("process start failed", "component", "process", "operation", "start", "executable", exePath, "args", args, "working_directory", options.WorkingDirectory, "result", "failure", "error", err)
 		return FlagResult{false, err.Error()}
 	}
 
@@ -120,6 +123,7 @@ func (a *App) ExecBackground(path string, args []string, outEvent string, option
 	if pidPath != "" {
 		err := os.WriteFile(pidPath, []byte(pid), os.ModePerm)
 		if err != nil {
+			slog.Debug("process PID file write failed", "component", "process", "operation", "write_pid", "executable", exePath, "pid", pidNumber, "path", pidPath, "result", "failure", "error", err)
 			exited := make(chan struct{})
 			go func() {
 				_ = cmd.Wait()
@@ -144,7 +148,13 @@ func (a *App) ExecBackground(path string, args []string, outEvent string, option
 		if options.OnExit != nil {
 			options.OnExit(cmd.Process.Pid, waitErr)
 		}
+		if waitErr != nil {
+			slog.Error("background process exited", "component", "process", "operation", "wait", "executable", exePath, "pid", pidNumber, "duration", time.Since(started), "result", "failure", "error", waitErr)
+		} else {
+			slog.Info("background process exited", "component", "process", "operation", "wait", "executable", exePath, "pid", pidNumber, "duration", time.Since(started), "result", "success")
+		}
 	}()
+	slog.Info("background process started", "component", "process", "operation", "start", "executable", exePath, "args", args, "working_directory", options.WorkingDirectory, "pid", pidNumber, "event", outEvent, "result", "success")
 
 	return FlagResult{true, pid}
 }
@@ -170,8 +180,7 @@ func (a *App) trackedProcess(pid int) *managedProcess {
 }
 
 func (a *App) ProcessInfo(pid int32) FlagResult {
-	log.Printf("ProcessInfo: %d", pid)
-
+	slog.Debug("process information requested", "component", "process", "operation", "inspect", "pid", pid)
 	proc, err := process.NewProcess(pid)
 	if err != nil {
 		return FlagResult{false, err.Error()}
@@ -186,8 +195,7 @@ func (a *App) ProcessInfo(pid int32) FlagResult {
 }
 
 func (a *App) ProcessMemory(pid int32) FlagResult {
-	log.Printf("ProcessMemory: %d", pid)
-
+	slog.Debug("process memory requested", "component", "process", "operation", "memory", "pid", pid)
 	proc, err := process.NewProcess(pid)
 	if err != nil {
 		return FlagResult{false, err.Error()}
@@ -202,8 +210,7 @@ func (a *App) ProcessMemory(pid int32) FlagResult {
 }
 
 func (a *App) KillProcess(pid int, timeout int) FlagResult {
-	log.Printf("KillProcess: %d %d", pid, timeout)
-
+	started := time.Now()
 	managed := a.trackedProcess(pid)
 	var target *os.Process
 	if managed != nil {
@@ -217,7 +224,7 @@ func (a *App) KillProcess(pid int, timeout int) FlagResult {
 	}
 
 	if err := SendExitSignal(target); err != nil {
-		log.Printf("SendExitSignal Err: %s", err.Error())
+		slog.Warn("process exit signal failed", "component", "process", "operation", "signal", "pid", pid, "result", "failure", "error", err)
 	}
 
 	var err error
@@ -227,8 +234,10 @@ func (a *App) KillProcess(pid int, timeout int) FlagResult {
 		err = waitForProcessExitWithTimeout(target, timeout)
 	}
 	if err != nil {
+		slog.Debug("process termination failed", "component", "process", "operation", "terminate", "pid", pid, "timeout", time.Duration(timeout)*time.Second, "duration", time.Since(started), "result", "failure", "error", err)
 		return FlagResult{false, err.Error()}
 	}
+	slog.Info("process terminated", "component", "process", "operation", "terminate", "pid", pid, "timeout", time.Duration(timeout)*time.Second, "duration", time.Since(started), "result", "success")
 
 	return FlagResult{true, "Success"}
 }
