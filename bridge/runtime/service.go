@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -20,6 +21,7 @@ import (
 	"time"
 
 	"guiforcores/bridge/config"
+	"guiforcores/bridge/logging"
 	"guiforcores/bridge/platform"
 	"guiforcores/bridge/rpcutil"
 	"guiforcores/bridge/storage"
@@ -126,8 +128,14 @@ func NewService(platformService *platform.Service, paths *storage.Paths, configS
 	if len(coordinators) > 0 && coordinators[0] != nil {
 		state = coordinators[0]
 	}
-	logs, _ := loadScheduledTaskLogs()
-	tasks, _ := loadScheduledTasks()
+	logs, logsErr := loadScheduledTaskLogs()
+	if logsErr != nil {
+		slog.Warn("scheduled task logs could not be loaded", "component", "scheduler", "operation", "load_logs", "result", "failure", "error", logsErr)
+	}
+	tasks, tasksErr := loadScheduledTasks()
+	if tasksErr != nil {
+		slog.Warn("scheduled tasks could not be loaded", "component", "scheduler", "operation", "load", "result", "failure", "error", tasksErr)
+	}
 	logs = trimScheduledTaskLogs(logs, tasks)
 	return &Service{
 		platform:    platformService,
@@ -201,6 +209,7 @@ func (s *appRuntimeService) schedulerLoop(cancel <-chan struct{}) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	lastRun := map[string]int64{}
+	lastLoadError := ""
 
 	for {
 		select {
@@ -211,7 +220,15 @@ func (s *appRuntimeService) schedulerLoop(cancel <-chan struct{}) {
 			tasks, err := loadScheduledTasks()
 			s.scheduledTasksMu.Unlock()
 			if err != nil {
+				if message := err.Error(); message != lastLoadError {
+					slog.Error("scheduled tasks could not be loaded", "component", "scheduler", "operation", "load", "result", "failure", "error", err)
+					lastLoadError = message
+				}
 				continue
+			}
+			if lastLoadError != "" {
+				slog.Info("scheduled task loading recovered", "component", "scheduler", "operation", "load", "result", "success")
+				lastLoadError = ""
 			}
 			for _, task := range tasks {
 				if !shouldScheduleTask(task) {
@@ -966,6 +983,7 @@ func subscriptionHTTPCall(method string, rawURL string, headers map[string]strin
 }
 
 func httpRequestWithLimit(method string, rawURL string, headers map[string]string, body string, insecure bool, timeoutSeconds int, maxBodyBytes int64) (*http.Response, string, error) {
+	started := time.Now()
 	if method == "" {
 		method = http.MethodGet
 	}
@@ -994,6 +1012,20 @@ func httpRequestWithLimit(method string, rawURL string, headers map[string]strin
 	}
 	defer resp.Body.Close()
 	data, err := readHTTPBody(resp.Body, maxBodyBytes)
+	result := "success"
+	if err != nil {
+		result = "failure"
+	}
+	slog.Debug("external request completed",
+		"component", "network",
+		"operation", "request",
+		"method", method,
+		"url", rawURL,
+		"status_code", resp.StatusCode,
+		"bytes", len(data),
+		"duration", time.Since(started),
+		"result", result,
+	)
 	return resp, data, err
 }
 
@@ -1556,15 +1588,35 @@ func (s *appRuntimeService) updateAllRulesets() ([]*appv1.TaskResult, *commonv1.
 	return results, state, err
 }
 
-func (s *appRuntimeService) runScheduledTask(ctx context.Context, id string, publishCompletion bool) (scheduledTaskLog, error) {
+func (s *appRuntimeService) runScheduledTask(ctx context.Context, id string, publishCompletion bool) (taskLog scheduledTaskLog, responseErr error) {
+	started := time.Now()
+	if publishCompletion {
+		slog.Info("scheduled task started", "component", "scheduler", "operation", "run", "task_id", id)
+		defer func() {
+			successes, failures := 0, 0
+			for _, result := range taskLog.Results {
+				if result.Ok {
+					successes++
+				} else {
+					failures++
+				}
+			}
+			attrs := []any{"task_id", id, "total", len(taskLog.Results), "success_count", successes, "failure_count", failures}
+			if responseErr == nil && failures > 0 {
+				logging.Partial(ctx, "scheduler", "run", "scheduled task completed with failures", started, attrs...)
+			} else {
+				logging.Complete(ctx, "scheduler", "run", "scheduled task completed", started, responseErr, attrs...)
+			}
+		}()
+	}
 	s.mu.Lock()
 	if s.runningTask[id] {
 		s.mu.Unlock()
 		now := time.Now().UnixMilli()
 		result := []*appv1.TaskResult{taskResult(false, id, "", "Skipped: task is already running")}
-		log := s.recordTaskLog(id, "", now, now, result)
+		log, err := s.recordTaskLog(ctx, id, "", now, now, result)
 		s.publish("scheduledTaskFinished", id, publishCompletion && s.scheduledTaskNotificationEnabled(id))
-		return log, nil
+		return log, err
 	}
 	s.runningTask[id] = true
 	s.mu.Unlock()
@@ -1632,19 +1684,22 @@ func (s *appRuntimeService) runScheduledTask(ctx context.Context, id string, pub
 				latestTasks[i].LastTime = end
 				if saveErr := saveScheduledTasks(latestTasks); saveErr == nil {
 					taskState = s.state.AdvanceRuntime(syncstate.DomainScheduledTasks, scheduledTaskIDs(latestTasks), task.ID)
+				} else {
+					slog.WarnContext(ctx, "scheduled task state was not persisted", "component", "scheduler", "operation", "save_state", "task_id", task.ID, "result", "failure", "error", saveErr)
 				}
 				break
 			}
 		}
+	} else {
+		slog.WarnContext(ctx, "scheduled task state could not be loaded", "component", "scheduler", "operation", "load_state", "task_id", task.ID, "result", "failure", "error", loadErr)
 	}
 	s.scheduledTasksMu.Unlock()
-	log := s.recordTaskLog(task.ID, task.Name, start, end, results)
+	log, logErr := s.recordTaskLog(ctx, task.ID, task.Name, start, end, results)
 	if taskState != nil {
 		s.publishResourceChanged(syncstate.DomainScheduledTasks, syncstate.OperationRuntime, []string{task.ID}, taskState)
 	}
 	s.publish("scheduledTaskFinished", task.ID, publishCompletion && task.Notification)
-	_ = ctx
-	return log, nil
+	return log, logErr
 }
 
 func (s *appRuntimeService) scheduledTaskNotificationEnabled(id string) bool {
@@ -1662,10 +1717,13 @@ func (s *appRuntimeService) scheduledTaskNotificationEnabled(id string) bool {
 	return false
 }
 
-func (s *appRuntimeService) recordTaskLog(id string, name string, start int64, end int64, results []*appv1.TaskResult) scheduledTaskLog {
+func (s *appRuntimeService) recordTaskLog(ctx context.Context, id string, name string, start int64, end int64, results []*appv1.TaskResult) (scheduledTaskLog, error) {
 	s.scheduledTasksMu.Lock()
 	tasks, tasksErr := loadScheduledTasks()
 	s.scheduledTasksMu.Unlock()
+	if tasksErr != nil {
+		slog.WarnContext(ctx, "scheduled task log retention could not be applied", "component", "scheduler", "operation", "trim_logs", "task_id", id, "result", "failure", "error", tasksErr)
+	}
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -1681,8 +1739,8 @@ func (s *appRuntimeService) recordTaskLog(id string, name string, start int64, e
 	if tasksErr == nil {
 		s.taskLogs = trimScheduledTaskLogs(s.taskLogs, tasks)
 	}
-	_ = saveScheduledTaskLogs(s.taskLogs)
-	return log
+	err := saveScheduledTaskLogs(s.taskLogs)
+	return log, err
 }
 
 func (s *appRuntimeService) ListSubscriptions(ctx context.Context, req *connect.Request[appv1.ListSubscriptionsRequest]) (*connect.Response[appv1.ListSubscriptionsResponse], error) {
@@ -2518,7 +2576,9 @@ func (s *appRuntimeService) UpdateScheduledTask(ctx context.Context, req *connec
 	}
 	s.mu.Lock()
 	s.taskLogs = trimScheduledTaskLogs(s.taskLogs, tasks)
-	_ = saveScheduledTaskLogs(s.taskLogs)
+	if err := saveScheduledTaskLogs(s.taskLogs); err != nil {
+		slog.WarnContext(ctx, "scheduled task logs were not trimmed on disk", "component", "scheduler", "operation", "trim_logs", "task_id", requested.ID, "result", "failure", "error", err)
+	}
 	s.mu.Unlock()
 	s.restartScheduler()
 	s.publishResourceChanged(syncstate.DomainScheduledTasks, syncstate.OperationUpsert, []string{requested.ID}, state)
@@ -2560,7 +2620,9 @@ func (s *appRuntimeService) DeleteScheduledTask(ctx context.Context, req *connec
 	s.scheduledTasksMu.Unlock()
 	s.mu.Lock()
 	s.taskLogs = removeScheduledTaskLogs(s.taskLogs, req.Msg.GetId())
-	_ = saveScheduledTaskLogs(s.taskLogs)
+	if err := saveScheduledTaskLogs(s.taskLogs); err != nil {
+		slog.WarnContext(ctx, "scheduled task logs were not removed from disk", "component", "scheduler", "operation", "delete_logs", "task_id", req.Msg.GetId(), "result", "failure", "error", err)
+	}
 	s.mu.Unlock()
 	s.restartScheduler()
 	s.publishResourceChanged(syncstate.DomainScheduledTasks, syncstate.OperationDelete, []string{req.Msg.GetId()}, state)
@@ -2642,8 +2704,11 @@ func (s *appRuntimeService) ListScheduledTaskLogs(ctx context.Context, req *conn
 func (s *appRuntimeService) ClearScheduledTaskLogs(ctx context.Context, req *connect.Request[appv1.ClearScheduledTaskLogsRequest]) (*connect.Response[appv1.ClearScheduledTaskLogsResponse], error) {
 	s.mu.Lock()
 	s.taskLogs = nil
-	_ = saveScheduledTaskLogs(s.taskLogs)
+	err := saveScheduledTaskLogs(s.taskLogs)
 	s.mu.Unlock()
+	if err != nil {
+		return nil, asConnectError(err)
+	}
 	return connect.NewResponse(&appv1.ClearScheduledTaskLogsResponse{}), nil
 }
 

@@ -2,7 +2,9 @@ package subscription
 
 import (
 	"context"
+	"time"
 
+	"guiforcores/bridge/logging"
 	appv1 "guiforcores/gen/app/v1"
 
 	connect "connectrpc.com/connect"
@@ -33,27 +35,81 @@ func (s *Service) ListSubscriptions(ctx context.Context, req *connect.Request[ap
 }
 
 func (s *Service) CreateSubscription(ctx context.Context, req *connect.Request[appv1.CreateSubscriptionRequest]) (*connect.Response[appv1.CreateSubscriptionResponse], error) {
-	return s.backend.CreateSubscription(ctx, req)
+	started := time.Now()
+	response, err := s.backend.CreateSubscription(ctx, req)
+	logging.Complete(ctx, "subscription", "create", "subscription created", started, err, "payload_bytes", len(req.Msg.GetSubscriptionJson()))
+	return response, err
 }
 
 func (s *Service) UpdateSubscriptionConfig(ctx context.Context, req *connect.Request[appv1.UpdateSubscriptionConfigRequest]) (*connect.Response[appv1.UpdateSubscriptionConfigResponse], error) {
-	return s.backend.UpdateSubscriptionConfig(ctx, req)
+	started := time.Now()
+	response, err := s.backend.UpdateSubscriptionConfig(ctx, req)
+	logging.Complete(ctx, "subscription", "update_config", "subscription configuration updated", started, err, "payload_bytes", len(req.Msg.GetSubscriptionJson()))
+	return response, err
 }
 
 func (s *Service) DeleteSubscription(ctx context.Context, req *connect.Request[appv1.DeleteSubscriptionRequest]) (*connect.Response[appv1.DeleteSubscriptionResponse], error) {
-	return s.backend.DeleteSubscription(ctx, req)
+	started := time.Now()
+	response, err := s.backend.DeleteSubscription(ctx, req)
+	logging.Complete(ctx, "subscription", "delete", "subscription deleted", started, err, "subscription_id", req.Msg.GetId())
+	return response, err
 }
 
 func (s *Service) ReorderSubscriptions(ctx context.Context, req *connect.Request[appv1.ReorderSubscriptionsRequest]) (*connect.Response[appv1.ReorderSubscriptionsResponse], error) {
-	return s.backend.ReorderSubscriptions(ctx, req)
+	started := time.Now()
+	response, err := s.backend.ReorderSubscriptions(ctx, req)
+	logging.Complete(ctx, "subscription", "reorder", "subscriptions reordered", started, err, "total", len(req.Msg.GetIds()))
+	return response, err
 }
 
 func (s *Service) UpdateSubscription(ctx context.Context, req *connect.Request[appv1.UpdateSubscriptionRequest]) (*connect.Response[appv1.UpdateSubscriptionResponse], error) {
-	return s.backend.UpdateSubscription(ctx, req)
+	started := time.Now()
+	response, err := s.backend.UpdateSubscription(ctx, req)
+	total := 0
+	var results []*appv1.TaskResult
+	if response != nil {
+		results = response.Msg.GetResults()
+		total = len(results)
+	}
+	successes, failures := subscriptionResultCounts(results)
+	attrs := []any{"subscription_id", req.Msg.GetId(), "total", total, "success_count", successes, "failure_count", failures}
+	if err == nil && failures > 0 {
+		logging.Partial(ctx, "subscription", "refresh", "subscription refresh completed with failures", started, attrs...)
+	} else {
+		logging.Complete(ctx, "subscription", "refresh", "subscription refreshed", started, err, attrs...)
+	}
+	return response, err
 }
 
 func (s *Service) UpdateAllSubscriptions(ctx context.Context, req *connect.Request[appv1.UpdateAllSubscriptionsRequest]) (*connect.Response[appv1.UpdateAllSubscriptionsResponse], error) {
-	return s.backend.UpdateAllSubscriptions(ctx, req)
+	started := time.Now()
+	response, err := s.backend.UpdateAllSubscriptions(ctx, req)
+	total := 0
+	var results []*appv1.TaskResult
+	if response != nil {
+		results = response.Msg.GetResults()
+		total = len(results)
+	}
+	successes, failures := subscriptionResultCounts(results)
+	attrs := []any{"total", total, "success_count", successes, "failure_count", failures}
+	if err == nil && failures > 0 {
+		logging.Partial(ctx, "subscription", "refresh_all", "subscription refresh completed with failures", started, attrs...)
+	} else {
+		logging.Complete(ctx, "subscription", "refresh_all", "subscriptions refreshed", started, err, attrs...)
+	}
+	return response, err
+}
+
+func subscriptionResultCounts(results []*appv1.TaskResult) (int, int) {
+	var successes, failures int
+	for _, result := range results {
+		if result.GetOk() {
+			successes++
+		} else {
+			failures++
+		}
+	}
+	return successes, failures
 }
 
 func (s *Service) GetSubscriptionContent(ctx context.Context, req *connect.Request[appv1.GetSubscriptionContentRequest]) (*connect.Response[appv1.GetSubscriptionContentResponse], error) {
@@ -61,5 +117,8 @@ func (s *Service) GetSubscriptionContent(ctx context.Context, req *connect.Reque
 }
 
 func (s *Service) SaveSubscriptionContent(ctx context.Context, req *connect.Request[appv1.SaveSubscriptionContentRequest]) (*connect.Response[appv1.SaveSubscriptionContentResponse], error) {
-	return s.backend.SaveSubscriptionContent(ctx, req)
+	started := time.Now()
+	response, err := s.backend.SaveSubscriptionContent(ctx, req)
+	logging.Complete(ctx, "subscription", "save_content", "subscription content saved", started, err, "subscription_id", req.Msg.GetId(), "content_bytes", len(req.Msg.GetContent()), "proxy_count", len(req.Msg.GetProxyIds()))
+	return response, err
 }

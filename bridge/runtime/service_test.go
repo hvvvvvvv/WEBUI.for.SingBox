@@ -1321,7 +1321,7 @@ func TestScheduledTaskLogsDefaultLimitPersists(t *testing.T) {
 	service := newAppRuntimeService(nil, nil)
 
 	for i := 0; i < 25; i++ {
-		service.recordTaskLog("task-1", "Task", int64(i), int64(i), []*appv1.TaskResult{taskResult(true, "r", "R", "ok")})
+		service.recordTaskLog(context.Background(), "task-1", "Task", int64(i), int64(i), []*appv1.TaskResult{taskResult(true, "r", "R", "ok")})
 	}
 
 	logs, err := loadScheduledTaskLogs()
@@ -1344,7 +1344,7 @@ func TestScheduledTaskLogsRespectTaskLimit(t *testing.T) {
 	service := newAppRuntimeService(nil, nil)
 
 	for i := 0; i < 5; i++ {
-		service.recordTaskLog("task-1", "Task", int64(i), int64(i), []*appv1.TaskResult{taskResult(true, "r", "R", "ok")})
+		service.recordTaskLog(context.Background(), "task-1", "Task", int64(i), int64(i), []*appv1.TaskResult{taskResult(true, "r", "R", "ok")})
 	}
 
 	logs, err := loadScheduledTaskLogs()
@@ -1366,7 +1366,7 @@ func TestUpdateScheduledTaskTrimsExistingLogs(t *testing.T) {
 	}
 	service := newAppRuntimeService(nil, nil)
 	for i := 0; i < 5; i++ {
-		service.recordTaskLog("task-1", "Task", int64(i), int64(i), []*appv1.TaskResult{taskResult(true, "r", "R", "ok")})
+		service.recordTaskLog(context.Background(), "task-1", "Task", int64(i), int64(i), []*appv1.TaskResult{taskResult(true, "r", "R", "ok")})
 	}
 
 	_, err := putScheduledTaskForTest(service, `{"id":"task-1","name":"Task","type":"update::all::subscription","cron":"0 * * * * *","logLimit":2,"disabled":true}`)
@@ -1389,7 +1389,7 @@ func TestDeleteAndClearScheduledTaskLogsPersist(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := newAppRuntimeService(nil, nil)
-	service.recordTaskLog("task-1", "Task", 1, 1, []*appv1.TaskResult{taskResult(true, "r", "R", "ok")})
+	service.recordTaskLog(context.Background(), "task-1", "Task", 1, 1, []*appv1.TaskResult{taskResult(true, "r", "R", "ok")})
 
 	_, err := service.DeleteScheduledTask(context.Background(), connect.NewRequest(&appv1.DeleteScheduledTaskRequest{
 		Id:               "task-1",
@@ -1406,7 +1406,7 @@ func TestDeleteAndClearScheduledTaskLogsPersist(t *testing.T) {
 		t.Fatalf("expected logs removed after delete, got %d", len(logs))
 	}
 
-	service.recordTaskLog("orphan", "Orphan", 1, 1, []*appv1.TaskResult{taskResult(true, "r", "R", "ok")})
+	service.recordTaskLog(context.Background(), "orphan", "Orphan", 1, 1, []*appv1.TaskResult{taskResult(true, "r", "R", "ok")})
 	_, err = service.ClearScheduledTaskLogs(context.Background(), connect.NewRequest(&appv1.ClearScheduledTaskLogsRequest{}))
 	if err != nil {
 		t.Fatal(err)

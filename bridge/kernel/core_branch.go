@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"guiforcores/bridge/logging"
 	"guiforcores/bridge/platform"
 	appv1 "guiforcores/gen/app/v1"
 	kernelv1 "guiforcores/gen/kernel/v1"
@@ -60,8 +61,17 @@ func (s *Service) GetCoreBranchLocalVersion(
 func (s *Service) GetCoreBranchRemoteVersion(
 	ctx context.Context,
 	req *connect.Request[kernelv1.GetCoreBranchRemoteVersionRequest],
-) (*connect.Response[kernelv1.GetCoreBranchRemoteVersionResponse], error) {
-	release, asset, assetName, err := s.fetchCoreReleaseAsset(ctx, req.Msg.GetBranch())
+) (response *connect.Response[kernelv1.GetCoreBranchRemoteVersionResponse], responseErr error) {
+	started := time.Now()
+	branch := req.Msg.GetBranch()
+	defer func() {
+		version := ""
+		if response != nil {
+			version = response.Msg.GetRemoteVersion()
+		}
+		logging.Complete(ctx, "kernel", "check_update", "core update checked", started, responseErr, "branch", branch.String(), "remote_version", version)
+	}()
+	release, asset, assetName, err := s.fetchCoreReleaseAsset(ctx, branch)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -69,7 +79,7 @@ func (s *Service) GetCoreBranchRemoteVersion(
 	return connect.NewResponse(&kernelv1.GetCoreBranchRemoteVersionResponse{
 		RemoteVersion:  strings.TrimPrefix(release.TagName, "v"),
 		AssetName:      assetName,
-		ReleasePageUrl: coreReleasePageURL(req.Msg.GetBranch()),
+		ReleasePageUrl: coreReleasePageURL(branch),
 		TrustedAsset:   asset.Uploader.Type == "Bot",
 	}), nil
 }
@@ -77,9 +87,13 @@ func (s *Service) GetCoreBranchRemoteVersion(
 func (s *Service) DownloadCore(
 	ctx context.Context,
 	req *connect.Request[kernelv1.DownloadCoreRequest],
-) (*connect.Response[kernelv1.DownloadCoreResponse], error) {
+) (response *connect.Response[kernelv1.DownloadCoreResponse], responseErr error) {
+	started := time.Now()
 	branch := req.Msg.GetBranch()
 	progressEvent := strings.TrimSpace(req.Msg.GetProgressEvent())
+	defer func() {
+		logging.Complete(ctx, "kernel", "download", "core downloaded", started, responseErr, "branch", branch.String(), "progress_event", progressEvent)
+	}()
 	if progressEvent == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("progress_event is required"))
 	}
@@ -135,7 +149,7 @@ func (s *Service) DownloadCore(
 }
 
 func (s *Service) CancelCoreDownload(
-	_ context.Context,
+	ctx context.Context,
 	req *connect.Request[kernelv1.CancelCoreDownloadRequest],
 ) (*connect.Response[kernelv1.CancelCoreDownloadResponse], error) {
 	progressEvent := strings.TrimSpace(req.Msg.GetProgressEvent())
@@ -150,14 +164,19 @@ func (s *Service) CancelCoreDownload(
 	if cancel != nil {
 		cancel()
 	}
+	logging.FromContext(ctx).InfoContext(ctx, "core download cancelled", "component", "kernel", "operation", "cancel_download", "progress_event", progressEvent, "result", "cancelled")
 	return connect.NewResponse(&kernelv1.CancelCoreDownloadResponse{}), nil
 }
 
 func (s *Service) RollbackCore(
 	ctx context.Context,
 	req *connect.Request[kernelv1.RollbackCoreRequest],
-) (*connect.Response[kernelv1.RollbackCoreResponse], error) {
+) (response *connect.Response[kernelv1.RollbackCoreResponse], responseErr error) {
+	started := time.Now()
 	branch := req.Msg.GetBranch()
+	defer func() {
+		logging.Complete(ctx, "kernel", "rollback", "core rolled back", started, responseErr, "branch", branch.String())
+	}()
 	action := func() error {
 		corePath := s.processes.ResolvePath(coreFilePathForBranch(branch))
 		bakPath := corePath + ".bak"
@@ -182,7 +201,12 @@ func (s *Service) RollbackCore(
 func (s *Service) ClearCoreCache(
 	ctx context.Context,
 	req *connect.Request[kernelv1.ClearCoreCacheRequest],
-) (*connect.Response[kernelv1.ClearCoreCacheResponse], error) {
+) (response *connect.Response[kernelv1.ClearCoreCacheResponse], responseErr error) {
+	started := time.Now()
+	branch := req.Msg.GetBranch()
+	defer func() {
+		logging.Complete(ctx, "kernel", "clear_cache", "core cache cleared", started, responseErr, "branch", branch.String())
+	}()
 	action := func() error {
 		err := os.Remove(s.processes.ResolvePath(coreCacheFilePath))
 		if err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -190,7 +214,7 @@ func (s *Service) ClearCoreCache(
 		}
 		return nil
 	}
-	if err := s.runWithCoreRestartIfCurrent(ctx, req.Msg.GetBranch(), action); err != nil {
+	if err := s.runWithCoreRestartIfCurrent(ctx, branch, action); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&kernelv1.ClearCoreCacheResponse{}), nil

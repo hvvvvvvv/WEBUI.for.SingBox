@@ -8,14 +8,16 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
+	"log/slog"
 	"mime"
+	"net"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"guiforcores/bridge/appsystem"
@@ -24,6 +26,7 @@ import (
 	"guiforcores/bridge/config"
 	"guiforcores/bridge/event"
 	"guiforcores/bridge/kernel"
+	"guiforcores/bridge/logging"
 	"guiforcores/bridge/platform"
 	"guiforcores/bridge/profile"
 	"guiforcores/bridge/ruleset"
@@ -58,6 +61,7 @@ type Server struct {
 	options            Options
 	server             *http.Server
 	startedAtUnixMilli int64
+	requestSequence    atomic.Uint64
 }
 
 type FlagResult = platform.Result
@@ -135,20 +139,101 @@ func (s *Server) buildHandler() (http.Handler, error) {
 
 func (s *Server) buildRootHandler(frontendHandler http.Handler, protectedHandlerMux *http.ServeMux) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		handler, pattern := protectedHandlerMux.Handler(r)
-		if pattern != "" {
-			if !isPublicRoute(r.URL.Path) {
-				token := authTokenFromRequest(r)
-				if !s.options.Auth.ValidateSession(token) {
-					http.Error(w, "Unauthorized", http.StatusUnauthorized)
-					return
-				}
-			}
-			handler.ServeHTTP(w, r)
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			s.serveLoggedAPI(w, r, frontendHandler, protectedHandlerMux)
 			return
 		}
-		frontendHandler.ServeHTTP(w, r)
+		if r.URL.Path == "/ws" || strings.HasPrefix(r.URL.Path, "/ws/") {
+			r, _ = s.withRequestLogger(r)
+		}
+		s.serveRoot(w, r, frontendHandler, protectedHandlerMux)
 	})
+}
+
+func (s *Server) serveLoggedAPI(w http.ResponseWriter, r *http.Request, frontendHandler http.Handler, protectedHandlerMux *http.ServeMux) {
+	r, logger := s.withRequestLogger(r)
+	recorder := &responseRecorder{ResponseWriter: w, status: http.StatusOK}
+	started := time.Now()
+	s.serveRoot(recorder, r, frontendHandler, protectedHandlerMux)
+	logger.DebugContext(r.Context(), "request completed",
+		"component", "http",
+		"operation", "request",
+		"method", r.Method,
+		"route", r.URL.Path,
+		"status", recorder.status,
+		"bytes", recorder.bytes,
+		"remote_addr", r.RemoteAddr,
+		"duration", time.Since(started),
+		"result", requestResult(recorder.status),
+	)
+}
+
+func (s *Server) withRequestLogger(r *http.Request) (*http.Request, *slog.Logger) {
+	requestID := fmt.Sprintf("%x-%x", s.startedAtUnixMilli, s.requestSequence.Add(1))
+	logger := slog.Default().With("request_id", requestID)
+	return r.WithContext(logging.WithContext(r.Context(), logger)), logger
+}
+
+func (s *Server) serveRoot(w http.ResponseWriter, r *http.Request, frontendHandler http.Handler, protectedHandlerMux *http.ServeMux) {
+	handler, pattern := protectedHandlerMux.Handler(r)
+	if pattern != "" {
+		if !isPublicRoute(r.URL.Path) {
+			token := authTokenFromRequest(r)
+			if !s.options.Auth.ValidateSession(token) {
+				logging.FromContext(r.Context()).WarnContext(r.Context(), "request unauthorized",
+					"component", "auth",
+					"operation", "authorize",
+					"method", r.Method,
+					"route", r.URL.Path,
+					"remote_addr", r.RemoteAddr,
+					"result", "failure",
+				)
+				http.Error(w, "Unauthorized", http.StatusUnauthorized)
+				return
+			}
+		}
+		handler.ServeHTTP(w, r)
+		return
+	}
+	frontendHandler.ServeHTTP(w, r)
+}
+
+type responseRecorder struct {
+	http.ResponseWriter
+	status      int
+	bytes       int
+	wroteHeader bool
+}
+
+func (w *responseRecorder) WriteHeader(status int) {
+	if w.wroteHeader {
+		return
+	}
+	w.wroteHeader = true
+	w.status = status
+	w.ResponseWriter.WriteHeader(status)
+}
+
+func (w *responseRecorder) Write(data []byte) (int, error) {
+	if !w.wroteHeader {
+		w.WriteHeader(http.StatusOK)
+	}
+	written, err := w.ResponseWriter.Write(data)
+	w.bytes += written
+	return written, err
+}
+
+func (w *responseRecorder) Flush() {
+	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func requestResult(status int) string {
+	if status >= http.StatusBadRequest {
+		return "failure"
+	}
+	return "success"
 }
 
 func (s *Server) buildProtectedMux() *http.ServeMux {
@@ -320,14 +405,18 @@ func (s *Server) rollingReleaseFilePath(requestPath string) string {
 }
 
 func (s *Server) Run(ctx context.Context) error {
+	listener, err := net.Listen("tcp", s.options.Address)
+	if err != nil {
+		return err
+	}
 	go func() {
 		<-ctx.Done()
 		shutdownContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = s.server.Shutdown(shutdownContext)
 	}()
-	log.Printf("Server starting at http://%s", s.options.Address)
-	err := s.server.ListenAndServe()
+	slog.Info("server listening", "component", "http", "operation", "listen", "address", s.options.Address, "result", "success")
+	err = s.server.Serve(listener)
 	if err == http.ErrServerClosed {
 		return nil
 	}
@@ -340,7 +429,9 @@ func (s *Server) Close(ctx context.Context) error {
 
 func registerAPIRoutes(mux *http.ServeMux, authService *auth.Service) {
 	apiRouteWithRequest(mux, "/api/auth/login", func(r *http.Request, args []json.RawMessage) any {
+		logger := logging.FromContext(r.Context()).With("component", "auth", "operation", "login", "remote_addr", r.RemoteAddr)
 		if authService.IsLoginRateLimited(r.RemoteAddr) {
+			logger.WarnContext(r.Context(), "login rate limited", "result", "failure")
 			return FlagResult{Flag: false, Data: "Too many failed attempts, try again later"}
 		}
 
@@ -349,14 +440,17 @@ func registerAPIRoutes(mux *http.ServeMux, authService *auth.Service) {
 			if plainSecret != "" {
 				authService.RecordLoginFailure(r.RemoteAddr)
 			}
+			logger.WarnContext(r.Context(), "login rejected", "result", "failure")
 			return FlagResult{Flag: false, Data: "Invalid secret"}
 		}
 		token, err := authService.GenerateToken()
 		if err != nil {
+			logger.ErrorContext(r.Context(), "session token generation failed", "result", "failure", "error", err)
 			return FlagResult{Flag: false, Data: "Failed to generate token"}
 		}
 		authService.ClearLoginFailures(r.RemoteAddr)
 		authService.AddSession(token)
+		logger.InfoContext(r.Context(), "login succeeded", "result", "success")
 		return FlagResult{Flag: true, Data: token}
 	})
 
@@ -365,6 +459,7 @@ func registerAPIRoutes(mux *http.ServeMux, authService *auth.Service) {
 		if token != "" {
 			authService.RemoveSession(token)
 		}
+		logging.FromContext(r.Context()).InfoContext(r.Context(), "session logged out", "component", "auth", "operation", "logout", "remote_addr", r.RemoteAddr, "result", "success")
 		return FlagResult{Flag: true, Data: "Success"}
 	})
 
@@ -372,24 +467,28 @@ func registerAPIRoutes(mux *http.ServeMux, authService *auth.Service) {
 		return FlagResult{Flag: true, Data: "Valid"}
 	})
 
-	apiRoute(mux, "/api/auth/setup", func(args []json.RawMessage) any {
+	apiRouteWithRequest(mux, "/api/auth/setup", func(r *http.Request, args []json.RawMessage) any {
 		secret, _ := unmarshalArg[string](args, 0)
 		needClear := !(secret == "" || auth.HashSecret(secret) == authService.SecretHash())
 
 		err := authService.SetSecret(secret)
 		if err != nil {
+			logging.FromContext(r.Context()).ErrorContext(r.Context(), "authentication configuration failed", "component", "auth", "operation", "configure", "enabled", secret != "", "result", "failure", "error", err)
 			return FlagResult{Flag: false, Data: err.Error()}
 		}
 		if needClear {
 			token, err := authService.GenerateToken()
 			if err != nil {
+				logging.FromContext(r.Context()).ErrorContext(r.Context(), "session token generation failed", "component", "auth", "operation", "configure", "result", "failure", "error", err)
 				return FlagResult{Flag: false, Data: "Failed to generate token"}
 			}
 			authService.ClearSessions()
 			authService.AddSession(token)
+			logging.FromContext(r.Context()).InfoContext(r.Context(), "authentication configured", "component", "auth", "operation", "configure", "enabled", true, "sessions_cleared", true, "result", "success")
 			return FlagResult{Flag: true, Data: token}
 		}
 
+		logging.FromContext(r.Context()).InfoContext(r.Context(), "authentication configured", "component", "auth", "operation", "configure", "enabled", secret != "", "sessions_cleared", false, "result", "success")
 		return FlagResult{Flag: true, Data: ""}
 	})
 
@@ -463,11 +562,14 @@ func (s *Server) handleKernelProxy(w http.ResponseWriter, r *http.Request) {
 // Query params: auth (session token).
 // The remaining path after /ws/kernel is forwarded to the kernel.
 func (s *Server) handleKernelWebSocketProxy(w http.ResponseWriter, r *http.Request) {
+	started := time.Now()
+	logger := logging.FromContext(r.Context()).With("component", "websocket", "operation", "kernel_proxy", "remote_addr", r.RemoteAddr)
 	query := r.URL.Query()
 
 	// Authenticate: check auth query param
 	authToken := strings.TrimSpace(query.Get("auth"))
 	if !s.options.Auth.ValidateSession(authToken) {
+		logger.WarnContext(r.Context(), "kernel websocket unauthorized", "result", "failure")
 		http.Error(w, "Unauthorized", http.StatusUnauthorized)
 		return
 	}
@@ -492,6 +594,7 @@ func (s *Server) handleKernelWebSocketProxy(w http.ResponseWriter, r *http.Reque
 
 	upstreamConn, _, err := websocket.DefaultDialer.Dial(upstreamURL, upstreamHeaders)
 	if err != nil {
+		logger.ErrorContext(r.Context(), "kernel websocket upstream connection failed", "url", upstreamURL, "duration", time.Since(started), "result", "failure", "error", err)
 		http.Error(w, "Failed to connect to kernel: "+err.Error(), http.StatusBadGateway)
 		return
 	}
@@ -499,9 +602,14 @@ func (s *Server) handleKernelWebSocketProxy(w http.ResponseWriter, r *http.Reque
 
 	clientConn, err := websocketUpgrader.Upgrade(w, r, nil)
 	if err != nil {
+		logger.ErrorContext(r.Context(), "kernel websocket upgrade failed", "url", upstreamURL, "duration", time.Since(started), "result", "failure", "error", err)
 		return
 	}
 	defer clientConn.Close()
+	logger.DebugContext(r.Context(), "kernel websocket connected", "url", upstreamURL, "result", "success")
+	defer func() {
+		logger.DebugContext(r.Context(), "kernel websocket disconnected", "url", upstreamURL, "duration", time.Since(started), "result", "success")
+	}()
 
 	var once sync.Once
 	done := make(chan struct{})

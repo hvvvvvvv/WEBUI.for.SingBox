@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"guiforcores/bridge/logging"
 )
 
 func TestUpdateHelperArguments(t *testing.T) {
@@ -18,6 +20,8 @@ func TestUpdateHelperArguments(t *testing.T) {
 		`["--addr","127.0.0.1:8080"]`,
 		"/opt",
 		true,
+		logging.LevelWarn,
+		14,
 	)
 	want := []string{
 		"__updater",
@@ -26,6 +30,8 @@ func TestUpdateHelperArguments(t *testing.T) {
 		"--parent-pid", "42",
 		"--restart-args", `["--addr","127.0.0.1:8080"]`,
 		"--working-dir", "/opt",
+		"--log-level", "warn",
+		"--log-days", "14",
 		"--service-mode",
 	}
 	if !reflect.DeepEqual(args, want) {

@@ -7,8 +7,10 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"guiforcores/bridge/event"
+	"guiforcores/bridge/logging"
 	"guiforcores/bridge/rpcutil"
 	"guiforcores/bridge/storage"
 	"guiforcores/bridge/syncstate"
@@ -135,10 +137,15 @@ func (s *profileService) GetProfile(
 }
 
 func (s *profileService) CreateProfile(
-	_ context.Context,
+	ctx context.Context,
 	req *connect.Request[profilev1.CreateProfileRequest],
-) (*connect.Response[profilev1.CreateProfileResponse], error) {
+) (response *connect.Response[profilev1.CreateProfileResponse], responseErr error) {
+	started := time.Now()
 	profile := req.Msg.GetProfile()
+	profileID := profile.GetId()
+	defer func() {
+		logging.Complete(ctx, "profile", "create", "profile created", started, responseErr, "profile_id", profileID, "name", profile.GetName())
+	}()
 	if profile == nil || profile.GetId() == "" {
 		return nil, asConnectError(invalidArgumentError{message: "profile.id is required"})
 	}
@@ -172,10 +179,15 @@ func (s *profileService) CreateProfile(
 }
 
 func (s *profileService) UpdateProfile(
-	_ context.Context,
+	ctx context.Context,
 	req *connect.Request[profilev1.UpdateProfileRequest],
-) (*connect.Response[profilev1.UpdateProfileResponse], error) {
+) (response *connect.Response[profilev1.UpdateProfileResponse], responseErr error) {
+	started := time.Now()
 	profile := req.Msg.GetProfile()
+	profileID := profile.GetId()
+	defer func() {
+		logging.Complete(ctx, "profile", "update", "profile updated", started, responseErr, "profile_id", profileID, "name", profile.GetName())
+	}()
 	if profile == nil || profile.GetId() == "" {
 		return nil, asConnectError(invalidArgumentError{message: "profile.id is required"})
 	}
@@ -229,10 +241,14 @@ func (s *profileService) UpdateProfile(
 }
 
 func (s *profileService) DeleteProfile(
-	_ context.Context,
+	ctx context.Context,
 	req *connect.Request[profilev1.DeleteProfileRequest],
-) (*connect.Response[profilev1.DeleteProfileResponse], error) {
+) (response *connect.Response[profilev1.DeleteProfileResponse], responseErr error) {
+	started := time.Now()
 	id := req.Msg.GetId()
+	defer func() {
+		logging.Complete(ctx, "profile", "delete", "profile deleted", started, responseErr, "profile_id", id)
+	}()
 	if id == "" {
 		return nil, asConnectError(invalidArgumentError{message: "id is required"})
 	}
@@ -276,9 +292,13 @@ func (s *profileService) DeleteProfile(
 }
 
 func (s *profileService) ReorderProfiles(
-	_ context.Context,
+	ctx context.Context,
 	req *connect.Request[profilev1.ReorderProfilesRequest],
-) (*connect.Response[profilev1.ReorderProfilesResponse], error) {
+) (response *connect.Response[profilev1.ReorderProfilesResponse], responseErr error) {
+	started := time.Now()
+	defer func() {
+		logging.Complete(ctx, "profile", "reorder", "profiles reordered", started, responseErr, "total", len(req.Msg.GetIds()))
+	}()
 	s.mu.Lock()
 	profiles, err := s.loadProfiles()
 	if err != nil {

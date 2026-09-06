@@ -3,7 +3,7 @@ package kernel
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"guiforcores/bridge/config"
+	"guiforcores/bridge/logging"
 	"guiforcores/bridge/platform"
 	"guiforcores/bridge/rpcutil"
 	kernelv1 "guiforcores/gen/kernel/v1"
@@ -347,8 +348,16 @@ func (s *Service) Status() (kernelv1.CoreStatus, string) {
 func (s *Service) StartCore(
 	ctx context.Context,
 	req *connect.Request[kernelv1.StartCoreRequest],
-) (*connect.Response[kernelv1.StartCoreResponse], error) {
+) (response *connect.Response[kernelv1.StartCoreResponse], responseErr error) {
+	started := time.Now()
 	profileID := req.Msg.GetProfileId()
+	defer func() {
+		pid := -1
+		if response != nil {
+			pid = int(response.Msg.GetPid())
+		}
+		logging.Complete(ctx, "kernel", "start", "core started", started, responseErr, "profile_id", profileID, "pid", pid)
+	}()
 	if profileID == "" {
 		return nil, rpcutil.AsConnectError(rpcutil.InvalidArgumentError{Message: "profile_id is required"})
 	}
@@ -368,8 +377,17 @@ func (s *Service) StartCore(
 func (s *Service) StartCoreWithProfile(
 	ctx context.Context,
 	req *connect.Request[kernelv1.StartCoreWithProfileRequest],
-) (*connect.Response[kernelv1.StartCoreWithProfileResponse], error) {
+) (response *connect.Response[kernelv1.StartCoreWithProfileResponse], responseErr error) {
+	started := time.Now()
 	profile := req.Msg.GetProfile()
+	profileID := profile.GetId()
+	defer func() {
+		pid := -1
+		if response != nil {
+			pid = int(response.Msg.GetPid())
+		}
+		logging.Complete(ctx, "kernel", "start", "core started", started, responseErr, "profile_id", profileID, "pid", pid)
+	}()
 	if profile == nil || profile.GetId() == "" {
 		return nil, rpcutil.AsConnectError(rpcutil.InvalidArgumentError{Message: "profile is required"})
 	}
@@ -456,9 +474,14 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 }
 
 func (s *Service) StopCore(
-	_ context.Context,
+	ctx context.Context,
 	_ *connect.Request[kernelv1.StopCoreRequest],
-) (*connect.Response[kernelv1.StopCoreResponse], error) {
+) (response *connect.Response[kernelv1.StopCoreResponse], responseErr error) {
+	started := time.Now()
+	pid := -1
+	defer func() {
+		logging.Complete(ctx, "kernel", "stop", "core stopped", started, responseErr, "pid", pid)
+	}()
 	pid, err := s.beginStopping()
 	if err != nil {
 		return nil, err
@@ -468,7 +491,8 @@ func (s *Service) StopCore(
 	if !result.Flag {
 		s.setCrashed()
 		s.publishCoreCrash(pid, result.Data, "shutdown")
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("stop core failed: %s", result.Data))
+		err := connect.NewError(connect.CodeInternal, fmt.Errorf("stop core failed: %s", result.Data))
+		return nil, err
 	}
 
 	s.setStopped()
@@ -479,13 +503,21 @@ func (s *Service) StopCore(
 func (s *Service) RestartCore(
 	ctx context.Context,
 	req *connect.Request[kernelv1.RestartCoreRequest],
-) (*connect.Response[kernelv1.RestartCoreResponse], error) {
+) (response *connect.Response[kernelv1.RestartCoreResponse], responseErr error) {
+	started := time.Now()
 	profileID := req.Msg.GetProfileId()
 	if profileID == "" {
 		s.mu.Lock()
 		profileID = s.activeProfileID
 		s.mu.Unlock()
 	}
+	defer func() {
+		pid := -1
+		if response != nil {
+			pid = int(response.Msg.GetPid())
+		}
+		logging.Complete(ctx, "kernel", "restart", "core restarted", started, responseErr, "profile_id", profileID, "pid", pid)
+	}()
 	if profileID == "" {
 		return nil, rpcutil.AsConnectError(rpcutil.InvalidArgumentError{Message: "profile_id is required for restart when no active profile exists"})
 	}
@@ -497,7 +529,11 @@ func (s *Service) RestartCore(
 
 	s.restartOperationMu.Lock()
 	defer s.restartOperationMu.Unlock()
-	return s.restartCoreOnce(ctx, profileID)
+	response, err := s.restartCoreOnce(ctx, profileID)
+	if err != nil {
+		return nil, err
+	}
+	return response, nil
 }
 
 func (s *Service) restartCoreOnce(
@@ -521,7 +557,7 @@ func (s *Service) restartCoreOnce(
 }
 
 func (s *Service) GetCoreStatus(
-	_ context.Context,
+	ctx context.Context,
 	_ *connect.Request[kernelv1.GetCoreStatusRequest],
 ) (*connect.Response[kernelv1.GetCoreStatusResponse], error) {
 	s.mu.Lock()
@@ -530,6 +566,7 @@ func (s *Service) GetCoreStatus(
 	restartRequired := s.restartRequired
 	restarting := s.restarting
 	s.mu.Unlock()
+	logging.FromContext(ctx).DebugContext(ctx, "core status read", "component", "kernel", "operation", "status", "status", status.String(), "pid", pid)
 	if status != kernelv1.CoreStatus_CORE_STATUS_RUNNING || pid <= 0 {
 		pid = -1
 	}
@@ -585,7 +622,7 @@ func cloneProfile(profile *profilev1.Profile) *profilev1.Profile {
 }
 
 func (s *Service) GetCurrentCoreMemory(
-	_ context.Context,
+	ctx context.Context,
 	_ *connect.Request[kernelv1.GetCurrentCoreMemoryRequest],
 ) (*connect.Response[kernelv1.GetCurrentCoreMemoryResponse], error) {
 	s.mu.Lock()
@@ -606,6 +643,7 @@ func (s *Service) GetCurrentCoreMemory(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("invalid memory usage from core process: %q", result.Data))
 	}
+	logging.FromContext(ctx).DebugContext(ctx, "core memory read", "component", "kernel", "operation", "memory", "pid", pid, "bytes", rss, "result", "success")
 
 	return connect.NewResponse(&kernelv1.GetCurrentCoreMemoryResponse{Rss: rss}), nil
 }
@@ -613,12 +651,13 @@ func (s *Service) GetCurrentCoreMemory(
 func (s *Service) AutoStart(ctx context.Context) {
 	appConfig := s.appConfig.Current()
 	if !appConfig.AutoStartKernel {
+		slog.Debug("core auto-start disabled", "component", "kernel", "operation", "auto_start", "result", "skipped")
 		return
 	}
 
 	profileID := strings.TrimSpace(appConfig.Profile)
 	if profileID == "" {
-		log.Printf("AutoStartCore: skipped: no kernel profile selected")
+		slog.Warn("core auto-start skipped", "component", "kernel", "operation", "auto_start", "result", "skipped", "error", "no profile selected")
 		return
 	}
 
@@ -626,9 +665,9 @@ func (s *Service) AutoStart(ctx context.Context) {
 		return
 	}
 
-	log.Printf("AutoStartCore: starting core with profile %s", profileID)
+	slog.Info("core auto-start requested", "component", "kernel", "operation", "auto_start", "profile_id", profileID)
 	if _, err := s.StartCore(ctx, connect.NewRequest(&kernelv1.StartCoreRequest{ProfileId: profileID})); err != nil {
-		log.Printf("AutoStartCore: failed: %v", err)
+		return
 	}
 }
 
@@ -650,7 +689,7 @@ func (s *Service) attachExistingCoreFromPID(profileID string) bool {
 
 	s.setRunning(pid, profileID, nil)
 
-	log.Printf("AutoStartCore: attached to existing core process %d", pid)
+	slog.Info("existing core process attached", "component", "kernel", "operation", "attach", "profile_id", profileID, "pid", pid, "result", "success")
 	return true
 }
 

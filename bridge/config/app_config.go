@@ -4,9 +4,12 @@ import (
 	"context"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"sync"
+	"time"
 
+	"guiforcores/bridge/logging"
 	"guiforcores/bridge/rpcutil"
 	"guiforcores/bridge/storage"
 	appv1 "guiforcores/gen/app/v1"
@@ -263,15 +266,53 @@ func (s *AppService) GetAppConfig(_ context.Context, _ *connect.Request[appv1.Ge
 	return connect.NewResponse(&appv1.GetAppConfigResponse{Config: appConfigToProto(s.store.Current())}), nil
 }
 
-func (s *AppService) SaveAppConfig(_ context.Context, req *connect.Request[appv1.SaveAppConfigRequest]) (*connect.Response[appv1.SaveAppConfigResponse], error) {
+func (s *AppService) SaveAppConfig(ctx context.Context, req *connect.Request[appv1.SaveAppConfigRequest]) (response *connect.Response[appv1.SaveAppConfigResponse], responseErr error) {
+	started := time.Now()
+	var changedFields []string
+	defer func() {
+		logging.Complete(ctx, "config", "save_app", "application configuration saved", started, responseErr, "changed_fields", changedFields)
+	}()
 	previous := s.store.Current()
 	cfg := appConfigFromProto(req.Msg.GetConfig())
 	if err := s.store.Save(cfg); err != nil {
 		return nil, rpcutil.AsConnectError(err)
 	}
 	current := s.store.Current()
+	changedFields = appConfigChangedFields(previous, current)
 	if s.changeHandler != nil {
 		s.changeHandler.AppConfigChanged(previous, current)
 	}
 	return connect.NewResponse(&appv1.SaveAppConfigResponse{Config: appConfigToProto(current)}), nil
+}
+
+func appConfigChangedFields(previous, current AppConfig) []string {
+	fields := make([]string, 0, 9)
+	if previous.AutoStartKernel != current.AutoStartKernel {
+		fields = append(fields, "auto_start_kernel")
+	}
+	if previous.AutoRestartKernel != current.AutoRestartKernel {
+		fields = append(fields, "auto_restart_kernel")
+	}
+	if previous.UserAgent != current.UserAgent {
+		fields = append(fields, "user_agent")
+	}
+	if previous.GitHubAPIToken != current.GitHubAPIToken {
+		fields = append(fields, "github_api_token")
+	}
+	if previous.RollingRelease != current.RollingRelease {
+		fields = append(fields, "rolling_release")
+	}
+	if previous.Branch != current.Branch {
+		fields = append(fields, "branch")
+	}
+	if previous.Profile != current.Profile {
+		fields = append(fields, "profile")
+	}
+	if !reflect.DeepEqual(previous.Main, current.Main) {
+		fields = append(fields, "main")
+	}
+	if !reflect.DeepEqual(previous.Alpha, current.Alpha) {
+		fields = append(fields, "alpha")
+	}
+	return fields
 }

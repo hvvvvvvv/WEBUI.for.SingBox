@@ -4,15 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
+	"io"
+	"log/slog"
 	"os"
-	"strings"
+	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/kardianos/service"
 
 	"guiforcores/bridge"
+	"guiforcores/bridge/logging"
 )
 
 type application interface {
@@ -29,7 +31,6 @@ type systemService interface {
 	Install() error
 	Uninstall() error
 	Status() (service.Status, error)
-	Logger(chan<- error) (service.Logger, error)
 }
 
 var (
@@ -44,30 +45,33 @@ var (
 	serviceStopTimeout = 5 * time.Second
 )
 
-func runApplication(addr string) error {
+func runApplication(addr string, stdout io.Writer, level logging.Level, logDays int) error {
 	executable, err := executablePath()
 	if err != nil {
 		return fmt.Errorf("failed to resolve executable: %w", err)
 	}
 
 	program := &serviceProgram{
-		options:     bridge.Options{Address: addr, Assets: assets, AppVersion: version},
+		options:     bridge.Options{Address: addr, Assets: assets, AppVersion: version, LogLevel: level, LogDays: logDays},
 		serviceMode: !service.Interactive(),
 		exit:        exitProcess,
 	}
+	previousLogger := slog.Default()
+	logger, closer := logging.NewRuntime(stdout, level, logging.FileOptions{
+		Directory:     filepath.Join(filepath.Dir(executable), "data", "logs", "app"),
+		RetentionDays: logDays,
+	})
+	slog.SetDefault(logger)
+	defer func() {
+		_ = closer.Close()
+		slog.SetDefault(previousLogger)
+	}()
 	manager, err := newSystemService(program, makeServiceConfig(executable, nil))
 	if err != nil {
 		return fmt.Errorf("failed to initialize system service: %w", err)
 	}
-	logger, err := manager.Logger(nil)
-	if err != nil {
-		return fmt.Errorf("failed to initialize service logger: %w", err)
-	}
-	program.logger = logger
-	log.SetOutput(serviceLogWriter{logger: logger})
-
 	if err := manager.Run(); err != nil {
-		_ = logger.Errorf("Application service failed: %v", err)
+		slog.Error("application service failed", "component", "app", "operation", "run", "result", "failure", "error", err)
 		return fmt.Errorf("application service failed: %w", err)
 	}
 	return nil
@@ -76,7 +80,6 @@ func runApplication(addr string) error {
 type serviceProgram struct {
 	options     bridge.Options
 	serviceMode bool
-	logger      service.Logger
 	exit        func(int)
 
 	mu        sync.Mutex
@@ -114,11 +117,11 @@ func (p *serviceProgram) Start(service.Service) error {
 		if stopping {
 			return
 		}
+		args := []any{"component", "app", "operation", "run", "result", "failure"}
 		if runErr != nil {
-			p.logErrorf("Application stopped unexpectedly: %v", runErr)
-		} else {
-			p.logErrorf("Application stopped unexpectedly")
+			args = append(args, "error", runErr)
 		}
+		slog.Error("application stopped unexpectedly", args...)
 		if p.exit != nil {
 			p.exit(1)
 		}
@@ -161,26 +164,4 @@ func (p *serviceProgram) stop() error {
 		}
 	})
 	return p.stopError
-}
-
-func (p *serviceProgram) logErrorf(format string, args ...any) {
-	if p.logger != nil {
-		_ = p.logger.Errorf(format, args...)
-		return
-	}
-	log.Printf(format, args...)
-}
-
-type serviceLogWriter struct {
-	logger service.Logger
-}
-
-func (w serviceLogWriter) Write(data []byte) (int, error) {
-	message := strings.TrimSpace(string(data))
-	if message != "" {
-		if err := w.logger.Info(message); err != nil {
-			return 0, err
-		}
-	}
-	return len(data), nil
 }
