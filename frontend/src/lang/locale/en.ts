@@ -751,7 +751,7 @@ export default {
     autoStartKernel: 'Start core on launch',
     coreLogDays: {
       name: 'Core log retention days',
-      tips: '0 disables storage; days include today; changes apply immediately after saving',
+      tips: '0 to disable',
       invalid: 'Enter an integer between 0 and 2147483647',
     },
     realMemoryUsage: 'Show actual core memory usage',
