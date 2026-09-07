@@ -744,8 +744,8 @@ export default {
     needRestart: '重启生效',
     autoStartKernel: '程序启动时开启核心',
     coreLogDays: {
-      name: 'Core 日志保留天数',
-      tips: '0 表示关闭；保留天数包含今天；保存后立即生效',
+      name: '核心日志保留天数',
+      tips: '0表示关闭',
       invalid: '请输入 0 至 2147483647 之间的整数',
     },
     realMemoryUsage: '显示真实的核心内存占用',

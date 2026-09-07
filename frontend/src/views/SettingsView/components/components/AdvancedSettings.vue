@@ -122,9 +122,9 @@ const handleClearAuth = async () => {
       <Switch v-model="appConfig.config.autoStartKernel" />
     </div>
     <div class="px-8 py-12 flex items-center justify-between gap-8">
-      <div>
-        <div class="text-16 font-bold">{{ $t('settings.coreLogDays.name') }}</div>
-        <div class="font-normal text-12">{{ $t('settings.coreLogDays.tips') }}</div>
+      <div class="text-16 font-bold">
+        {{ $t('settings.coreLogDays.name') }}
+        <span class="font-normal text-12">({{ $t('settings.coreLogDays.tips') }})</span>
       </div>
       <Input
         v-model="coreLogDays"
