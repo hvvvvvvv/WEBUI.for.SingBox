@@ -2,6 +2,7 @@ package kernel
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -69,11 +70,16 @@ type EventPublisher interface {
 }
 
 type Service struct {
-	processes ProcessRunner
-	config    ConfigGenerator
-	appConfig AppConfigReader
-	profiles  ProfileReader
-	events    EventPublisher
+	lifecycleCtx    context.Context
+	lifecycleCancel context.CancelFunc
+	operations      sync.WaitGroup
+	closing         bool
+	coreLogs        *logging.CoreWriter
+	processes       ProcessRunner
+	config          ConfigGenerator
+	appConfig       AppConfigReader
+	profiles        ProfileReader
+	events          EventPublisher
 
 	stateEventMu       sync.Mutex
 	restartOperationMu sync.Mutex
@@ -97,7 +103,9 @@ type Service struct {
 var waitKernelAPIReadyFunc = waitKernelAPIReady
 
 func NewService(processes ProcessRunner, configService ConfigGenerator, appConfig AppConfigReader, profiles ProfileReader, events EventPublisher) *Service {
+	ctx, cancel := context.WithCancel(context.Background())
 	return &Service{
+		lifecycleCtx: ctx, lifecycleCancel: cancel,
 		processes: processes,
 		config:    configService,
 		appConfig: appConfig,
@@ -157,7 +165,7 @@ func (s *Service) setStarting(profileID string) error {
 	defer s.stateEventMu.Unlock()
 
 	s.mu.Lock()
-	if s.status == kernelv1.CoreStatus_CORE_STATUS_STARTING || s.status == kernelv1.CoreStatus_CORE_STATUS_RUNNING {
+	if s.closing || s.corePID > 0 || s.status == kernelv1.CoreStatus_CORE_STATUS_STARTING || s.status == kernelv1.CoreStatus_CORE_STATUS_RUNNING || s.status == kernelv1.CoreStatus_CORE_STATUS_STOPPING {
 		s.mu.Unlock()
 		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("core is already starting or running"))
 	}
@@ -188,7 +196,7 @@ func (s *Service) completeStart(pid int, profileID string, profile *profilev1.Pr
 	defer s.stateEventMu.Unlock()
 
 	s.mu.Lock()
-	if s.status != kernelv1.CoreStatus_CORE_STATUS_STARTING || s.corePID != pid {
+	if s.closing || s.status != kernelv1.CoreStatus_CORE_STATUS_STARTING || s.corePID != pid {
 		s.mu.Unlock()
 		return false
 	}
@@ -229,6 +237,10 @@ func (s *Service) beginStopping() (int, error) {
 	defer s.stateEventMu.Unlock()
 
 	s.mu.Lock()
+	if s.status == kernelv1.CoreStatus_CORE_STATUS_STOPPED && s.corePID <= 0 {
+		s.mu.Unlock()
+		return 0, nil
+	}
 	if s.status != kernelv1.CoreStatus_CORE_STATUS_RUNNING {
 		s.mu.Unlock()
 		return -1, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("core is not running"))
@@ -260,7 +272,8 @@ func (s *Service) handleCoreProcessExit(pid int, waitErr error) {
 		return
 	}
 
-	crashed := status != kernelv1.CoreStatus_CORE_STATUS_STOPPING
+	unconfirmed := errors.Is(waitErr, platform.ErrCoreExitUnconfirmed)
+	crashed := (!s.closing && status != kernelv1.CoreStatus_CORE_STATUS_STOPPING) || unconfirmed
 	crashPhase := "runtime"
 	if status == kernelv1.CoreStatus_CORE_STATUS_STARTING {
 		crashPhase = "startup"
@@ -274,7 +287,9 @@ func (s *Service) handleCoreProcessExit(pid int, waitErr error) {
 			s.restartRequired = false
 		}
 	}
-	s.corePID = -1
+	if !unconfirmed {
+		s.corePID = -1
+	}
 	s.currentProfile = nil
 	status = s.status
 	restartRequired := s.restartRequired
@@ -400,6 +415,17 @@ func (s *Service) StartCoreWithProfile(
 }
 
 func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.Profile) (int, error) {
+	s.mu.Lock()
+	if s.closing {
+		s.mu.Unlock()
+		return -1, connect.NewError(connect.CodeUnavailable, fmt.Errorf("application is shutting down"))
+	}
+	s.operations.Add(1)
+	s.mu.Unlock()
+	defer s.operations.Done()
+	ctx, cancel := context.WithCancel(ctx)
+	stopCancellation := context.AfterFunc(s.lifecycleCtx, cancel)
+	defer func() { stopCancellation(); cancel() }()
 	profileID := profile.GetId()
 
 	if err := s.setStarting(profileID); err != nil {
@@ -426,16 +452,21 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 		return -1, rpcutil.AsConnectError(err)
 	}
 
-	if err := validateKernelConfig(s.processes, runtimeCfg); err != nil {
-		s.setStopped()
-		return -1, connect.NewError(connect.CodeInvalidArgument, err)
-	}
-
 	execResult := s.processes.ExecBackground(
 		coreWorkingDirectory+"/"+getKernelFileName(runtimeCfg.Branch == "alpha"),
 		runtimeCfg.Args,
 		"kernelLog",
 		platform.ExecOptions{
+			Guard:            true,
+			Context:          ctx,
+			CheckArgs:        []string{"check", "--disable-color", "-c", s.processes.ResolvePath(coreConfigRelativePath), "-D", s.processes.ResolvePath(coreWorkingDirectory)},
+			WorkingDirectory: s.processes.ResolvePath(coreWorkingDirectory),
+			OnOutput: func(output logging.CoreOutput) {
+				if s.coreLogs != nil {
+					s.coreLogs.Write(output, profileID)
+				}
+			},
+			OnStarted:         func(pid int) { s.updateCoreState(func() { s.corePID = pid }) },
 			PIDFile:           corePidFilePath,
 			StopOutputKeyword: coreStopOutputKeyword,
 			Env:               runtimeCfg.Env,
@@ -444,6 +475,12 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 	)
 	if !execResult.Flag {
 		s.setStopped()
+		if ctx.Err() != nil {
+			return -1, rpcutil.AsConnectError(ctx.Err())
+		}
+		if strings.HasPrefix(execResult.Data, "invalid core config:") {
+			return -1, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("%s", execResult.Data))
+		}
 		return -1, connect.NewError(connect.CodeInternal, fmt.Errorf("start core failed: %s", execResult.Data))
 	}
 
@@ -454,14 +491,23 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 	}
 
 	s.updateCoreState(func() {
-		s.corePID = pid
+		if s.status == kernelv1.CoreStatus_CORE_STATUS_STARTING {
+			s.corePID = pid
+		}
 	})
 
 	if err := waitKernelAPIReadyFunc(ctx, config.CoreAPIController, s.config.ReadGeneratedSecret(), pid, 15*time.Second); err != nil {
-		s.setCrashed()
-		s.publishCoreCrash(pid, err.Error(), "startup")
-		_ = s.processes.KillProcess(pid, 5)
+		s.updateCoreState(func() { s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPING })
+		if ctx.Err() == nil {
+			s.publishCoreCrash(pid, err.Error(), "startup")
+		}
+		if result := s.processes.KillProcess(pid, 5); !result.Flag {
+			return -1, connect.NewError(connect.CodeInternal, fmt.Errorf("core startup cleanup failed: %s", result.Data))
+		}
 		s.setStopped()
+		if ctx.Err() != nil {
+			return -1, rpcutil.AsConnectError(ctx.Err())
+		}
 		return -1, coreAPIUnavailableError(err)
 	}
 
@@ -486,10 +532,13 @@ func (s *Service) StopCore(
 	if err != nil {
 		return nil, err
 	}
+	if pid == 0 {
+		return connect.NewResponse(&kernelv1.StopCoreResponse{}), nil
+	}
 
 	result := s.processes.KillProcess(pid, 10)
 	if !result.Flag {
-		s.setCrashed()
+		s.updateCoreState(func() { s.status = kernelv1.CoreStatus_CORE_STATUS_CRASHED; s.restartRequired = false })
 		s.publishCoreCrash(pid, result.Data, "shutdown")
 		err := connect.NewError(connect.CodeInternal, fmt.Errorf("stop core failed: %s", result.Data))
 		return nil, err
@@ -504,6 +553,9 @@ func (s *Service) RestartCore(
 	ctx context.Context,
 	req *connect.Request[kernelv1.RestartCoreRequest],
 ) (response *connect.Response[kernelv1.RestartCoreResponse], responseErr error) {
+	if s.lifecycleCtx.Err() != nil {
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("application is shutting down"))
+	}
 	started := time.Now()
 	profileID := req.Msg.GetProfileId()
 	if profileID == "" {
@@ -661,36 +713,10 @@ func (s *Service) AutoStart(ctx context.Context) {
 		return
 	}
 
-	if s.attachExistingCoreFromPID(profileID) {
-		return
-	}
-
 	slog.Info("core auto-start requested", "component", "kernel", "operation", "auto_start", "profile_id", profileID)
 	if _, err := s.StartCore(ctx, connect.NewRequest(&kernelv1.StartCoreRequest{ProfileId: profileID})); err != nil {
 		return
 	}
-}
-
-func (s *Service) attachExistingCoreFromPID(profileID string) bool {
-	bytes, err := os.ReadFile(s.processes.ResolvePath(corePidFilePath))
-	if err != nil {
-		return false
-	}
-
-	pid, err := strconv.Atoi(strings.TrimSpace(string(bytes)))
-	if err != nil || pid <= 0 {
-		return false
-	}
-
-	result := s.processes.ProcessInfo(int32(pid))
-	if !result.Flag || !strings.HasPrefix(result.Data, "sing-box") {
-		return false
-	}
-
-	s.setRunning(pid, profileID, nil)
-
-	slog.Info("existing core process attached", "component", "kernel", "operation", "attach", "profile_id", profileID, "pid", pid, "result", "success")
-	return true
 }
 
 func (s *Service) loadProfileByID(id string) (*profilev1.Profile, error) {
@@ -748,33 +774,6 @@ func parsePID(raw string) (int, error) {
 		return 0, fmt.Errorf("invalid pid from core start result: %q", raw)
 	}
 	return pid, nil
-}
-
-func validateKernelConfig(app ProcessRunner, runtimeCfg kernelRuntimeConfig) error {
-	branchAlpha := runtimeCfg.Branch == "alpha"
-	binary := coreWorkingDirectory + "/" + getKernelFileName(branchAlpha)
-
-	result := app.Exec(binary, []string{
-		"check",
-		"--disable-color",
-		"-c",
-		app.ResolvePath(coreConfigRelativePath),
-		"-D",
-		app.ResolvePath(coreWorkingDirectory),
-	}, platform.ExecOptions{
-		WorkingDirectory: app.ResolvePath(coreWorkingDirectory),
-		Env:              runtimeCfg.Env,
-	})
-
-	if result.Flag {
-		return nil
-	}
-
-	msg := strings.TrimSpace(result.Data)
-	if msg == "" {
-		msg = "unknown error"
-	}
-	return fmt.Errorf("invalid core config: %s", msg)
 }
 
 func waitKernelAPIReady(ctx context.Context, controller, secret string, pid int, timeout time.Duration) error {

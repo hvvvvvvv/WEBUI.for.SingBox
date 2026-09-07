@@ -2,9 +2,11 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +23,7 @@ import (
 const appConfigPath = "data/config.yaml"
 
 type AppConfig struct {
+	CoreLogDays       CoreLogRetention  `yaml:"coreLogDays"`
 	AutoStartKernel   bool              `yaml:"autoStartKernel"`
 	AutoRestartKernel bool              `yaml:"autoRestartKernel"`
 	UserAgent         string            `yaml:"userAgent"`
@@ -44,6 +47,7 @@ type Store struct {
 }
 
 type AppService struct {
+	saveMu        sync.Mutex
 	store         *Store
 	changeHandler AppConfigChangeHandler
 }
@@ -119,6 +123,16 @@ func (s *Store) load() (AppConfig, error) {
 	data, err := os.ReadFile(s.paths.Resolve(appConfigPath))
 	if err == nil {
 		if len(strings.TrimSpace(string(data))) > 0 {
+			var node yaml.Node
+			if err := yaml.Unmarshal(data, &node); err != nil {
+				return cfg, err
+			}
+			if value := coreLogDaysNode(&node, make(map[*yaml.Node]bool)); value != nil {
+				var days CoreLogRetention
+				if err := days.UnmarshalYAML(value); err != nil {
+					return cfg, err
+				}
+			}
 			if err := yaml.Unmarshal(data, &cfg); err != nil {
 				return cfg, err
 			}
@@ -146,13 +160,16 @@ func (s *Store) Current() AppConfig {
 }
 
 func (s *Store) Save(cfg AppConfig) error {
+	if cfg.CoreLogDays < 0 {
+		return rpcutil.InvalidArgumentError{Message: "coreLogDays must be a non-negative integer"}
+	}
 	cfg = normalizeAppConfig(cfg)
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.write(cfg); err != nil {
 		return err
 	}
-	s.mu.Lock()
 	s.value = cloneAppConfig(cfg)
-	s.mu.Unlock()
 	return nil
 }
 
@@ -165,7 +182,60 @@ func (s *Store) write(cfg AppConfig) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(fullPath, data, 0644)
+	return storage.AtomicWriteFile(fullPath, data, 0644)
+}
+
+type CoreLogRetention int32
+
+// Resolve YAML aliases and merge keys as well, including null (which yaml.v3
+// deliberately does not pass to a scalar's UnmarshalYAML method).
+func coreLogDaysNode(node *yaml.Node, seen map[*yaml.Node]bool) *yaml.Node {
+	if node == nil || seen[node] {
+		return nil
+	}
+	seen[node] = true
+	if node.Kind == yaml.AliasNode {
+		return coreLogDaysNode(node.Alias, seen)
+	}
+	if node.Kind == yaml.DocumentNode || node.Kind == yaml.SequenceNode {
+		for _, child := range node.Content {
+			if value := coreLogDaysNode(child, seen); value != nil {
+				return value
+			}
+		}
+	}
+	if node.Kind == yaml.MappingNode {
+		for i := 0; i+1 < len(node.Content); i += 2 {
+			if node.Content[i].Value == "coreLogDays" {
+				value := node.Content[i+1]
+				for value.Kind == yaml.AliasNode && value.Alias != nil && !seen[value] {
+					seen[value] = true
+					value = value.Alias
+				}
+				return value
+			}
+		}
+		for i := 0; i+1 < len(node.Content); i += 2 {
+			if node.Content[i].Value == "<<" {
+				if value := coreLogDaysNode(node.Content[i+1], seen); value != nil {
+					return value
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (d *CoreLogRetention) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind != yaml.ScalarNode || value.Tag != "!!int" {
+		return fmt.Errorf("coreLogDays must be an integer between 0 and 2147483647")
+	}
+	days, err := strconv.ParseInt(strings.ReplaceAll(value.Value, "_", ""), 0, 64)
+	if err != nil || days < 0 || days > 2147483647 {
+		return fmt.Errorf("coreLogDays must be an integer between 0 and 2147483647")
+	}
+	*d = CoreLogRetention(days)
+	return nil
 }
 
 func cloneAppConfig(cfg AppConfig) AppConfig {
@@ -191,6 +261,7 @@ func cloneStringMap(input map[string]string) map[string]string {
 func appConfigToProto(cfg AppConfig) *appv1.AppConfig {
 	cfg = normalizeAppConfig(cfg)
 	return &appv1.AppConfig{
+		CoreLogDays:       int32(cfg.CoreLogDays),
 		AutoStartKernel:   cfg.AutoStartKernel,
 		AutoRestartKernel: cfg.AutoRestartKernel,
 		UserAgent:         cfg.UserAgent,
@@ -209,6 +280,7 @@ func appConfigFromProto(config *appv1.AppConfig) AppConfig {
 		return defaults
 	}
 	return normalizeAppConfig(AppConfig{
+		CoreLogDays:       CoreLogRetention(config.GetCoreLogDays()),
 		AutoStartKernel:   config.GetAutoStartKernel(),
 		AutoRestartKernel: config.GetAutoRestartKernel(),
 		UserAgent:         config.GetUserAgent(),
@@ -267,6 +339,8 @@ func (s *AppService) GetAppConfig(_ context.Context, _ *connect.Request[appv1.Ge
 }
 
 func (s *AppService) SaveAppConfig(ctx context.Context, req *connect.Request[appv1.SaveAppConfigRequest]) (response *connect.Response[appv1.SaveAppConfigResponse], responseErr error) {
+	s.saveMu.Lock()
+	defer s.saveMu.Unlock()
 	started := time.Now()
 	var changedFields []string
 	defer func() {
@@ -287,6 +361,9 @@ func (s *AppService) SaveAppConfig(ctx context.Context, req *connect.Request[app
 
 func appConfigChangedFields(previous, current AppConfig) []string {
 	fields := make([]string, 0, 9)
+	if previous.CoreLogDays != current.CoreLogDays {
+		fields = append(fields, "core_log_days")
+	}
 	if previous.AutoStartKernel != current.AutoStartKernel {
 		fields = append(fields, "auto_start_kernel")
 	}

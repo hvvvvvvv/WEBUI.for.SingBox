@@ -1,10 +1,11 @@
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { apiCall } from '@/bridge/http'
 import { useAppConfigStore, useAppSettingsStore, useAppStore } from '@/stores'
 import { APP_TITLE, message } from '@/utils'
+import { parseCoreLogDays } from '@/utils/coreLogDays'
 
 const { t } = useI18n()
 const appSettings = useAppSettingsStore()
@@ -14,6 +15,30 @@ const appStore = useAppStore()
 const authSecret = ref('')
 const authSecretConfirm = ref('')
 const authLoading = ref(false)
+
+const coreLogDays = ref<number | string>(appConfig.config.coreLogDays)
+const coreLogDaysSaving = ref(false)
+watch(() => appConfig.config.coreLogDays, (value) => { coreLogDays.value = value })
+const saveCoreLogDays = async (input: number | string) => {
+  if (coreLogDaysSaving.value) return
+  const value = parseCoreLogDays(input)
+  if (value === undefined) {
+    message.error(t('settings.coreLogDays.invalid'))
+    coreLogDays.value = appConfig.config.coreLogDays
+    return
+  }
+  if (value === appConfig.config.coreLogDays) return
+  coreLogDaysSaving.value = true
+  appConfig.config.coreLogDays = value
+  try {
+    await appConfig.saveNow()
+  } catch (error: any) {
+    coreLogDays.value = appConfig.config.coreLogDays
+    message.error(error.message || String(error))
+  } finally {
+    coreLogDaysSaving.value = false
+  }
+}
 
 const handleClearApiToken = () => {
   appConfig.config.githubApiToken = ''
@@ -95,6 +120,22 @@ const handleClearAuth = async () => {
     <div class="px-8 py-12 flex items-center justify-between">
       <div class="text-16 font-bold">{{ $t('settings.autoStartKernel') }}</div>
       <Switch v-model="appConfig.config.autoStartKernel" />
+    </div>
+    <div class="px-8 py-12 flex items-center justify-between gap-8">
+      <div>
+        <div class="text-16 font-bold">{{ $t('settings.coreLogDays.name') }}</div>
+        <div class="font-normal text-12">{{ $t('settings.coreLogDays.tips') }}</div>
+      </div>
+      <Input
+        v-model="coreLogDays"
+        type="number"
+        editable
+        :disabled="coreLogDaysSaving"
+        :aria-label="$t('settings.coreLogDays.name')"
+        @submit="saveCoreLogDays"
+      >
+        <template #editable="{ value }">{{ value }}</template>
+      </Input>
     </div>
     <div class="px-8 py-12 flex items-center justify-between">
       <div class="text-16 font-bold">

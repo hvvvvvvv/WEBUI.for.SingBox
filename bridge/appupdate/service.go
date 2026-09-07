@@ -39,18 +39,21 @@ type EventPublisher interface {
 }
 
 type Service struct {
-	platform       *platform.Service
-	appConfig      AppConfigReader
-	events         EventPublisher
-	currentVersion string
-	serviceMode    bool
-	logLevel       logging.Level
-	logDays        int
+	requestShutdown func()
+	platform        *platform.Service
+	appConfig       AppConfigReader
+	events          EventPublisher
+	currentVersion  string
+	serviceMode     bool
+	logLevel        logging.Level
+	logDays         int
 
 	mu             sync.Mutex
 	updatedVersion string
 	downloads      map[string]context.CancelFunc
 }
+
+func (s *Service) SetShutdownHandler(handler func()) { s.requestShutdown = handler }
 
 type githubRelease struct {
 	TagName string        `json:"tag_name"`
@@ -220,14 +223,14 @@ func (s *Service) ApplyAppUpdate(
 	if !fileExists(archivePath) {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("update cache file is missing"))
 	}
-	if err := startUpdateHelper(archivePath, s.serviceMode, s.logLevel, s.logDays); err != nil {
+	if !s.serviceMode && s.requestShutdown == nil {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("application shutdown coordinator is unavailable"))
+	}
+	if err := launchUpdateHelper(archivePath, s.serviceMode, s.logLevel, s.logDays); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	if !s.serviceMode {
-		go func() {
-			time.Sleep(300 * time.Millisecond)
-			os.Exit(0)
-		}()
+		s.requestShutdown()
 	}
 	return connect.NewResponse(&appv1.ApplyAppUpdateResponse{}), nil
 }
@@ -350,6 +353,8 @@ func fileExists(path string) bool {
 	return err == nil
 }
 
+var launchUpdateHelper = startUpdateHelper
+
 func startUpdateHelper(archivePath string, serviceMode bool, logLevel logging.Level, logDays int) error {
 	currentExe, err := os.Executable()
 	if err != nil {
@@ -365,16 +370,22 @@ func startUpdateHelper(archivePath string, serviceMode bool, logLevel logging.Le
 		return err
 	}
 
-	args := updateHelperArguments(archivePath, currentExe, os.Getpid(), string(restartArgs), workingDir, serviceMode, logLevel, logDays)
+	identity, err := platform.IdentifyProcess(os.Getpid())
+	if err != nil {
+		return fmt.Errorf("identify update parent: %w", err)
+	}
+	args := updateHelperArguments(archivePath, currentExe, identity, string(restartArgs), workingDir, serviceMode, logLevel, logDays)
 	return startUpdateProcess(helperPath, args, workingDir, serviceMode)
 }
 
-func updateHelperArguments(archivePath, targetPath string, parentPID int, restartArgs, workingDir string, serviceMode bool, logLevel logging.Level, logDays int) []string {
+func updateHelperArguments(archivePath, targetPath string, parent platform.ProcessIdentity, restartArgs, workingDir string, serviceMode bool, logLevel logging.Level, logDays int) []string {
 	args := []string{
 		appUpdateHelperCommand,
 		"--archive-path", archivePath,
 		"--target-path", targetPath,
-		"--parent-pid", fmt.Sprintf("%d", parentPID),
+		"--parent-pid", strconv.Itoa(parent.PID),
+		"--parent-created", strconv.FormatInt(parent.Created, 10),
+		"--parent-executable", parent.Executable,
 		"--restart-args", restartArgs,
 		"--working-dir", workingDir,
 		"--log-level", logLevel.String(),

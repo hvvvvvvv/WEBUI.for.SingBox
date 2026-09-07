@@ -25,4 +25,5 @@ message AppConfig {
   string profile = 7;
   CoreRuntimeConfig main = 8;
   CoreRuntimeConfig alpha = 9;
+  int32 core_log_days = 10;
 }

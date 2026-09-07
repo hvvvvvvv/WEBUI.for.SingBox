@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"unsafe"
 
@@ -31,6 +32,10 @@ func SetCmdWindowHidden(cmd *exec.Cmd) {
 		HideWindow:    true,
 	}
 }
+
+func configureCoreGuard(cmd *exec.Cmd)   { SetCmdWindowHidden(cmd) }
+func equalPlatformPath(a, b string) bool { return strings.EqualFold(a, b) }
+func prepareCoreGuardIO()                {}
 
 func SendExitSignal(p *os.Process) error {
 	if ret, _, err := procFreeConsole.Call(); ret == 0 && err != windows.ERROR_INVALID_HANDLE {

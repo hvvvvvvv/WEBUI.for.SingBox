@@ -427,7 +427,7 @@ func TestStopCoreClearsCurrentProfile(t *testing.T) {
 	}
 }
 
-func TestGetCurrentProfileFallsBackToAttachedProfileID(t *testing.T) {
+func TestGetCurrentProfileFallsBackToActiveProfileID(t *testing.T) {
 	tmpDir := t.TempDir()
 	pidFile := filepath.Join(tmpDir, corePidFilePath)
 	if err := os.MkdirAll(filepath.Dir(pidFile), 0755); err != nil {
@@ -443,9 +443,7 @@ func TestGetCurrentProfileFallsBackToAttachedProfileID(t *testing.T) {
 		resolveBase:       tmpDir,
 	}, &fakeGenerator{}, fakeConfig{}, profiles, fakeEvents{})
 
-	if !service.attachExistingCoreFromPID("profile") {
-		t.Fatal("expected service to attach existing core")
-	}
+	service.setRunning(123, "profile", nil)
 
 	resp, err := service.GetCurrentProfile(context.Background(), connect.NewRequest(&kernelv1.GetCurrentProfileRequest{}))
 	if err != nil {

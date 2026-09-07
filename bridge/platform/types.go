@@ -1,7 +1,18 @@
 package platform
 
+import (
+	"context"
+
+	"guiforcores/bridge/logging"
+)
+
 type ExecOptions struct {
-	PIDFile           string `json:"PidFile"`
+	Guard             bool                     `json:"-"`
+	CheckArgs         []string                 `json:"-"`
+	Context           context.Context          `json:"-"`
+	OnOutput          func(logging.CoreOutput) `json:"-"`
+	OnStarted         func(int)                `json:"-"`
+	PIDFile           string                   `json:"PidFile"`
 	StopOutputKeyword string
 	WorkingDirectory  string
 	Convert           bool
