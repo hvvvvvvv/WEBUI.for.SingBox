@@ -26,11 +26,15 @@ type Service struct {
 	environment      Environment
 	managedProcessMu sync.Mutex
 	managedProcesses map[int]*managedProcess
+	guardMu          sync.Mutex
+	guards           map[*guardProcess]struct{}
+	guardsClosing    bool
 }
 
 type managedProcess struct {
 	process *os.Process
 	exited  <-chan struct{}
+	guard   *guardProcess
 }
 
 func NewService(paths *storage.Paths, events *event.Hub, environment Environment) *Service {

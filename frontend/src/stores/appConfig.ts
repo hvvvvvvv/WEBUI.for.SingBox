@@ -44,6 +44,7 @@ export const useAppConfigStore = defineStore('app-config', () => {
   }
 
   const defaultConfig = (): AppConfig => ({
+    coreLogDays: 0,
     autoStartKernel: false,
     autoRestartKernel: false,
     userAgent: '',
@@ -84,6 +85,7 @@ export const useAppConfigStore = defineStore('app-config', () => {
     if (!value) return defaults
     return {
       autoStartKernel: value.autoStartKernel,
+      coreLogDays: value.coreLogDays ?? 0,
       autoRestartKernel: value.autoRestartKernel,
       userAgent: value.userAgent,
       githubApiToken: value.githubApiToken,
@@ -99,6 +101,7 @@ export const useAppConfigStore = defineStore('app-config', () => {
     const normalized = normalizeConfig(value)
     return {
       $typeName: 'app.v1.AppConfig',
+      coreLogDays: normalized.coreLogDays,
       autoStartKernel: normalized.autoStartKernel,
       autoRestartKernel: normalized.autoRestartKernel,
       userAgent: normalized.userAgent,
@@ -112,6 +115,7 @@ export const useAppConfigStore = defineStore('app-config', () => {
   }
 
   const normalizeConfig = (value: AppConfig): AppConfig => ({
+    coreLogDays: value.coreLogDays ?? 0,
     autoStartKernel: !!value.autoStartKernel,
     autoRestartKernel: !!value.autoRestartKernel,
     userAgent: value.userAgent || '',
@@ -124,13 +128,16 @@ export const useAppConfigStore = defineStore('app-config', () => {
   })
 
   const config = ref<AppConfig>(defaultConfig())
+  let lastSavedConfig = deepClone(config.value)
 
   let persistenceQueue = Promise.resolve()
 
   const persistAppConfig = (value: AppConfig) => {
     const operation = persistenceQueue.then(async () => {
       const result = await service.saveAppConfig({ config: configToProtoConfig(value) })
-      return protoConfigToConfig(result.config)
+      const saved = protoConfigToConfig(result.config)
+      lastSavedConfig = deepClone(saved)
+      return saved
     })
     persistenceQueue = operation.then(
       () => undefined,
@@ -145,6 +152,7 @@ export const useAppConfigStore = defineStore('app-config', () => {
   const setupAppConfig = async () => {
     const result = await service.getAppConfig({})
     config.value = protoConfigToConfig(result.config)
+    lastSavedConfig = deepClone(config.value)
     latestConfig = stableStringify(config.value)
   }
 
@@ -154,10 +162,14 @@ export const useAppConfigStore = defineStore('app-config', () => {
     try {
       const saved = await persistAppConfig(deepClone(normalizeConfig(config.value)))
       latestConfig = stableStringify(saved)
+      lastSavedConfig = deepClone(saved)
       config.value = saved
       return saved
     } catch (error) {
-      await setupAppConfig().catch(() => undefined)
+      await setupAppConfig().catch(() => {
+        config.value = deepClone(lastSavedConfig)
+        latestConfig = stableStringify(lastSavedConfig)
+      })
       throw error
     } finally {
       immediateSaveInProgress = false

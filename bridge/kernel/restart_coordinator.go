@@ -1,7 +1,6 @@
 package kernel
 
 import (
-	"context"
 	"log/slog"
 	"time"
 
@@ -72,6 +71,9 @@ func (s *Service) ReferencedResourcesChanged(domain syncstate.Domain, ids []stri
 // core. Selecting a profile is an explicit switch and therefore always
 // restarts. Branch changes follow the auto-restart setting.
 func (s *Service) AppConfigChanged(previous config.AppConfig, current config.AppConfig) {
+	if s.coreLogs != nil && previous.CoreLogDays != current.CoreLogDays {
+		s.coreLogs.SetRetention(int(current.CoreLogDays))
+	}
 	if previous.Profile != current.Profile {
 		s.requestConfigRestart(current.Profile, true)
 		return
@@ -131,6 +133,9 @@ func profileUsesRuleSet(profile *profilev1.Profile, id string) bool {
 }
 
 func (s *Service) requestConfigRestart(profileID string, force bool) {
+	if s.lifecycleCtx.Err() != nil {
+		return
+	}
 	shouldRestart := force
 	if !shouldRestart && s.appConfig != nil {
 		shouldRestart = s.appConfig.Current().AutoRestartKernel
@@ -138,6 +143,9 @@ func (s *Service) requestConfigRestart(profileID string, force bool) {
 	queued := false
 
 	s.updateCoreState(func() {
+		if s.closing {
+			return
+		}
 		if s.status != kernelv1.CoreStatus_CORE_STATUS_RUNNING && !s.restarting {
 			return
 		}
@@ -188,6 +196,13 @@ func (s *Service) enqueueAutomaticRestart(profileID string, force bool) {
 
 func (s *Service) runAutomaticRestartQueue() {
 	for {
+		if s.lifecycleCtx.Err() != nil {
+			s.restartQueueMu.Lock()
+			s.restartWorker = false
+			s.restartPending = false
+			s.restartQueueMu.Unlock()
+			return
+		}
 		s.restartQueueMu.Lock()
 		if !s.restartPending {
 			s.restartWorker = false
@@ -203,7 +218,12 @@ func (s *Service) runAutomaticRestartQueue() {
 		wait := time.Until(s.restartRequestedAt.Add(autoRestartDebounce))
 		s.restartQueueMu.Unlock()
 		if wait > 0 {
-			time.Sleep(wait)
+			timer := time.NewTimer(wait)
+			select {
+			case <-timer.C:
+			case <-s.lifecycleCtx.Done():
+				timer.Stop()
+			}
 			continue
 		}
 
@@ -221,12 +241,15 @@ func (s *Service) runAutomaticRestartQueue() {
 
 		s.restartOperationMu.Lock()
 		started := time.Now()
-		_, err := s.restartCoreOnce(context.Background(), profileID)
+		_, err := s.restartCoreOnce(s.lifecycleCtx, profileID)
 		s.restartOperationMu.Unlock()
 		s.restartQueueMu.Lock()
 		s.restartExecutingID = ""
 		s.restartQueueMu.Unlock()
 		if err != nil {
+			if s.lifecycleCtx.Err() != nil {
+				continue
+			}
 			slog.Error("automatic core restart failed", "component", "kernel", "operation", "auto_restart", "profile_id", profileID, "duration", time.Since(started), "result", "failure", "error", err)
 			s.publish("kernelAutoRestartFailed", map[string]any{"reason": sanitizeCoreCrashReason(err.Error())})
 			s.updateCoreState(func() {

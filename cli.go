@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -16,6 +17,7 @@ import (
 	"guiforcores/bridge"
 	"guiforcores/bridge/appupdate"
 	"guiforcores/bridge/logging"
+	"guiforcores/bridge/platform"
 )
 
 const (
@@ -26,10 +28,15 @@ const (
 )
 
 type commandLine struct {
-	Server  serverCommand  `cmd:"" default:"withargs" help:"Run the HTTP server."`
-	Service serviceCommand `cmd:"" help:"Manage the system service."`
-	Updater updaterCommand `cmd:"" name:"__updater" hidden:""`
+	Server    serverCommand    `cmd:"" default:"withargs" help:"Run the HTTP server."`
+	Service   serviceCommand   `cmd:"" help:"Manage the system service."`
+	Updater   updaterCommand   `cmd:"" name:"__updater" hidden:""`
+	CoreGuard coreGuardCommand `cmd:"" name:"__core_guard" hidden:""`
 }
+
+type coreGuardCommand struct{}
+
+func (*coreGuardCommand) Run() error { return platform.RunCoreGuard(os.Stdin, os.Stdout) }
 
 type serverCommand struct {
 	Addr      string `name:"addr" default:"${defaultAddress}" help:"HTTP server listen address."`
@@ -60,14 +67,16 @@ type serviceRestartCommand struct{}
 type serviceStatusCommand struct{}
 
 type updaterCommand struct {
-	ArchivePath string `name:"archive-path" required:""`
-	TargetPath  string `name:"target-path" required:""`
-	ParentPID   int    `name:"parent-pid" required:""`
-	RestartArgs string `name:"restart-args" default:"[]"`
-	WorkingDir  string `name:"working-dir"`
-	ServiceMode bool   `name:"service-mode"`
-	LogLevel    string `name:"log-level" default:"info" enum:"debug,info,warn,error" hidden:""`
-	LogDays     int    `name:"log-days" default:"7" hidden:""`
+	ArchivePath      string `name:"archive-path" required:""`
+	TargetPath       string `name:"target-path" required:""`
+	ParentPID        int    `name:"parent-pid" required:""`
+	ParentCreated    int64  `name:"parent-created" required:""`
+	ParentExecutable string `name:"parent-executable" required:""`
+	RestartArgs      string `name:"restart-args" default:"[]"`
+	WorkingDir       string `name:"working-dir"`
+	ServiceMode      bool   `name:"service-mode"`
+	LogLevel         string `name:"log-level" default:"info" enum:"debug,info,warn,error" hidden:""`
+	LogDays          int    `name:"log-days" default:"7" hidden:""`
 }
 
 type commandRuntime struct {
@@ -280,12 +289,14 @@ func (c *updaterCommand) Run(runtime *commandRuntime) error {
 		slog.SetDefault(previousLogger)
 	}()
 	opts := appupdate.HelperOptions{
-		ArchivePath: c.ArchivePath,
-		TargetPath:  c.TargetPath,
-		ParentPID:   c.ParentPID,
-		RestartArgs: restartArgs,
-		WorkingDir:  c.WorkingDir,
-		ServiceMode: c.ServiceMode,
+		ArchivePath:      c.ArchivePath,
+		TargetPath:       c.TargetPath,
+		ParentPID:        c.ParentPID,
+		ParentCreated:    c.ParentCreated,
+		ParentExecutable: c.ParentExecutable,
+		RestartArgs:      restartArgs,
+		WorkingDir:       c.WorkingDir,
+		ServiceMode:      c.ServiceMode,
 	}
 	if err := runUpdateHelper(opts); err != nil {
 		slog.Error("update helper failed", "component", "app_update", "operation", "replace", "target", c.TargetPath, "service_mode", c.ServiceMode, "result", "failure", "error", err)

@@ -521,6 +521,8 @@ func TestUpdaterCommandMapsHelperOptions(t *testing.T) {
 		"--archive-path", "/tmp/update.zip",
 		"--target-path", "/opt/webui",
 		"--parent-pid", "42",
+		"--parent-created", "123456",
+		"--parent-executable", "/opt/webui",
 		"--restart-args", `["--addr","127.0.0.1:8080"]`,
 		"--working-dir", "/opt",
 		"--log-days", "0",
@@ -530,12 +532,14 @@ func TestUpdaterCommandMapsHelperOptions(t *testing.T) {
 		t.Fatalf("updater failed: code=%d stderr=%q", code, stderr.String())
 	}
 	want := appupdate.HelperOptions{
-		ArchivePath: "/tmp/update.zip",
-		TargetPath:  "/opt/webui",
-		ParentPID:   42,
-		RestartArgs: []string{"--addr", "127.0.0.1:8080"},
-		WorkingDir:  "/opt",
-		ServiceMode: true,
+		ArchivePath:      "/tmp/update.zip",
+		TargetPath:       "/opt/webui",
+		ParentPID:        42,
+		ParentCreated:    123456,
+		ParentExecutable: "/opt/webui",
+		RestartArgs:      []string{"--addr", "127.0.0.1:8080"},
+		WorkingDir:       "/opt",
+		ServiceMode:      true,
 	}
 	if !reflect.DeepEqual(received, want) {
 		t.Fatalf("helper options = %#v, want %#v", received, want)

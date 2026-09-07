@@ -7,11 +7,19 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"syscall"
 )
 
 func SetCmdWindowHidden(cmd *exec.Cmd) {
 }
+
+func configureCoreGuard(cmd *exec.Cmd)   { cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true} }
+func equalPlatformPath(a, b string) bool { return a == b }
+
+// Writes to descriptor 1 normally terminate a Go process on SIGPIPE. The guard
+// must instead observe the write error and clean up its child first.
+func prepareCoreGuardIO() { signal.Ignore(syscall.SIGPIPE) }
 
 func SendExitSignal(p *os.Process) error {
 	return p.Signal(syscall.SIGINT)

@@ -2,6 +2,7 @@ package appupdate
 
 import (
 	"archive/zip"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -10,24 +11,34 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strconv"
 	"strings"
 	"time"
 
 	"guiforcores/bridge/platform"
+	"guiforcores/bridge/storage"
 )
 
 type HelperOptions struct {
-	ArchivePath string
-	TargetPath  string
-	ParentPID   int
-	RestartArgs []string
-	WorkingDir  string
-	ServiceMode bool
+	ArchivePath      string
+	TargetPath       string
+	ParentPID        int
+	ParentCreated    int64
+	ParentExecutable string
+	RestartArgs      []string
+	WorkingDir       string
+	ServiceMode      bool
 }
 
 var (
-	waitForUpdateParent       = waitForParentExit
+	acquireUpdateLock = func(base string) (io.Closer, error) {
+		return storage.LockFile(filepath.Join(base, "data/backend.lock"))
+	}
+	waitForUpdateParent = waitForParentExit
+	waitForUpdateCore   = func(base string) error {
+		ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		return platform.WaitCoreShutdown(ctx, base)
+	}
 	extractUpdateArchive      = extractZip
 	replaceUpdatedApplication = replaceApplication
 	controlUpdatedService     = runServiceControl
@@ -45,8 +56,16 @@ func RunHelper(opts HelperOptions) error {
 		}
 	}
 
-	if err := waitForUpdateParent(opts.ParentPID, 30*time.Second); err != nil {
+	if err := waitForUpdateParent(platform.ProcessIdentity{PID: opts.ParentPID, Created: opts.ParentCreated, Executable: opts.ParentExecutable}, 30*time.Second); err != nil {
 		return err
+	}
+	updateLock, err := acquireUpdateLock(filepath.Dir(opts.TargetPath))
+	if err != nil {
+		return fmt.Errorf("lock application for update: %w", err)
+	}
+	defer updateLock.Close()
+	if err := waitForUpdateCore(filepath.Dir(opts.TargetPath)); err != nil {
+		return fmt.Errorf("wait for core shutdown: %w", err)
 	}
 
 	extractDir, err := os.MkdirTemp(filepath.Dir(opts.ArchivePath), "gui-update-*")
@@ -62,6 +81,9 @@ func RunHelper(opts HelperOptions) error {
 		return err
 	}
 	_ = os.Remove(opts.ArchivePath)
+	if err := updateLock.Close(); err != nil {
+		return fmt.Errorf("release update lock: %w", err)
+	}
 
 	if opts.ServiceMode {
 		if err := controlUpdatedService(opts.TargetPath, opts.WorkingDir, "start"); err != nil {
@@ -105,44 +127,18 @@ func startApplication(targetPath string, args []string, workingDir string) error
 	return cmd.Start()
 }
 
-func waitForParentExit(pid int, timeout time.Duration) error {
-	proc, err := os.FindProcess(pid)
-	if err != nil {
-		return err
-	}
-	deadline := time.Now().Add(timeout)
-	for {
-		alive, err := platform.IsProcessAlive(proc)
-		if err != nil {
-			return err
-		}
-		if !alive {
-			return nil
-		}
-		if time.Now().After(deadline) {
-			return fmt.Errorf("timed out waiting for parent process %s to exit", strconv.Itoa(pid))
-		}
-		time.Sleep(200 * time.Millisecond)
-	}
+func waitForParentExit(identity platform.ProcessIdentity, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return platform.WaitProcessExit(ctx, identity)
 }
 
 func replaceApplication(extractDir string, targetPath string) error {
-	if runtime.GOOS == "darwin" {
-		return replaceDarwinApp(extractDir, targetPath)
-	}
+	// All current release archives, including macOS, contain a single server
+	// binary. Replacing a legacy .app bundle would also discard its adjacent
+	// YAML and logs; replacing only the executable preserves the data directory.
 	sourcePath := filepath.Join(extractDir, appTitle+executableSuffix())
 	return replacePath(sourcePath, targetPath, 0o755)
-}
-
-func replaceDarwinApp(extractDir string, targetPath string) error {
-	marker := string(os.PathSeparator) + "Contents" + string(os.PathSeparator) + "MacOS" + string(os.PathSeparator)
-	index := strings.Index(targetPath, marker)
-	if index < 0 {
-		return fmt.Errorf("target executable is not inside a macOS .app bundle: %s", targetPath)
-	}
-	targetApp := targetPath[:index]
-	sourceApp := filepath.Join(extractDir, appTitle+".app")
-	return replacePath(sourceApp, targetApp, 0o755)
 }
 
 func replacePath(source string, target string, mode os.FileMode) error {

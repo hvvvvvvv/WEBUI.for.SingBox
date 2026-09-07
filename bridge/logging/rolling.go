@@ -60,6 +60,7 @@ type dailyOutput struct {
 
 	stdout      io.Writer
 	diagnostics *ConsoleHandler
+	diagnostic  func(slog.Level, string, string, string, error)
 	directory   string
 	retention   int
 	operations  dailyFileOps
@@ -211,7 +212,7 @@ func (w *dailyOutput) removeExpired(currentDate string) error {
 
 func (w *dailyOutput) reportFileFailure(operation string, err error) {
 	failure := err.Error()
-	if failure != w.failure {
+	if w.failure == "" {
 		w.reportDiagnostic(slog.LevelError, "file logging failed", operation, "failure", err)
 	}
 	w.failure = failure
@@ -219,6 +220,10 @@ func (w *dailyOutput) reportFileFailure(operation string, err error) {
 }
 
 func (w *dailyOutput) reportDiagnostic(level slog.Level, message, operation, result string, err error) {
+	if w.diagnostic != nil {
+		w.diagnostic(level, message, operation, result, err)
+		return
+	}
 	if !w.diagnostics.Enabled(context.Background(), level) {
 		return
 	}

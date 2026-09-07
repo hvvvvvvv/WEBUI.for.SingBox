@@ -67,6 +67,7 @@ export interface CoreRuntimeConfig {
 }
 
 export interface AppConfig {
+	coreLogDays: number
   autoStartKernel: boolean
   autoRestartKernel: boolean
   userAgent: string

@@ -3,12 +3,14 @@ package bridge
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"runtime"
 	"slices"
+	"sync"
 	"time"
 
 	"guiforcores/bridge/appsystem"
@@ -30,28 +32,33 @@ import (
 )
 
 type Options struct {
-	Address     string
-	Assets      embed.FS
-	BaseDir     string
-	AppName     string
-	AppVersion  string
-	ServiceMode bool
-	LogLevel    logging.Level
-	LogDays     int
+	AcquireInstanceLock bool
+	RequestShutdown     func()
+	Address             string
+	Assets              embed.FS
+	BaseDir             string
+	AppName             string
+	AppVersion          string
+	ServiceMode         bool
+	LogLevel            logging.Level
+	LogDays             int
 }
 
 type Application struct {
-	auth      *auth.Service
-	events    *event.Hub
-	kernel    *kernel.Service
-	scheduler *scheduler.Service
-	update    *appupdate.Service
-	system    *appsystem.Service
-	server    *httptransport.Server
-	options   Options
+	instanceLock *storage.FileLock
+	closeOnce    sync.Once
+	closeErr     error
+	auth         *auth.Service
+	events       *event.Hub
+	kernel       *kernel.Service
+	scheduler    *scheduler.Service
+	update       *appupdate.Service
+	system       *appsystem.Service
+	server       *httptransport.Server
+	options      Options
 }
 
-func New(options Options) (*Application, error) {
+func New(options Options) (_ *Application, resultErr error) {
 	if options.Address == "" {
 		options.Address = "0.0.0.0:9090"
 	}
@@ -74,6 +81,18 @@ func New(options Options) (*Application, error) {
 	}
 
 	paths := storage.NewPaths(options.BaseDir)
+	var instanceLock *storage.FileLock
+	if options.AcquireInstanceLock {
+		instanceLock, err = storage.LockFile(paths.Resolve("data/backend.lock"))
+		if err != nil {
+			return nil, fmt.Errorf("another backend is using this data directory: %w", err)
+		}
+		defer func() {
+			if resultErr != nil {
+				_ = instanceLock.Close()
+			}
+		}()
+	}
 	authService := auth.NewService(paths)
 	events := event.NewHub(authService)
 	resourceState := syncstate.NewCoordinator()
@@ -95,6 +114,13 @@ func New(options Options) (*Application, error) {
 	configService := config.NewService(paths, options.AppName)
 	profileService := profile.NewService(paths, events, resourceState)
 	kernelService := kernel.NewService(platformService, configService, appConfig, profileService, events)
+	coreLogs := logging.NewCoreWriter(paths.Resolve("data/logs/core"), int(appConfig.Current().CoreLogDays))
+	defer func() {
+		if resultErr != nil {
+			_ = coreLogs.Close()
+		}
+	}()
+	kernelService.SetCoreLogWriter(coreLogs)
 	profileService.SetChangeHandler(kernelService)
 	appConfigService := config.NewAppService(appConfig)
 	appConfigService.SetChangeHandler(kernelService)
@@ -103,6 +129,7 @@ func New(options Options) (*Application, error) {
 	ruleSetService := ruleset.NewService(runtimeService)
 	schedulerService := scheduler.NewService(runtimeService)
 	updateService := appupdate.NewService(platformService, appConfig, events, options.AppVersion, options.ServiceMode, options.LogLevel, options.LogDays)
+	updateService.SetShutdownHandler(options.RequestShutdown)
 	systemService := appsystem.NewService(platformService)
 
 	server, err := httptransport.NewServer(httptransport.Options{
@@ -129,18 +156,25 @@ func New(options Options) (*Application, error) {
 	}
 
 	return &Application{
-		auth:      authService,
-		events:    events,
-		kernel:    kernelService,
-		scheduler: schedulerService,
-		update:    updateService,
-		system:    systemService,
-		server:    server,
-		options:   options,
+		instanceLock: instanceLock,
+		auth:         authService,
+		events:       events,
+		kernel:       kernelService,
+		scheduler:    schedulerService,
+		update:       updateService,
+		system:       systemService,
+		server:       server,
+		options:      options,
 	}, nil
 }
 
 func (a *Application) Run(ctx context.Context) error {
+	prepareContext, cancel := context.WithTimeout(ctx, 15*time.Second)
+	err := platform.PrepareCore(prepareContext, a.options.BaseDir)
+	cancel()
+	if err != nil {
+		return fmt.Errorf("prepare core lifecycle: %w", err)
+	}
 	slog.Info("application starting",
 		"component", "app",
 		"operation", "start",
@@ -154,7 +188,7 @@ func (a *Application) Run(ctx context.Context) error {
 	)
 	a.scheduler.Start()
 	go a.kernel.AutoStart(ctx)
-	err := a.server.Run(ctx)
+	err = a.server.Run(ctx)
 	if err != nil {
 		return err
 	}
@@ -167,10 +201,18 @@ func (a *Application) SetAuthSecret(secret string) error {
 }
 
 func (a *Application) Close(ctx context.Context) error {
+	a.closeOnce.Do(func() { a.closeErr = a.close(ctx) })
+	return a.closeErr
+}
+
+func (a *Application) close(ctx context.Context) error {
 	started := time.Now()
+	a.kernel.BeginShutdown()
 	a.scheduler.Stop()
-	err := a.server.Close(ctx)
+	err := a.kernel.Close(ctx)
+	err = errors.Join(err, a.server.Close(ctx))
 	a.events.Close()
+	err = errors.Join(err, a.instanceLock.Close())
 	if err != nil {
 		slog.Error("application shutdown failed", "component", "app", "operation", "shutdown", "duration", time.Since(started), "result", "failure", "error", err)
 		return err

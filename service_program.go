@@ -42,7 +42,7 @@ var (
 	}
 	currentExecutable  = os.Executable
 	exitProcess        = os.Exit
-	serviceStopTimeout = 5 * time.Second
+	serviceStopTimeout = 20 * time.Second
 )
 
 func runApplication(addr string, stdout io.Writer, level logging.Level, logDays int) error {
@@ -51,10 +51,16 @@ func runApplication(addr string, stdout io.Writer, level logging.Level, logDays 
 		return fmt.Errorf("failed to resolve executable: %w", err)
 	}
 
+	exitRequests := make(chan int, 1)
 	program := &serviceProgram{
-		options:     bridge.Options{Address: addr, Assets: assets, AppVersion: version, LogLevel: level, LogDays: logDays},
+		options:     bridge.Options{Address: addr, Assets: assets, AppVersion: version, LogLevel: level, LogDays: logDays, BaseDir: filepath.Dir(executable), AcquireInstanceLock: true},
 		serviceMode: !service.Interactive(),
-		exit:        exitProcess,
+		exit: func(code int) {
+			select {
+			case exitRequests <- code:
+			default:
+			}
+		},
 	}
 	previousLogger := slog.Default()
 	logger, closer := logging.NewRuntime(stdout, level, logging.FileOptions{
@@ -70,7 +76,18 @@ func runApplication(addr string, stdout io.Writer, level logging.Level, logDays 
 	if err != nil {
 		return fmt.Errorf("failed to initialize system service: %w", err)
 	}
-	if err := manager.Run(); err != nil {
+	defer program.stop()
+	runDone := make(chan error, 1)
+	go func() { runDone <- manager.Run() }()
+	select {
+	case err = <-runDone:
+	case code := <-exitRequests:
+		if code != 0 {
+			err = errors.New("application run failed")
+		}
+	}
+	err = errors.Join(err, program.stop())
+	if err != nil {
 		slog.Error("application service failed", "component", "app", "operation", "run", "result", "failure", "error", err)
 		return fmt.Errorf("application service failed: %w", err)
 	}
@@ -94,6 +111,14 @@ type serviceProgram struct {
 func (p *serviceProgram) Start(service.Service) error {
 	options := p.options
 	options.ServiceMode = p.serviceMode
+	options.RequestShutdown = func() {
+		p.mu.Lock()
+		p.stopping = true
+		p.mu.Unlock()
+		if p.exit != nil {
+			p.exit(0)
+		}
+	}
 	app, err := newApplication(options)
 	if err != nil {
 		return fmt.Errorf("initialize application: %w", err)
@@ -122,6 +147,9 @@ func (p *serviceProgram) Start(service.Service) error {
 			args = append(args, "error", runErr)
 		}
 		slog.Error("application stopped unexpectedly", args...)
+		if err := p.stop(); err != nil {
+			slog.Error("application cleanup failed", "component", "app", "operation", "shutdown", "result", "failure", "error", err)
+		}
 		if p.exit != nil {
 			p.exit(1)
 		}

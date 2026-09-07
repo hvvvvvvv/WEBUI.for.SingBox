@@ -57,6 +57,9 @@ func (a *App) Exec(path string, args []string, options ExecOptions) FlagResult {
 }
 
 func (a *App) ExecBackground(path string, args []string, outEvent string, options ExecOptions) FlagResult {
+	if options.Guard {
+		return a.execCoreGuard(path, args, outEvent, options)
+	}
 	started := time.Now()
 	exePath := a.ResolvePath(path)
 	pidPath := ""
@@ -212,6 +215,12 @@ func (a *App) ProcessMemory(pid int32) FlagResult {
 func (a *App) KillProcess(pid int, timeout int) FlagResult {
 	started := time.Now()
 	managed := a.trackedProcess(pid)
+	if managed != nil && managed.guard != nil {
+		if err := managed.guard.stop(timeout); err != nil {
+			return FlagResult{false, err.Error()}
+		}
+		return FlagResult{true, "Success"}
+	}
 	var target *os.Process
 	if managed != nil {
 		target = managed.process
