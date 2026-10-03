@@ -431,9 +431,16 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 	if err := s.setStarting(profileID); err != nil {
 		return -1, err
 	}
+	runtimeCfg, err := s.loadRuntimeConfig()
+	if err != nil {
+		s.setStopped()
+		return -1, rpcutil.AsConnectError(err)
+	}
+
 	generatedConfig, err := s.config.Generate(profile, &kernelv1.GenerateConfigOptions{
-		EnableMixinProcessing:  true,
-		EnableScriptProcessing: true,
+		EnableAlphaConfigAdaptation: runtimeCfg.Branch == "alpha",
+		EnableMixinProcessing:       true,
+		EnableScriptProcessing:      true,
 	})
 	if err != nil {
 		s.setStopped()
@@ -442,12 +449,6 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 
 	config.FinalizeGeneratedConfig(generatedConfig)
 	if err := s.config.WriteGeneratedConfig(generatedConfig); err != nil {
-		s.setStopped()
-		return -1, rpcutil.AsConnectError(err)
-	}
-
-	runtimeCfg, err := s.loadRuntimeConfig()
-	if err != nil {
 		s.setStopped()
 		return -1, rpcutil.AsConnectError(err)
 	}

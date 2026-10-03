@@ -281,6 +281,7 @@ func parseSSRURI(line string) (Node, error) {
 		"password": password,
 	}
 	query, _ := url.ParseQuery(queryPart)
+	applyCommonOptions(node, queryOptions(query))
 	if value := query.Get("protoparam"); value != "" {
 		if decoded, ok := decodeBase64String(value); ok {
 			node["protocol-param"] = decoded
@@ -328,12 +329,21 @@ func parseVMessURI(line string) (Node, error) {
 		if name != "" {
 			node["name"] = name
 		}
+		if hasQuery {
+			query, _ := url.ParseQuery(queryText)
+			applyCommonOptions(node, queryOptions(query))
+		}
 		return node, nil
 	}
 
 	var payload map[string]any
 	if err := json.Unmarshal([]byte(decoded), &payload); err == nil {
-		return parseVMessPayload(payload, name)
+		node, err := parseVMessPayload(payload, name)
+		if err == nil && hasQuery {
+			query, _ := url.ParseQuery(queryText)
+			applyCommonOptions(node, queryOptions(query))
+		}
+		return node, err
 	}
 	if !hasQuery {
 		return nil, errInvalidPayload
@@ -549,17 +559,41 @@ func parseHysteria2URI(line string) (Node, error) {
 		return nil, errMissingCredentials
 	}
 	node := Node{"type": "hysteria2", "server": server, "port": port, "password": password, "tls": true}
-	setIfNotEmpty(node, "obfs", stringValue(firstOption(options, "obfs")))
-	setIfNotEmpty(node, "obfs-password", stringValue(firstOption(options, "obfs-password", "obfs-password", "obfsParam")))
-	setIfNotEmpty(node, "ports", stringValue(firstOption(options, "ports", "mport", "port-hopping")))
-	setIfNotEmpty(node, "up", stringValue(firstOption(options, "up", "upmbps")))
-	setIfNotEmpty(node, "down", stringValue(firstOption(options, "down", "downmbps")))
+	applyHysteria2Options(node, options)
 	applyCommonOptions(node, options)
 	if name == "" {
 		name = defaultName("hysteria2", server, port)
 	}
 	node["name"] = name
 	return node, nil
+}
+
+func applyHysteria2Options(node Node, options map[string]any) {
+	for target, aliases := range map[string][]string{
+		"obfs":                 {"obfs"},
+		"obfs-password":        {"obfs-password", "obfsParam"},
+		"obfs-min-packet-size": {"obfs-min-packet-size"},
+		"obfs-max-packet-size": {"obfs-max-packet-size"},
+		"ports":                {"ports", "server-ports", "mport", "port-hopping"},
+		"up":                   {"up", "upmbps", "up-mbps", "upload-bandwidth"},
+		"down":                 {"down", "downmbps", "down-mbps", "download-bandwidth"},
+		"hop-interval":         {"hop-interval"},
+		"hop-interval-max":     {"hop-interval-max"},
+	} {
+		if value := firstOption(options, aliases...); value != nil {
+			if target == "obfs" {
+				value = objectOption(value)
+			}
+			node[target] = value
+		}
+	}
+	// Obfuscation passwords are protocol bytes, so retain explicit whitespace.
+	for _, key := range []string{"obfs-password", normalizeOptionKey("obfsParam")} {
+		if value, present := options[key]; present && value != nil {
+			node["obfs-password"] = value
+			break
+		}
+	}
 }
 
 func parseTUICURI(line string) (Node, error) {

@@ -12,8 +12,7 @@ interface IExperimental {
     path: string
     cache_id: string
     store_fakeip: boolean
-    store_rdrc: boolean
-    rdrc_timeout: string
+    store_dns: boolean
   }
 }
 
@@ -43,6 +42,7 @@ interface IRuleSet {
 
 type InboundType = 'mixed' | 'socks' | 'http' | 'tun' | 'direct'
 type InboundNetworkType = 'tcp' | 'udp'
+type TunDnsMode = 'disabled' | 'native' | 'hijack'
 type InboundListen = {
   listen: string
   listen_port: number
@@ -83,7 +83,7 @@ interface IInbound {
     strict_route: boolean
     route_address: string[]
     route_exclude_address: string[]
-    endpoint_independent_nat: boolean
+    dns_mode: TunDnsMode
     stack: TunStackEnum
   }
 }
@@ -315,7 +315,6 @@ interface IDNS {
   rules: IDNSRule[]
   disable_cache: boolean
   disable_expire: boolean
-  independent_cache: boolean
   client_subnet: string
   final: string
   strategy: Strategy

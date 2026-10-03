@@ -141,7 +141,8 @@ func (s *profileService) CreateProfile(
 	req *connect.Request[profilev1.CreateProfileRequest],
 ) (response *connect.Response[profilev1.CreateProfileResponse], responseErr error) {
 	started := time.Now()
-	profile := req.Msg.GetProfile()
+	profile := cloneProfile(req.Msg.GetProfile())
+	normalizeTunDNSModes(profile)
 	profileID := profile.GetId()
 	defer func() {
 		logging.Complete(ctx, "profile", "create", "profile created", started, responseErr, "profile_id", profileID, "name", profile.GetName())
@@ -183,7 +184,8 @@ func (s *profileService) UpdateProfile(
 	req *connect.Request[profilev1.UpdateProfileRequest],
 ) (response *connect.Response[profilev1.UpdateProfileResponse], responseErr error) {
 	started := time.Now()
-	profile := req.Msg.GetProfile()
+	profile := cloneProfile(req.Msg.GetProfile())
+	normalizeTunDNSModes(profile)
 	profileID := profile.GetId()
 	defer func() {
 		logging.Complete(ctx, "profile", "update", "profile updated", started, responseErr, "profile_id", profileID, "name", profile.GetName())
@@ -224,6 +226,10 @@ func (s *profileService) UpdateProfile(
 	}
 
 	if !changed {
+		if err := s.saveProfiles(profiles); err != nil {
+			s.mu.Unlock()
+			return nil, asConnectError(err)
+		}
 		state := s.state.Mutation(syncstate.DomainProfiles, profileIDs(profiles), profile.GetId())
 		s.mu.Unlock()
 		return connect.NewResponse(&profilev1.UpdateProfileResponse{Profile: saved, State: state}), nil
@@ -393,18 +399,61 @@ func (s *profileService) loadProfiles() ([]*profilev1.Profile, error) {
 	}
 
 	var profiles []*profilev1.Profile
-	if err := yaml.Unmarshal(bytes, &profiles); err != nil {
+	if err := unmarshalProfilesYAML(bytes, &profiles); err != nil {
 		migrated, migrateErr := migrateLegacyProfilesYAML(bytes)
 		if migrateErr != nil {
 			return nil, invalidArgumentError{message: "profiles.yaml format is incompatible with protobuf enum values; auto migration failed: " + migrateErr.Error()}
 		}
-		// Persist migrated data immediately so subsequent reads are stable.
-		if saveErr := s.saveProfiles(migrated); saveErr != nil {
-			return nil, fmt.Errorf("save migrated profiles: %w", saveErr)
-		}
 		return migrated, nil
 	}
+	for _, profile := range profiles {
+		normalizeTunDNSModes(profile)
+	}
 	return profiles, nil
+}
+
+func unmarshalProfilesYAML(raw []byte, profiles *[]*profilev1.Profile) error {
+	var document yaml.Node
+	if err := yaml.Unmarshal(raw, &document); err != nil {
+		return err
+	}
+	if len(document.Content) > 0 && document.Content[0].Kind == yaml.SequenceNode {
+		for _, profile := range document.Content[0].Content {
+			inbounds := yamlMappingValue(profile, "inbounds")
+			if inbounds == nil || inbounds.Kind != yaml.SequenceNode {
+				continue
+			}
+			for _, inbound := range inbounds.Content {
+				tun := yamlMappingValue(inbound, "tun")
+				if tun == nil || tun.Kind != yaml.MappingNode || yamlMappingValue(tun, "dnsmode") != nil {
+					continue
+				}
+				alias := "dns_mode"
+				if yamlMappingValue(tun, alias) == nil {
+					alias = "dnsMode"
+				}
+				for index := 0; index+1 < len(tun.Content); index += 2 {
+					if tun.Content[index].Value == alias {
+						tun.Content[index].Value = "dnsmode"
+						break
+					}
+				}
+			}
+		}
+	}
+	return document.Decode(profiles)
+}
+
+func yamlMappingValue(node *yaml.Node, key string) *yaml.Node {
+	if node == nil || node.Kind != yaml.MappingNode {
+		return nil
+	}
+	for index := 0; index+1 < len(node.Content); index += 2 {
+		if node.Content[index].Value == key {
+			return node.Content[index+1]
+		}
+	}
+	return nil
 }
 
 func (s *profileService) Load() ([]*profilev1.Profile, error) {
@@ -437,6 +486,9 @@ func (s *profileService) saveProfiles(profiles []*profilev1.Profile) error {
 	}
 
 	profilesForYAML := cloneProfiles(profiles)
+	for _, profile := range profilesForYAML {
+		normalizeTunDNSModes(profile)
+	}
 	normalizeProfilePayloadsForYAML(profilesForYAML)
 
 	payload, err := yaml.Marshal(profilesForYAML)
@@ -447,6 +499,14 @@ func (s *profileService) saveProfiles(profiles []*profilev1.Profile) error {
 		return fmt.Errorf("write profiles file: %w", err)
 	}
 	return nil
+}
+
+func normalizeTunDNSModes(profile *profilev1.Profile) {
+	for _, inbound := range profile.GetInbounds() {
+		if tun := inbound.GetTun(); tun != nil && tun.GetDnsMode() == "" {
+			tun.DnsMode = "hijack"
+		}
+	}
 }
 
 func normalizeProfilePayloadsForYAML(profiles []*profilev1.Profile) {
@@ -504,6 +564,7 @@ func migrateLegacyProfilesYAML(raw []byte) ([]*profilev1.Profile, error) {
 		if err := (protojson.UnmarshalOptions{DiscardUnknown: true}).Unmarshal(jsonBytes, profile); err != nil {
 			return nil, fmt.Errorf("unmarshal migrated profile to protobuf: %w", err)
 		}
+		normalizeTunDNSModes(profile)
 		result = append(result, profile)
 	}
 
@@ -623,6 +684,14 @@ func convertInbounds(profile map[string]any) {
 			"direct": "INBOUND_TYPE_DIRECT",
 		})
 		if tun, ok := m["tun"].(map[string]any); ok {
+			if dnsMode, exists := tun["dnsmode"]; exists {
+				if _, hasCanonical := tun["dns_mode"]; !hasCanonical {
+					if _, hasCamelCase := tun["dnsMode"]; !hasCamelCase {
+						tun["dns_mode"] = dnsMode
+					}
+				}
+				delete(tun, "dnsmode")
+			}
 			convertEnumString(tun, "stack", map[string]string{
 				"system": "TUN_STACK_SYSTEM",
 				"gvisor": "TUN_STACK_GVISOR",

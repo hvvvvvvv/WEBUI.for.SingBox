@@ -138,9 +138,7 @@ const handleUse = (ruleset: any) => {
             :selected="fields.path === ruleset.id"
             @click="handleUse(ruleset)"
           >
-            <div class="text-12">
-              {{ ruleset.type }} / {{ ruleset.format }}
-            </div>
+            <div class="text-12">{{ ruleset.type }} / {{ ruleset.format }}</div>
           </Card>
         </template>
       </div>
@@ -156,7 +154,15 @@ const handleUse = (ruleset: any) => {
       </div>
       <div class="form-item">
         {{ t('kernel.route.rule_set.download_detour') }}
-        <Select v-model="fields.download_detour" :options="outboundOptions" clearable />
+        <Select
+          v-model="fields.download_detour"
+          :options="outboundOptions"
+          placeholder="kernel.route.rule_set.default_http_client"
+          clearable
+        />
+      </div>
+      <div class="px-12 pb-4 text-12 opacity-70">
+        {{ t('kernel.route.rule_set.download_outbound_hint') }}
       </div>
       <div class="form-item">
         {{ t('kernel.route.rule_set.update_interval') }}

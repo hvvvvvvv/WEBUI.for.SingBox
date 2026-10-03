@@ -63,8 +63,7 @@ export const DefaultExperimental = (): IExperimental => ({
     path: 'cache.db',
     cache_id: sampleID(),
     store_fakeip: true,
-    store_rdrc: true,
-    rdrc_timeout: '7d',
+    store_dns: false,
   },
 })
 
@@ -123,7 +122,7 @@ export const DefaultInboundTun = (): NonNullable<IInbound['tun']> => ({
   strict_route: true,
   route_address: [],
   route_exclude_address: [],
-  endpoint_independent_nat: false,
+  dns_mode: 'hijack',
   stack: TunStack.Mixed,
 })
 
@@ -698,7 +697,6 @@ export const DefaultDns = (): IDNS => ({
   rules: DefaultDnsRules(),
   disable_cache: false,
   disable_expire: false,
-  independent_cache: false,
   client_subnet: '',
   final: DefaultDnsServersIds.RemoteDns,
   strategy: Strategy.Default,

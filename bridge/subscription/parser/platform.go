@@ -95,7 +95,10 @@ func parseLoonSurgeLine(rawName, content string) (Node, error) {
 	}
 	name := strings.TrimSpace(unquoteValue(rawName))
 	if typ == "direct" || typ == "reject" {
-		return Node{"name": name, "type": typ}, nil
+		node := Node{"name": name, "type": typ}
+		options, _ := optionMap(tokens[1:])
+		applyCommonOptions(node, options)
+		return node, nil
 	}
 
 	endpointStart := 1
@@ -209,7 +212,11 @@ func applyPlatformPositionals(node Node, typ string, values []string) {
 		setIfNotEmpty(node, "uuid", value(0))
 		setIfNotEmpty(node, "password", value(1))
 	case "snell":
-		setIfNotEmpty(node, "password", value(0))
+		if len(values) > 0 && values[0] != "" {
+			// optionMap has already removed surrounding quotes. Preserve the
+			// bytes inside them for the protocol's PSK length checks.
+			node["psk"] = values[0]
+		}
 	case "ssh":
 		setIfNotEmpty(node, "username", value(0))
 		setIfNotEmpty(node, "password", value(1))
@@ -250,10 +257,44 @@ func applyPlatformProtocolOptions(node Node, options map[string]any) {
 		}
 	}
 	if typ == "snell" {
-		if version, ok := intValue(firstOption(options, "version")); ok {
-			node["version"] = version
+		for _, key := range []string{"psk", "password", "pass", "passwd"} {
+			if value, present := options[key]; present && value != nil {
+				node["psk"] = value
+				break
+			}
 		}
-		setIfNotEmpty(node, "obfs", stringValue(firstOption(options, "obfs")))
+		for target, aliases := range map[string][]string{
+			"version":     {"version"},
+			"userkey":     {"userkey", "user-key"},
+			"reuse":       {"reuse"},
+			"quic":        {"quic", "use-quic", "quic-mode"},
+			"mode":        {"mode"},
+			"obfs":        {"obfs", "obfs-mode"},
+			"obfs-host":   {"obfs-host"},
+			"obfs-opts":   {"obfs-opts", "obfs-options"},
+			"plugin":      {"plugin"},
+			"plugin-opts": {"plugin-opts", "plugin-options"},
+			"transport":   {"transport"},
+		} {
+			if value := firstOption(options, aliases...); value != nil {
+				if target == "obfs" || target == "obfs-opts" || target == "plugin-opts" || target == "transport" {
+					value = objectOption(value)
+				}
+				node[target] = value
+			}
+		}
+		for _, key := range []string{"userkey", "user-key"} {
+			if value, present := options[key]; present && value != nil {
+				node["userkey"] = value
+				break
+			}
+		}
+		for key, value := range options {
+			canonical := canonicalKey(key)
+			if strings.HasPrefix(canonical, "shadowtls") || strings.HasPrefix(canonical, "restls") || strings.HasPrefix(canonical, "jls") {
+				node[key] = value
+			}
+		}
 	}
 	if typ == "http" || typ == "https" {
 		if value := firstOption(options, "headers", "http-headers"); value != nil {
@@ -263,11 +304,7 @@ func applyPlatformProtocolOptions(node Node, options map[string]any) {
 		}
 	}
 	if typ == "hysteria2" {
-		setIfNotEmpty(node, "obfs", stringValue(firstOption(options, "obfs")))
-		setIfNotEmpty(node, "obfs-password", stringValue(firstOption(options, "obfs-password", "obfs-password")))
-		setIfNotEmpty(node, "ports", stringValue(firstOption(options, "ports", "server-ports", "port-hopping")))
-		setIfNotEmpty(node, "up", stringValue(firstOption(options, "up", "upmbps", "upload-bandwidth")))
-		setIfNotEmpty(node, "down", stringValue(firstOption(options, "down", "downmbps", "download-bandwidth")))
+		applyHysteria2Options(node, options)
 	}
 	if typ == "tuic" {
 		setIfNotEmpty(node, "uuid", stringValue(firstOption(options, "uuid", "token")))
@@ -310,8 +347,17 @@ func validatePlatformCredentials(node Node) error {
 		if stringValue(node["cipher"]) == "" || stringValue(node["password"]) == "" {
 			return errMissingCredentials
 		}
-	case "ssr", "trojan", "anytls", "hysteria2", "snell":
+	case "ssr", "trojan", "anytls", "hysteria2":
 		if stringValue(node["password"]) == "" {
+			return errMissingCredentials
+		}
+	case "snell":
+		value := nodeValue(node, "psk", "password", "pass")
+		if password, isString := value.(string); isString {
+			if password == "" {
+				return errMissingCredentials
+			}
+		} else if stringValue(value) == "" {
 			return errMissingCredentials
 		}
 	case "vmess", "vless":

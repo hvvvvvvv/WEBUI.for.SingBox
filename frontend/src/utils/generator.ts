@@ -31,21 +31,17 @@ export const generateDnsServerURL = (dnsServer: IDNSServer) => {
 }
 
 type GenerateConfigOptions = {
-  enableStableConfigCompat?: boolean
+  enableAlphaConfigAdaptation?: boolean
   enableMixinProcessing?: boolean
   enableScriptProcessing?: boolean
 }
 
 const resolveGenerateOptions = (options: GenerateConfigOptions = {}) => {
-  if (typeof options === 'boolean') {
-    options = { enableStableConfigCompat: options }
-  }
-
   const appConfig = useAppConfigStore()
-  const isMainBranch = appConfig.config.branch === Branch.Main
+  const isAlphaBranch = appConfig.config.branch === Branch.Alpha
 
   return {
-    enableStableConfigCompat: options.enableStableConfigCompat ?? isMainBranch,
+    enableAlphaConfigAdaptation: options.enableAlphaConfigAdaptation ?? isAlphaBranch,
     enableMixinProcessing: options.enableMixinProcessing ?? true,
     enableScriptProcessing: options.enableScriptProcessing ?? true,
   }
@@ -61,7 +57,7 @@ export const generateConfigViaRpcByProfile = async (
   const result = await profileServiceClient.generateConfig({
     profile: iProfileToProto(profile),
     options: {
-      enableStableConfigCompat: resolved.enableStableConfigCompat,
+      enableAlphaConfigAdaptation: resolved.enableAlphaConfigAdaptation,
       enableMixinProcessing: resolved.enableMixinProcessing,
       enableScriptProcessing: resolved.enableScriptProcessing,
     },

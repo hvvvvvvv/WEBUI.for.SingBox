@@ -135,7 +135,10 @@ func applyServerPorts(node Node, out map[string]any) {
 	cleaned := make([]string, 0, len(ports))
 	for _, portRange := range ports {
 		portRange = strings.TrimSpace(portRange)
-		if start, end, ok := strings.Cut(portRange, "-"); ok && !strings.Contains(end, "-") {
+		if port, err := strconv.Atoi(portRange); err == nil && validPort(port) {
+			// sing-box server_ports requires a range even for a single port.
+			portRange = strconv.Itoa(port) + ":" + strconv.Itoa(port)
+		} else if start, end, ok := strings.Cut(portRange, "-"); ok && !strings.Contains(end, "-") {
 			startPort, startErr := strconv.Atoi(strings.TrimSpace(start))
 			endPort, endErr := strconv.Atoi(strings.TrimSpace(end))
 			if startErr == nil && endErr == nil && validPort(startPort) && validPort(endPort) && startPort <= endPort {
@@ -179,7 +182,7 @@ func applyHysteria2Bandwidth(node Node, out map[string]any) error {
 }
 
 // bandwidthMbps losslessly converts the decimal units accepted by Hysteria 1
-// into the integer Mbps fields used by Hysteria2 in sing-box 1.13. Values that
+// into the integer Mbps fields used by Hysteria2. Values that
 // would require rounding are rejected so a fallback never silently changes a
 // subscription's bandwidth semantics.
 func bandwidthMbps(value any) (int, bool) {
@@ -303,20 +306,37 @@ func applyHysteria2Obfs(node Node, out map[string]any) error {
 	if len(options) > 0 {
 		typ = strings.ToLower(mapString(options, "type", "mode"))
 	}
+	minPacketSize := firstProtocolValue(options, node, []string{"min-packet-size", "min_packet_size"}, []string{"obfs-min-packet-size", "obfs_min_packet_size"})
+	maxPacketSize := firstProtocolValue(options, node, []string{"max-packet-size", "max_packet_size"}, []string{"obfs-max-packet-size", "obfs_max_packet_size"})
+	if typ != "gecko" && (minPacketSize != nil || maxPacketSize != nil) {
+		return errors.New("Hysteria2 packet sizes require Gecko obfuscation")
+	}
 	if typ == "" || typ == "none" {
 		return nil
 	}
-	if typ != "salamander" {
+	if typ != "salamander" && typ != "gecko" {
 		return errors.New("unsupported Hysteria2 obfuscation")
 	}
 	password := nodeString(node, "obfs-password", "obfs_password", "obfs-param")
+	if typ == "gecko" {
+		password = protocolCredentialString(nodeValue(node, "obfs-password", "obfs_password", "obfs-param"))
+	}
 	if password == "" {
-		password = mapString(options, "password")
+		if typ == "gecko" {
+			password = protocolCredentialString(mapValue(options, "password"))
+		} else {
+			password = mapString(options, "password")
+		}
 	}
 	if password == "" {
 		return errors.New("missing required Hysteria2 obfuscation password")
 	}
 	obfs := map[string]any{"type": typ, "password": password}
+	if typ == "gecko" {
+		if err := applyGeckoPacketSizes(obfs, minPacketSize, maxPacketSize); err != nil {
+			return err
+		}
+	}
 	out["obfs"] = obfs
 	return nil
 }
@@ -617,6 +637,7 @@ func applyDialFields(node Node, out map[string]any) {
 		output  string
 		aliases []string
 	}{
+		{output: "detour", aliases: []string{"detour"}},
 		{output: "bind_interface", aliases: []string{"interface-name", "bind-interface", "bind_interface"}},
 		{output: "connect_timeout", aliases: []string{"connect-timeout", "connect_timeout"}},
 	} {
@@ -639,23 +660,7 @@ func applyDialFields(node Node, out map[string]any) {
 			out[field.output] = value
 		}
 	}
-	strategy := strings.ToLower(nodeString(node, "domain-strategy", "domain_strategy", "ip-version", "ip_version"))
-	strategy = strings.NewReplacer("-", "_", " ", "_").Replace(strategy)
-	switch strategy {
-	case "4", "ipv4", "ipv4only", "ipv4_only":
-		strategy = "ipv4_only"
-	case "6", "ipv6", "ipv6only", "ipv6_only":
-		strategy = "ipv6_only"
-	case "preferipv4", "prefer_ipv4":
-		strategy = "prefer_ipv4"
-	case "preferipv6", "prefer_ipv6":
-		strategy = "prefer_ipv6"
-	default:
-		strategy = ""
-	}
-	if strategy != "" {
-		out["domain_strategy"] = strategy
-	}
+	applyDomainResolver(node, out)
 }
 
 func nodeMap(node Node, keys ...string) map[string]any {

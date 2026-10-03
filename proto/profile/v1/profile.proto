@@ -156,8 +156,7 @@ message CacheFileExperimental {
   string path = 2;
   string cache_id = 3;
   bool store_fakeip = 4;
-  bool store_rdrc = 5;
-  string rdrc_timeout = 6;
+  bool store_dns = 7;
 }
 
 message Experimental {
@@ -202,6 +201,9 @@ message DirectInboundConfig {
 }
 
 message TunInboundConfig {
+  reserved 8;
+  reserved "endpoint_independent_nat";
+
   string interface_name = 1;
   repeated string address = 2;
   int32 mtu = 3;
@@ -209,11 +211,11 @@ message TunInboundConfig {
   bool strict_route = 5;
   repeated string route_address = 6;
   repeated string route_exclude_address = 7;
-  bool endpoint_independent_nat = 8;
   TunStack stack = 9;
   bool auto_redirect = 10;
   optional uint32 iproute2_table_index = 11;
   optional uint32 iproute2_rule_index = 12;
+  string dns_mode = 13;
 }
 
 message Inbound {
@@ -398,7 +400,6 @@ message Dns {
   repeated DnsRule rules = 2;
   bool disable_cache = 3;
   bool disable_expire = 4;
-  bool independent_cache = 5;
   string client_subnet = 6;
   string final = 7;
   Strategy strategy = 8;

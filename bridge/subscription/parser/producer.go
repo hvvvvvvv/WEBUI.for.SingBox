@@ -93,6 +93,11 @@ func produceNode(node Node) (map[string]any, error) {
 		applyUDPOverTCP(node, out)
 		supportsNetwork = true
 		supportsMultiplex = true
+	case "snell":
+		if err := applySnell(node, out); err != nil {
+			return nil, err
+		}
+		supportsNetwork = true
 	case "vmess":
 		uuid := nodeString(node, "uuid", "id", "username")
 		if uuid == "" {
@@ -155,12 +160,9 @@ func produceNode(node Node) (map[string]any, error) {
 		if err := applyHysteria2Obfs(node, out); err != nil {
 			return nil, err
 		}
-		if err := copyDurationSeconds(node, out, "hop_interval", "hop-interval", "hop_interval"); err != nil {
+		if err := applyHysteria2HopIntervals(node, out); err != nil {
 			return nil, err
 		}
-		// hop_interval_max and Gecko obfuscation were added in sing-box 1.14.
-		// This application currently targets the stable 1.13 schema, so the
-		// optional randomization upper bound is intentionally not emitted.
 		forceTLS, supportsTLS, supportsNetwork = true, true, true
 	case "tuic":
 		uuid := nodeString(node, "uuid", "token", "username")
@@ -309,6 +311,8 @@ func producerType(value string) string {
 		return "socks"
 	case "ss", "shadowsocks":
 		return "shadowsocks"
+	case "snell":
+		return "snell"
 	case "vmess":
 		return "vmess"
 	case "vless":
@@ -332,9 +336,7 @@ func producerType(value string) string {
 		// endpoint. Subscription entries are injected into `outbounds`, so an
 		// endpoint cannot be represented safely by this fallback pipeline.
 		return ""
-	case "ssr", "shadowsocksr", "snell", "external", "openvpn", "trusttunnel", "trust-tunnel":
-		// Snell outbounds are only available in sing-box 1.14 and cannot be
-		// represented by the stable 1.13 schema targeted by this application.
+	case "ssr", "shadowsocksr", "external", "openvpn", "trusttunnel", "trust-tunnel":
 		return ""
 	default:
 		return ""

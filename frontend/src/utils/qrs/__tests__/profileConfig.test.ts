@@ -64,6 +64,7 @@ describe('QRS profile configuration preparation', () => {
     }
     const config = {
       log: { level: 'info' },
+      outbounds: [{ type: 'selector', tag: 'proxy', outbounds: ['direct'] }],
       route: {
         final: 'proxy',
         rule_set: [local, existingRemote],
@@ -86,8 +87,11 @@ describe('QRS profile configuration preparation', () => {
 
     expect(prepared).toEqual({
       log: { level: 'info' },
+      outbounds: config.outbounds,
+      http_clients: [{ tag: 'webui-rule-set-default', detour: 'proxy' }],
       route: {
         final: 'proxy',
+        default_http_client: 'webui-rule-set-default',
         rule_set: [
           {
             type: 'remote',
@@ -101,6 +105,8 @@ describe('QRS profile configuration preparation', () => {
     })
     expect(config.route.rule_set[0]).toBe(local)
     expect(config.route.rule_set[0]!.type).toBe('local')
+    expect(config).not.toHaveProperty('http_clients')
+    expect(config.route).not.toHaveProperty('default_http_client')
     expect(loadSource).not.toHaveBeenCalled()
   })
 
@@ -176,6 +182,90 @@ describe('QRS profile configuration preparation', () => {
     expect(loadSource).toHaveBeenCalledWith('http')
     expect(JSON.stringify(prepared)).not.toContain('"type":"local"')
     expect(prepared.experimental).toBe(config.experimental)
+    expect(prepared).not.toHaveProperty('http_clients')
+  })
+
+  it('adds an explicit default to a profile containing only a local binary rule set', async () => {
+    const config = {
+      route: { rule_set: [localRuleSet('binary', '../rulesets/binary.srs', 'binary')] },
+    }
+    const context = {
+      resources: [
+        resource({
+          id: 'binary',
+          type: 'Http',
+          format: 'binary',
+          path: 'data/rulesets/binary.srs',
+          url: 'https://example.com/binary.srs',
+        }),
+      ],
+      loadSource: vi.fn(),
+    }
+    const prepared = await prepareConfigForQRS(config, context)
+    expect(prepared.http_clients).toEqual([{ tag: 'webui-rule-set-default', engine: 'go' }])
+    expect(prepared.route.default_http_client).toBe('webui-rule-set-default')
+    expect(await prepareConfigForQRS(prepared, context)).toEqual(prepared)
+    expect(config.route.rule_set[0]!.type).toBe('local')
+    expect(config).not.toHaveProperty('http_clients')
+  })
+
+  it('preserves existing shared and per-rule clients while converting local binary resources', async () => {
+    const clients = [{ tag: 'custom', engine: 'go', headers: { 'User-Agent': 'QRS' } }]
+    const existing = {
+      type: 'remote',
+      tag: 'existing',
+      url: 'https://example.com/existing',
+      http_client: {},
+    }
+    const prepared = await prepareConfigForQRS(
+      {
+        http_clients: clients,
+        route: {
+          default_http_client: 'custom',
+          rule_set: [existing, localRuleSet('binary', '../rulesets/binary.srs', 'binary')],
+        },
+      },
+      {
+        resources: [
+          resource({
+            id: 'binary',
+            type: 'Http',
+            format: 'binary',
+            path: 'data/rulesets/binary.srs',
+            url: 'https://example.com/binary.srs',
+          }),
+        ],
+        loadSource: vi.fn(),
+      },
+    )
+    expect(prepared.http_clients).toBe(clients)
+    expect(prepared.route.rule_set[0]).toBe(existing)
+    expect(prepared.route.default_http_client).toBe('custom')
+  })
+
+  it('reports an HTTP-client preparation failure through the QRS conversion error channel', async () => {
+    const promise = prepareConfigForQRS(
+      {
+        route: {
+          final: 'missing',
+          rule_set: [localRuleSet('binary', '../rulesets/binary.srs', 'binary')],
+        },
+      },
+      {
+        resources: [
+          resource({
+            id: 'binary',
+            type: 'Http',
+            format: 'binary',
+            path: 'data/rulesets/binary.srs',
+            url: 'https://example.com/binary.srs',
+          }),
+        ],
+        loadSource: vi.fn(),
+      },
+    )
+    await expectPreparationError(promise, 'httpClientInvalid', 'route.final')
+    await expect(promise).rejects.toMatchObject({ detail: expect.stringContaining('route.final') })
   })
 
   it('replaces an empty top-level rule list with an exact never-match rule', async () => {

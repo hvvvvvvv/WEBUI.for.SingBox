@@ -1,3 +1,5 @@
+import { HTTPClientPreparationError, prepareRuleSetHTTPClients } from './httpClient'
+
 type JsonRecord = Record<string, unknown>
 
 export interface QRSRuleSetResource {
@@ -24,6 +26,7 @@ export type QRSConfigErrorCode =
   | 'sourceRulesInvalid'
   | 'unsupportedFormat'
   | 'localRemaining'
+  | 'httpClientInvalid'
 
 export class QRSConfigPreparationError extends Error {
   constructor(
@@ -119,7 +122,18 @@ export const prepareConfigForQRS = async (
   config: Recordable,
   context: PrepareQRSConfigContext,
 ): Promise<Recordable> => {
-  if (!isRecord(config.route) || !Array.isArray(config.route.rule_set)) return config
+  if (config.route === undefined || config.route === null) return config
+  if (!isRecord(config.route)) {
+    throw new QRSConfigPreparationError('httpClientInvalid', 'route', 'route: expected an object')
+  }
+  if (config.route.rule_set === undefined || config.route.rule_set === null) return config
+  if (!Array.isArray(config.route.rule_set)) {
+    throw new QRSConfigPreparationError(
+      'httpClientInvalid',
+      'route.rule_set',
+      'route.rule_set: expected an array',
+    )
+  }
 
   const resourcesByPath = new Map(
     context.resources
@@ -138,7 +152,15 @@ export const prepareConfigForQRS = async (
 
   const ruleSets = await Promise.all(
     config.route.rule_set.map(async (value, index): Promise<unknown> => {
-      if (!isRecord(value) || value.type !== 'local') return value
+      if (!isRecord(value)) {
+        const path = `route.rule_set[${index}]`
+        throw new QRSConfigPreparationError(
+          'httpClientInvalid',
+          path,
+          `${path}: expected an object`,
+        )
+      }
+      if (value.type !== 'local') return value
 
       const label = ruleSetLabel(value, index)
       if (value.format !== 'source' && value.format !== 'binary') {
@@ -193,11 +215,19 @@ export const prepareConfigForQRS = async (
     )
   }
 
-  return {
+  const converted = {
     ...config,
     route: {
       ...config.route,
       rule_set: ruleSets,
     },
+  }
+  try {
+    return prepareRuleSetHTTPClients(converted)
+  } catch (error) {
+    if (error instanceof HTTPClientPreparationError) {
+      throw new QRSConfigPreparationError('httpClientInvalid', error.path, error.message)
+    }
+    throw error
   }
 }

@@ -122,8 +122,8 @@ func (s *Service) Generate(
 		return nil, err
 	}
 
-	if normalized.enableStableConfigCompat {
-		adaptToStableBranch(config)
+	if normalized.enableAlphaConfigAdaptation {
+		adaptToAlphaConfig(config)
 	}
 
 	if normalized.enableMixinProcessing {
@@ -140,13 +140,17 @@ func (s *Service) Generate(
 		}
 	}
 
+	if err := normalizeRuleSetHTTPClients(config); err != nil {
+		return nil, err
+	}
+
 	return config, nil
 }
 
 type generateOptions struct {
-	enableStableConfigCompat bool
-	enableMixinProcessing    bool
-	enableScriptProcessing   bool
+	enableAlphaConfigAdaptation bool
+	enableMixinProcessing       bool
+	enableScriptProcessing      bool
 }
 
 func normalizeGenerateOptions(options *kernelv1.GenerateConfigOptions) generateOptions {
@@ -155,13 +159,14 @@ func normalizeGenerateOptions(options *kernelv1.GenerateConfigOptions) generateO
 	}
 
 	return generateOptions{
-		enableStableConfigCompat: options.GetEnableStableConfigCompat(),
-		enableMixinProcessing:    options.GetEnableMixinProcessing(),
-		enableScriptProcessing:   options.GetEnableScriptProcessing(),
+		enableAlphaConfigAdaptation: options.GetEnableAlphaConfigAdaptation(),
+		enableMixinProcessing:       options.GetEnableMixinProcessing(),
+		enableScriptProcessing:      options.GetEnableScriptProcessing(),
 	}
 }
 
-func adaptToStableBranch(_ map[string]any) {}
+// adaptToAlphaConfig is the extension point for Alpha-only configuration changes.
+func adaptToAlphaConfig(_ map[string]any) {}
 
 func FinalizeGeneratedConfig(config map[string]any) {
 	logConfig := ensureChildMap(config, "log")

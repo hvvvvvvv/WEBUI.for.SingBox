@@ -133,10 +133,14 @@ func newConfigGenerator(paths *storage.Paths) (*configGenerator, error) {
 }
 
 func (g *configGenerator) GenerateConfig(profile *configv1.Profile) (map[string]any, error) {
+	inbounds, err := generateInbounds(profile.GetInbounds(), runtime.GOOS)
+	if err != nil {
+		return nil, err
+	}
 	config := map[string]any{
 		"log":          generateLog(profile.GetLog()),
 		"experimental": generateExperimental(profile.GetExperimental(), profile.GetOutbounds()),
-		"inbounds":     generateInbounds(profile.GetInbounds(), runtime.GOOS),
+		"inbounds":     inbounds,
 	}
 
 	outbounds, err := g.generateOutbounds(profile.GetOutbounds())
@@ -236,8 +240,9 @@ func generateExperimental(experimental *configv1.Experimental, outbounds []*conf
 		cacheFile["path"] = source.GetPath()
 		cacheFile["cache_id"] = source.GetCacheId()
 		cacheFile["store_fakeip"] = source.GetStoreFakeip()
-		cacheFile["store_rdrc"] = source.GetStoreRdrc()
-		cacheFile["rdrc_timeout"] = source.GetRdrcTimeout()
+		if source.GetStoreDns() {
+			cacheFile["store_dns"] = true
+		}
 	}
 
 	return map[string]any{
@@ -254,9 +259,9 @@ func generateCoreAPISecret() string {
 	return hex.EncodeToString(buffer)
 }
 
-func generateInbounds(inbounds []*configv1.Inbound, platformOS string) []any {
+func generateInbounds(inbounds []*configv1.Inbound, platformOS string) ([]any, error) {
 	result := make([]any, 0, len(inbounds))
-	for _, inbound := range inbounds {
+	for inboundIndex, inbound := range inbounds {
 		if inbound == nil || !inbound.GetEnable() {
 			continue
 		}
@@ -310,16 +315,25 @@ func generateInbounds(inbounds []*configv1.Inbound, platformOS string) []any {
 		if tun == nil {
 			continue
 		}
+		dnsMode := tun.GetDnsMode()
+		if dnsMode == "" {
+			dnsMode = "hijack"
+		}
+		switch dnsMode {
+		case "disabled", "native", "hijack":
+		default:
+			return nil, invalidArgumentError{message: fmt.Sprintf("inbounds[%d].tun.dns_mode has unsupported value %q", inboundIndex, dnsMode)}
+		}
 		item := map[string]any{
-			"type":                     inboundType,
-			"tag":                      inbound.GetTag(),
-			"interface_name":           tun.GetInterfaceName(),
-			"address":                  stringsToAnySlice(tun.GetAddress()),
-			"mtu":                      tun.GetMtu(),
-			"auto_route":               tun.GetAutoRoute(),
-			"strict_route":             tun.GetStrictRoute(),
-			"endpoint_independent_nat": tun.GetEndpointIndependentNat(),
-			"stack":                    tunStackString(tun.GetStack()),
+			"type":           inboundType,
+			"tag":            inbound.GetTag(),
+			"interface_name": tun.GetInterfaceName(),
+			"address":        stringsToAnySlice(tun.GetAddress()),
+			"mtu":            tun.GetMtu(),
+			"auto_route":     tun.GetAutoRoute(),
+			"strict_route":   tun.GetStrictRoute(),
+			"dns_mode":       dnsMode,
+			"stack":          tunStackString(tun.GetStack()),
 		}
 		if platformOS == "linux" && tun.GetAutoRoute() {
 			if tun.Iproute2TableIndex != nil {
@@ -338,7 +352,7 @@ func generateInbounds(inbounds []*configv1.Inbound, platformOS string) []any {
 		}
 		result = append(result, item)
 	}
-	return result
+	return result, nil
 }
 
 func (g *configGenerator) generateOutbounds(outbounds []*configv1.Outbound) ([]any, error) {
@@ -842,11 +856,10 @@ func (g *configGenerator) generateDNS(
 	}
 
 	result := map[string]any{
-		"servers":           make([]any, 0, len(dns.GetServers())),
-		"rules":             make([]any, 0, len(dns.GetRules())),
-		"disable_cache":     dns.GetDisableCache(),
-		"disable_expire":    dns.GetDisableExpire(),
-		"independent_cache": dns.GetIndependentCache(),
+		"servers":        make([]any, 0, len(dns.GetServers())),
+		"rules":          make([]any, 0, len(dns.GetRules())),
+		"disable_cache":  dns.GetDisableCache(),
+		"disable_expire": dns.GetDisableExpire(),
 	}
 	if strategy := strategyString(dns.GetStrategy()); strategy != strategyDefault && strategy != "" {
 		result["strategy"] = strategy

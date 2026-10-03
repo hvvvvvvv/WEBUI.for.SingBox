@@ -8,9 +8,7 @@ import "google/protobuf/struct.proto";
 import "profile/v1/profile.proto";
 
 message GenerateConfigOptions {
-  reserved 2;
-
-  bool enable_stable_config_compat = 1;
+  bool enable_alpha_config_adaptation = 1;
   bool enable_mixin_processing = 3;
   bool enable_script_processing = 4;
 }

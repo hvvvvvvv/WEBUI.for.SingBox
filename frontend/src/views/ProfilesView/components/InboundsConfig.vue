@@ -19,6 +19,11 @@ const model = defineModel<IProfile['inbounds']>({ required: true })
 const { t } = useI18n()
 const appStore = useAppStore()
 const MaxIPRoute2Index = 0xffffffff
+const TunDnsModeOptions = [
+  { label: 'kernel.inbounds.tun.dns_mode_disabled', value: 'disabled' },
+  { label: 'kernel.inbounds.tun.dns_mode_native', value: 'native' },
+  { label: 'kernel.inbounds.tun.dns_mode_hijack', value: 'hijack' },
+]
 
 const handleDelete = (index: number) => {
   model.value.splice(index, 1)
@@ -187,6 +192,13 @@ defineExpose({ handleAdd })
           <Radio v-model="inbound.tun.stack" :options="TunStackOptions" />
         </div>
         <div class="form-item">
+          {{ t('kernel.inbounds.tun.dns_mode') }}
+          <Radio v-model="inbound.tun.dns_mode" :options="TunDnsModeOptions" />
+        </div>
+        <div class="text-12 opacity-70 mb-8">
+          {{ t(`kernel.inbounds.tun.dns_mode_${inbound.tun.dns_mode}_desc`) }}
+        </div>
+        <div class="form-item">
           {{ t('kernel.inbounds.tun.auto_route') }}
           <Switch v-model="inbound.tun.auto_route" />
         </div>
@@ -221,10 +233,6 @@ defineExpose({ handleAdd })
         <div class="form-item">
           {{ t('kernel.inbounds.tun.strict_route') }}
           <Switch v-model="inbound.tun.strict_route" />
-        </div>
-        <div class="form-item">
-          {{ t('kernel.inbounds.tun.endpoint_independent_nat') }}
-          <Switch v-model="inbound.tun.endpoint_independent_nat" />
         </div>
         <div class="form-item">
           {{ t('kernel.inbounds.tun.mtu') }}

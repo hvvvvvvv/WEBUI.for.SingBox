@@ -580,7 +580,7 @@ func TestProducerAdvancedTransportAndProtocolFields(t *testing.T) {
 	})
 }
 
-func TestHysteria2ProducerUsesStableBandwidthSchema(t *testing.T) {
+func TestHysteria2ProducerUses114BandwidthAndHoppingSchema(t *testing.T) {
 	t.Parallel()
 
 	result, err := Parse(`proxies:
@@ -607,35 +607,22 @@ func TestHysteria2ProducerUsesStableBandwidthSchema(t *testing.T) {
 	assertPathValue(t, outbound, "up_mbps", 100)
 	assertPathValue(t, outbound, "down_mbps", 1000)
 	assertPathValue(t, outbound, "hop_interval", "30s")
+	assertPathValue(t, outbound, "hop_interval_max", "60s")
 	assertPathValue(t, outbound, "obfs.type", "salamander")
-	for _, field := range []string{"up", "down", "hop_interval_max"} {
+	for _, field := range []string{"up", "down"} {
 		if _, exists := outbound[field]; exists {
-			t.Errorf("stable Hysteria2 outbound must not contain 1.13-incompatible field %q: %#v", field, outbound)
+			t.Errorf("Hysteria2 outbound must use Mbps bandwidth fields, found %q: %#v", field, outbound)
 		}
 	}
 }
 
-func TestProducerRejectsStableSchemaConflicts(t *testing.T) {
+func TestProducerRejectsSchemaConflicts(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
 		name string
 		node Node
 	}{
-		{
-			name: "Hysteria2 Gecko obfuscation",
-			node: Node{
-				"name": "Gecko", "type": "hysteria2", "server": "gecko.example.com", "port": 443,
-				"password": "password", "obfs": map[string]any{"type": "gecko", "password": "obfs-password"},
-			},
-		},
-		{
-			name: "Hysteria2 unsupported randomized hop interval",
-			node: Node{
-				"name": "Random hop", "type": "hysteria2", "server": "hop.example.com", "port": 443,
-				"password": "password", "hop-interval": "15-30",
-			},
-		},
 		{
 			name: "TUIC UDP modes",
 			node: Node{
@@ -761,22 +748,27 @@ func TestParsePartialSuccessSkipsUnsupportedAndInvalid(t *testing.T) {
 	ss := ssURI("aes-128-gcm", "kept-password", "kept.example.com", 8388, "Kept SS")
 	ssr := ssrURI("ssr.example.com", 443, "auth_sha1_v4", "aes-256-cfb", "tls1.2_ticket_auth", "ssr-password", "Skipped SSR")
 	wireGuard := "wireguard://WG-PRIVATE-KEY@wg.example.com:51820?publickey=WG-PUBLIC-KEY&address=10.0.0.2%2F32#Skipped%20WireGuard"
-	snell := "Skipped Snell = snell, snell.example.com, 443, psk=snell-password, version=4"
-	raw := strings.Join([]string{ss, ssr, wireGuard, snell, "not-a-proxy://invalid-candidate"}, "\n")
+	snell := "Kept Snell = snell, snell.example.com, 443, psk=snell-password, version=4"
+	invalidSnell := "Skipped Snell = snell, snell.example.com, 443, psk=snell-password, version=3"
+	raw := strings.Join([]string{ss, ssr, wireGuard, snell, invalidSnell, "not-a-proxy://invalid-candidate"}, "\n")
 
 	result, err := Parse(raw)
 	if err != nil {
 		t.Fatalf("Parse() error = %v", err)
 	}
-	if len(result.Outbounds) != 1 {
-		t.Fatalf("len(Outbounds) = %d, want 1", len(result.Outbounds))
+	if len(result.Outbounds) != 2 {
+		t.Fatalf("len(Outbounds) = %d, want 2", len(result.Outbounds))
 	}
-	if result.Total != 5 || result.Skipped != 4 || len(result.Issues) != 4 {
-		t.Fatalf("Parse() counts = total %d, skipped %d, issues %d; want 5, 4, 4", result.Total, result.Skipped, len(result.Issues))
+	if result.Total != 6 || result.Skipped != 4 || len(result.Issues) != 4 {
+		t.Fatalf("Parse() counts = total %d, skipped %d, issues %d; want 6, 4, 4", result.Total, result.Skipped, len(result.Issues))
 	}
 	assertOutbound(t, result.Outbounds[0], outboundWant{
 		tag: "Kept SS", typeName: "shadowsocks", server: "kept.example.com", port: 8388,
 		fields: map[string]any{"method": "aes-128-gcm", "password": "kept-password"},
+	})
+	assertOutbound(t, outboundWithTag(t, result, "Kept Snell"), outboundWant{
+		tag: "Kept Snell", typeName: "snell", server: "snell.example.com", port: 443,
+		fields: map[string]any{"version": 4, "psk": "snell-password"},
 	})
 	if !issuesMention(result.Issues, "unsupported") {
 		t.Fatalf("Issues = %#v, want an unsupported-protocol diagnostic", result.Issues)
@@ -790,7 +782,7 @@ func TestParsePartialSuccessSkipsUnsupportedAndInvalid(t *testing.T) {
 	for _, issue := range result.Issues {
 		indices[issue.Index] = true
 	}
-	for _, want := range []int{2, 3, 4, 5} {
+	for _, want := range []int{2, 3, 5, 6} {
 		if !indices[want] {
 			t.Errorf("Issues = %#v, want original candidate index %d", result.Issues, want)
 		}

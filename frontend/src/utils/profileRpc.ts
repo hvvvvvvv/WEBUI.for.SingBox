@@ -85,14 +85,13 @@ const protoFieldNames: Record<string, string> = {
   disable_cache: 'disableCache',
   disable_expire: 'disableExpire',
   domain_resolver: 'domainResolver',
+  dns_mode: 'dnsMode',
   domain_suffix: 'domainSuffix',
   domain_keyword: 'domainKeyword',
   domain_regex: 'domainRegex',
   download_detour: 'downloadDetour',
-  endpoint_independent_nat: 'endpointIndependentNat',
   find_process: 'findProcess',
   hosts_path: 'hostsPath',
-  independent_cache: 'independentCache',
   inet4_range: 'inet4Range',
   inet6_range: 'inet6Range',
   interface_name: 'interfaceName',
@@ -116,7 +115,6 @@ const protoFieldNames: Record<string, string> = {
   process_name: 'processName',
   process_path: 'processPath',
   process_path_regex: 'processPathRegex',
-  rdrc_timeout: 'rdrcTimeout',
   route_address: 'routeAddress',
   route_exclude_address: 'routeExcludeAddress',
   rule_set: 'ruleSet',
@@ -124,7 +122,7 @@ const protoFieldNames: Record<string, string> = {
   rewrite_ttl: 'rewriteTtl',
   server_port: 'serverPort',
   store_fakeip: 'storeFakeip',
-  store_rdrc: 'storeRdrc',
+  store_dns: 'storeDns',
   source_ip_cidr: 'sourceIpCidr',
   source_ip_is_private: 'sourceIpIsPrivate',
   source_port: 'sourcePort',
@@ -171,6 +169,9 @@ const toProtoFieldNames = (value: any, parentKey = ''): any => {
   if (parentKey === 'predefined') {
     return value
   }
+  if (parentKey === 'tun') {
+    value = normalizeTunDnsConfig(value)
+  }
 
   return Object.entries(value).reduce<Recordable>((result, [key, item]) => {
     if (key.startsWith('$')) return result
@@ -189,6 +190,9 @@ const fromProtoFieldNames = (value: any, parentKey = ''): any => {
   }
   if (parentKey === 'predefined') {
     return value
+  }
+  if (parentKey === 'tun') {
+    value = normalizeTunDnsConfig(value)
   }
 
   return Object.entries(value).reduce<Recordable>((result, [key, item]) => {
@@ -276,12 +280,21 @@ const normalizeExperimental = (exp: any, fallback: IExperimental): IExperimental
       cache_id: cacheFileRaw.cache_id ?? cacheFileRaw.cacheid ?? fallback.cache_file.cache_id,
       store_fakeip:
         cacheFileRaw.store_fakeip ?? cacheFileRaw.storefakeip ?? fallback.cache_file.store_fakeip,
-      store_rdrc:
-        cacheFileRaw.store_rdrc ?? cacheFileRaw.storerdrc ?? fallback.cache_file.store_rdrc,
-      rdrc_timeout:
-        cacheFileRaw.rdrc_timeout ?? cacheFileRaw.rdrctimeout ?? fallback.cache_file.rdrc_timeout,
+      store_dns: cacheFileRaw.store_dns ?? fallback.cache_file.store_dns,
     },
   }
+}
+
+const normalizeTunDnsConfig = (tun: Recordable): Recordable => {
+  const mode = tun.dns_mode ?? tun.dnsmode ?? tun.dnsMode
+  const normalized = Object.fromEntries(
+    Object.entries(tun).filter(([key]) => {
+      const compactKey = key.replaceAll('_', '').replaceAll('-', '').toLowerCase()
+      return compactKey !== 'endpointindependentnat' && key !== 'dnsmode' && key !== 'dnsMode'
+    }),
+  )
+  normalized.dns_mode = mode === undefined || mode === '' ? 'hijack' : mode
+  return normalized
 }
 
 const normalizeInbounds = (inbounds: any[], fallback: IInbound[]): IInbound[] => {
@@ -292,7 +305,7 @@ const normalizeInbounds = (inbounds: any[], fallback: IInbound[]): IInbound[] =>
     const socks = item?.socks || {}
     const http = item?.http || {}
     const direct = item?.direct || {}
-    const tun = item?.tun || {}
+    const tun = normalizeTunDnsConfig(item?.tun || {})
 
     return {
       ...item,
@@ -312,8 +325,6 @@ const normalizeInbounds = (inbounds: any[], fallback: IInbound[]): IInbound[] =>
             strict_route: tun.strict_route ?? tun.strictroute ?? false,
             route_address: tun.route_address ?? tun.routeaddress ?? [],
             route_exclude_address: tun.route_exclude_address ?? tun.routeexcludeaddress ?? [],
-            endpoint_independent_nat:
-              tun.endpoint_independent_nat ?? tun.endpointindependentnat ?? false,
             stack: normalizeTunStack(tun.stack),
           }
         : undefined,
@@ -443,7 +454,6 @@ const normalizeDns = (dns: any, fallback: IDNS): IDNS => {
     ...d,
     disable_cache: d.disable_cache ?? d.disablecache ?? fallback.disable_cache,
     disable_expire: d.disable_expire ?? d.disableexpire ?? fallback.disable_expire,
-    independent_cache: d.independent_cache ?? d.independentcache ?? fallback.independent_cache,
     client_subnet: d.client_subnet ?? d.clientsubnet ?? fallback.client_subnet,
     strategy: normalizeStrategy(d.strategy),
     servers: Array.isArray(d.servers)

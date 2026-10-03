@@ -906,8 +906,7 @@ func TestGenerateExperimentalUsesManagedCoreAPI(t *testing.T) {
 			Path:        "cache.db",
 			CacheId:     "cache-id",
 			StoreFakeip: true,
-			StoreRdrc:   true,
-			RdrcTimeout: "7d",
+			StoreDns:    true,
 		},
 	}, nil)
 
@@ -957,7 +956,7 @@ func TestGenerateInboundsDirectNetwork(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			inbounds := generateInbounds([]*profilev1.Inbound{
+			inbounds, err := generateInbounds([]*profilev1.Inbound{
 				{
 					Id:     "direct-in",
 					Type:   profilev1.InboundType_INBOUND_TYPE_DIRECT,
@@ -975,6 +974,9 @@ func TestGenerateInboundsDirectNetwork(t *testing.T) {
 					},
 				},
 			}, "linux")
+			if err != nil {
+				t.Fatal(err)
+			}
 
 			if len(inbounds) != 1 {
 				t.Fatalf("expected one inbound, got %#v", inbounds)
@@ -1019,7 +1021,7 @@ func TestGenerateTunAutoRedirectByPlatformAndAutoRoute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			generated := generateInbounds([]*profilev1.Inbound{
+			generated, err := generateInbounds([]*profilev1.Inbound{
 				{
 					Type:   profilev1.InboundType_INBOUND_TYPE_TUN,
 					Tag:    "tun-in",
@@ -1030,6 +1032,9 @@ func TestGenerateTunAutoRedirectByPlatformAndAutoRoute(t *testing.T) {
 					},
 				},
 			}, tt.platformOS)
+			if err != nil {
+				t.Fatal(err)
+			}
 			item := generated[0].(map[string]any)
 			got, ok := item["auto_redirect"]
 			if ok != tt.wantField {
@@ -1091,7 +1096,7 @@ func TestGenerateTunIPRoute2IndexesByPlatformAndAutoRoute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			generated := generateInbounds([]*profilev1.Inbound{
+			generated, err := generateInbounds([]*profilev1.Inbound{
 				{
 					Type:   profilev1.InboundType_INBOUND_TYPE_TUN,
 					Tag:    "tun-in",
@@ -1103,6 +1108,9 @@ func TestGenerateTunIPRoute2IndexesByPlatformAndAutoRoute(t *testing.T) {
 					},
 				},
 			}, tt.platformOS)
+			if err != nil {
+				t.Fatal(err)
+			}
 			item := generated[0].(map[string]any)
 
 			tableIndex, hasTableIndex := item["iproute2_table_index"]

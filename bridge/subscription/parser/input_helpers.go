@@ -9,6 +9,8 @@ import (
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/titanous/json5"
 )
 
 // The input layer follows the normalized object shape used by Sub-Store and
@@ -510,6 +512,21 @@ func firstOption(options map[string]any, keys ...string) any {
 	return nil
 }
 
+// URI query values and application-line options are textual, but resolver
+// and obfuscation settings may contain an explicit object. Keep its fields
+// intact for the producer, just like the YAML/JSON input paths do.
+func objectOption(value any) any {
+	text, ok := value.(string)
+	if !ok || !strings.HasPrefix(strings.TrimSpace(text), "{") {
+		return value
+	}
+	var object map[string]any
+	if err := json5.Unmarshal([]byte(text), &object); err == nil && object != nil {
+		return object
+	}
+	return value
+}
+
 func applyCommonOptions(node Node, options map[string]any) {
 	if value := firstOption(options, "fingerprint"); value != nil && stringValue(value) != "" {
 		node["_unsupported_certificate_fingerprint"] = true
@@ -522,6 +539,10 @@ func applyCommonOptions(node Node, options map[string]any) {
 		"sni":                {"sni", "servername", "server-name", "tls-host", "peer"},
 		"client-fingerprint": {"client-fingerprint", "fp"},
 		"flow":               {"flow"},
+		"interface-name":     {"interface-name", "bind-interface"},
+		"connect-timeout":    {"connect-timeout"},
+		"detour":             {"detour"},
+		"domain-strategy":    {"domain-strategy", "ip-version"},
 	}
 	for target, aliases := range copyString {
 		setIfNotEmpty(node, target, stringValue(firstOption(options, aliases...)))
@@ -531,6 +552,19 @@ func applyCommonOptions(node Node, options map[string]any) {
 		"tfo":              {"tfo", "fast-open", "tcp-fast-open"},
 		"skip-cert-verify": {"skip-cert-verify", "allow-insecure", "insecure"},
 		"tls":              {"tls", "over-tls"},
+		"mptcp":            {"mptcp", "tcp-multi-path"},
+		"udp-fragment":     {"udp-fragment"},
+	}
+	if value := firstOption(options, "routing-mark"); value != nil {
+		if mark, ok := intValue(value); ok {
+			node["routing-mark"] = mark
+		}
+	}
+	if resolver := firstOption(options, "domain-resolver"); resolver != nil {
+		node["domain-resolver"] = objectOption(resolver)
+	}
+	if network := strings.ToLower(stringValue(firstOption(options, "network"))); network == "tcp" || network == "udp" {
+		node["_network"] = network
 	}
 	for target, aliases := range copyBool {
 		if value := firstOption(options, aliases...); value != nil {
