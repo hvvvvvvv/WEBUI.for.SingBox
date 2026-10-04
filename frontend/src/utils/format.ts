@@ -1,6 +1,21 @@
 import i18n from '@/lang'
 
-export function formatBytes(bytes: number, decimals: number = 1): string {
+export function formatBytes(bytes: number | bigint, decimals: number = 1): string {
+  if (typeof bytes === 'bigint') {
+    const units = ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB']
+    const magnitude = bytes < 0n ? -bytes : bytes
+    let divisor = 1n
+    let index = 0
+    while (magnitude >= divisor * 1024n && index < units.length - 1) {
+      divisor *= 1024n
+      index++
+    }
+    const places = Math.max(0, Math.min(6, Math.trunc(decimals)))
+    const scale = 10n ** BigInt(places)
+    const rounded = (magnitude * scale + divisor / 2n) / divisor
+    const value = Number(rounded) / Number(scale)
+    return `${bytes < 0n ? '-' : ''}${value} ${units[index]}`
+  }
   if (bytes === 0) return '0 B'
 
   const k = 1024

@@ -116,11 +116,8 @@ export const ScheduledTaskOptions = [
 
 export const DefaultSubscribeScript = `const onSubscribe = async (proxies, subscription) => {\n  return { proxies, subscription }\n}`
 
+// Default for the profile's urltest outbound; native per-request tests use core settings.
 export const DefaultTestURL = 'https://www.gstatic.com/generate_204'
-
-export const DefaultTestTimeout = 5000
-
-export const DefaultConcurrencyLimit = 20
 
 export const DefaultCardColumns = 5
 

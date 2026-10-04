@@ -2,31 +2,46 @@ import { create, fromBinary, toBinary } from '@bufbuild/protobuf'
 import { createPinia, setActivePinia } from 'pinia'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { CoreStatus } from '../../../gen/kernel/v1/kernel_pb'
 import { ProfileSchema } from '../../../gen/profile/v1/profile_pb'
 
 const mocks = vi.hoisted(() => ({
   rpc: {
     getCurrentProfile: vi.fn(),
+    getCoreStatus: vi.fn(),
     stopCore: vi.fn(),
-    startCoreWithProfile: vi.fn(),
+    restartCore: vi.fn(),
   },
-  getConfigs: vi.fn(),
-  getProxies: vi.fn(),
+  getClashModeStatus: vi.fn(),
+  getGroupsSnapshot: vi.fn(),
+  getOutboundsSnapshot: vi.fn(),
+  setClashMode: vi.fn(),
+  events: vi.fn(),
+  nativeGeneration: 1,
   toProto: vi.fn(),
   fromProto: vi.fn(),
 }))
 
-vi.mock('@/bridge', () => ({ createRpcClient: () => mocks.rpc, EventsOn: vi.fn() }))
+vi.mock('@/bridge', () => ({ createRpcClient: () => mocks.rpc, EventsOn: mocks.events }))
 vi.mock('@/api/kernel', () => ({
-  getConfigs: mocks.getConfigs,
-  getProxies: mocks.getProxies,
-  setConfigs: vi.fn(),
+  getClashModeStatus: mocks.getClashModeStatus,
+  getGroupsSnapshot: mocks.getGroupsSnapshot,
+  getOutboundsSnapshot: mocks.getOutboundsSnapshot,
+  setClashMode: mocks.setClashMode,
+  getNativeApiGeneration: () => mocks.nativeGeneration,
+  onGroups: vi.fn(),
+  onOutbounds: vi.fn(),
+  onClashMode: vi.fn(),
   onLogs: vi.fn(),
-  onMemory: vi.fn(),
+  onStatus: vi.fn(),
   onConnections: vi.fn(),
-  onTraffic: vi.fn(),
-  initWebsocket: vi.fn(),
-  destroyWebsocket: vi.fn(),
+  clearClosedConnections: vi.fn(),
+  startNativeApi: () => {
+    mocks.nativeGeneration++
+  },
+  stopNativeApi: () => {
+    mocks.nativeGeneration++
+  },
 }))
 vi.mock('@/stores', () => ({
   useProfilesStore: () => ({}),
@@ -51,12 +66,80 @@ describe('home TUN shortcuts', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     vi.resetAllMocks()
+    mocks.nativeGeneration = 1
     mocks.toProto.mockImplementation(iProfileToProto)
     mocks.fromProto.mockImplementation(protoProfileToIProfile)
-    mocks.getConfigs.mockResolvedValue({})
-    mocks.getProxies.mockResolvedValue({ proxies: {} })
+    mocks.getClashModeStatus.mockResolvedValue({
+      currentMode: 'Rule',
+      modeList: ['Rule', 'Global', 'Direct'],
+    })
+    mocks.getGroupsSnapshot.mockResolvedValue({ group: [] })
+    mocks.getOutboundsSnapshot.mockResolvedValue({ outbounds: [] })
     mocks.rpc.stopCore.mockResolvedValue({})
-    mocks.rpc.startCoreWithProfile.mockResolvedValue({ pid: 42 })
+    mocks.rpc.restartCore.mockResolvedValue({ pid: 42 })
+    mocks.rpc.getCoreStatus.mockResolvedValue({
+      status: CoreStatus.RUNNING,
+      pid: 42,
+      restartRequired: false,
+      restarting: false,
+    })
+  })
+
+  it('keeps the previous TUN and interface settings after restart preflight fails', async () => {
+    const profile = protoProfileToIProfile(undefined)
+    const tun = profile.inbounds.find((inbound) => inbound.type === 'tun')!
+    tun.enable = false
+    tun.tun!.stack = 'system'
+    profile.route.default_interface = 'old-interface'
+    mocks.rpc.getCurrentProfile.mockResolvedValue({
+      profile: create(ProfileSchema, iProfileToProto(profile)),
+    })
+    const store = useKernelApiStore()
+    await store.initCoreState()
+    await store.refreshConfig()
+    const error = new Error('configuration preflight failed')
+    mocks.rpc.restartCore.mockRejectedValue(error)
+    await expect(store.updateRuntimeInboundEnable(tun.id, true)).rejects.toBe(
+      'configuration preflight failed',
+    )
+    expect(store.running).toBe(true)
+    expect(store.runtimeInbounds.find((inbound) => inbound.id === tun.id)?.enable).toBe(false)
+    await expect(
+      store.updateConfigs([
+        { field: 'tun-stack', value: { stack: 'gvisor' } },
+        { field: 'interface-name', value: { interface_name: 'new-interface' } },
+      ]),
+    ).rejects.toBe('configuration preflight failed')
+    expect(store.config.tun.stack).toBe('system')
+    expect(store.config['interface-name']).toBe('old-interface')
+    expect(mocks.rpc.stopCore).not.toHaveBeenCalled()
+  })
+
+  it('does not block stop events behind unresolved initial subscriptions or apply late snapshots', async () => {
+    let resolveMode!: (value: { currentMode: string; modeList: string[] }) => void
+    let resolveGroups!: (value: { group: any[] }) => void
+    mocks.getClashModeStatus.mockReturnValue(
+      new Promise((resolve) => {
+        resolveMode = resolve
+      }),
+    )
+    mocks.getGroupsSnapshot.mockReturnValue(
+      new Promise((resolve) => {
+        resolveGroups = resolve
+      }),
+    )
+    const store = useKernelApiStore()
+    await store.initCoreState()
+    expect(store.running).toBe(true)
+    const handler = mocks.events.mock.calls.find(([name]) => name === 'kernelStateChanged')![1]
+    handler({ status: CoreStatus.STOPPED, pid: -1 })
+    for (let i = 0; i < 10; i++) await Promise.resolve()
+    expect(store.running).toBe(false)
+    resolveMode({ currentMode: 'stale', modeList: ['stale'] })
+    resolveGroups({ group: [{ tag: 'stale' }] })
+    for (let i = 0; i < 10; i++) await Promise.resolve()
+    expect(store.config.mode).toBe('')
+    expect(store.groups).toEqual([])
   })
 
   it.each(['disabled', 'native', 'hijack'] as const)(
@@ -79,8 +162,9 @@ describe('home TUN shortcuts', () => {
       ])
       await store.updateRuntimeInboundEnable(tunInbound.id, false)
 
-      expect(mocks.rpc.startCoreWithProfile).toHaveBeenCalledTimes(3)
-      for (const [request] of mocks.rpc.startCoreWithProfile.mock.calls) {
+      expect(mocks.rpc.stopCore).not.toHaveBeenCalled()
+      expect(mocks.rpc.restartCore).toHaveBeenCalledTimes(3)
+      for (const [request] of mocks.rpc.restartCore.mock.calls) {
         const encoded = create(ProfileSchema, request.profile)
         const restored = protoProfileToIProfile(
           fromBinary(ProfileSchema, toBinary(ProfileSchema, encoded)),

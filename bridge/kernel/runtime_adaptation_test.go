@@ -94,8 +94,12 @@ func TestCoreStartUsesRuntimeSnapshotForAlphaAdaptation(t *testing.T) {
 						t.Fatalf("configuration reads before generation = %d, want %d", appConfig.currentCalls, wantCurrentCalls)
 					}
 					status, _ := service.Status()
-					if status != kernelv1.CoreStatus_CORE_STATUS_STARTING {
-						t.Fatalf("status during generation = %v, want starting", status)
+					wantStatus := kernelv1.CoreStatus_CORE_STATUS_STARTING
+					if entrypoint == "RestartCore" {
+						wantStatus = kernelv1.CoreStatus_CORE_STATUS_RUNNING
+					}
+					if status != wantStatus {
+						t.Fatalf("status during generation = %v, want %v", status, wantStatus)
 					}
 					if branch == "main" {
 						appConfig.value.Branch = "alpha"

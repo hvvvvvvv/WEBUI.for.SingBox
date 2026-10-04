@@ -1,28 +1,34 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, shallowRef } from 'vue'
 
-import { ConnectError } from '@connectrpc/connect'
+import { Code, ConnectError } from '@connectrpc/connect'
 
 import {
-  getProxies,
-  getConfigs,
-  setConfigs,
+  getClashModeStatus,
+  setClashMode,
+  getGroupsSnapshot,
+  getOutboundsSnapshot,
+  getNativeApiGeneration,
+  onGroups,
+  onOutbounds,
+  onClashMode,
   onLogs,
-  onMemory,
+  onStatus,
   onConnections,
-  onTraffic,
-  initWebsocket,
-  destroyWebsocket,
+  clearClosedConnections,
+  startNativeApi,
+  stopNativeApi,
 } from '@/api/kernel'
 import { createRpcClient, EventsOn } from '@/bridge'
 import { DefaultInboundHttp, DefaultInboundMixed, DefaultInboundSocks } from '@/constant/profile'
 import { Inbound, TunStack } from '@/enums/kernel'
 import { useProfilesStore, useLogsStore, useAppConfigStore } from '@/stores'
 import { iProfileToProto, protoProfileToIProfile } from '@/utils'
+import { deepClone } from '@/utils/others'
 import { KernelRuntimeService } from '../../gen/kernel/v1/kernel_runtime_service_pb'
 import { CoreStatus } from '../../gen/kernel/v1/kernel_pb'
 
-import type { CoreApiConfig, CoreApiProxy } from '@/types/kernel'
+import type { RuntimeKernelConfig, Group, GroupItem } from '@/types/kernel'
 
 export type ProxyType = 'mixed' | 'http' | 'socks'
 export type RuntimeConfigField =
@@ -77,14 +83,15 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   const appConfigStore = useAppConfigStore()
   const kernelService = createRpcClient(KernelRuntimeService)
 
-  /** RESTful API */
-  const config = ref<CoreApiConfig>({
+  /** Runtime settings and native API state */
+  const config = ref<RuntimeKernelConfig>({
     port: 0,
     'mixed-port': 0,
     'socks-port': 0,
     'interface-name': '',
     'allow-lan': false,
     mode: '',
+    modeList: [],
     tun: {
       enable: false,
       stack: '',
@@ -94,7 +101,23 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
 
   let runtimeProfile: IProfile | undefined
 
-  const proxies = ref<Record<string, CoreApiProxy>>({})
+  const groups = shallowRef<Group[]>([])
+  const outbounds = shallowRef<GroupItem[]>([])
+  onClashMode((value) => {
+    config.value.mode = value.mode
+  })
+  const subscribeGroups = () => {
+    const unregisterGroups = onGroups((value) => {
+      groups.value = value.group
+    })
+    const unregisterOutbounds = onOutbounds((value) => {
+      outbounds.value = value.outbounds
+    })
+    return () => {
+      unregisterGroups()
+      unregisterOutbounds()
+    }
+  }
   const runtimeInbounds = ref<IInbound[]>([])
 
   const syncRuntimeInbounds = () => {
@@ -103,6 +126,14 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
 
   const syncConfigFromRuntimeProfile = () => {
     if (!runtimeProfile) {
+      Object.assign(config.value, {
+        port: 0,
+        'mixed-port': 0,
+        'socks-port': 0,
+        'interface-name': '',
+        'allow-lan': false,
+        tun: { enable: false, stack: '', device: '' },
+      })
       syncRuntimeInbounds()
       return
     }
@@ -129,22 +160,20 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   }
 
   const refreshConfig = async () => {
-    const _config = await getConfigs()
-
-    config.value = {
-      ..._config,
-      tun: config.value.tun,
-    }
-
+    const generation = getNativeApiGeneration()
+    const mode = await getClashModeStatus()
+    if (generation !== getNativeApiGeneration()) return
+    config.value.mode = mode.currentMode
+    config.value.modeList = mode.modeList
     if (!runtimeProfile) {
       const { profile } = await kernelService.getCurrentProfile({})
+      if (generation !== getNativeApiGeneration()) return
       runtimeProfile = protoProfileToIProfile(profile)
     }
-
     syncConfigFromRuntimeProfile()
   }
 
-  const updateConfigs = async (changes: RuntimeConfigChange[]) => {
+  const applyConfigChanges = async (changes: RuntimeConfigChange[]) => {
     if (changes.length === 0) return
     const patchInbound = () => {
       if (!runtimeProfile) return
@@ -215,8 +244,9 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
 
     const fieldHandlerMap: Record<RuntimeConfigField, (value: any) => Promise<void> | void> = {
       mode: async (value) => {
-        await setConfigs({ mode: value })
-        await refreshConfig()
+        const mode = await setClashMode(value)
+        config.value.mode = mode.currentMode
+        config.value.modeList = mode.modeList
       },
       inbound: () => patchInbound(),
       http: (value) => patchInboundPort(Inbound.Http, value),
@@ -250,21 +280,52 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     }
   }
 
+  let configMutationQueue = Promise.resolve()
+  const serializeProfileMutation = (operation: () => Promise<void>) => {
+    const requestedGeneration = getNativeApiGeneration()
+    const result = configMutationQueue.then(async () => {
+      if (requestedGeneration !== getNativeApiGeneration())
+        throw new ConnectError('Kernel instance changed', Code.Canceled)
+      const previousProfile = runtimeProfile ? deepClone(runtimeProfile) : undefined
+      const generation = getNativeApiGeneration()
+      try {
+        await operation()
+      } catch (error) {
+        // A failed preflight leaves the old process running; restore its visible settings.
+        if (generation === getNativeApiGeneration() && previousProfile) {
+          runtimeProfile = previousProfile
+          syncConfigFromRuntimeProfile()
+        }
+        throw error
+      }
+    })
+    configMutationQueue = result.catch(() => undefined)
+    return result
+  }
+  const updateConfigs = (changes: RuntimeConfigChange[]) =>
+    serializeProfileMutation(() => applyConfigChanges(changes))
   const updateConfig = async (field: RuntimeConfigField, value: any) =>
     updateConfigs([{ field, value }])
 
-  const updateRuntimeInboundEnable = async (inboundId: string, enable: boolean) => {
-    const inbound = runtimeProfile?.inbounds.find((v) => v.id === inboundId)
-    if (!inbound) throw 'home.overview.needInbound'
+  const updateRuntimeInboundEnable = (inboundId: string, enable: boolean) =>
+    serializeProfileMutation(async () => {
+      const inbound = runtimeProfile?.inbounds.find((v) => v.id === inboundId)
+      if (!inbound) throw 'home.overview.needInbound'
 
-    inbound.enable = enable
-    await restartCore(undefined, true)
-    syncConfigFromRuntimeProfile()
-  }
+      inbound.enable = enable
+      await restartCore(undefined, true)
+      syncConfigFromRuntimeProfile()
+    })
 
   const refreshProviderProxies = async () => {
-    const { proxies: b } = await getProxies()
-    proxies.value = b
+    const generation = getNativeApiGeneration()
+    const [groupSnapshot, outboundSnapshot] = await Promise.all([
+      getGroupsSnapshot(),
+      getOutboundsSnapshot(),
+    ])
+    if (generation !== getNativeApiGeneration()) return
+    groups.value = groupSnapshot.group
+    outbounds.value = outboundSnapshot.outbounds
   }
 
   const getCurrentCoreMemory = async () => {
@@ -306,17 +367,33 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     needRestart.value = restartRequired
 
     if (running.value) {
-      if (pendingRuntimeProfile) {
+      if (pendingRuntimeProfile && (!wasRunning || previousPID !== normalizedPID)) {
         runtimeProfile = pendingRuntimeProfile
+      } else if (!wasRunning || previousPID !== normalizedPID) {
+        runtimeProfile = undefined
       }
       if (!wasRunning || previousPID !== normalizedPID) {
-        initWebsocket()
-        await Promise.all([refreshConfig(), refreshProviderProxies()])
+        config.value.mode = ''
+        config.value.modeList = []
+        groups.value = []
+        outbounds.value = []
+        syncConfigFromRuntimeProfile()
+        startNativeApi(normalizedPID)
+        const nativeGeneration = getNativeApiGeneration()
+        // Initial snapshots are finite; persistent streams never hold up state transitions.
+        void Promise.all([refreshConfig(), refreshProviderProxies()]).catch((error) => {
+          if (getNativeApiGeneration() === nativeGeneration)
+            console.error('Native API initialization:', error)
+        })
       }
       return
     }
 
-    destroyWebsocket()
+    stopNativeApi()
+    config.value.mode = ''
+    config.value.modeList = []
+    groups.value = []
+    outbounds.value = []
     if (status === CoreStatus.STOPPED || status === CoreStatus.CRASHED) {
       runtimeProfile = undefined
       syncRuntimeInbounds()
@@ -341,8 +418,12 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   }
 
   const refreshCoreState = async () => {
-    const { status, pid, restartRequired, restarting: restartInProgress } =
-      await kernelService.getCoreStatus({})
+    const {
+      status,
+      pid,
+      restartRequired,
+      restarting: restartInProgress,
+    } = await kernelService.getCoreStatus({})
     await enqueueCoreState(status, pid, restartRequired, restartInProgress)
   }
 
@@ -387,20 +468,23 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     }
   }
 
-  EventsOn('kernelStateChanged', (state?: {
-    status?: CoreStatus
-    pid?: number
-    restartRequired?: boolean
-    restarting?: boolean
-  }) => {
-    if (typeof state?.status !== 'number') return
-    void enqueueCoreState(
-      state.status,
-      typeof state.pid === 'number' ? state.pid : -1,
-      state.restartRequired === true,
-      state.restarting === true,
-    ).catch(() => undefined)
-  })
+  EventsOn(
+    'kernelStateChanged',
+    (state?: {
+      status?: CoreStatus
+      pid?: number
+      restartRequired?: boolean
+      restarting?: boolean
+    }) => {
+      if (typeof state?.status !== 'number') return
+      void enqueueCoreState(
+        state.status,
+        typeof state.pid === 'number' ? state.pid : -1,
+        state.restartRequired === true,
+        state.restarting === true,
+      ).catch(() => undefined)
+    },
+  )
 
   const startCore = async (_profile?: IProfile) => {
     if (running.value) throw 'The core is already running'
@@ -451,12 +535,8 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
       if (!profile) throw 'Choose a profile first'
       if (keepRuntimeProfile) {
         pendingRuntimeProfile = profile
-        await callCoreMutation(() => kernelService.stopCore({}))
-        await enqueueCoreState(CoreStatus.STOPPED, -1)
         const { pid } = await callCoreMutation(() =>
-          kernelService.startCoreWithProfile({
-            profile: iProfileToProto(profile),
-          }),
+          kernelService.restartCore({ profile: iProfileToProto(profile) }),
         )
         await enqueueCoreState(CoreStatus.RUNNING, pid)
       } else {
@@ -515,7 +595,9 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     needRestart,
     coreStateLoading,
     config,
-    proxies,
+    groups,
+    outbounds,
+    subscribeGroups,
     runtimeInbounds,
     refreshConfig,
     updateConfig,
@@ -526,8 +608,8 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     getCurrentCoreMemory,
 
     onLogs,
-    onMemory,
-    onTraffic,
+    onStatus,
+    clearClosedConnections,
     onConnections,
   }
 })

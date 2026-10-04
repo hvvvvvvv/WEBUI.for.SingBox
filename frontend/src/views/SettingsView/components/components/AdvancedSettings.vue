@@ -18,7 +18,12 @@ const authLoading = ref(false)
 
 const coreLogDays = ref<number | string>(appConfig.config.coreLogDays)
 const coreLogDaysSaving = ref(false)
-watch(() => appConfig.config.coreLogDays, (value) => { coreLogDays.value = value })
+watch(
+  () => appConfig.config.coreLogDays,
+  (value) => {
+    coreLogDays.value = value
+  },
+)
 const saveCoreLogDays = async (input: number | string) => {
   if (coreLogDaysSaving.value) return
   const value = parseCoreLogDays(input)
@@ -60,10 +65,10 @@ const handleSetupAuth = async () => {
     if (result.flag) {
       appSettings.sessionInfo.authEnabled = true
       if (result.data) appSettings.sessionInfo.cacheToken = result.data
-        message.success(t('auth.updateSuccess'))
-        appSettings.sessionInfo.authEnabled = true
-        authSecret.value = ''
-        authSecretConfirm.value = ''
+      message.success(t('auth.updateSuccess'))
+      appSettings.sessionInfo.authEnabled = true
+      authSecret.value = ''
+      authSecretConfirm.value = ''
     } else {
       message.error(result.data)
     }
@@ -105,10 +110,6 @@ const handleClearAuth = async () => {
       <div class="flex items-center gap-4">
         <Switch v-model="appConfig.config.rollingRelease" />
       </div>
-    </div>
-    <div class="px-8 py-12 flex items-center justify-between">
-      <div class="text-16 font-bold">{{ $t('settings.realMemoryUsage') }}</div>
-      <Switch v-model="appSettings.app.kernel.realMemoryUsage" />
     </div>
     <div class="px-8 py-12 flex items-center justify-between">
       <div class="text-16 font-bold">
@@ -186,7 +187,9 @@ const handleClearAuth = async () => {
         {{ $t('auth.setup') }}
         <span class="font-normal text-12">({{ $t('auth.setupTips') }})</span>
       </div>
-      <Tag v-if="appSettings.sessionInfo.authEnabled" color="primary">{{ $t('auth.authEnabled') }}</Tag>
+      <Tag v-if="appSettings.sessionInfo.authEnabled" color="primary">{{
+        $t('auth.authEnabled')
+      }}</Tag>
       <Tag v-else>{{ $t('auth.authDisabled') }}</Tag>
     </div>
     <div class="px-8 py-12 flex items-center justify-between">

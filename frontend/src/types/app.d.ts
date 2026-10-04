@@ -44,15 +44,11 @@ export interface AppSettings {
     order: string[]
   }
   kernel: {
-    realMemoryUsage: boolean
     autoClose: boolean
     unAvailable: boolean
     cardMode: boolean
     cardColumns: number
     sortByDelay: boolean
-    testUrl: string
-    testTimeout: number
-    concurrencyLimit: number
     controllerCloseMode: ControllerCloseMode
     controllerSensitivity: number
   }
@@ -67,7 +63,7 @@ export interface CoreRuntimeConfig {
 }
 
 export interface AppConfig {
-	coreLogDays: number
+  coreLogDays: number
   autoStartKernel: boolean
   autoRestartKernel: boolean
   userAgent: string

@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"context"
 	"errors"
 	"os"
 	"os/exec"
@@ -12,6 +13,23 @@ import (
 
 	"guiforcores/bridge/storage"
 )
+
+func TestExecHonorsContext(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("shell command is Unix-specific")
+	}
+	service := NewService(storage.NewPaths(t.TempDir()), nil, Environment{})
+	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
+	defer cancel()
+	started := time.Now()
+	result := service.Exec("/bin/sh", []string{"-c", "exec sleep 30"}, ExecOptions{Context: ctx})
+	if result.Flag || ctx.Err() == nil {
+		t.Fatal("canceled command completed successfully")
+	}
+	if time.Since(started) > 2*time.Second {
+		t.Fatal("context did not interrupt command")
+	}
+}
 
 func TestExecBackgroundCallsOnExit(t *testing.T) {
 	if runtime.GOOS == "windows" {

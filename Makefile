@@ -40,9 +40,11 @@ backend:
 
 proto: check-proto-tools
 	$(BUF) generate
+	$(BUF) generate proto-native --template buf.native.gen.yaml
 
 proto-lint: check-proto-tools
 	$(BUF) lint
+	$(BUF) lint proto-native
 
 proto-check: proto-lint
 

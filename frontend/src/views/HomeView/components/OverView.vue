@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { ModeOptions } from '@/constant/kernel'
-import { useAppStore, useKernelApiStore, useAppSettingsStore } from '@/stores'
+import { useAppStore, useKernelApiStore } from '@/stores'
 import { formatBytes, handleChangeMode, message } from '@/utils'
+import { nativeModeOptions, sameKernelMode } from '@/utils/nativeKernelUi'
 
 import { useModal } from '@/components/Modal'
 
@@ -15,18 +15,20 @@ const trafficHistory = ref<[number[], number[]]>([[], []])
 const statistics = ref({
   upload: 0,
   download: 0,
-  downloadTotal: 0,
-  uploadTotal: 0,
-  connections: [] as any[],
-  inuse: 0,
-  memUsage: 0,
+  downloadTotal: 0n,
+  uploadTotal: 0n,
+  connections: 0,
+  inuse: 0n,
+  goroutines: 0,
 })
 
 const { t } = useI18n()
 const [Modal, modalApi] = useModal({})
 const appStore = useAppStore()
-const appSettings = useAppSettingsStore()
 const kernelApiStore = useKernelApiStore()
+const modes = computed(() => nativeModeOptions(kernelApiStore.config.modeList))
+const changeMode = (mode: string) =>
+  handleChangeMode(mode).catch((error: any) => message.error(error.message || error))
 
 const handleRestartKernel = async () => {
   try {
@@ -70,10 +72,6 @@ const handleShowApiConnections = () => {
   modalApi.setContent(ConnectionsController).open()
 }
 
-const handleToggleRealMemoryUsage = () => {
-  appSettings.app.kernel.realMemoryUsage = !appSettings.app.kernel.realMemoryUsage
-}
-
 const onRuntimeInboundSwitchChange = async (inbound: IInbound, enable: boolean) => {
   try {
     await kernelApiStore.updateRuntimeInboundEnable(inbound.id, enable)
@@ -84,50 +82,38 @@ const onRuntimeInboundSwitchChange = async (inbound: IInbound, enable: boolean) 
   }
 }
 
-let latestCoreMemoryUsageTime: number
-const getCoreMemoryUsage = async (fallback: number) => {
-  if (latestCoreMemoryUsageTime && Date.now() - latestCoreMemoryUsageTime < 3_000) {
-    return fallback
-  }
-  const useage = await kernelApiStore.getCurrentCoreMemory().catch(() => fallback)
-  latestCoreMemoryUsageTime = Date.now()
-  return useage
-}
-
-const unregisterMemoryHandler = kernelApiStore.onMemory(async (data) => {
-  statistics.value.inuse = data.inuse
-  if (appSettings.app.kernel.realMemoryUsage) {
-    getCoreMemoryUsage(statistics.value.memUsage || data.inuse).then((usage) => {
-      statistics.value.memUsage = usage
-    })
-  }
-})
-
-const unregisterTrafficHandler = kernelApiStore.onTraffic((data) => {
-  const { up, down } = data
-  statistics.value.upload = up
-  statistics.value.download = down
-
-  trafficHistory.value[0].push(up)
-  trafficHistory.value[1].push(down)
-
+const unregisterStatusHandler = kernelApiStore.onStatus((data) => {
+  statistics.value.inuse = data.memory
+  statistics.value.goroutines = data.goroutines
+  statistics.value.connections = data.connectionsIn
+  statistics.value.uploadTotal = data.uplinkTotal
+  statistics.value.downloadTotal = data.downlinkTotal
+  statistics.value.upload = data.trafficAvailable ? Number(data.uplink) : 0
+  statistics.value.download = data.trafficAvailable ? Number(data.downlink) : 0
+  trafficHistory.value[0].push(statistics.value.upload)
+  trafficHistory.value[1].push(statistics.value.download)
   if (trafficHistory.value[0].length > 60) {
     trafficHistory.value[0].shift()
     trafficHistory.value[1].shift()
   }
 })
-
-const unregisterConnectionsHandler = kernelApiStore.onConnections((data) => {
-  statistics.value.downloadTotal = data.downloadTotal
-  statistics.value.uploadTotal = data.uploadTotal
-  statistics.value.connections = data.connections || []
-})
-
-onUnmounted(() => {
-  unregisterMemoryHandler()
-  unregisterTrafficHandler()
-  unregisterConnectionsHandler()
-})
+watch(
+  () => kernelApiStore.pid,
+  () => {
+    statistics.value = {
+      upload: 0,
+      download: 0,
+      uploadTotal: 0n,
+      downloadTotal: 0n,
+      connections: 0,
+      inuse: 0n,
+      goroutines: 0,
+    }
+    trafficHistory.value = [[], []]
+  },
+  { flush: 'sync' },
+)
+onUnmounted(unregisterStatusHandler)
 </script>
 
 <template>
@@ -202,19 +188,17 @@ onUnmounted(() => {
         @click="handleShowApiConnections"
       >
         <div class="py-8 text-12">
-          {{ statistics.connections.length }}
+          {{ statistics.connections }}
         </div>
       </Card>
-      <Card
-        :title="t('home.overview.memory')"
-        class="flex-1 cursor-pointer"
-        @click="handleToggleRealMemoryUsage"
-      >
+      <Card :title="t('home.overview.memory')" class="flex-1">
         <div class="py-8 text-12">
           {{ formatBytes(statistics.inuse) }}
-          <span v-if="appSettings.app.kernel.realMemoryUsage">
-            / ({{ formatBytes(statistics.memUsage) }})
-          </span>
+        </div>
+      </Card>
+      <Card :title="t('home.overview.goroutines')" class="flex-1">
+        <div class="py-8 text-12">
+          {{ statistics.goroutines }}
         </div>
       </Card>
     </div>
@@ -234,14 +218,14 @@ onUnmounted(() => {
         </div>
         <div class="flex flex-col gap-12">
           <Card
-            v-for="mode in ModeOptions"
+            v-for="mode in modes"
             :key="mode.value"
-            :selected="kernelApiStore.config.mode === mode.value"
-            :title="t(mode.label)"
+            :selected="sameKernelMode(kernelApiStore.config.mode, mode.value)"
+            :title="mode.desc ? t(mode.label) : mode.label"
             class="cursor-pointer"
-            @click="handleChangeMode(mode.value as any)"
+            @click="changeMode(mode.value)"
           >
-            <div class="text-12 py-2">{{ t(mode.desc) }}</div>
+            <div v-if="mode.desc" class="text-12 py-2">{{ t(mode.desc) }}</div>
           </Card>
         </div>
       </div>

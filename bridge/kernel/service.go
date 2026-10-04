@@ -5,9 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net/http"
 	"net/url"
-	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -54,7 +52,6 @@ type ProcessRunner interface {
 type ConfigGenerator interface {
 	Generate(profile *profilev1.Profile, options *kernelv1.GenerateConfigOptions) (map[string]any, error)
 	WriteGeneratedConfig(generatedConfig map[string]any) error
-	ReadGeneratedSecret() string
 }
 
 type AppConfigReader interface {
@@ -98,6 +95,8 @@ type Service struct {
 	restartTargetForce bool
 	restartExecutingID string
 	downloads          map[string]context.CancelFunc
+	nativeAPI          *nativeAPIInstance
+	nativeGeneration   uint64
 }
 
 var waitKernelAPIReadyFunc = waitKernelAPIReady
@@ -183,6 +182,7 @@ func (s *Service) setStarting(profileID string) error {
 
 func (s *Service) setRunning(pid int, profileID string, profile *profilev1.Profile) {
 	s.updateCoreState(func() {
+		s.revokeNativeAPILocked()
 		s.status = kernelv1.CoreStatus_CORE_STATUS_RUNNING
 		s.activeProfileID = profileID
 		s.corePID = pid
@@ -191,7 +191,7 @@ func (s *Service) setRunning(pid int, profileID string, profile *profilev1.Profi
 	})
 }
 
-func (s *Service) completeStart(pid int, profileID string, profile *profilev1.Profile) bool {
+func (s *Service) completeStart(pid int, profileID string, profile *profilev1.Profile, secret string) bool {
 	s.stateEventMu.Lock()
 	defer s.stateEventMu.Unlock()
 
@@ -200,6 +200,7 @@ func (s *Service) completeStart(pid int, profileID string, profile *profilev1.Pr
 		s.mu.Unlock()
 		return false
 	}
+	s.installNativeAPILocked(pid, secret)
 	s.status = kernelv1.CoreStatus_CORE_STATUS_RUNNING
 	s.activeProfileID = profileID
 	s.currentProfile = cloneProfile(profile)
@@ -214,6 +215,7 @@ func (s *Service) completeStart(pid int, profileID string, profile *profilev1.Pr
 
 func (s *Service) setStopped() {
 	s.updateCoreState(func() {
+		s.revokeNativeAPILocked()
 		s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPED
 		s.corePID = -1
 		s.currentProfile = nil
@@ -225,6 +227,7 @@ func (s *Service) setStopped() {
 
 func (s *Service) setCrashed() {
 	s.updateCoreState(func() {
+		s.revokeNativeAPILocked()
 		s.status = kernelv1.CoreStatus_CORE_STATUS_CRASHED
 		s.corePID = -1
 		s.currentProfile = nil
@@ -246,6 +249,7 @@ func (s *Service) beginStopping() (int, error) {
 		return -1, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("core is not running"))
 	}
 	pid := s.corePID
+	s.revokeNativeAPILocked()
 	s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPING
 	restartRequired := s.restartRequired
 	restarting := s.restarting
@@ -272,6 +276,7 @@ func (s *Service) handleCoreProcessExit(pid int, waitErr error) {
 		return
 	}
 
+	s.revokeNativeAPILocked()
 	unconfirmed := errors.Is(waitErr, platform.ErrCoreExitUnconfirmed)
 	crashed := (!s.closing && status != kernelv1.CoreStatus_CORE_STATUS_STOPPING) || unconfirmed
 	crashPhase := "runtime"
@@ -436,25 +441,24 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 		s.setStopped()
 		return -1, rpcutil.AsConnectError(err)
 	}
-
-	generatedConfig, err := s.config.Generate(profile, &kernelv1.GenerateConfigOptions{
-		EnableAlphaConfigAdaptation: runtimeCfg.Branch == "alpha",
-		EnableMixinProcessing:       true,
-		EnableScriptProcessing:      true,
-	})
+	prepared, err := s.prepareCoreStart(ctx, profile, runtimeCfg, coreWorkingDirectory+"/"+getKernelFileName(runtimeCfg.Branch == "alpha"))
 	if err != nil {
 		s.setStopped()
-		return -1, rpcutil.AsConnectError(err)
+		return -1, err
 	}
+	return s.launchPreparedCore(ctx, profile, prepared)
+}
 
-	config.FinalizeGeneratedConfig(generatedConfig)
+func (s *Service) launchPreparedCore(ctx context.Context, profile *profilev1.Profile, prepared *preparedCoreStart) (int, error) {
+	profileID := profile.GetId()
+	runtimeCfg, generatedConfig := prepared.runtime, prepared.config
 	if err := s.config.WriteGeneratedConfig(generatedConfig); err != nil {
 		s.setStopped()
 		return -1, rpcutil.AsConnectError(err)
 	}
 
 	execResult := s.processes.ExecBackground(
-		coreWorkingDirectory+"/"+getKernelFileName(runtimeCfg.Branch == "alpha"),
+		prepared.path,
 		runtimeCfg.Args,
 		"kernelLog",
 		platform.ExecOptions{
@@ -497,7 +501,7 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 		}
 	})
 
-	if err := waitKernelAPIReadyFunc(ctx, config.CoreAPIController, s.config.ReadGeneratedSecret(), pid, 15*time.Second); err != nil {
+	if err := waitKernelAPIReadyFunc(ctx, config.CoreAPIController, config.NativeAPISecret(generatedConfig), pid, 15*time.Second); err != nil {
 		s.updateCoreState(func() { s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPING })
 		if ctx.Err() == nil {
 			s.publishCoreCrash(pid, err.Error(), "startup")
@@ -512,7 +516,7 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 		return -1, coreAPIUnavailableError(err)
 	}
 
-	if !s.completeStart(pid, profileID, profile) {
+	if !s.completeStart(pid, profileID, profile, config.NativeAPISecret(generatedConfig)) {
 		return -1, connect.NewError(connect.CodeUnavailable, fmt.Errorf("core process exited during startup"))
 	}
 
@@ -559,6 +563,9 @@ func (s *Service) RestartCore(
 	}
 	started := time.Now()
 	profileID := req.Msg.GetProfileId()
+	if req.Msg.GetProfile() != nil {
+		profileID = req.Msg.GetProfile().GetId()
+	}
 	if profileID == "" {
 		s.mu.Lock()
 		profileID = s.activeProfileID
@@ -582,7 +589,15 @@ func (s *Service) RestartCore(
 
 	s.restartOperationMu.Lock()
 	defer s.restartOperationMu.Unlock()
-	response, err := s.restartCoreOnce(ctx, profileID)
+	var err error
+	if profile := req.Msg.GetProfile(); profile != nil {
+		if profile.GetId() == "" || (req.Msg.GetProfileId() != "" && profile.GetId() != req.Msg.GetProfileId()) {
+			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("profile.id is required and must match profile_id when both are supplied"))
+		}
+		response, err = s.restartCoreWithProfileOnce(ctx, cloneProfile(profile))
+	} else {
+		response, err = s.restartCoreOnce(ctx, profileID)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -598,11 +613,40 @@ func (s *Service) restartCoreOnce(
 		return nil, rpcutil.AsConnectError(err)
 	}
 
+	return s.restartCoreWithProfileOnce(ctx, profile)
+}
+
+func (s *Service) restartCoreWithProfileOnce(ctx context.Context, profile *profilev1.Profile) (*connect.Response[kernelv1.RestartCoreResponse], error) {
+	s.mu.Lock()
+	if s.closing {
+		s.mu.Unlock()
+		return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("application is shutting down"))
+	}
+	s.operations.Add(1)
+	s.mu.Unlock()
+	defer s.operations.Done()
+	ctx, cancel := context.WithCancel(ctx)
+	stopCancellation := context.AfterFunc(s.lifecycleCtx, cancel)
+	defer func() { stopCancellation(); cancel() }()
+	runtimeCfg, err := s.loadRuntimeConfig()
+	if err != nil {
+		return nil, rpcutil.AsConnectError(err)
+	}
+	prepared, err := s.prepareCoreStart(ctx, profile, runtimeCfg, coreWorkingDirectory+"/"+getKernelFileName(runtimeCfg.Branch == "alpha"))
+	if err != nil {
+		return nil, err
+	}
+	return s.restartPreparedCore(ctx, profile, prepared)
+}
+
+func (s *Service) restartPreparedCore(ctx context.Context, profile *profilev1.Profile, prepared *preparedCoreStart) (*connect.Response[kernelv1.RestartCoreResponse], error) {
 	if _, err := s.StopCore(ctx, connect.NewRequest(&kernelv1.StopCoreRequest{})); err != nil {
 		return nil, err
 	}
-
-	pid, err := s.startCoreWithProfile(ctx, profile)
+	if err := s.setStarting(profile.GetId()); err != nil {
+		return nil, err
+	}
+	pid, err := s.launchPreparedCore(ctx, profile, prepared)
 	if err != nil {
 		return nil, err
 	}
@@ -775,55 +819,4 @@ func parsePID(raw string) (int, error) {
 		return 0, fmt.Errorf("invalid pid from core start result: %q", raw)
 	}
 	return pid, nil
-}
-
-func waitKernelAPIReady(ctx context.Context, controller, secret string, pid int, timeout time.Duration) error {
-	endpoint := "http://" + controller + "/configs"
-	client := &http.Client{Timeout: 1200 * time.Millisecond}
-	deadline := time.Now().Add(timeout)
-	var lastErr error
-	proc, _ := os.FindProcess(pid)
-
-	for {
-		if ctx.Err() != nil {
-			return ctx.Err()
-		}
-		if time.Now().After(deadline) {
-			if lastErr != nil {
-				return fmt.Errorf("timeout waiting for %s: %w", endpoint, lastErr)
-			}
-			return fmt.Errorf("timeout waiting for %s", endpoint)
-		}
-
-		if proc != nil {
-			alive, err := platform.IsProcessAlive(proc)
-			if err == nil && !alive {
-				if lastErr != nil {
-					return fmt.Errorf("core process exited before API ready: %w", lastErr)
-				}
-				return fmt.Errorf("core process %s exited before API ready", strconv.Itoa(pid))
-			}
-		}
-
-		req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
-		if err != nil {
-			return err
-		}
-		if secret != "" {
-			req.Header.Set("Authorization", "Bearer "+secret)
-		}
-
-		resp, err := client.Do(req)
-		if err == nil {
-			_ = resp.Body.Close()
-			if resp.StatusCode == http.StatusOK {
-				return nil
-			}
-			lastErr = fmt.Errorf("status %d", resp.StatusCode)
-		} else {
-			lastErr = err
-		}
-
-		time.Sleep(250 * time.Millisecond)
-	}
 }

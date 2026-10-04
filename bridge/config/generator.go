@@ -5,14 +5,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
-	"time"
 
-	"guiforcores/bridge/auth"
 	"guiforcores/bridge/storage"
 	configv1 "guiforcores/gen/profile/v1"
 
@@ -79,9 +78,8 @@ const (
 	mixinPriorityMixin = "mixin"
 	mixinPriorityGUI   = "gui"
 
-	coreAPIDefaultMode = "rule"
-
 	CoreAPIController = "127.0.0.1:20123"
+	CoreAPIServiceTag = "webui-api"
 )
 
 type invalidArgumentError struct {
@@ -161,6 +159,9 @@ func (g *configGenerator) GenerateConfig(profile *configv1.Profile) (map[string]
 	}
 	config["dns"] = dns
 
+	if err := EnforceNativeAPIConfig(config); err != nil {
+		return nil, err
+	}
 	return config, nil
 }
 
@@ -227,12 +228,6 @@ func generateLog(log *configv1.Log) map[string]any {
 }
 
 func generateExperimental(experimental *configv1.Experimental, outbounds []*configv1.Outbound) map[string]any {
-	clashAPI := map[string]any{
-		"external_controller": CoreAPIController,
-		"secret":              generateCoreAPISecret(),
-		"default_mode":        coreAPIDefaultMode,
-	}
-
 	cacheFile := map[string]any{}
 	if experimental != nil && experimental.GetCacheFile() != nil {
 		source := experimental.GetCacheFile()
@@ -246,17 +241,16 @@ func generateExperimental(experimental *configv1.Experimental, outbounds []*conf
 	}
 
 	return map[string]any{
-		"clash_api":  clashAPI,
 		"cache_file": cacheFile,
 	}
 }
 
-func generateCoreAPISecret() string {
+func generateCoreAPISecret() (string, error) {
 	buffer := make([]byte, 32)
-	if _, err := rand.Read(buffer); err != nil {
-		return auth.HashSecret(fmt.Sprintf("%d", time.Now().UnixNano()))
+	if _, err := io.ReadFull(rand.Reader, buffer); err != nil {
+		return "", fmt.Errorf("generate native API credential: %w", err)
 	}
-	return hex.EncodeToString(buffer)
+	return hex.EncodeToString(buffer), nil
 }
 
 func generateInbounds(inbounds []*configv1.Inbound, platformOS string) ([]any, error) {

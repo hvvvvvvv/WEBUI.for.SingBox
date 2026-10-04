@@ -1,6 +1,16 @@
-import { deleteConnection, getConnections, useProxy } from '@/api/kernel'
+import {
+  closeAllConnections,
+  closeConnection,
+  getFreshConnectionsSnapshot,
+  getNativeApiGeneration,
+  selectOutbound,
+  setClashMode,
+} from '@/api/kernel'
 import { RulesetFormat } from '@/enums/kernel'
+import type { Group, GroupItem } from '@/types/kernel'
 import { useAppSettingsStore, useKernelApiStore, useRulesetsStore } from '@/stores'
+import { changeModeThenClose, queueKernelAction, selectThenClose } from './nativeKernelActions'
+import { sameKernelMode } from './nativeKernelUi'
 
 export const getZoomLevel = () => {
   const el = document.querySelector('.app-zoomed') as HTMLElement | null
@@ -24,34 +34,55 @@ export const GetKernelProxy = async () => {
 }
 
 // Others
-export const handleUseProxy = async (group: any, proxy: any) => {
-  if (group.type !== 'Selector' || group.now === proxy.name) return
-  const promises: Promise<null>[] = []
-  const appSettings = useAppSettingsStore()
-  const kernelApiStore = useKernelApiStore()
-  if (appSettings.app.kernel.autoClose) {
-    const { connections } = await getConnections()
-    promises.push(
-      ...(connections || [])
-        .filter((v) => v.chains.includes(group.name))
-        .map((v) => deleteConnection(v.id)),
-    )
-  }
-  await useProxy(encodeURIComponent(group.name), proxy.name)
-  await Promise.all(promises)
-  await kernelApiStore.refreshProviderProxies()
+const guardKernelInstance = (generation: number) => {
+  if (generation !== getNativeApiGeneration()) throw new Error('Kernel instance changed')
 }
 
-export const handleChangeMode = async (mode: 'direct' | 'global' | 'rule') => {
-  const kernelApiStore = useKernelApiStore()
+export const handleUseProxy = (group: Group, proxy: GroupItem) => {
+  const generation = getNativeApiGeneration()
+  return queueKernelAction(`group:${group.tag}`, async () => {
+    guardKernelInstance(generation)
+    const kernelApiStore = useKernelApiStore()
+    const current = kernelApiStore.groups.find((item) => item.tag === group.tag)
+    if (!current?.selectable || current.selected === proxy.tag) return
+    await selectThenClose(group.tag, proxy.tag, useAppSettingsStore().app.kernel.autoClose, {
+      getSnapshot: getFreshConnectionsSnapshot,
+      select: (tag, outbound) => {
+        guardKernelInstance(generation)
+        return selectOutbound(tag, outbound)
+      },
+      close: (id) => {
+        guardKernelInstance(generation)
+        return closeConnection(id)
+      },
+    })
+    guardKernelInstance(generation)
+    await kernelApiStore.refreshProviderProxies()
+  })
+}
 
-  if (mode === kernelApiStore.config.mode) return
-
-  kernelApiStore.updateConfig('mode', mode)
-
-  const { connections } = await getConnections()
-  const promises = (connections || []).map((v) => deleteConnection(v.id))
-  await Promise.all(promises)
+export const handleChangeMode = (mode: string) => {
+  const generation = getNativeApiGeneration()
+  return queueKernelAction('mode', async () => {
+    guardKernelInstance(generation)
+    const kernelApiStore = useKernelApiStore()
+    if (sameKernelMode(mode, kernelApiStore.config.mode)) return
+    await changeModeThenClose(mode, {
+      setMode: async (value) => {
+        const status = await setClashMode(value)
+        guardKernelInstance(generation)
+        kernelApiStore.config.mode = status.currentMode
+        kernelApiStore.config.modeList = status.modeList
+        return status
+      },
+      closeAll: () => {
+        guardKernelInstance(generation)
+        return closeAllConnections()
+      },
+    })
+    guardKernelInstance(generation)
+    await kernelApiStore.refreshConfig()
+  })
 }
 
 export const addToRuleSet = async (

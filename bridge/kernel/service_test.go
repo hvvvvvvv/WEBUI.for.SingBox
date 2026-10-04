@@ -27,7 +27,7 @@ type fakeProcesses struct {
 }
 
 func (fakeProcesses) Exec(string, []string, platform.ExecOptions) platform.Result {
-	return platform.Result{Flag: true}
+	return platform.Result{Flag: true, Data: "sing-box version 1.14.2"}
 }
 func (fakeProcesses) ExecBackground(string, []string, string, platform.ExecOptions) platform.Result {
 	return platform.Result{Flag: true, Data: "1"}
@@ -76,7 +76,6 @@ func (f *fakeGenerator) Generate(profile *profilev1.Profile, _ *kernelv1.Generat
 	return map[string]any{}, nil
 }
 func (*fakeGenerator) WriteGeneratedConfig(map[string]any) error { return nil }
-func (*fakeGenerator) ReadGeneratedSecret() string               { return "" }
 
 type fakeConfig struct{ value config.AppConfig }
 
@@ -678,7 +677,7 @@ func TestStaleCoreExitDoesNotOverrideNewProcess(t *testing.T) {
 	}
 }
 
-func TestRestartStartFailureEndsInStoppedState(t *testing.T) {
+func TestRestartPreparationFailureKeepsRunningCore(t *testing.T) {
 	events := &recordingEvents{}
 	service := NewService(
 		fakeProcesses{},
@@ -708,28 +707,14 @@ func TestRestartStartFailureEndsInStoppedState(t *testing.T) {
 	if statusErr != nil {
 		t.Fatal(statusErr)
 	}
-	if response.Msg.GetStatus() != kernelv1.CoreStatus_CORE_STATUS_STOPPED || response.Msg.GetPid() != -1 {
-		t.Fatalf("core status after failed restart = %v, pid %d", response.Msg.GetStatus(), response.Msg.GetPid())
+	if response.Msg.GetStatus() != kernelv1.CoreStatus_CORE_STATUS_RUNNING || response.Msg.GetPid() != 9 {
+		t.Fatalf("core status after rejected restart = %v, pid %d", response.Msg.GetStatus(), response.Msg.GetPid())
 	}
 	states := events.coreStates()
-	wantStatuses := []kernelv1.CoreStatus{
-		kernelv1.CoreStatus_CORE_STATUS_RUNNING,
-		kernelv1.CoreStatus_CORE_STATUS_STOPPING,
-		kernelv1.CoreStatus_CORE_STATUS_STOPPED,
-		kernelv1.CoreStatus_CORE_STATUS_STARTING,
-		kernelv1.CoreStatus_CORE_STATUS_STOPPED,
-		kernelv1.CoreStatus_CORE_STATUS_STOPPED,
+	for _, state := range states {
+		assertCoreStateEvent(t, state, kernelv1.CoreStatus_CORE_STATUS_RUNNING, 9)
 	}
-	if len(states) != len(wantStatuses) {
-		t.Fatalf("core state event count = %d, want %d: %#v", len(states), len(wantStatuses), states)
-	}
-	for index, status := range wantStatuses {
-		pid := -1
-		if status == kernelv1.CoreStatus_CORE_STATUS_RUNNING {
-			pid = 9
-		}
-		assertCoreStateEvent(t, states[index], status, pid)
-	}
+
 }
 
 func TestRestartAPIReadyFailurePreservesMetadata(t *testing.T) {

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"guiforcores/bridge/logging"
@@ -91,7 +90,7 @@ func (s *Service) GenerateConfigFile(
 		return nil, asConnectError(err)
 	}
 
-	configStruct, err := structpb.NewStruct(config)
+	configStruct, err := structpb.NewStruct(RedactGeneratedConfig(config))
 	if err != nil {
 		return nil, asConnectError(fmt.Errorf("build response struct: %w", err))
 	}
@@ -144,6 +143,9 @@ func (s *Service) Generate(
 		return nil, err
 	}
 
+	if err := EnforceNativeAPIConfig(config); err != nil {
+		return nil, err
+	}
 	return config, nil
 }
 
@@ -185,21 +187,6 @@ func FinalizeGeneratedConfig(config map[string]any) {
 	cacheFile["path"] = coreGeneratedCacheFilePath
 }
 
-func (s *Service) ReadGeneratedSecret() string {
-	data, err := os.ReadFile(s.paths.Resolve(CoreConfigFilePath))
-	if err != nil || len(data) == 0 {
-		return ""
-	}
-	var root map[string]any
-	if json.Unmarshal(data, &root) != nil {
-		return ""
-	}
-	experimental, _ := root["experimental"].(map[string]any)
-	clashAPI, _ := experimental["clash_api"].(map[string]any)
-	secret, _ := clashAPI["secret"].(string)
-	return strings.TrimSpace(secret)
-}
-
 func ensureChildMap(parent map[string]any, key string) map[string]any {
 	if existing, ok := parent[key].(map[string]any); ok {
 		return existing
@@ -224,8 +211,11 @@ func (s *Service) WriteGeneratedConfig(config map[string]any) error {
 	if err := os.MkdirAll(filepath.Dir(fullPath), os.ModePerm); err != nil {
 		return fmt.Errorf("create config directory: %w", err)
 	}
-	if err := os.WriteFile(fullPath, bytes, 0644); err != nil {
+	if err := os.WriteFile(fullPath, bytes, 0600); err != nil {
 		return fmt.Errorf("write config file: %w", err)
+	}
+	if err := os.Chmod(fullPath, 0600); err != nil {
+		return fmt.Errorf("restrict config file permissions: %w", err)
 	}
 	return nil
 }

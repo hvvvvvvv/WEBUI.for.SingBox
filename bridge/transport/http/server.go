@@ -16,7 +16,6 @@ import (
 	"path"
 	"path/filepath"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
 
@@ -35,8 +34,6 @@ import (
 	"guiforcores/gen/app/v1/appv1connect"
 	"guiforcores/gen/kernel/v1/kernelv1connect"
 	"guiforcores/gen/profile/v1/profilev1connect"
-
-	"github.com/gorilla/websocket"
 )
 
 type Options struct {
@@ -62,21 +59,23 @@ type Server struct {
 	server             *http.Server
 	startedAtUnixMilli int64
 	requestSequence    atomic.Uint64
+	lifecycleContext   context.Context
+	lifecycleCancel    context.CancelFunc
 }
 
 type FlagResult = platform.Result
 
-var websocketUpgrader = websocket.Upgrader{
-	CheckOrigin: func(*http.Request) bool { return true },
-}
-
 func NewServer(options Options) (*Server, error) {
+	lifecycleContext, lifecycleCancel := context.WithCancel(context.Background())
 	server := &Server{
 		options:            options,
 		startedAtUnixMilli: time.Now().UnixMilli(),
+		lifecycleContext:   lifecycleContext,
+		lifecycleCancel:    lifecycleCancel,
 	}
 	handler, err := server.buildHandler()
 	if err != nil {
+		lifecycleCancel()
 		return nil, err
 	}
 	server.server = &http.Server{Addr: options.Address, Handler: handler}
@@ -223,6 +222,10 @@ func (w *responseRecorder) Write(data []byte) (int, error) {
 	return written, err
 }
 
+func (w *responseRecorder) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
+}
+
 func (w *responseRecorder) Flush() {
 	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
 		flusher.Flush()
@@ -244,7 +247,6 @@ func (s *Server) buildProtectedMux() *http.ServeMux {
 	})
 
 	mux.HandleFunc("/api/kernel/", s.handleKernelProxy)
-	mux.HandleFunc("/ws/kernel/", s.handleKernelWebSocketProxy)
 	s.registerAppRoutes(mux)
 	s.registerRPCRoutes(mux)
 	registerAPIRoutes(mux, s.options.Auth)
@@ -411,6 +413,7 @@ func (s *Server) Run(ctx context.Context) error {
 	}
 	go func() {
 		<-ctx.Done()
+		s.cancelRequests()
 		shutdownContext, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		_ = s.server.Shutdown(shutdownContext)
@@ -423,7 +426,14 @@ func (s *Server) Run(ctx context.Context) error {
 	return err
 }
 
+func (s *Server) cancelRequests() {
+	if s.lifecycleCancel != nil {
+		s.lifecycleCancel()
+	}
+}
+
 func (s *Server) Close(ctx context.Context) error {
+	s.cancelRequests()
 	return s.server.Shutdown(ctx)
 }
 
@@ -514,140 +524,4 @@ func apiRouteWithRequest(mux *http.ServeMux, path string, handler func(r *http.R
 		result := handler(r, args)
 		jsonResponse(w, result)
 	})
-}
-
-// handleKernelProxy proxies HTTP requests to the sing-box kernel's Clash API.
-func (s *Server) handleKernelProxy(w http.ResponseWriter, r *http.Request) {
-	kernelPath := strings.TrimPrefix(r.URL.Path, "/api/kernel")
-	if kernelPath == "" {
-		kernelPath = "/"
-	}
-
-	targetURL := "http://" + config.CoreAPIController + kernelPath
-	if r.URL.RawQuery != "" {
-		targetURL += "?" + r.URL.RawQuery
-	}
-
-	proxyReq, err := http.NewRequestWithContext(r.Context(), r.Method, targetURL, r.Body)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	if bearer := s.options.Config.ReadGeneratedSecret(); bearer != "" {
-		proxyReq.Header.Set("Authorization", "Bearer "+bearer)
-	}
-	if ct := r.Header.Get("Content-Type"); ct != "" {
-		proxyReq.Header.Set("Content-Type", ct)
-	}
-
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(proxyReq)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadGateway)
-		return
-	}
-	defer resp.Body.Close()
-
-	for k, vals := range resp.Header {
-		for _, v := range vals {
-			w.Header().Add(k, v)
-		}
-	}
-	w.WriteHeader(resp.StatusCode)
-	io.Copy(w, resp.Body)
-}
-
-// handleKernelWSProxy proxies WebSocket connections to the sing-box kernel.
-// Query params: auth (session token).
-// The remaining path after /ws/kernel is forwarded to the kernel.
-func (s *Server) handleKernelWebSocketProxy(w http.ResponseWriter, r *http.Request) {
-	started := time.Now()
-	logger := logging.FromContext(r.Context()).With("component", "websocket", "operation", "kernel_proxy", "remote_addr", r.RemoteAddr)
-	query := r.URL.Query()
-
-	// Authenticate: check auth query param
-	authToken := strings.TrimSpace(query.Get("auth"))
-	if !s.options.Auth.ValidateSession(authToken) {
-		logger.WarnContext(r.Context(), "kernel websocket unauthorized", "result", "failure")
-		http.Error(w, "Unauthorized", http.StatusUnauthorized)
-		return
-	}
-
-	kernelPath := strings.TrimPrefix(r.URL.Path, "/ws/kernel")
-	if kernelPath == "" {
-		kernelPath = "/"
-	}
-
-	upstreamParams := query
-	upstreamParams.Del("auth")
-
-	upstreamURL := "ws://" + config.CoreAPIController + kernelPath
-	if qs := upstreamParams.Encode(); qs != "" {
-		upstreamURL += "?" + qs
-	}
-
-	upstreamHeaders := http.Header{}
-	if bearer := s.options.Config.ReadGeneratedSecret(); bearer != "" {
-		upstreamHeaders.Set("Authorization", "Bearer "+bearer)
-	}
-
-	upstreamConn, _, err := websocket.DefaultDialer.Dial(upstreamURL, upstreamHeaders)
-	if err != nil {
-		logger.ErrorContext(r.Context(), "kernel websocket upstream connection failed", "url", upstreamURL, "duration", time.Since(started), "result", "failure", "error", err)
-		http.Error(w, "Failed to connect to kernel: "+err.Error(), http.StatusBadGateway)
-		return
-	}
-	defer upstreamConn.Close()
-
-	clientConn, err := websocketUpgrader.Upgrade(w, r, nil)
-	if err != nil {
-		logger.ErrorContext(r.Context(), "kernel websocket upgrade failed", "url", upstreamURL, "duration", time.Since(started), "result", "failure", "error", err)
-		return
-	}
-	defer clientConn.Close()
-	logger.DebugContext(r.Context(), "kernel websocket connected", "url", upstreamURL, "result", "success")
-	defer func() {
-		logger.DebugContext(r.Context(), "kernel websocket disconnected", "url", upstreamURL, "duration", time.Since(started), "result", "success")
-	}()
-
-	var once sync.Once
-	done := make(chan struct{})
-	closeBoth := func() { once.Do(func() { close(done) }) }
-
-	// upstream -> client
-	go func() {
-		defer closeBoth()
-		for {
-			msgType, msg, err := upstreamConn.ReadMessage()
-			if err != nil {
-				return
-			}
-			if !s.options.Auth.ValidateSessionWithoutTouch(authToken) {
-				return
-			}
-			if err := clientConn.WriteMessage(msgType, msg); err != nil {
-				return
-			}
-		}
-	}()
-
-	// client -> upstream
-	go func() {
-		defer closeBoth()
-		for {
-			msgType, msg, err := clientConn.ReadMessage()
-			if err != nil {
-				return
-			}
-			if !s.options.Auth.ValidateSessionWithoutTouch(authToken) {
-				return
-			}
-			if err := upstreamConn.WriteMessage(msgType, msg); err != nil {
-				return
-			}
-		}
-	}()
-
-	<-done
 }

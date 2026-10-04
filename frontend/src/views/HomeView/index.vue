@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { ref, watch, useTemplateRef } from 'vue'
+import { ref, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import logo from '@/assets/logo'
 import { ControllerCloseMode } from '@/enums/app'
-import { useAppConfigStore, useAppSettingsStore, useProfilesStore, useKernelApiStore } from '@/stores'
+import {
+  useAppConfigStore,
+  useAppSettingsStore,
+  useProfilesStore,
+  useKernelApiStore,
+} from '@/stores'
 import { APP_TITLE, debounce, message } from '@/utils'
 
 import { useModal } from '@/components/Modal'
@@ -74,14 +79,6 @@ const onMouseWheel = (e: WheelEvent) => {
 
   resetScrollEventCount()
 }
-
-watch(showController, (v) => {
-  if (v) {
-    kernelApiStore.refreshProviderProxies()
-  } else {
-    kernelApiStore.refreshConfig()
-  }
-})
 </script>
 
 <template>

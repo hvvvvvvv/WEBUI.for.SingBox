@@ -1,130 +1,139 @@
 <script lang="ts" setup>
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { deleteConnection } from '@/api/kernel'
+import { closeConnection } from '@/api/kernel'
 import { DraggableOptions } from '@/constant/app'
 import { DefaultConnections } from '@/constant/kernel'
 import { useBool } from '@/hooks'
 import { useAppSettingsStore, useKernelApiStore } from '@/stores'
 import { addToRuleSet, formatBytes, formatRelativeTime, message, picker } from '@/utils'
-
-import type { PickerItem } from '@/components/Picker/index.vue'
+import {
+  compareBigInt,
+  connectionRuleOptions,
+  stringifyNative,
+  freezeConnectionSnapshot,
+} from '@/utils/nativeKernelUi'
 import type { Column } from '@/components/Table/index.vue'
 import type { Menu } from '@/types/app'
-import type { CoreApiConnectionsData } from '@/types/kernel'
+import type { NativeConnectionRow, NativeConnectionSnapshot } from '@/types/kernel'
 
-type TrafficCacheType = { up: number; down: number }
-const TrafficCache: Record<string, TrafficCacheType> = {}
-
+type DisplayRow = NativeConnectionRow & { id: string }
 const appSettingsStore = useAppSettingsStore()
+const kernelApiStore = useKernelApiStore()
+const { t } = useI18n()
+const details = ref('')
+const isActive = ref(true)
+const keywords = ref('')
+const closing = ref(false)
+const [showDetails, toggleDetails] = useBool(false)
+const [showSettings, toggleSettings] = useBool(false)
+const [isPause, togglePause] = useBool(false)
+const latest = ref<NativeConnectionSnapshot>({ active: [], closed: [] })
+const displayed = ref<NativeConnectionSnapshot>({ active: [], closed: [] })
+watch(isPause, (paused) => {
+  if (!paused) displayed.value = freezeConnectionSnapshot(latest.value)
+})
 
+const visible = (key: string) => !appSettingsStore.app.connections.visibility[key]
 const columns = computed(() =>
   (
     [
       {
         title: 'home.connections.type',
+        key: 'connection.inboundType',
         align: 'center',
-        key: 'metadata.type',
-        hidden: !appSettingsStore.app.connections.visibility['metadata.type'],
-        sort: (a, b) => b.metadata.type.localeCompare(a.metadata.type),
-        customRender: ({ value, record }) => {
-          return value + '(' + record.metadata.network + ')'
-        },
+        hidden: visible('connection.inboundType'),
+        sort: (a, b) => a.connection.inboundType.localeCompare(b.connection.inboundType),
+        customRender: ({ record }) =>
+          `${record.connection.inboundType} (${record.connection.network})`,
       },
       {
         title: 'home.connections.processPath',
-        key: 'metadata.processPath',
-        hidden: !appSettingsStore.app.connections.visibility['metadata.processPath'],
-        sort: (a, b) => b.metadata.processPath.localeCompare(a.metadata.processPath),
+        key: 'connection.processInfo.processPath',
+        hidden: visible('connection.processInfo.processPath'),
+        sort: (a, b) =>
+          (a.connection.processInfo?.processPath || '').localeCompare(
+            b.connection.processInfo?.processPath || '',
+          ),
       },
       {
         title: 'home.connections.host',
-        key: 'metadata.host',
-        hidden: !appSettingsStore.app.connections.visibility['metadata.host'],
-        sort: (a, b) => b.metadata.host.localeCompare(a.metadata.host),
-        customRender: ({ value, record }) => {
-          return value || record.metadata.destinationIP
-        },
+        key: 'connection.domain',
+        hidden: visible('connection.domain'),
+        sort: (a, b) => a.connection.domain.localeCompare(b.connection.domain),
+        customRender: ({ value, record }) => value || record.connection.destination,
       },
       {
         title: 'home.connections.sourceIP',
+        key: 'connection.source',
         align: 'center',
-        key: 'metadata.sourceIP',
-        hidden: !appSettingsStore.app.connections.visibility['metadata.sourceIP'],
-        sort: (a, b) => b.metadata.sourceIP.localeCompare(a.metadata.sourceIP),
-        customRender: ({ value, record }) => {
-          return value + ':' + record.metadata.sourcePort
-        },
+        hidden: visible('connection.source'),
+        sort: (a, b) => a.connection.source.localeCompare(b.connection.source),
       },
       {
         title: 'home.connections.destinationIP',
+        key: 'connection.destination',
         align: 'center',
-        key: 'metadata.destinationIP',
-        hidden: !appSettingsStore.app.connections.visibility['metadata.destinationIP'],
-        sort: (a, b) => b.metadata.destinationIP.localeCompare(a.metadata.destinationIP),
-        customRender: ({ value, record }) => {
-          return value + ':' + record.metadata.destinationPort
-        },
+        hidden: visible('connection.destination'),
+        sort: (a, b) => a.connection.destination.localeCompare(b.connection.destination),
       },
       {
         title: 'home.connections.rule',
+        key: 'connection.rule',
         align: 'center',
-        key: 'rule',
-        hidden: !appSettingsStore.app.connections.visibility['rule'],
-        sort: (a, b) => b.rule.localeCompare(a.rule),
-        customRender: ({ value, record }) => {
-          return value + (record.rulePayload ? '::' + record.rulePayload : '')
-        },
+        hidden: visible('connection.rule'),
+        sort: (a, b) => a.connection.rule.localeCompare(b.connection.rule),
       },
       {
         title: 'home.connections.chains',
-        key: 'chains',
-        hidden: !appSettingsStore.app.connections.visibility['chains'],
-        sort: (a, b) => b.chains[0].localeCompare(a.chains[0]),
+        key: 'connection.chainList',
+        hidden: visible('connection.chainList'),
+        sort: (a, b) =>
+          a.connection.chainList.join(' / ').localeCompare(b.connection.chainList.join(' / ')),
         customRender: ({ value }) => value.slice().reverse().join(' :: '),
       },
       {
         title: 'home.connections.uploadSpeed',
+        key: 'uplinkBps',
         align: 'center',
-        key: 'up',
         minWidth: '90px',
-        hidden: !appSettingsStore.app.connections.visibility['up'],
-        sort: (a, b) => b.upload - b.up - (a.upload - a.up),
-        customRender: ({ value, record }) => formatBytes(record.upload - value) + '/s',
+        hidden: visible('uplinkBps'),
+        sort: (a, b) => a.uplinkBps - b.uplinkBps,
+        customRender: ({ value }) => formatBytes(value) + '/s',
       },
       {
         title: 'home.connections.downSpeed',
+        key: 'downlinkBps',
         align: 'center',
-        key: 'down',
         minWidth: '90px',
-        hidden: !appSettingsStore.app.connections.visibility['down'],
-        sort: (a, b) => b.download - b.down - (a.download - a.down),
-        customRender: ({ value, record }) => formatBytes(record.download - value) + '/s',
+        hidden: visible('downlinkBps'),
+        sort: (a, b) => a.downlinkBps - b.downlinkBps,
+        customRender: ({ value }) => formatBytes(value) + '/s',
       },
       {
         title: 'home.connections.upload',
+        key: 'uplinkTotal',
         align: 'center',
-        key: 'upload',
-        hidden: !appSettingsStore.app.connections.visibility['upload'],
-        sort: (a, b) => b.upload - a.upload,
+        hidden: visible('uplinkTotal'),
+        sort: (a, b) => compareBigInt(a.uplinkTotal, b.uplinkTotal),
         customRender: ({ value }) => formatBytes(value),
       },
       {
         title: 'home.connections.download',
+        key: 'downlinkTotal',
         align: 'center',
-        key: 'download',
-        hidden: !appSettingsStore.app.connections.visibility['download'],
-        sort: (a, b) => b.download - a.download,
+        hidden: visible('downlinkTotal'),
+        sort: (a, b) => compareBigInt(a.downlinkTotal, b.downlinkTotal),
         customRender: ({ value }) => formatBytes(value),
       },
       {
         title: 'home.connections.time',
+        key: 'connection.createdAt',
         align: 'center',
-        key: 'start',
-        hidden: !appSettingsStore.app.connections.visibility['start'],
-        sort: (a, b) => new Date(a.start).getTime() - new Date(b.start).getTime(),
-        customRender: ({ value }) => formatRelativeTime(value),
+        hidden: visible('connection.createdAt'),
+        sort: (a, b) => compareBigInt(a.connection.createdAt, b.connection.createdAt),
+        customRender: ({ value }) => formatRelativeTime(Number(value)),
       },
     ] as Column[]
   ).sort(
@@ -133,32 +142,53 @@ const columns = computed(() =>
       appSettingsStore.app.connections.order.indexOf(b.key),
   ),
 )
-
-const columnTitleMap = computed(() => {
-  const map: Record<string, string | undefined> = {}
-  appSettingsStore.app.connections.order.forEach(
-    (field) => (map[field] = columns.value.find((column) => column.key === field)?.title),
-  )
-  return map
+const columnTitleMap = computed(() =>
+  Object.fromEntries(columns.value.map((column) => [column.key, column.title])),
+)
+const filteredConnections = computed<DisplayRow[]>(() => {
+  const search = keywords.value.toLowerCase()
+  return (isActive.value ? displayed.value.active : displayed.value.closed)
+    .filter((row) => {
+      const connection = row.connection
+      return (
+        !search ||
+        [
+          connection.inbound,
+          connection.inboundType,
+          connection.network,
+          connection.source,
+          connection.destination,
+          connection.domain,
+          connection.protocol,
+          connection.user,
+          connection.rule,
+          connection.outbound,
+          ...connection.chainList,
+          connection.processInfo?.processPath,
+          connection.processInfo?.userName,
+          ...(connection.processInfo?.packageNames || []),
+        ].some((value) => value?.toLowerCase().includes(search))
+      )
+    })
+    .map((row) => ({ ...row, id: row.connection.id }))
 })
-
+const activeIds = () => new Set(latest.value.active.map((row) => row.connection.id))
 const menu: Menu[] = [
   {
     label: 'common.details',
-    handler: (record: Record<string, any>) => {
-      details.value = JSON.stringify(record, null, 2)
+    handler: (row: DisplayRow) => {
+      details.value = stringifyNative(row)
       toggleDetails()
     },
   },
   {
     label: 'home.connections.close',
-    handler: async (record: Record<string, any>) => {
-      if (!isActive.value) return
+    handler: async (row: DisplayRow) => {
+      if (!isActive.value || !activeIds().has(row.id)) return
       try {
-        await deleteConnection(record.id)
+        await closeConnection(row.id)
       } catch (error: any) {
-        console.log(error)
-        message.error(error)
+        message.error(error.message || error)
       }
     },
   },
@@ -168,123 +198,63 @@ const menu: Menu[] = [
       ['home.connections.addToProxy', 'proxy'],
       ['home.connections.addToReject', 'reject'],
     ] as const
-  ).map(([label, ruleset]) => {
-    return {
-      label,
-      handler: async (record: Record<string, any>) => {
-        const options: PickerItem<Record<string, any>[]>[] = []
-        if (record.metadata.host) {
-          options.push({
-            label: t('kernel.rules.type.domain'),
-            value: { domain: record.metadata.host } as any,
-            description: record.metadata.host,
-          })
-          const domain_suffix = '.' + record.metadata.host.split('.').slice(1).join('.')
-          options.push({
-            label: t('kernel.rules.type.domain_suffix'),
-            value: {
-              domain_suffix: domain_suffix,
-            } as any,
-            description: domain_suffix,
-          })
-        }
-        if (record.metadata.destinationIP) {
-          options.push({
-            label: t('kernel.rules.type.ip_cidr'),
-            value: { ip_cidr: record.metadata.destinationIP + '/32' } as any,
-            description: record.metadata.destinationIP,
-          })
-        }
-        if (record.metadata.processPath) {
-          options.push({
-            label: t('kernel.rules.type.process_path'),
-            value: { process_path: record.metadata.processPath } as any,
-            description: record.metadata.processPath,
-          })
-        }
+  ).map(([label, ruleset]) => ({
+    label,
+    handler: async (row: DisplayRow) => {
+      const options = connectionRuleOptions(row.connection).map(({ type, value }) => ({
+        label: t(`kernel.rules.type.${type}`),
+        value: { [type]: value },
+        description: value,
+      }))
+      if (!options.length) {
+        message.error('Not Matched')
+        return
+      }
+      try {
         const payloads = await picker.multi('rulesets.selectRuleType', options)
-        try {
-          await addToRuleSet(ruleset, payloads)
-          message.success('common.success')
-        } catch (error: any) {
-          message.error(error)
-          console.log(error)
-        }
-      },
-    }
-  }),
+        await addToRuleSet(ruleset, payloads)
+        message.success('common.success')
+      } catch (error: any) {
+        message.error(error.message || error)
+      }
+    },
+  })),
 ]
-
-const details = ref()
-const isActive = ref(true)
-const keywords = ref('')
-const dataSource = ref<(CoreApiConnectionsData['connections'][0] & TrafficCacheType)[]>([])
-const disconnectedData = ref<CoreApiConnectionsData['connections']>([])
-const [showDetails, toggleDetails] = useBool(false)
-const [showSettings, toggleSettings] = useBool(false)
-const [isPause, togglePause] = useBool(false)
-const { t } = useI18n()
-const kernelApiStore = useKernelApiStore()
-
-const filteredConnections = computed(() => {
-  if (!keywords.value) return isActive.value ? dataSource.value : disconnectedData.value
-  return (isActive.value ? dataSource.value : disconnectedData.value).filter((connection) =>
-    Object.values(connection.metadata).some((v) =>
-      String(v).toLocaleLowerCase().includes(keywords.value.toLocaleLowerCase()),
-    ),
-  )
-})
-
 const handleCloseAll = async () => {
+  if (closing.value || !isActive.value) return
+  const live = activeIds()
+  // Preserve the displayed filter and paused snapshot scope; never close newly hidden rows.
+  const ids = filteredConnections.value.map((row) => row.id).filter((id) => live.has(id))
+  closing.value = true
   try {
-    await Promise.all(
-      filteredConnections.value.map((connection) => deleteConnection(connection.id)),
-    )
-    disconnectedData.value.push(...filteredConnections.value)
-    dataSource.value = dataSource.value.filter(
-      (connection) => !filteredConnections.value.find((c) => c.id === connection.id),
-    )
+    await Promise.all(ids.map(closeConnection))
   } catch (error: any) {
     message.error(error.message || error)
+  } finally {
+    closing.value = false
   }
 }
-
 const handleClearClosedConns = () => {
-  disconnectedData.value.splice(0)
+  kernelApiStore.clearClosedConnections()
+  displayed.value.closed = []
 }
-
 const handleResetConnections = () => {
   appSettingsStore.app.connections = DefaultConnections()
   message.success('common.success')
 }
-
-const unregisterConnectionsHandler = kernelApiStore.onConnections((data) => {
-  if (isPause.value) return
-  const connections = data.connections || []
-
-  dataSource.value.forEach((connection) => {
-    // Record Disconnected Connections
-    const exist = connections.some((v) => v.id === connection.id)
-    !exist && disconnectedData.value.push(connection)
-  })
-
-  dataSource.value = connections.map((connection) => {
-    // Record Previous Traffic Information
-    const result = { ...connection, up: 0, down: 0 }
-    const cache = TrafficCache[connection.id]
-    result.up = cache?.up || connection.upload
-    result.down = cache?.down || connection.download
-    TrafficCache[connection.id] = {
-      down: connection.download,
-      up: connection.upload,
-    }
-    return result
-  })
+const unregisterConnectionsHandler = kernelApiStore.onConnections((snapshot) => {
+  latest.value = snapshot
+  if (!isPause.value) displayed.value = freezeConnectionSnapshot(snapshot)
 })
-
-onUnmounted(() => {
-  unregisterConnectionsHandler()
-})
+watch(
+  () => kernelApiStore.pid,
+  () => {
+    latest.value = { active: [], closed: [] }
+    displayed.value = { active: [], closed: [] }
+  },
+  { flush: 'sync' },
+)
+onUnmounted(unregisterConnectionsHandler)
 </script>
 
 <template>
@@ -312,6 +282,7 @@ onUnmounted(() => {
         icon="close"
         size="small"
         type="text"
+        :loading="closing"
         @click="handleCloseAll"
       />
       <Button
@@ -329,7 +300,7 @@ onUnmounted(() => {
       :columns="columns"
       :menu="menu"
       :data-source="filteredConnections"
-      sort="start"
+      sort="connection.createdAt"
     />
   </div>
 

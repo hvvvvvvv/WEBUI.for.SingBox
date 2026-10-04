@@ -1,200 +1,119 @@
 <script setup lang="ts">
-import { ref, computed, onActivated } from 'vue'
+import { ref, computed, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { getProxyDelay } from '@/api/kernel'
 import {
   ControllerCloseModeOptions,
   DefaultCardColumns,
-  DefaultConcurrencyLimit,
   DefaultControllerSensitivity,
-  DefaultTestTimeout,
-  DefaultTestURL,
 } from '@/constant/app'
 import { ControllerCloseMode } from '@/enums/app'
+import type { Group, GroupItem } from '@/types/kernel'
 import { useBool } from '@/hooks'
+import { useNativeUrlTest } from '@/hooks/useNativeUrlTest'
 import { useAppSettingsStore, useKernelApiStore, useProfilesStore } from '@/stores'
-import {
-  ignoredError,
-  sleep,
-  handleUseProxy,
-  message,
-  createAsyncPool,
-  buildSmartRegExp,
-} from '@/utils'
+import { handleUseProxy, message, buildSmartRegExp } from '@/utils'
 
 const expandedSet = ref<Set<string>>(new Set())
-const loadingSet = ref<Set<string>>(new Set())
 const filterKeywordsMap = ref<Record<string, string>>({})
-
 const loading = ref(false)
-
 const { t } = useI18n()
 const [showMoreSettings, toggleMoreSettings] = useBool(false)
 const appSettings = useAppSettingsStore()
 const kernelApiStore = useKernelApiStore()
 const profilesStore = useProfilesStore()
+const unregisterGroups = kernelApiStore.subscribeGroups()
+onUnmounted(unregisterGroups)
+const { start: startDelay, isLoading } = useNativeUrlTest({
+  groups: () => kernelApiStore.groups,
+  outbounds: () => kernelApiStore.outbounds,
+  pid: () => kernelApiStore.pid,
+  running: () => kernelApiStore.running,
+  onTimeout: ({ tag, isGroup, remainingCount }) => {
+    message.warn(
+      t(isGroup ? 'home.controller.groupTestTimeout' : 'home.controller.testTimeout', {
+        tag,
+        count: remainingCount,
+      }),
+    )
+  },
+})
 
 const groups = computed(() => {
-  const { proxies } = kernelApiStore
-  const iconMapping = (profilesStore.currentProfile?.outbounds || []).reduce((p, c) => {
-    p[c.tag] = c.icon
-    return p
-  }, {} as Recordable<string>)
-  const hiddenList = (profilesStore.currentProfile?.outbounds || []).flatMap((v) =>
-    v.hidden ? v.tag : [],
-  )
-  return Object.values(proxies)
-    .filter(
-      (v) =>
-        ['Selector', 'URLTest'].includes(v.type) &&
-        v.name !== 'GLOBAL' &&
-        !hiddenList.includes(v.name),
-    )
-    .concat(proxies.GLOBAL || [])
+  const profileOutbounds = profilesStore.currentProfile?.outbounds || []
+  const nativeGroups = new Map(kernelApiStore.groups.map((group) => [group.tag, group]))
+  return kernelApiStore.groups
+    .filter((group) => !profileOutbounds.some((item) => item.tag === group.tag && item.hidden))
     .map((group) => {
-      const all = (group.all || [])
-        .filter((proxy) => {
-          const history = proxies[proxy]?.history || []
-          const alive = (history[history.length - 1]?.delay ?? 0) > 0
-          const condition1 =
+      const items = group.items
+        .filter((item) => {
+          const visible =
             appSettings.app.kernel.unAvailable ||
-            ['direct', 'block'].includes(proxy) ||
-            proxies[proxy]?.all ||
-            alive
-          const keywords = filterKeywordsMap.value[group.name]
-          const condition2 = keywords ? buildSmartRegExp(keywords, 'i').test(proxy) : true
-          return condition1 && condition2
+            ['direct', 'block', 'reject'].includes(item.type) ||
+            nativeGroups.has(item.tag) ||
+            isLoading(item.tag) ||
+            item.urlTestDelay > 0
+          const keywords = filterKeywordsMap.value[group.tag]
+          return visible && (!keywords || buildSmartRegExp(keywords, 'i').test(item.tag))
         })
-        .map((proxy) => {
-          const history = proxies[proxy]?.history || []
-          const delay = history[history.length - 1]?.delay || 0
-          return { ...proxies[proxy]!, delay }
-        })
+        .slice()
         .sort((a, b) => {
-          if (!appSettings.app.kernel.sortByDelay || a.delay === b.delay) return 0
-          if (!a.delay) return 1
-          if (!b.delay) return -1
-          return a.delay - b.delay
+          if (!appSettings.app.kernel.sortByDelay || a.urlTestDelay === b.urlTestDelay) return 0
+          if (!a.urlTestDelay) return 1
+          if (!b.urlTestDelay) return -1
+          return a.urlTestDelay - b.urlTestDelay
         })
-
-      const chains = [group.now]
-      let tmp = proxies[group.now]
-      while (tmp) {
-        tmp.now && chains.push(tmp.now)
-        tmp = proxies[tmp.now]
+      const chains: string[] = []
+      const visited = new Set([group.tag])
+      let selected = group.selected
+      while (selected && !visited.has(selected)) {
+        visited.add(selected)
+        chains.push(selected)
+        selected = nativeGroups.get(selected)?.selected || ''
       }
-      return { ...group, all, chains, icon: iconMapping[group.name] }
+      return {
+        ...group,
+        items,
+        chains,
+        icon: profileOutbounds.find((item) => item.tag === group.tag)?.icon,
+      }
     })
 })
 
-const useProxyWithCatchError = (group: any, proxy: any) => {
-  handleUseProxy(group, proxy).catch((err: any) => message.error(err.message || err))
+const useProxyWithCatchError = (group: Group, proxy: GroupItem) => {
+  handleUseProxy(group, proxy).catch((error: any) => message.error(error.message || error))
 }
-
-const toggleExpanded = (group: string) => {
-  if (expandedSet.value.has(group)) {
-    expandedSet.value.delete(group)
-  } else {
-    expandedSet.value.add(group)
-  }
+const toggleExpanded = (tag: string) => {
+  if (expandedSet.value.has(tag)) expandedSet.value.delete(tag)
+  else expandedSet.value.add(tag)
 }
-
-const expandAll = () => groups.value.forEach(({ name }) => expandedSet.value.add(name))
-
+const expandAll = () => groups.value.forEach(({ tag }) => expandedSet.value.add(tag))
 const collapseAll = () => expandedSet.value.clear()
+const isExpanded = (tag: string) => expandedSet.value.has(tag)
+const isFiltered = (tag: string) => filterKeywordsMap.value[tag]
 
-const isExpanded = (group: string) => expandedSet.value.has(group)
-
-const isLoading = (group: string) => loadingSet.value.has(group)
-
-const isFiltered = (group: string) => filterKeywordsMap.value[group]
-
-const handleGroupDelay = async (group: string) => {
-  const _group = kernelApiStore.proxies[group]
-  if (_group) {
-    let index = 0
-    let success = 0
-    let failure = 0
-
-    const delayTest = async (proxy: string) => {
-      index += 1
-      update(`Testing... ${index} / ${_group.all.length}, success: ${success} failure: ${failure}`)
-      const _proxy = kernelApiStore.proxies[proxy]
-      try {
-        loadingSet.value.add(proxy)
-        const { delay = 0 } = await getProxyDelay(
-          encodeURIComponent(proxy),
-          appSettings.app.kernel.testUrl || DefaultTestURL,
-          appSettings.app.kernel.testTimeout || DefaultTestTimeout,
-        )
-        success += 1
-        _proxy && _proxy.history.push({ delay })
-      } catch {
-        failure += 1
-        _proxy && _proxy.history.push({ delay: 0 })
-      }
-      update(`Testing... ${index} / ${_group.all.length}, success: ${success} failure: ${failure}`)
-      loadingSet.value.delete(proxy)
-    }
-
-    loadingSet.value.add(group)
-    const { run, controller } = createAsyncPool(
-      appSettings.app.kernel.concurrencyLimit || DefaultConcurrencyLimit,
-      _group.all,
-      delayTest,
-    )
-    const {
-      update,
-      destroy,
-      success: msgSuccess,
-    } = message.info('Testing...', 99999, () => {
-      controller.cancel()
-      message.warn('common.canceled')
-    })
-    await run()
-    loadingSet.value.delete(group)
-    msgSuccess(
-      `Completed. ${index} / ${_group.all.length}, success: ${success} failure: ${failure}`,
-    )
-    await sleep(3000)
-    destroy()
-  }
-}
-
-const handleProxyDelay = async (proxy: string) => {
-  loadingSet.value.add(proxy)
+const handleDelay = async (tag: string) => {
   try {
-    const { delay = 0 } = await getProxyDelay(
-      encodeURIComponent(proxy),
-      appSettings.app.kernel.testUrl || DefaultTestURL,
-      appSettings.app.kernel.testTimeout || DefaultTestTimeout,
-    )
-    const _proxy = kernelApiStore.proxies[proxy]
-    _proxy && _proxy.history.push({ delay })
+    await startDelay(tag)
   } catch (error: any) {
-    message.error(error + ': ' + proxy)
+    message.error(error.message || error)
   }
-  loadingSet.value.delete(proxy)
 }
-
 const handleRefresh = async () => {
+  if (loading.value) return
   loading.value = true
-  await ignoredError(kernelApiStore.refreshConfig)
-  await ignoredError(kernelApiStore.refreshProviderProxies)
-  await sleep(100)
-  loading.value = false
-}
-
-const locateGroup = (group: any, chain: string) => {
-  collapseAll()
-  if (kernelApiStore.proxies[chain]?.all) {
-    toggleExpanded(kernelApiStore.proxies[chain].name)
-  } else {
-    toggleExpanded(group.name)
+  try {
+    await Promise.all([kernelApiStore.refreshConfig(), kernelApiStore.refreshProviderProxies()])
+  } catch (error: any) {
+    message.error(error.message || error)
+  } finally {
+    loading.value = false
   }
 }
-
+const locateGroup = (group: Group, chain: string) => {
+  collapseAll()
+  toggleExpanded(kernelApiStore.groups.some((item) => item.tag === chain) ? chain : group.tag)
+}
 const delayColor = (delay = 0) => {
   if (delay === 0) return 'var(--level-0-color)'
   if (delay < 500) return 'var(--level-1-color)'
@@ -202,20 +121,12 @@ const delayColor = (delay = 0) => {
   if (delay < 1500) return 'var(--level-3-color)'
   return 'var(--level-4-color)'
 }
-
 const handleResetMoreSettings = () => {
-  appSettings.app.kernel.testUrl = DefaultTestURL
-  appSettings.app.kernel.testTimeout = DefaultTestTimeout
-  appSettings.app.kernel.concurrencyLimit = DefaultConcurrencyLimit
   appSettings.app.kernel.controllerCloseMode = ControllerCloseMode.All
   appSettings.app.kernel.controllerSensitivity = DefaultControllerSensitivity
   appSettings.app.kernel.cardColumns = DefaultCardColumns
   message.success('common.success')
 }
-
-onActivated(() => {
-  kernelApiStore.refreshProviderProxies()
-})
 </script>
 
 <template>
@@ -247,15 +158,15 @@ onActivated(() => {
       </div>
     </div>
   </div>
-  <div v-for="group in groups" :key="group.name" class="m-8">
+  <div v-for="group in groups" :key="group.tag" class="m-8">
     <div
       class="sticky z-2 flex gap-8 items-center p-8 rounded-8 backdrop-blur-sm"
       style="top: 52px; background-color: var(--card-bg)"
-      @click="toggleExpanded(group.name)"
+      @click="toggleExpanded(group.tag)"
     >
       <div class="text-14 flex items-center gap-2 text-nowrap overflow-hidden">
         <img v-if="group.icon" :src="group.icon" class="w-24 h-24 mr-4" draggable="false" />
-        <span class="font-bold text-18">{{ group.name }}</span>
+        <span class="font-bold text-18">{{ group.tag }}</span>
         <span class="mx-8">
           {{ group.type }}
         </span>
@@ -269,7 +180,7 @@ onActivated(() => {
       </div>
       <div class="ml-auto flex items-center" @click.stop>
         <Input
-          v-model="filterKeywordsMap[group.name]"
+          v-model="filterKeywordsMap[group.tag]"
           :placeholder="t('common.keywords')"
           editable
           clearable
@@ -278,20 +189,20 @@ onActivated(() => {
             <Button
               type="text"
               icon="filter"
-              :icon-color="isFiltered(group.name) ? 'var(--primary-color)' : ''"
+              :icon-color="isFiltered(group.tag) ? 'var(--primary-color)' : ''"
             />
           </template>
         </Input>
         <Button
           v-tips="'home.overview.delayTest'"
-          :loading="isLoading(group.name)"
+          :loading="isLoading(group.tag)"
           icon="speedTest"
           type="text"
-          @click="handleGroupDelay(group.name)"
+          @click="handleDelay(group.tag)"
         />
-        <Button type="text" @click="toggleExpanded(group.name)">
+        <Button type="text" @click="toggleExpanded(group.tag)">
           <Icon
-            :class="{ 'action-expand-expanded': isExpanded(group.name) }"
+            :class="{ 'action-expand-expanded': isExpanded(group.tag) }"
             class="action-expand origin-center duration-200"
             icon="arrowDown"
           />
@@ -299,47 +210,47 @@ onActivated(() => {
       </div>
     </div>
     <Transition name="expand">
-      <div v-if="isExpanded(group.name)" class="py-8 px-4">
-        <Empty v-if="group.all.length === 0" />
+      <div v-if="isExpanded(group.tag)" class="py-8 px-4">
+        <Empty v-if="group.items.length === 0" />
         <div
           v-else-if="appSettings.app.kernel.cardMode"
           :class="`grid-cols-${appSettings.app.kernel.cardColumns}`"
           class="grid gap-8"
         >
           <Card
-            v-for="proxy in group.all"
-            :key="proxy.name"
-            :title="proxy.name"
-            :selected="proxy.name === group.now"
-            class="cursor-pointer"
+            v-for="proxy in group.items"
+            :key="proxy.tag"
+            :title="proxy.tag"
+            :selected="proxy.tag === group.selected"
+            :class="group.selectable ? 'cursor-pointer' : ''"
             @click="useProxyWithCatchError(group, proxy)"
           >
             <Button
-              :style="{ color: delayColor(proxy.delay) }"
-              :loading="isLoading(proxy.name)"
+              :style="{ color: delayColor(proxy.urlTestDelay) }"
+              :loading="isLoading(proxy.tag)"
               type="text"
               size="small"
               style="margin-left: -2px; padding-left: 2px"
-              @click.stop="handleProxyDelay(proxy.name)"
+              @click.stop="handleDelay(proxy.tag)"
             >
               <div class="text-12">
-                {{ proxy.delay && proxy.delay + 'ms' }}
+                {{ proxy.urlTestDelay && proxy.urlTestDelay + 'ms' }}
               </div>
             </Button>
-            <div class="text-12 my-2">{{ proxy.type }} {{ proxy.udp ? ':: udp' : '' }}</div>
+            <div class="text-12 my-2">{{ proxy.type }}</div>
           </Card>
         </div>
         <div v-else class="grid grid-cols-32 gap-8">
           <div
-            v-for="proxy in group.all"
-            :key="proxy.name"
-            v-tips.fast="proxy.name"
-            :style="{ background: delayColor(proxy.delay) }"
-            :class="proxy.name === group.now ? 'rounded-full shadow' : ''"
+            v-for="proxy in group.items"
+            :key="proxy.tag"
+            v-tips.fast="proxy.tag"
+            :style="{ background: delayColor(proxy.urlTestDelay) }"
+            :class="proxy.tag === group.selected ? 'rounded-full shadow' : ''"
             class="w-12 h-12 rounded-4 flex items-center justify-center"
             @click="useProxyWithCatchError(group, proxy)"
           >
-            <Icon v-if="isLoading(proxy.name)" icon="loading" :size="12" class="rotation" />
+            <Icon v-if="isLoading(proxy.tag)" icon="loading" :size="12" class="rotation" />
           </div>
         </div>
       </div>
@@ -358,39 +269,6 @@ onActivated(() => {
         {{ t('common.reset') }}
       </Button>
     </template>
-
-    <div class="form-item">
-      {{ t('home.controller.delay') }}
-      <Input
-        v-model="appSettings.app.kernel.testUrl"
-        :placeholder="DefaultTestURL"
-        editable
-        clearable
-      />
-    </div>
-
-    <div class="form-item">
-      {{ t('home.controller.timeout') }}
-      <Input
-        v-model="appSettings.app.kernel.testTimeout"
-        :placeholder="String(DefaultTestTimeout)"
-        type="number"
-        editable
-        clearable
-      />
-    </div>
-
-    <div class="form-item">
-      {{ t('home.controller.concurrencyLimit') }}
-      <Input
-        v-model="appSettings.app.kernel.concurrencyLimit"
-        :min="1"
-        :max="50"
-        type="number"
-        editable
-        clearable
-      />
-    </div>
 
     <div class="form-item">
       {{ t('home.controller.closeMode.name') }}

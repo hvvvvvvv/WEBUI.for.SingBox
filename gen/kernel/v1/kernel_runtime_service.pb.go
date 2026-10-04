@@ -274,6 +274,7 @@ func (*StopCoreResponse) Descriptor() ([]byte, []int) {
 type RestartCoreRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ProfileId     string                 `protobuf:"bytes,1,opt,name=profile_id,json=profileId,proto3" json:"profile_id,omitempty"`
+	Profile       *v1.Profile            `protobuf:"bytes,2,opt,name=profile,proto3" json:"profile,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -313,6 +314,13 @@ func (x *RestartCoreRequest) GetProfileId() string {
 		return x.ProfileId
 	}
 	return ""
+}
+
+func (x *RestartCoreRequest) GetProfile() *v1.Profile {
+	if x != nil {
+		return x.Profile
+	}
+	return nil
 }
 
 type RestartCoreResponse struct {
@@ -1246,10 +1254,11 @@ const file_kernel_v1_kernel_runtime_service_proto_rawDesc = "" +
 	"\x1cStartCoreWithProfileResponse\x12\x10\n" +
 	"\x03pid\x18\x01 \x01(\x05R\x03pid\"\x11\n" +
 	"\x0fStopCoreRequest\"\x12\n" +
-	"\x10StopCoreResponse\"3\n" +
+	"\x10StopCoreResponse\"b\n" +
 	"\x12RestartCoreRequest\x12\x1d\n" +
 	"\n" +
-	"profile_id\x18\x01 \x01(\tR\tprofileId\"'\n" +
+	"profile_id\x18\x01 \x01(\tR\tprofileId\x12-\n" +
+	"\aprofile\x18\x02 \x01(\v2\x13.profile.v1.ProfileR\aprofile\"'\n" +
 	"\x13RestartCoreResponse\x12\x10\n" +
 	"\x03pid\x18\x01 \x01(\x05R\x03pid\"\x16\n" +
 	"\x14GetCoreStatusRequest\"\xa3\x01\n" +
@@ -1364,45 +1373,46 @@ var file_kernel_v1_kernel_runtime_service_proto_goTypes = []any{
 }
 var file_kernel_v1_kernel_runtime_service_proto_depIdxs = []int32{
 	26, // 0: kernel.v1.StartCoreWithProfileRequest.profile:type_name -> profile.v1.Profile
-	27, // 1: kernel.v1.GetCoreStatusResponse.status:type_name -> kernel.v1.CoreStatus
-	26, // 2: kernel.v1.GetCurrentProfileResponse.profile:type_name -> profile.v1.Profile
-	27, // 3: kernel.v1.GetCurrentProfileResponse.status:type_name -> kernel.v1.CoreStatus
-	28, // 4: kernel.v1.GetCoreBranchLocalVersionRequest.branch:type_name -> app.v1.KernelBranch
-	28, // 5: kernel.v1.GetCoreBranchRemoteVersionRequest.branch:type_name -> app.v1.KernelBranch
-	28, // 6: kernel.v1.DownloadCoreRequest.branch:type_name -> app.v1.KernelBranch
-	28, // 7: kernel.v1.RollbackCoreRequest.branch:type_name -> app.v1.KernelBranch
-	28, // 8: kernel.v1.ClearCoreCacheRequest.branch:type_name -> app.v1.KernelBranch
-	0,  // 9: kernel.v1.KernelRuntimeService.StartCore:input_type -> kernel.v1.StartCoreRequest
-	2,  // 10: kernel.v1.KernelRuntimeService.StartCoreWithProfile:input_type -> kernel.v1.StartCoreWithProfileRequest
-	4,  // 11: kernel.v1.KernelRuntimeService.StopCore:input_type -> kernel.v1.StopCoreRequest
-	6,  // 12: kernel.v1.KernelRuntimeService.RestartCore:input_type -> kernel.v1.RestartCoreRequest
-	8,  // 13: kernel.v1.KernelRuntimeService.GetCoreStatus:input_type -> kernel.v1.GetCoreStatusRequest
-	10, // 14: kernel.v1.KernelRuntimeService.GetCurrentProfile:input_type -> kernel.v1.GetCurrentProfileRequest
-	12, // 15: kernel.v1.KernelRuntimeService.GetCurrentCoreMemory:input_type -> kernel.v1.GetCurrentCoreMemoryRequest
-	14, // 16: kernel.v1.KernelRuntimeService.GetCoreBranchLocalVersion:input_type -> kernel.v1.GetCoreBranchLocalVersionRequest
-	16, // 17: kernel.v1.KernelRuntimeService.GetCoreBranchRemoteVersion:input_type -> kernel.v1.GetCoreBranchRemoteVersionRequest
-	18, // 18: kernel.v1.KernelRuntimeService.DownloadCore:input_type -> kernel.v1.DownloadCoreRequest
-	20, // 19: kernel.v1.KernelRuntimeService.CancelCoreDownload:input_type -> kernel.v1.CancelCoreDownloadRequest
-	22, // 20: kernel.v1.KernelRuntimeService.RollbackCore:input_type -> kernel.v1.RollbackCoreRequest
-	24, // 21: kernel.v1.KernelRuntimeService.ClearCoreCache:input_type -> kernel.v1.ClearCoreCacheRequest
-	1,  // 22: kernel.v1.KernelRuntimeService.StartCore:output_type -> kernel.v1.StartCoreResponse
-	3,  // 23: kernel.v1.KernelRuntimeService.StartCoreWithProfile:output_type -> kernel.v1.StartCoreWithProfileResponse
-	5,  // 24: kernel.v1.KernelRuntimeService.StopCore:output_type -> kernel.v1.StopCoreResponse
-	7,  // 25: kernel.v1.KernelRuntimeService.RestartCore:output_type -> kernel.v1.RestartCoreResponse
-	9,  // 26: kernel.v1.KernelRuntimeService.GetCoreStatus:output_type -> kernel.v1.GetCoreStatusResponse
-	11, // 27: kernel.v1.KernelRuntimeService.GetCurrentProfile:output_type -> kernel.v1.GetCurrentProfileResponse
-	13, // 28: kernel.v1.KernelRuntimeService.GetCurrentCoreMemory:output_type -> kernel.v1.GetCurrentCoreMemoryResponse
-	15, // 29: kernel.v1.KernelRuntimeService.GetCoreBranchLocalVersion:output_type -> kernel.v1.GetCoreBranchLocalVersionResponse
-	17, // 30: kernel.v1.KernelRuntimeService.GetCoreBranchRemoteVersion:output_type -> kernel.v1.GetCoreBranchRemoteVersionResponse
-	19, // 31: kernel.v1.KernelRuntimeService.DownloadCore:output_type -> kernel.v1.DownloadCoreResponse
-	21, // 32: kernel.v1.KernelRuntimeService.CancelCoreDownload:output_type -> kernel.v1.CancelCoreDownloadResponse
-	23, // 33: kernel.v1.KernelRuntimeService.RollbackCore:output_type -> kernel.v1.RollbackCoreResponse
-	25, // 34: kernel.v1.KernelRuntimeService.ClearCoreCache:output_type -> kernel.v1.ClearCoreCacheResponse
-	22, // [22:35] is the sub-list for method output_type
-	9,  // [9:22] is the sub-list for method input_type
-	9,  // [9:9] is the sub-list for extension type_name
-	9,  // [9:9] is the sub-list for extension extendee
-	0,  // [0:9] is the sub-list for field type_name
+	26, // 1: kernel.v1.RestartCoreRequest.profile:type_name -> profile.v1.Profile
+	27, // 2: kernel.v1.GetCoreStatusResponse.status:type_name -> kernel.v1.CoreStatus
+	26, // 3: kernel.v1.GetCurrentProfileResponse.profile:type_name -> profile.v1.Profile
+	27, // 4: kernel.v1.GetCurrentProfileResponse.status:type_name -> kernel.v1.CoreStatus
+	28, // 5: kernel.v1.GetCoreBranchLocalVersionRequest.branch:type_name -> app.v1.KernelBranch
+	28, // 6: kernel.v1.GetCoreBranchRemoteVersionRequest.branch:type_name -> app.v1.KernelBranch
+	28, // 7: kernel.v1.DownloadCoreRequest.branch:type_name -> app.v1.KernelBranch
+	28, // 8: kernel.v1.RollbackCoreRequest.branch:type_name -> app.v1.KernelBranch
+	28, // 9: kernel.v1.ClearCoreCacheRequest.branch:type_name -> app.v1.KernelBranch
+	0,  // 10: kernel.v1.KernelRuntimeService.StartCore:input_type -> kernel.v1.StartCoreRequest
+	2,  // 11: kernel.v1.KernelRuntimeService.StartCoreWithProfile:input_type -> kernel.v1.StartCoreWithProfileRequest
+	4,  // 12: kernel.v1.KernelRuntimeService.StopCore:input_type -> kernel.v1.StopCoreRequest
+	6,  // 13: kernel.v1.KernelRuntimeService.RestartCore:input_type -> kernel.v1.RestartCoreRequest
+	8,  // 14: kernel.v1.KernelRuntimeService.GetCoreStatus:input_type -> kernel.v1.GetCoreStatusRequest
+	10, // 15: kernel.v1.KernelRuntimeService.GetCurrentProfile:input_type -> kernel.v1.GetCurrentProfileRequest
+	12, // 16: kernel.v1.KernelRuntimeService.GetCurrentCoreMemory:input_type -> kernel.v1.GetCurrentCoreMemoryRequest
+	14, // 17: kernel.v1.KernelRuntimeService.GetCoreBranchLocalVersion:input_type -> kernel.v1.GetCoreBranchLocalVersionRequest
+	16, // 18: kernel.v1.KernelRuntimeService.GetCoreBranchRemoteVersion:input_type -> kernel.v1.GetCoreBranchRemoteVersionRequest
+	18, // 19: kernel.v1.KernelRuntimeService.DownloadCore:input_type -> kernel.v1.DownloadCoreRequest
+	20, // 20: kernel.v1.KernelRuntimeService.CancelCoreDownload:input_type -> kernel.v1.CancelCoreDownloadRequest
+	22, // 21: kernel.v1.KernelRuntimeService.RollbackCore:input_type -> kernel.v1.RollbackCoreRequest
+	24, // 22: kernel.v1.KernelRuntimeService.ClearCoreCache:input_type -> kernel.v1.ClearCoreCacheRequest
+	1,  // 23: kernel.v1.KernelRuntimeService.StartCore:output_type -> kernel.v1.StartCoreResponse
+	3,  // 24: kernel.v1.KernelRuntimeService.StartCoreWithProfile:output_type -> kernel.v1.StartCoreWithProfileResponse
+	5,  // 25: kernel.v1.KernelRuntimeService.StopCore:output_type -> kernel.v1.StopCoreResponse
+	7,  // 26: kernel.v1.KernelRuntimeService.RestartCore:output_type -> kernel.v1.RestartCoreResponse
+	9,  // 27: kernel.v1.KernelRuntimeService.GetCoreStatus:output_type -> kernel.v1.GetCoreStatusResponse
+	11, // 28: kernel.v1.KernelRuntimeService.GetCurrentProfile:output_type -> kernel.v1.GetCurrentProfileResponse
+	13, // 29: kernel.v1.KernelRuntimeService.GetCurrentCoreMemory:output_type -> kernel.v1.GetCurrentCoreMemoryResponse
+	15, // 30: kernel.v1.KernelRuntimeService.GetCoreBranchLocalVersion:output_type -> kernel.v1.GetCoreBranchLocalVersionResponse
+	17, // 31: kernel.v1.KernelRuntimeService.GetCoreBranchRemoteVersion:output_type -> kernel.v1.GetCoreBranchRemoteVersionResponse
+	19, // 32: kernel.v1.KernelRuntimeService.DownloadCore:output_type -> kernel.v1.DownloadCoreResponse
+	21, // 33: kernel.v1.KernelRuntimeService.CancelCoreDownload:output_type -> kernel.v1.CancelCoreDownloadResponse
+	23, // 34: kernel.v1.KernelRuntimeService.RollbackCore:output_type -> kernel.v1.RollbackCoreResponse
+	25, // 35: kernel.v1.KernelRuntimeService.ClearCoreCache:output_type -> kernel.v1.ClearCoreCacheResponse
+	23, // [23:36] is the sub-list for method output_type
+	10, // [10:23] is the sub-list for method input_type
+	10, // [10:10] is the sub-list for extension type_name
+	10, // [10:10] is the sub-list for extension extendee
+	0,  // [0:10] is the sub-list for field type_name
 }
 
 func init() { file_kernel_v1_kernel_runtime_service_proto_init() }

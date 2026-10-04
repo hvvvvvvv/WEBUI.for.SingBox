@@ -14,6 +14,7 @@ func (s *Service) SetCoreLogWriter(writer *logging.CoreWriter) { s.coreLogs = wr
 func (s *Service) BeginShutdown() {
 	s.mu.Lock()
 	s.closing = true
+	s.revokeNativeAPILocked()
 	if s.corePID > 0 {
 		s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPING
 	}

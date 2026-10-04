@@ -30,6 +30,7 @@ message StopCoreResponse {}
 
 message RestartCoreRequest {
   string profile_id = 1;
+  profile.v1.Profile profile = 2;
 }
 
 message RestartCoreResponse {

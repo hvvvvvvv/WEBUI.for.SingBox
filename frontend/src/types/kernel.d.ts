@@ -1,84 +1,35 @@
-export interface CoreApiConfig {
+import type {
+  Connection,
+  Group,
+  GroupItem,
+  Log,
+  Status,
+} from '../../gen/native/daemon/started_service_pb'
+
+/** UI settings synthesized from the current runtime profile and native mode service. */
+export interface RuntimeKernelConfig {
   port: number
   'socks-port': number
   'mixed-port': number
   'interface-name': string
   'allow-lan': boolean
   mode: string
-  tun: {
-    enable: boolean
-    stack: string
-    device: string
-  }
+  modeList: string[]
+  tun: { enable: boolean; stack: string; device: string }
 }
 
-export interface CoreApiProxy {
-  alive: boolean
-  all: string[]
-  name: string
-  now: string
-  type: string
-  udp: boolean
-  history: {
-    delay: number
-  }[]
+export interface NativeConnectionRow {
+  connection: Connection
+  uplinkBps: number
+  downlinkBps: number
+  uplinkTotal: bigint
+  downlinkTotal: bigint
+  closedAt?: Date
 }
 
-export interface CoreApiProxies {
-  proxies: Record<string, Proxy>
+export interface NativeConnectionSnapshot {
+  active: NativeConnectionRow[]
+  closed: NativeConnectionRow[]
 }
 
-export interface CoreApiConnections {
-  connections: {
-    id: string
-    chains: string[]
-  }[]
-}
-
-export interface CoreApiTrafficData {
-  down: number
-  up: number
-}
-
-export interface CoreApiMemoryData {
-  inuse: number
-  oslimit: number
-}
-
-export interface CoreApiLogsData {
-  type: string
-  payload: string
-}
-
-export interface CoreApiConnectionsData {
-  memory: number
-  uploadTotal: number
-  downloadTotal: number
-  connections: {
-    chains: string[]
-    download: number
-    id: string
-    metadata: {
-      destinationIP: string
-      destinationPort: string
-      dnsMode: string
-      host: string
-      network: string
-      processPath: string
-      sourceIP: string
-      sourcePort: string
-      type: string
-    }
-    rule: string
-    rulePayload: string
-    start: string
-    upload: number
-  }[]
-}
-
-export type CoreApiWsDataMap = {
-  logs: CoreApiLogsData
-  memory: CoreApiMemoryData
-  traffic: CoreApiTrafficData
-  connections: CoreApiConnectionsData
-}
+export type { Connection, Group, GroupItem, Log, Status }

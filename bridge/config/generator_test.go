@@ -899,7 +899,7 @@ func TestGenerateDNSRejectsInvalidRaw(t *testing.T) {
 	}
 }
 
-func TestGenerateExperimentalUsesManagedCoreAPI(t *testing.T) {
+func TestGenerateExperimentalPreservesCacheWithoutClashAPI(t *testing.T) {
 	experimental := generateExperimental(&profilev1.Experimental{
 		CacheFile: &profilev1.CacheFileExperimental{
 			Enabled:     true,
@@ -910,16 +910,8 @@ func TestGenerateExperimentalUsesManagedCoreAPI(t *testing.T) {
 		},
 	}, nil)
 
-	clashAPI, ok := experimental["clash_api"].(map[string]any)
-	if !ok {
-		t.Fatalf("expected generated clash_api object, got %#v", experimental["clash_api"])
-	}
-	if controller := clashAPI["external_controller"]; controller != CoreAPIController {
-		t.Fatalf("expected managed controller %q, got %#v", CoreAPIController, controller)
-	}
-	secret, ok := clashAPI["secret"].(string)
-	if !ok || len(secret) != 64 {
-		t.Fatalf("expected generated 64-char secret, got %#v", clashAPI["secret"])
+	if _, exists := experimental["clash_api"]; exists {
+		t.Fatal("generated experimental configuration contains Clash API")
 	}
 
 	cacheFile, ok := experimental["cache_file"].(map[string]any)

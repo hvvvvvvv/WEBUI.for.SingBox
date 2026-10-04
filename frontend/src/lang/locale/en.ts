@@ -499,6 +499,7 @@ export default {
       totalTraffic: 'Total Traffic',
       connections: 'Connections',
       memory: 'Memory',
+      goroutines: 'Goroutines',
       transmit: 'Transmit',
       receive: 'Receive',
       settings: 'Core Settings',
@@ -510,14 +511,13 @@ export default {
       needTun: 'Please add a TUN inbound first',
     },
     controller: {
+      testTimeout: '{tag}: Timed out waiting for a latency test result',
+      groupTestTimeout: '{tag}: Timed out waiting for new latency results from {count} nodes',
       name: 'Controller',
       autoClose: 'Auto-close',
       unAvailable: 'Show UnAvailable',
       cardMode: 'Card Mode',
       sortBy: 'Sort By Delay',
-      delay: 'Latency test URL',
-      timeout: 'Latency test timeout (ms)',
-      concurrencyLimit: 'Latency test concurrency',
       cardColumns: 'Number of card columns',
       sensitivity: 'Controller Scroll Sensitivity',
       closeMode: {
@@ -764,7 +764,6 @@ export default {
       tips: '0 to disable',
       invalid: 'Enter an integer between 0 and 2147483647',
     },
-    realMemoryUsage: 'Show actual core memory usage',
     autoRestartKernel: {
       name: 'Auto-restart core on config changes',
       tips: 'It will interrupt all connections and may fail to restart',

@@ -19,6 +19,7 @@ import (
 
 	"guiforcores/bridge/logging"
 	"guiforcores/bridge/platform"
+	"guiforcores/bridge/rpcutil"
 	appv1 "guiforcores/gen/app/v1"
 	kernelv1 "guiforcores/gen/kernel/v1"
 
@@ -135,8 +136,8 @@ func (s *Service) DownloadCore(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	if err := s.installCoreArchive(downloadCacheFile, cacheDir, branch); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	if err := s.installCoreArchive(downloadCtx, downloadCacheFile, cacheDir, branch); err != nil {
+		return nil, rpcutil.AsConnectError(err)
 	}
 	_ = os.Remove(downloadCacheFile)
 
@@ -177,6 +178,10 @@ func (s *Service) RollbackCore(
 	defer func() {
 		logging.Complete(ctx, "kernel", "rollback", "core rolled back", started, responseErr, "branch", branch.String())
 	}()
+	candidatePath := coreFilePathForBranch(branch) + ".bak"
+	if err := s.checkCoreVersion(ctx, candidatePath, nil); err != nil {
+		return nil, err
+	}
 	action := func() error {
 		corePath := s.processes.ResolvePath(coreFilePathForBranch(branch))
 		bakPath := corePath + ".bak"
@@ -186,8 +191,8 @@ func (s *Service) RollbackCore(
 		_ = os.Remove(corePath)
 		return os.Rename(bakPath, corePath)
 	}
-	if err := s.runWithCoreRestartIfCurrent(ctx, branch, action); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	if err := s.runWithCoreRestartIfCurrent(ctx, branch, candidatePath, action); err != nil {
+		return nil, rpcutil.AsConnectError(err)
 	}
 
 	info := s.coreBranchLocalVersion(branch)
@@ -214,7 +219,7 @@ func (s *Service) ClearCoreCache(
 		}
 		return nil
 	}
-	if err := s.runWithCoreRestartIfCurrent(ctx, branch, action); err != nil {
+	if err := s.runWithCoreRestartIfCurrent(ctx, branch, coreFilePathForBranch(branch), action); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	return connect.NewResponse(&kernelv1.ClearCoreCacheResponse{}), nil
@@ -342,7 +347,7 @@ func (s *Service) downloadCoreAsset(ctx context.Context, url string, path string
 	return nil
 }
 
-func (s *Service) installCoreArchive(archivePath string, cacheDir string, branch appv1.KernelBranch) error {
+func (s *Service) installCoreArchive(ctx context.Context, archivePath string, cacheDir string, branch appv1.KernelBranch) error {
 	extractName := filepath.Base(archivePath)
 	if strings.HasSuffix(extractName, ".tar.gz") {
 		extractName = strings.TrimSuffix(extractName, ".tar.gz")
@@ -360,14 +365,28 @@ func (s *Service) installCoreArchive(archivePath string, cacheDir string, branch
 	defer os.RemoveAll(filepath.Join(cacheDir, extractName))
 
 	sourcePath := filepath.Join(cacheDir, extractName, getKernelFileName(false))
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(sourcePath, 0o755); err != nil {
+			return err
+		}
+	}
+	if err := s.checkCoreVersion(ctx, sourcePath, nil); err != nil {
+		return err
+	}
 	targetPath := s.processes.ResolvePath(coreFilePathForBranch(branch))
 	backupPath := targetPath + ".bak"
-	_ = os.Remove(backupPath)
-	if fileExists(targetPath) {
-		_ = os.Rename(targetPath, backupPath)
+	if err := os.Remove(backupPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		return err
 	}
-	_ = os.Remove(targetPath)
+	if fileExists(targetPath) {
+		if err := os.Rename(targetPath, backupPath); err != nil {
+			return err
+		}
+	}
 	if err := os.Rename(sourcePath, targetPath); err != nil {
+		if fileExists(backupPath) {
+			return errors.Join(err, os.Rename(backupPath, targetPath))
+		}
 		return err
 	}
 	if runtime.GOOS != "windows" {
@@ -376,27 +395,54 @@ func (s *Service) installCoreArchive(archivePath string, cacheDir string, branch
 	return nil
 }
 
-func (s *Service) runWithCoreRestartIfCurrent(ctx context.Context, branch appv1.KernelBranch, action func() error) error {
+func (s *Service) runWithCoreRestartIfCurrent(ctx context.Context, branch appv1.KernelBranch, candidatePath string, action func() error) error {
 	s.mu.Lock()
+	if s.closing {
+		s.mu.Unlock()
+		return connect.NewError(connect.CodeUnavailable, fmt.Errorf("application is shutting down"))
+	}
+	s.operations.Add(1)
 	status := s.status
 	activeProfileID := s.activeProfileID
 	isCurrentBranch := s.appConfig.Current().Branch == branchConfigValue(branch)
 	s.mu.Unlock()
+	defer s.operations.Done()
+	ctx, cancel := context.WithCancel(ctx)
+	stopCancellation := context.AfterFunc(s.lifecycleCtx, cancel)
+	defer func() { stopCancellation(); cancel() }()
 
 	if status != kernelv1.CoreStatus_CORE_STATUS_RUNNING || !isCurrentBranch {
 		return action()
 	}
 
+	s.restartOperationMu.Lock()
+	defer s.restartOperationMu.Unlock()
+	if activeProfileID == "" {
+		return fmt.Errorf("profile_id is required for restart when no active profile exists")
+	}
+	profile, err := s.loadProfileByID(activeProfileID)
+	if err != nil {
+		return err
+	}
+	runtimeCfg, err := s.loadRuntimeConfig()
+	if err != nil {
+		return err
+	}
+	prepared, err := s.prepareCoreStart(ctx, profile, runtimeCfg, candidatePath)
+	if err != nil {
+		return err
+	}
 	if _, err := s.StopCore(ctx, connect.NewRequest(&kernelv1.StopCoreRequest{})); err != nil {
 		return err
 	}
 	if err := action(); err != nil {
 		return err
 	}
-	if activeProfileID == "" {
-		return fmt.Errorf("profile_id is required for restart when no active profile exists")
+	prepared.path = coreFilePathForBranch(branch)
+	if err := s.setStarting(activeProfileID); err != nil {
+		return err
 	}
-	_, err := s.StartCore(ctx, connect.NewRequest(&kernelv1.StartCoreRequest{ProfileId: activeProfileID}))
+	_, err = s.launchPreparedCore(ctx, profile, prepared)
 	return err
 }
 

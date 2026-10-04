@@ -493,6 +493,7 @@ export default {
       totalTraffic: '总流量',
       connections: '活动连接',
       memory: '内存',
+      goroutines: '协程数',
       transmit: '上行速率',
       receive: '下行速率',
       settings: '核心设置',
@@ -503,14 +504,13 @@ export default {
       needTun: '请先添加一个TUN入站',
     },
     controller: {
+      testTimeout: '{tag}：等待测速结果超时',
+      groupTestTimeout: '{tag}：{count} 个节点未收到新的测速结果，等待超时',
       name: '控制器',
       autoClose: '自动断开连接',
       unAvailable: '展示不可用节点',
       cardMode: '卡片模式',
       sortBy: '按延迟排序',
-      delay: '延迟测试URL',
-      timeout: '延迟测试超时时间(ms)',
-      concurrencyLimit: '延迟测试并发数量',
       cardColumns: '卡片展示列数',
       sensitivity: '控制器滚动灵敏度',
       closeMode: {
@@ -757,7 +757,6 @@ export default {
       tips: '0表示关闭',
       invalid: '请输入 0 至 2147483647 之间的整数',
     },
-    realMemoryUsage: '显示真实的核心内存占用',
     autoRestartKernel: {
       name: '相关配置变化时自动重启核心',
       tips: '会中断所有连接，且可能重启失败',

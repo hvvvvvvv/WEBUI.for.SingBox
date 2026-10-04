@@ -25,7 +25,12 @@ func (a *App) Exec(path string, args []string, options ExecOptions) FlagResult {
 		exePath = path
 	}
 
-	cmd := exec.Command(exePath, args...)
+	ctx := options.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	cmd := exec.CommandContext(ctx, exePath, args...)
+	cmd.WaitDelay = time.Second
 	SetCmdWindowHidden(cmd)
 
 	cmd.Dir = options.WorkingDirectory

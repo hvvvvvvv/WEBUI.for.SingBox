@@ -1,5 +1,4 @@
 import { ColorOptions, ThemeOptions } from '@/constant/app'
-import { ModeOptions } from '@/constant/kernel'
 import useI18n from '@/lang'
 import {
   useAppSettingsStore,
@@ -9,9 +8,11 @@ import {
   useSubscribesStore,
 } from '@/stores'
 import { handleChangeMode } from '@/utils'
+import { nativeModeOptions } from './nativeKernelUi'
 
 type Command = {
   label: string
+  literalLabel?: boolean
   cmd: string
   desc?: string
   handler?: () => Promise<any> | any
@@ -24,7 +25,8 @@ const processCommands = (commands: Command[], parentLabel = '', parentCmd = '') 
   const result: Command[] = []
 
   commands.forEach((item) => {
-    const label = parentLabel ? `${t(parentLabel)}: ${t(item.label)}` : t(item.label)
+    const itemLabel = item.literalLabel ? item.label : t(item.label)
+    const label = parentLabel ? `${parentLabel}: ${itemLabel}` : itemLabel
     const cmd = parentCmd ? `${parentCmd}: ${item.cmd}` : item.cmd
 
     if (item.children) {
@@ -67,8 +69,9 @@ export const getCommands = () => {
         {
           label: 'kernel.mode',
           cmd: 'Core Mode',
-          children: ModeOptions.map((mode) => ({
+          children: nativeModeOptions(kernelStore.config.modeList).map((mode) => ({
             label: mode.label,
+            literalLabel: !mode.desc,
             cmd: mode.value,
             handler: () => handleChangeMode(mode.value),
           })),

@@ -4,16 +4,14 @@ import { ref, watch } from 'vue'
 import {
   Colors,
   DefaultCardColumns,
-  DefaultConcurrencyLimit,
   DefaultControllerSensitivity,
   DefaultFontFamily,
-  DefaultTestTimeout,
-  DefaultTestURL,
 } from '@/constant/app'
 import { DefaultConnections } from '@/constant/kernel'
 import { Theme, Lang, View, Color, ControllerCloseMode } from '@/enums/app'
 import i18n from '@/lang'
 import { debounce, deepClone } from '@/utils'
+import { migrateConnectionColumns } from '@/utils/nativeKernelUi'
 
 import type { AppSettings, SessionInfo } from '@/types/app'
 
@@ -85,26 +83,17 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
 
     settings.connections = { ...defaults.connections }
     if (isRecord(raw.connections)) {
-      if (isRecord(raw.connections.visibility)) {
-        settings.connections.visibility = raw.connections.visibility
-      }
-      if (Array.isArray(raw.connections.order)) {
-        settings.connections.order = raw.connections.order
-      }
+      settings.connections = migrateConnectionColumns(raw.connections, defaults.connections)
     }
 
     settings.kernel = { ...defaults.kernel }
     if (isRecord(raw.kernel)) {
       ;[
-        'realMemoryUsage',
         'autoClose',
         'unAvailable',
         'cardMode',
         'cardColumns',
         'sortByDelay',
-        'testUrl',
-        'testTimeout',
-        'concurrencyLimit',
         'controllerCloseMode',
         'controllerSensitivity',
       ].forEach((key) => {
@@ -152,15 +141,11 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     scheduledtasksView: View.Grid,
     connections: DefaultConnections(),
     kernel: {
-      realMemoryUsage: false,
       autoClose: true,
       unAvailable: true,
       cardMode: true,
       cardColumns: DefaultCardColumns,
       sortByDelay: false,
-      testUrl: DefaultTestURL,
-      testTimeout: DefaultTestTimeout,
-      concurrencyLimit: DefaultConcurrencyLimit,
       controllerCloseMode: ControllerCloseMode.All,
       controllerSensitivity: DefaultControllerSensitivity,
     },
@@ -221,6 +206,8 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       const settingsJson = localStorage.getItem(AppSettingsStorageKey)
       if (settingsJson) {
         settings = normalizeSettings(parseSettingsJSON(settingsJson), defaults)
+        // Persist migration immediately, including removal of obsolete Clash test settings.
+        localStorage.setItem(AppSettingsStorageKey, JSON.stringify(settings))
       }
     } catch {
       settings = defaults
