@@ -7,7 +7,7 @@
     "dev": "vite --host",
     "build": "run-p type-check \"build-only {@}\" --",
     "build-only": "vite build",
-    "test": "vitest run",
+    "test": "vitest run --config ../tests/vitest.config.ts",
     "type-check": "vue-tsc --build",
     "lint": "run-s lint:*",
     "lint:oxlint": "oxlint . --fix",

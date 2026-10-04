@@ -22,7 +22,7 @@ endif
 OUTPUT_PATH := $(OUTPUT_DIR)/$(BINARY_NAME)
 GO_LDFLAGS := -s -w -X main.version=$(VERSION)
 
-.PHONY: build frontend backend check-tools proto proto-lint proto-check check-proto-tools print-version clean
+.PHONY: build frontend backend test test-go test-frontend check-tools proto proto-lint proto-check check-proto-tools print-version clean
 
 build: check-tools frontend backend
 
@@ -37,6 +37,14 @@ frontend:
 backend:
 	$(MKDIR_P)
 	go build -trimpath -ldflags="$(GO_LDFLAGS)" -o $(OUTPUT_PATH) .
+
+test: test-go test-frontend
+
+test-go:
+	go run ./tests -race ./... -count=1 -timeout=180s
+
+test-frontend:
+	pnpm --dir frontend test
 
 proto: check-proto-tools
 	$(BUF) generate
