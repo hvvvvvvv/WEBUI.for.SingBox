@@ -134,8 +134,8 @@ func parseProxyURI(line, scheme string) (Node, error) {
 				username, password, _ = strings.Cut(decoded, ":")
 			}
 		}
-		setIfNotEmpty(node, "username", username)
-		setIfNotEmpty(node, "password", password)
+		setCredentialIfNotEmpty(node, "username", username)
+		setCredentialIfNotEmpty(node, "password", password)
 	}
 	if tlsEnabled {
 		node["tls"] = true
@@ -517,16 +517,16 @@ func parseHysteriaURI(line string) (Node, error) {
 	}
 	options := queryOptions(parsed.Query())
 	node := Node{"type": "hysteria", "server": server, "port": port, "tls": true}
-	auth := stringValue(firstOption(options, "auth", "auth-str", "authstring"))
+	auth := protocolCredentialString(firstCredentialOption(options, "auth", "auth-str", "authstring"))
 	if auth == "" && parsed.User != nil {
 		auth = parsed.User.Username()
 		if password, ok := parsed.User.Password(); ok {
 			auth += ":" + password
 		}
 	}
-	setIfNotEmpty(node, "auth-str", auth)
+	setCredentialIfNotEmpty(node, "auth-str", auth)
 	setIfNotEmpty(node, "protocol", stringValue(firstOption(options, "protocol")))
-	setIfNotEmpty(node, "obfs", stringValue(firstOption(options, "obfs", "obfsParam")))
+	setCredentialIfNotEmpty(node, "obfs", firstCredentialOption(options, "obfs", "obfsParam"))
 	setIfNotEmpty(node, "up", stringValue(firstOption(options, "up", "upmbps", "up-speed")))
 	setIfNotEmpty(node, "down", stringValue(firstOption(options, "down", "downmbps", "down-speed")))
 	setIfNotEmpty(node, "ports", stringValue(firstOption(options, "ports", "mport", "port-hopping")))
@@ -538,8 +538,48 @@ func parseHysteriaURI(line string) (Node, error) {
 	return node, nil
 }
 
-func parseHysteria2URI(line string) (Node, error) {
+// Hysteria's authority port may be a list or range, which net/url cannot parse.
+// Replace only that port with its first value, leaving encoded credentials,
+// query options and the fragment to the normal URL parser.
+func parseHysteria2URL(line string) (*url.URL, string, string, error) {
+	separator := strings.Index(line, "://")
+	if separator <= 0 {
+		return nil, "", "", errMalformedURI
+	}
+	authorityStart := separator + 3
+	authorityEnd := len(line)
+	if offset := strings.IndexAny(line[authorityStart:], "/?#"); offset >= 0 {
+		authorityEnd = authorityStart + offset
+	}
+	hostStart := authorityStart + strings.LastIndexByte(line[authorityStart:authorityEnd], '@') + 1
+	host := line[hostStart:authorityEnd]
+	colon := strings.LastIndexByte(host, ':')
+	ports := ""
+	if colon >= 0 && colon > strings.LastIndexByte(host, ']') && strings.ContainsAny(host[colon+1:], ",-") {
+		ports = host[colon+1:]
+		firstPort := 0
+		for _, part := range strings.Split(ports, ",") {
+			start, end, ranged := strings.Cut(part, "-")
+			startPort, startErr := strconv.Atoi(start)
+			endPort, endErr := startPort, startErr
+			if ranged {
+				endPort, endErr = strconv.Atoi(end)
+			}
+			if startErr != nil || endErr != nil || !validPort(startPort) || !validPort(endPort) || startPort > endPort {
+				return nil, "", "", errMissingEndpoint
+			}
+			if firstPort == 0 {
+				firstPort = startPort
+			}
+		}
+		line = line[:hostStart+colon+1] + strconv.Itoa(firstPort) + line[authorityEnd:]
+	}
 	parsed, name, err := parseURLWithName(line)
+	return parsed, name, ports, err
+}
+
+func parseHysteria2URI(line string) (Node, error) {
+	parsed, name, ports, err := parseHysteria2URL(line)
 	if err != nil {
 		return nil, err
 	}
@@ -548,10 +588,10 @@ func parseHysteria2URI(line string) (Node, error) {
 		return nil, err
 	}
 	options := queryOptions(parsed.Query())
-	password := stringValue(firstOption(options, "password", "auth"))
+	password := protocolCredentialString(firstCredentialOption(options, "password", "auth"))
 	if password == "" && parsed.User != nil {
 		password = parsed.User.Username()
-		if userPassword, ok := parsed.User.Password(); ok && userPassword != "" {
+		if userPassword, ok := parsed.User.Password(); ok {
 			password += ":" + userPassword
 		}
 	}
@@ -561,6 +601,10 @@ func parseHysteria2URI(line string) (Node, error) {
 	node := Node{"type": "hysteria2", "server": server, "port": port, "password": password, "tls": true}
 	applyHysteria2Options(node, options)
 	applyCommonOptions(node, options)
+	if ports != "" {
+		// The official authority syntax takes precedence over query extensions.
+		node["ports"] = ports
+	}
 	if name == "" {
 		name = defaultName("hysteria2", server, port)
 	}
@@ -615,7 +659,7 @@ func parseTUICURI(line string) (Node, error) {
 		uuid = stringValue(firstOption(options, "uuid", "token"))
 	}
 	if password == "" {
-		password = stringValue(firstOption(options, "password"))
+		password = protocolCredentialString(firstCredentialOption(options, "password"))
 	}
 	if uuid == "" || password == "" {
 		return nil, errMissingCredentials
@@ -699,7 +743,7 @@ func parseAnyTLSURI(line string) (Node, error) {
 	password := ""
 	if parsed.User != nil {
 		password = parsed.User.Username()
-		if userPassword, ok := parsed.User.Password(); ok && userPassword != "" {
+		if userPassword, ok := parsed.User.Password(); ok {
 			password += ":" + userPassword
 		}
 	}

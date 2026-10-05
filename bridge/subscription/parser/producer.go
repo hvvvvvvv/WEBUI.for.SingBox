@@ -51,8 +51,8 @@ func produceNode(node Node) (map[string]any, error) {
 
 	switch typ {
 	case "http":
-		copyOptionalString(node, out, "username", "username", "user")
-		copyOptionalString(node, out, "password", "password", "pass")
+		copyOptionalCredential(node, out, "username", "username", "user")
+		copyOptionalCredential(node, out, "password", "password", "pass")
 		copyOptionalString(node, out, "path", "path")
 		if headers := stringMap(nodeValue(node, "headers", "http-headers")); len(headers) > 0 {
 			out["headers"] = headers
@@ -71,13 +71,13 @@ func produceNode(node Node) (map[string]any, error) {
 			version = "4a"
 		}
 		out["version"] = version
-		copyOptionalString(node, out, "username", "username", "user")
-		copyOptionalString(node, out, "password", "password", "pass")
+		copyOptionalCredential(node, out, "username", "username", "user")
+		copyOptionalCredential(node, out, "password", "password", "pass")
 		applyUDPOverTCP(node, out)
 		supportsNetwork = true
 	case "shadowsocks":
 		rawMethod := nodeString(node, "cipher", "method", "encryption")
-		password := nodeString(node, "password", "pass")
+		password := protocolCredentialString(nodeValue(node, "password", "pass"))
 		if rawMethod == "" || password == "" {
 			return nil, errors.New("missing required Shadowsocks credentials")
 		}
@@ -126,7 +126,7 @@ func produceNode(node Node) (map[string]any, error) {
 		copyOptionalString(node, out, "packet_encoding", "packet-encoding", "packet_encoding")
 		supportsTLS, supportsTransport, supportsMultiplex, supportsNetwork = true, true, true, true
 	case "trojan":
-		password := nodeString(node, "password", "pass")
+		password := protocolCredentialString(nodeValue(node, "password", "pass"))
 		if password == "" {
 			return nil, errors.New("missing required Trojan credentials")
 		}
@@ -139,8 +139,8 @@ func produceNode(node Node) (map[string]any, error) {
 		if !hasBandwidthPair(out) {
 			return nil, errors.New("missing required Hysteria bandwidth")
 		}
-		copyOptionalString(node, out, "obfs", "obfs")
-		if auth := nodeString(node, "auth-str", "auth_str", "auth", "password"); auth != "" {
+		copyOptionalCredential(node, out, "obfs", "obfs")
+		if auth := protocolCredentialString(nodeValue(node, "auth-str", "auth_str", "auth", "password")); auth != "" {
 			out["auth_str"] = auth
 		}
 		if err := copyDurationSeconds(node, out, "hop_interval", "hop-interval", "hop_interval"); err != nil {
@@ -148,7 +148,7 @@ func produceNode(node Node) (map[string]any, error) {
 		}
 		forceTLS, supportsTLS, supportsNetwork = true, true, true
 	case "hysteria2":
-		password := nodeString(node, "password", "auth", "auth-str")
+		password := protocolCredentialString(nodeValue(node, "password", "auth", "auth-str"))
 		if password == "" {
 			return nil, errors.New("missing required Hysteria2 credentials")
 		}
@@ -166,7 +166,7 @@ func produceNode(node Node) (map[string]any, error) {
 		forceTLS, supportsTLS, supportsNetwork = true, true, true
 	case "tuic":
 		uuid := nodeString(node, "uuid", "token", "username")
-		password := nodeString(node, "password", "pass")
+		password := protocolCredentialString(nodeValue(node, "password", "pass"))
 		if uuid == "" || password == "" {
 			return nil, errors.New("missing required TUIC credentials")
 		}
@@ -189,8 +189,8 @@ func produceNode(node Node) (map[string]any, error) {
 		copyOptionalString(node, out, "heartbeat", "heartbeat")
 		forceTLS, supportsTLS, supportsNetwork = true, true, true
 	case "ssh":
-		user := nodeString(node, "username", "user")
-		password := nodeString(node, "password")
+		user := protocolCredentialString(nodeValue(node, "username", "user"))
+		password := protocolCredentialString(nodeValue(node, "password"))
 		privateKey := nodeExactString(node, "private-key-content", "private_key_content", "privateKeyContent")
 		privateKeyPath := nodeExactString(node, "private-key-path", "private_key_path", "privateKeyPath")
 		if privateKey != "" && privateKeyPath != "" {
@@ -211,12 +211,12 @@ func produceNode(node Node) (map[string]any, error) {
 		setString(out, "password", password)
 		setString(out, "private_key", privateKey)
 		setString(out, "private_key_path", privateKeyPath)
-		copyOptionalString(node, out, "private_key_passphrase", "private-key-passphrase", "private_key_passphrase")
+		copyOptionalCredential(node, out, "private_key_passphrase", "private-key-passphrase", "private_key_passphrase")
 		if hostKeys := nodeStrings(node, "host-key", "host_key", "server-fingerprint"); len(hostKeys) > 0 {
 			out["host_key"] = hostKeys
 		}
 	case "anytls":
-		password := nodeString(node, "password", "pass")
+		password := protocolCredentialString(nodeValue(node, "password", "pass"))
 		if password == "" {
 			return nil, errors.New("missing required AnyTLS credentials")
 		}
@@ -230,8 +230,8 @@ func produceNode(node Node) (map[string]any, error) {
 		copyOptionalInt(node, out, "min_idle_session", "min-idle-session", "min_idle_session")
 		forceTLS, supportsTLS = true, true
 	case "naive":
-		copyOptionalString(node, out, "username", "username", "user")
-		copyOptionalString(node, out, "password", "password", "pass")
+		copyOptionalCredential(node, out, "username", "username", "user")
+		copyOptionalCredential(node, out, "password", "password", "pass")
 		insecureConcurrency := 0
 		if value, ok := nodeInt(node, "insecure-concurrency", "insecure_concurrency"); ok {
 			if value < 0 {
@@ -404,6 +404,10 @@ func nodeBool(node Node, keys ...string) (bool, bool) {
 
 func copyOptionalString(node Node, target map[string]any, outputKey string, inputKeys ...string) {
 	setString(target, outputKey, nodeString(node, inputKeys...))
+}
+
+func copyOptionalCredential(node Node, target map[string]any, outputKey string, inputKeys ...string) {
+	setString(target, outputKey, protocolCredentialString(nodeValue(node, inputKeys...)))
 }
 
 func setString(target map[string]any, key, value string) {

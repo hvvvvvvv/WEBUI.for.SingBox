@@ -581,17 +581,29 @@ func branchConfigValue(branch appv1.KernelBranch) string {
 }
 
 func getKernelAssetFileName(version string) string {
+	libc := ""
+	if runtime.GOOS == "linux" {
+		libc = platform.DetectLibc()
+	}
+	return getKernelAssetFileNameForPlatform(version, runtime.GOOS, runtime.GOARCH, libc)
+}
+
+func getKernelAssetFileNameForPlatform(version, goos, goarch, libc string) string {
 	suffix := ".tar.gz"
-	if runtime.GOOS == "windows" {
+	if goos == "windows" {
 		suffix = ".zip"
 	}
 	libcSuffix := ""
-	if runtime.GOOS == "linux" {
-		if libc := strings.TrimSpace(platform.DetectLibc()); libc != "" {
+	if goos == "linux" {
+		// The application's ARM build uses GOARM=7; upstream names it armv7.
+		if goarch == "arm" {
+			goarch = "armv7"
+		}
+		if libc := strings.TrimSpace(libc); libc != "" {
 			libcSuffix = "-" + libc
 		}
 	}
-	return fmt.Sprintf("sing-box-%s-%s-%s%s%s", version, runtime.GOOS, runtime.GOARCH, libcSuffix, suffix)
+	return fmt.Sprintf("sing-box-%s-%s-%s%s%s", version, goos, goarch, libcSuffix, suffix)
 }
 
 func fileExists(path string) bool {

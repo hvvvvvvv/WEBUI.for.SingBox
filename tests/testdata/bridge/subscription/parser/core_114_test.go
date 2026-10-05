@@ -54,6 +54,12 @@ func TestConvertedSubscriptionWithSingBox114(t *testing.T) {
 			wantFailure: true,
 		},
 		{
+			name: "hysteria2-uri-port-hopping",
+			body: `hy2://%20password%20@127.0.0.1:443,5000-6000/?obfs=gecko&obfs-password=%20secret%20#mixed-ports
+hysteria2://user:password@[::1]:5000-6000/?sni=localhost#ipv6-range
+`,
+		},
+		{
 			name:   "snell-hopping-and-gecko",
 			global: true,
 			body: `proxies:

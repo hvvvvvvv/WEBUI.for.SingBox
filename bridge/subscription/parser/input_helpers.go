@@ -512,6 +512,21 @@ func firstOption(options map[string]any, keys ...string) any {
 	return nil
 }
 
+func firstCredentialOption(options map[string]any, keys ...string) any {
+	for _, key := range keys {
+		if value, ok := options[normalizeOptionKey(key)]; ok && protocolCredentialString(value) != "" {
+			return value
+		}
+	}
+	return nil
+}
+
+func setCredentialIfNotEmpty(node Node, key string, value any) {
+	if credential := protocolCredentialString(value); credential != "" {
+		node[key] = credential
+	}
+}
+
 // URI query values and application-line options are textual, but resolver
 // and obfuscation settings may contain an explicit object. Keep its fields
 // intact for the producer, just like the YAML/JSON input paths do.
@@ -531,9 +546,13 @@ func applyCommonOptions(node Node, options map[string]any) {
 	if value := firstOption(options, "fingerprint"); value != nil && stringValue(value) != "" {
 		node["_unsupported_certificate_fingerprint"] = true
 	}
+	for target, aliases := range map[string][]string{
+		"username": {"username", "user"},
+		"password": {"password", "pass", "passwd"},
+	} {
+		setCredentialIfNotEmpty(node, target, firstCredentialOption(options, aliases...))
+	}
 	copyString := map[string][]string{
-		"username":           {"username", "user"},
-		"password":           {"password", "pass", "passwd"},
 		"uuid":               {"uuid", "id"},
 		"cipher":             {"cipher", "method", "encrypt-method", "encryption"},
 		"sni":                {"sni", "servername", "server-name", "tls-host", "peer"},

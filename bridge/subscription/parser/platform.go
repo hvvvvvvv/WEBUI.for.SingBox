@@ -66,7 +66,7 @@ func parseQXLine(rawType, content string) (Node, error) {
 		delete(node, "password")
 	}
 	if typ == "ss" || typ == "ssr" || typ == "trojan" || typ == "anytls" {
-		if stringValue(node["password"]) == "" {
+		if protocolCredentialString(node["password"]) == "" {
 			return nil, errMissingCredentials
 		}
 	}
@@ -187,13 +187,21 @@ func applyPlatformPositionals(node Node, typ string, values []string) {
 		}
 		return strings.TrimSpace(unquoteValue(values[index]))
 	}
+	credential := func(index int) string {
+		if index < 0 || index >= len(values) {
+			return ""
+		}
+		// optionMap has already removed syntax whitespace and quotes. The
+		// remaining characters, including whitespace and quotes, are data.
+		return values[index]
+	}
 	switch typ {
 	case "ss":
 		setIfNotEmpty(node, "cipher", value(0))
-		setIfNotEmpty(node, "password", value(1))
+		setCredentialIfNotEmpty(node, "password", credential(1))
 	case "ssr":
 		setIfNotEmpty(node, "cipher", value(0))
-		setIfNotEmpty(node, "password", value(1))
+		setCredentialIfNotEmpty(node, "password", credential(1))
 		setIfNotEmpty(node, "protocol", value(2))
 		setIfNotEmpty(node, "protocol-param", value(3))
 		setIfNotEmpty(node, "obfs", value(4))
@@ -204,13 +212,13 @@ func applyPlatformPositionals(node Node, typ string, values []string) {
 	case "vless":
 		setIfNotEmpty(node, "uuid", value(0))
 	case "trojan", "anytls", "hysteria2":
-		setIfNotEmpty(node, "password", value(0))
+		setCredentialIfNotEmpty(node, "password", credential(0))
 	case "http", "socks5":
-		setIfNotEmpty(node, "username", value(0))
-		setIfNotEmpty(node, "password", value(1))
+		setCredentialIfNotEmpty(node, "username", credential(0))
+		setCredentialIfNotEmpty(node, "password", credential(1))
 	case "tuic":
 		setIfNotEmpty(node, "uuid", value(0))
-		setIfNotEmpty(node, "password", value(1))
+		setCredentialIfNotEmpty(node, "password", credential(1))
 	case "snell":
 		if len(values) > 0 && values[0] != "" {
 			// optionMap has already removed surrounding quotes. Preserve the
@@ -218,8 +226,8 @@ func applyPlatformPositionals(node Node, typ string, values []string) {
 			node["psk"] = values[0]
 		}
 	case "ssh":
-		setIfNotEmpty(node, "username", value(0))
-		setIfNotEmpty(node, "password", value(1))
+		setCredentialIfNotEmpty(node, "username", credential(0))
+		setCredentialIfNotEmpty(node, "password", credential(1))
 	}
 }
 
@@ -237,14 +245,14 @@ func applyPlatformProtocolOptions(node Node, options map[string]any) {
 	}
 	if typ == "ss" || typ == "ssr" {
 		setIfNotEmpty(node, "cipher", stringValue(firstOption(options, "cipher", "method", "encrypt-method")))
-		setIfNotEmpty(node, "password", stringValue(firstOption(options, "password")))
+		setCredentialIfNotEmpty(node, "password", firstCredentialOption(options, "password"))
 	}
 	if typ == "trojan" || typ == "anytls" || typ == "hysteria2" || typ == "snell" {
-		setIfNotEmpty(node, "password", stringValue(firstOption(options, "password", "psk")))
+		setCredentialIfNotEmpty(node, "password", firstCredentialOption(options, "password", "psk"))
 	}
 	if typ == "http" || typ == "socks5" {
-		setIfNotEmpty(node, "username", stringValue(firstOption(options, "username", "user")))
-		setIfNotEmpty(node, "password", stringValue(firstOption(options, "password")))
+		setCredentialIfNotEmpty(node, "username", firstCredentialOption(options, "username", "user"))
+		setCredentialIfNotEmpty(node, "password", firstCredentialOption(options, "password"))
 	}
 	if typ == "ssr" {
 		for target, keys := range map[string][]string{
@@ -308,7 +316,7 @@ func applyPlatformProtocolOptions(node Node, options map[string]any) {
 	}
 	if typ == "tuic" {
 		setIfNotEmpty(node, "uuid", stringValue(firstOption(options, "uuid", "token")))
-		setIfNotEmpty(node, "password", stringValue(firstOption(options, "password")))
+		setCredentialIfNotEmpty(node, "password", firstCredentialOption(options, "password"))
 		setIfNotEmpty(node, "congestion-controller", stringValue(firstOption(options, "congestion-controller", "congestion-control")))
 		setIfNotEmpty(node, "udp-relay-mode", stringValue(firstOption(options, "udp-relay-mode")))
 		for target, aliases := range map[string][]string{
@@ -344,11 +352,11 @@ func applyPlatformProtocolOptions(node Node, options map[string]any) {
 func validatePlatformCredentials(node Node) error {
 	switch normalizeType(stringValue(node["type"])) {
 	case "ss":
-		if stringValue(node["cipher"]) == "" || stringValue(node["password"]) == "" {
+		if stringValue(node["cipher"]) == "" || protocolCredentialString(node["password"]) == "" {
 			return errMissingCredentials
 		}
 	case "ssr", "trojan", "anytls", "hysteria2":
-		if stringValue(node["password"]) == "" {
+		if protocolCredentialString(node["password"]) == "" {
 			return errMissingCredentials
 		}
 	case "snell":
@@ -365,7 +373,7 @@ func validatePlatformCredentials(node Node) error {
 			return errMissingCredentials
 		}
 	case "tuic":
-		if stringValue(node["uuid"]) == "" || stringValue(node["password"]) == "" {
+		if stringValue(node["uuid"]) == "" || protocolCredentialString(node["password"]) == "" {
 			return errMissingCredentials
 		}
 	}

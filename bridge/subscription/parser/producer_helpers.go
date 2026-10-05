@@ -317,16 +317,9 @@ func applyHysteria2Obfs(node Node, out map[string]any) error {
 	if typ != "salamander" && typ != "gecko" {
 		return errors.New("unsupported Hysteria2 obfuscation")
 	}
-	password := nodeString(node, "obfs-password", "obfs_password", "obfs-param")
-	if typ == "gecko" {
-		password = protocolCredentialString(nodeValue(node, "obfs-password", "obfs_password", "obfs-param"))
-	}
+	password := protocolCredentialString(nodeValue(node, "obfs-password", "obfs_password", "obfs-param"))
 	if password == "" {
-		if typ == "gecko" {
-			password = protocolCredentialString(mapValue(options, "password"))
-		} else {
-			password = mapString(options, "password")
-		}
+		password = protocolCredentialString(mapValue(options, "password"))
 	}
 	if password == "" {
 		return errors.New("missing required Hysteria2 obfuscation password")
