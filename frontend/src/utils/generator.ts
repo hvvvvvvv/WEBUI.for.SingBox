@@ -2,8 +2,6 @@ import { createRpcClient } from '@/bridge'
 import { KernelConfigService } from '../../gen/kernel/v1/kernel_config_service_pb'
 import { ProfileService } from '../../gen/profile/v1/profile_service_pb'
 import { DnsServer } from '@/enums/kernel'
-import { Branch } from '@/enums/app'
-import { useAppConfigStore } from '@/stores'
 import { iProfileToProto } from './profileRpc'
 
 export const generateDnsServerURL = (dnsServer: IDNSServer) => {
@@ -30,36 +28,14 @@ export const generateDnsServerURL = (dnsServer: IDNSServer) => {
   return address
 }
 
-type GenerateConfigOptions = {
-  enableAlphaConfigAdaptation?: boolean
-  enableMixinProcessing?: boolean
-  enableScriptProcessing?: boolean
-}
-
-const resolveGenerateOptions = (options: GenerateConfigOptions = {}) => {
-  const appConfig = useAppConfigStore()
-  const isAlphaBranch = appConfig.config.branch === Branch.Alpha
-
-  return {
-    enableAlphaConfigAdaptation: options.enableAlphaConfigAdaptation ?? isAlphaBranch,
-    enableMixinProcessing: options.enableMixinProcessing ?? true,
-    enableScriptProcessing: options.enableScriptProcessing ?? true,
-  }
-}
-
-export const generateConfigViaRpcByProfile = async (
-  profile: IProfile,
-  options: GenerateConfigOptions = {},
-): Promise<Recordable> => {
+export const generateConfigViaRpcByProfile = async (profile: IProfile): Promise<Recordable> => {
   const profileServiceClient = createRpcClient(KernelConfigService)
-  const resolved = resolveGenerateOptions(options)
 
   const result = await profileServiceClient.generateConfig({
     profile: iProfileToProto(profile),
     options: {
-      enableAlphaConfigAdaptation: resolved.enableAlphaConfigAdaptation,
-      enableMixinProcessing: resolved.enableMixinProcessing,
-      enableScriptProcessing: resolved.enableScriptProcessing,
+      enableMixinProcessing: true,
+      enableScriptProcessing: true,
     },
   })
 

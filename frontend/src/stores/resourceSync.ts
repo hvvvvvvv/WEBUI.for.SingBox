@@ -4,7 +4,7 @@ import type { ExpectedRevision, MutationState, ResourceState } from '../../gen/c
 
 export type ResourceDomain = 'profiles' | 'subscriptions' | 'rulesets' | 'scheduledTasks'
 
-export interface LocalResourceState {
+interface LocalResourceState {
   instanceId: string
   stateRevision: bigint
   orderRevision: bigint
@@ -14,7 +14,6 @@ export interface LocalResourceState {
 export interface ResourceChangedEvent {
   domain: ResourceDomain
   operation: 'upsert' | 'delete' | 'reorder' | 'runtime'
-  ids: string[]
   instanceId: string
   stateRevision: number
 }

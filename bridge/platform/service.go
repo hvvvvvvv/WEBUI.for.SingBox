@@ -10,14 +10,13 @@ import (
 )
 
 type Environment struct {
-	FromTaskScheduler bool   `json:"-"`
-	AppName           string `json:"appName"`
-	AppVersion        string `json:"appVersion"`
-	BasePath          string `json:"basePath"`
-	OS                string `json:"os"`
-	Arch              string `json:"arch"`
-	Libc              string `json:"libc"`
-	IsPrivileged      bool   `json:"isPrivileged"`
+	AppName      string `json:"appName"`
+	AppVersion   string `json:"appVersion"`
+	BasePath     string `json:"basePath"`
+	OS           string `json:"os"`
+	Arch         string `json:"arch"`
+	Libc         string `json:"libc"`
+	IsPrivileged bool   `json:"isPrivileged"`
 }
 
 type Service struct {
@@ -51,14 +50,6 @@ func NewService(paths *storage.Paths, events *event.Hub, environment Environment
 		environment:      environment,
 		managedProcesses: make(map[int]*managedProcess),
 	}
-}
-
-func (s *Service) Paths() *storage.Paths {
-	return s.paths
-}
-
-func (s *Service) Events() *event.Hub {
-	return s.events
 }
 
 func (s *Service) Environment() Environment {

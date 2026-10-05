@@ -131,7 +131,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
           style="font-size: 12px"
           @click="handleExecCommand(index)"
         >
-          <div>{{ c.desc }}</div>
           <div>{{ c.cmd }}</div>
         </Card>
       </div>

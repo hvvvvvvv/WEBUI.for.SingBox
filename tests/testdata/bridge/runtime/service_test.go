@@ -131,7 +131,7 @@ func putScheduledTaskForTest(service *appRuntimeService, raw string) (string, er
 
 func TestCreateManualSourceRuleSetDoesNotOverwriteExistingContent(t *testing.T) {
 	withTempBasePath(t)
-	service := newAppRuntimeService(nil, nil)
+	service := newTestRuntimeService(nil)
 	path := GetPath("data/rulesets/manual.json")
 	if err := os.MkdirAll(filepath.Dir(path), os.ModePerm); err != nil {
 		t.Fatal(err)
@@ -315,7 +315,7 @@ func TestGetBinaryRuleSetContentDoesNotHoldRulesetLockWhileDecompiling(t *testin
 		started: make(chan struct{}),
 		release: make(chan struct{}),
 	}
-	service := newAppRuntimeService(nil, decompiler)
+	service := newTestRuntimeService(decompiler)
 	_, err := putRuleSetForTest(
 		service,
 		`{"id":"binary","tag":"Binary","type":"Http","format":"binary","url":"https://example.com/ruleset.srs"}`,
@@ -385,7 +385,7 @@ func TestScheduledTaskLogsRespectTaskLimit(t *testing.T) {
 	if err := saveScheduledTasks([]scheduledTask{{ID: "task-1", Name: "Task", LogLimit: 3}}); err != nil {
 		t.Fatal(err)
 	}
-	service := newAppRuntimeService(nil, nil)
+	service := newTestRuntimeService(nil)
 
 	for i := 0; i < 5; i++ {
 		service.recordTaskLog(context.Background(), "task-1", "Task", int64(i), int64(i), []*appv1.TaskResult{taskResult(true, "r", "R", "ok")})
@@ -1032,4 +1032,10 @@ func TestNarrowNoOpUpdatesDoNotAdvanceVersionsOrPublishEvents(t *testing.T) {
 	if taskNoOp.Msg.GetState().GetStateRevision() != taskResponse.Msg.GetState().GetStateRevision() || len(events.events) != 0 {
 		t.Fatalf("scheduled task no-op advanced state or published events: state=%#v events=%#v", taskNoOp.Msg.GetState(), events.events)
 	}
+}
+
+func newTestRuntimeService(kernelController KernelController) *Service {
+	paths := runtimePaths.Load()
+	configStore, _ := config.NewStore(paths)
+	return NewService(nil, paths, configStore, nil, kernelController)
 }

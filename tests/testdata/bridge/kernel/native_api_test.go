@@ -116,8 +116,8 @@ func TestNativeAPIInstanceCancellationAndRotation(t *testing.T) {
 				t.Fatal(err)
 			}
 			defer newCancel()
-			if secret != "second-secret" || s.nativeGeneration != 2 {
-				t.Fatal("new instance retained old credential/generation")
+			if secret != "second-secret" {
+				t.Fatal("new instance retained old credential")
 			}
 		})
 	}

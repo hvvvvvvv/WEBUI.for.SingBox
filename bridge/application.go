@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"sync"
 	"time"
 
@@ -52,8 +51,6 @@ type Application struct {
 	events       *event.Hub
 	kernel       *kernel.Service
 	scheduler    *scheduler.Service
-	update       *appupdate.Service
-	system       *appsystem.Service
 	server       *httptransport.Server
 	options      Options
 }
@@ -98,13 +95,12 @@ func New(options Options) (_ *Application, resultErr error) {
 	resourceState := syncstate.NewCoordinator()
 	privileged, _ := platform.IsPrivileged()
 	platformService := platform.NewService(paths, events, platform.Environment{
-		FromTaskScheduler: slices.Contains(os.Args, "tasksch"),
-		AppName:           options.AppName,
-		AppVersion:        options.AppVersion,
-		OS:                runtime.GOOS,
-		Arch:              runtime.GOARCH,
-		Libc:              platform.DetectLibc(),
-		IsPrivileged:      privileged,
+		AppName:      options.AppName,
+		AppVersion:   options.AppVersion,
+		OS:           runtime.GOOS,
+		Arch:         runtime.GOARCH,
+		Libc:         platform.DetectLibc(),
+		IsPrivileged: privileged,
 	})
 
 	appConfig, err := config.NewStore(paths)
@@ -161,8 +157,6 @@ func New(options Options) (_ *Application, resultErr error) {
 		events:       events,
 		kernel:       kernelService,
 		scheduler:    schedulerService,
-		update:       updateService,
-		system:       systemService,
 		server:       server,
 		options:      options,
 	}, nil

@@ -10,7 +10,6 @@ import {
   isResourceNotFound,
   useSubscribesStore,
   useAppSettingsStore,
-  useAppStore,
 } from '@/stores'
 import {
   formatBytes,
@@ -62,7 +61,6 @@ const menuList: Menu[] = [
 
 const { t } = useI18n()
 const [Modal, modalApi] = useModal({})
-const appStore = useAppStore()
 const subscribeStore = useSubscribesStore()
 const appSettingsStore = useAppSettingsStore()
 
@@ -212,16 +210,12 @@ const onSortUpdate = () => {
             <Button type="link" @click="handleShowSubForm()">{{ t('common.add') }}</Button>
           </template>
         </I18nT>
-        <div class="flex items-center">
-          <CustomAction :actions="appStore.customActions.subscriptions_header" />
-        </div>
       </template>
     </Empty>
   </div>
 
   <div v-else class="grid-list-header">
     <Radio v-model="appSettingsStore.app.subscribesView" :options="ViewOptions" class="mr-auto" />
-    <CustomAction :actions="appStore.customActions.subscriptions_header" />
     <Button
       :disabled="noUpdateNeeded"
       :type="noUpdateNeeded ? 'text' : 'link'"

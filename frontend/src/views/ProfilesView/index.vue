@@ -10,7 +10,6 @@ import {
   useAppConfigStore,
   useKernelApiStore,
   useSubscribesStore,
-  useAppStore,
   isResourceConflict,
   isResourceNotFound,
 } from '@/stores'
@@ -35,7 +34,6 @@ import QRSShareDialog from './components/QRSShareDialog.vue'
 
 const { t } = useI18n()
 const [Modal, modalApi] = useModal({})
-const appStore = useAppStore()
 const profilesStore = useProfilesStore()
 const subscribesStore = useSubscribesStore()
 const appSettingsStore = useAppSettingsStore()
@@ -265,16 +263,12 @@ const onSortUpdate = (event: SortableEvent) => {
             <Button type="link" @click="handleShowProfileForm()">{{ t('common.add') }}</Button>
           </template>
         </I18nT>
-        <div class="flex items-center">
-          <CustomAction :actions="appStore.customActions.profiles_header" />
-        </div>
       </template>
     </Empty>
   </div>
 
   <div v-else class="grid-list-header">
     <Radio v-model="appSettingsStore.app.profilesView" :options="ViewOptions" class="mr-auto" />
-    <CustomAction :actions="appStore.customActions.profiles_header" />
     <Button type="primary" icon="add" @click="handleShowProfileForm()">
       {{ t('common.add') }}
     </Button>

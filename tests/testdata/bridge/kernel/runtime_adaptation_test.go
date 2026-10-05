@@ -73,8 +73,8 @@ func TestCoreStartKeepsRuntimeSnapshotDuringSettingsChange(t *testing.T) {
 			if _, err := service.StartCore(context.Background(), connect.NewRequest(&kernelv1.StartCoreRequest{ProfileId: "profile"})); err != nil {
 				t.Fatal(err)
 			}
-			if generator.options == nil || generator.options.GetEnableAlphaConfigAdaptation() != (branch == "alpha") {
-				t.Fatalf("adaptation lost original branch: %v", generator.options)
+			if generator.options == nil || !generator.options.GetEnableMixinProcessing() || !generator.options.GetEnableScriptProcessing() {
+				t.Fatalf("runtime configuration processing disabled: %v", generator.options)
 			}
 			wantPath := coreWorkingDirectory + "/" + getKernelFileName(branch == "alpha")
 			wantArgs := []string{"run", "--branch=" + branch, "-c", "/tmp/app/" + coreWorkingDirectory + "/" + branch + ".json"}

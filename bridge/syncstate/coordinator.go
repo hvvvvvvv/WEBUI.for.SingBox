@@ -29,14 +29,6 @@ const (
 	OperationRuntime Operation = "runtime"
 )
 
-type ChangeEvent struct {
-	Domain        Domain    `json:"domain"`
-	Operation     Operation `json:"operation"`
-	IDs           []string  `json:"ids"`
-	InstanceID    string    `json:"instanceId"`
-	StateRevision uint64    `json:"stateRevision"`
-}
-
 type domainState struct {
 	initialized   bool
 	stateRevision uint64
@@ -188,18 +180,5 @@ func mutationState(instanceID string, state *domainState, id string) *commonv1.M
 		StateRevision: state.stateRevision,
 		ItemRevision:  state.itemRevisions[id],
 		OrderRevision: state.orderRevision,
-	}
-}
-
-func Event(domain Domain, operation Operation, ids []string, state *commonv1.MutationState) ChangeEvent {
-	if ids == nil {
-		ids = []string{}
-	}
-	return ChangeEvent{
-		Domain:        domain,
-		Operation:     operation,
-		IDs:           append([]string{}, ids...),
-		InstanceID:    state.GetInstanceId(),
-		StateRevision: state.GetStateRevision(),
 	}
 }

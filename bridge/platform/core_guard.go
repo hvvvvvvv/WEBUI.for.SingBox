@@ -42,7 +42,6 @@ type coreGuardEvent struct {
 	Output   *logging.CoreOutput `json:"output,omitempty"`
 	Error    string              `json:"error,omitempty"`
 	Expected bool                `json:"expected,omitempty"`
-	ExitCode int                 `json:"exit_code,omitempty"`
 }
 
 type guardEmitter struct {
@@ -138,7 +137,7 @@ func RunCoreGuard(input io.ReadCloser, output io.WriteCloser) error {
 	if err != nil {
 		return err
 	}
-	owner := coreOwner{Session: rand.Text(), Backend: request.Backend, Guard: guard, ConfigPath: filepath.Join(request.BaseDir, "data/sing-box/config.json")}
+	owner := coreOwner{Session: rand.Text(), Backend: request.Backend, Guard: guard}
 	// Keep the guard identity after the core exits. The backend removes the record
 	// only after Wait confirms that this executable is no longer in use.
 	for _, stage := range []string{"check", "startup"} {
@@ -255,7 +254,7 @@ func RunCoreGuard(input io.ReadCloser, output io.WriteCloser) error {
 				if stage == "check" && !stopping {
 					message = "invalid core config: " + message
 				}
-				emitter.send(coreGuardEvent{Type: "exit", Identity: identity, Error: message, Expected: stopping, ExitCode: cmd.ProcessState.ExitCode()})
+				emitter.send(coreGuardEvent{Type: "exit", Identity: identity, Error: message, Expected: stopping})
 				return nil
 			}
 		}

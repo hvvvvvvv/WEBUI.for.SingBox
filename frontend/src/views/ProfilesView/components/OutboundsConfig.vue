@@ -109,7 +109,7 @@ const handleAddProxy = (groupID: string, proxyID: string, proxyName: string) => 
   }
 }
 
-const isInuse = (groupID: string, proxyID: string) => {
+const isInuse = (proxyID: string) => {
   return fields.value.outbounds.find((outbound) => outbound.id === proxyID)
 }
 
@@ -273,10 +273,6 @@ subscribesStore.subscribes.forEach(async ({ id, name, proxies }) => {
         {{ t('kernel.outbounds.hidden') }}
         <Switch v-model="fields.hidden" />
       </div>
-      <!-- <div class="form-item">
-        {{ t('kernel.outbounds.interrupt_exist_connections') }}
-        <Switch v-model="fields.interrupt_exist_connections" />
-      </div> -->
       <div class="form-item">
         {{ t('kernel.outbounds.include') }}
         <Input v-model="fields.include" placeholder="keywords1|keywords2" />
@@ -353,7 +349,7 @@ subscribesStore.subscribes.forEach(async ({ id, name, proxies }) => {
               <Button
                 v-for="proxy in group.proxies"
                 :key="proxy.id"
-                :type="isInuse(group.id, proxy.id) ? 'link' : 'text'"
+                :type="isInuse(proxy.id) ? 'link' : 'text'"
                 @click="handleAddProxy(group.id, proxy.id, proxy.tag)"
               >
                 {{ proxy.tag }}

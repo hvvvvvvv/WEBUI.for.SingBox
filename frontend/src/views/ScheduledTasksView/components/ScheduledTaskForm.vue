@@ -132,7 +132,7 @@ const handleValidate = () => {
 }
 
 const handleViewNextRuns = async () => {
-  const { ok, reason, instance } = isValidCron(task.value.cron)
+  const { ok, reason } = isValidCron(task.value.cron)
   if (!ok) {
     message.error(reason)
     return
@@ -142,7 +142,6 @@ const handleViewNextRuns = async () => {
     const index = (i + 1).toString().padStart(2, '0')
     return index + ' - '.repeat(14) + formatDate(v, 'YYYY/MM/DD HH:mm:ss')
   })
-  void instance
   alert('Next Run Time', list.join('\n'))
 }
 
@@ -270,6 +269,5 @@ defineExpose({ modalSlots })
         </Card>
       </div>
     </div>
-
   </div>
 </template>

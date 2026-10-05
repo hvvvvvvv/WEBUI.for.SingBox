@@ -63,7 +63,7 @@ const nativeClient = createClient(
   }),
 )
 
-type NativeInstance = { pid: number; generation: number; controller: AbortController }
+type NativeInstance = { pid: number; controller: AbortController }
 let instance: NativeInstance | undefined
 let generation = 0
 
@@ -149,7 +149,8 @@ const channels = [groups, outbounds, modes, status, logs, connections]
 export const startNativeApi = (pid: number) => {
   if (instance?.pid === pid && !instance.controller.signal.aborted) return
   stopNativeApi()
-  instance = { pid, generation: ++generation, controller: new AbortController() }
+  generation++
+  instance = { pid, controller: new AbortController() }
   for (const channel of channels) channel.setInstance(instance.controller.signal)
 }
 

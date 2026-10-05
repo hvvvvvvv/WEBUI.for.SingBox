@@ -19,20 +19,6 @@ export const getZoomLevel = () => {
   return parseFloat(style.zoom) || 1
 }
 
-export const GetKernelProxy = async () => {
-  if (useKernelApiStore().running) {
-    const kernelProxy = useKernelApiStore().getProxyPort()
-    if (kernelProxy !== undefined) {
-      if (kernelProxy.proxyType === 'socks') {
-        return `socks5://127.0.0.1:${kernelProxy.port}`
-      }
-      return `http://127.0.0.1:${kernelProxy.port}`
-    }
-  }
-
-  return ''
-}
-
 // Others
 const guardKernelInstance = (generation: number) => {
   if (generation !== getNativeApiGeneration()) throw new Error('Kernel instance changed')

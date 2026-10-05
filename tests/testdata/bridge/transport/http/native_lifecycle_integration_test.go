@@ -167,7 +167,11 @@ func TestNativeAPIProductionLifecycle(t *testing.T) {
 	}
 	nativeWaitForStreamCancellation(t, third)
 	third.Close()
-	if status, _ := core.Status(); status != kernelv1.CoreStatus_CORE_STATUS_RUNNING {
+	status, err := core.GetCoreStatus(ctx, connect.NewRequest(&kernelv1.GetCoreStatusRequest{}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if status.Msg.GetStatus() != kernelv1.CoreStatus_CORE_STATUS_RUNNING {
 		t.Fatal("HTTP Close unexpectedly stopped kernel")
 	}
 }

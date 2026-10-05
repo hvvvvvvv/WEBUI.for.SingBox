@@ -187,21 +187,6 @@ func (a *App) trackedProcess(pid int) *managedProcess {
 	return a.managedProcesses[pid]
 }
 
-func (a *App) ProcessInfo(pid int32) FlagResult {
-	slog.Debug("process information requested", "component", "process", "operation", "inspect", "pid", pid)
-	proc, err := process.NewProcess(pid)
-	if err != nil {
-		return FlagResult{false, err.Error()}
-	}
-
-	name, err := proc.Name()
-	if err != nil {
-		return FlagResult{false, err.Error()}
-	}
-
-	return FlagResult{true, name}
-}
-
 func (a *App) ProcessMemory(pid int32) FlagResult {
 	slog.Debug("process memory requested", "component", "process", "operation", "memory", "pid", pid)
 	proc, err := process.NewProcess(pid)

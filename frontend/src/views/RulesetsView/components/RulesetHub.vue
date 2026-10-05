@@ -186,9 +186,6 @@ defineExpose({ modalSlots })
                 @click="handlePreview(getRulesetHubIndex(ruleset), ruleset, RulesetFormat.Source)"
               />
             </div>
-            <!-- <div v-tips="ruleset.description" class="flex-1 line-clamp-2">
-              {{ ruleset.description || t('rulesets.noDesc') }}
-            </div> -->
             <div class="flex items-center justify-end">
               <template
                 v-if="

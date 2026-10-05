@@ -113,10 +113,6 @@ export const useSubscribesStore = defineStore('subscribes', () => {
     upsertLocalSubscribe(parseSubscription(subscriptionJson))
   }
 
-  const importSubscribe = async (name: string, url: string) => {
-    await addSubscribe(getSubscribeTemplate(name, { url }))
-  }
-
   const deleteSubscribe = async (
     id: string,
     revision: Revision = expectedItemRevision(resourceState, id),
@@ -172,9 +168,6 @@ export const useSubscribesStore = defineStore('subscribes', () => {
     const { content, revision } = await service.getSubscriptionContent({ id })
     return { content, revision }
   }
-
-  const getSubscriptionContent = async (id: string) =>
-    (await getSubscriptionContentWithRevision(id)).content
 
   const saveSubscriptionContent = async (
     id: string,
@@ -236,10 +229,8 @@ export const useSubscribesStore = defineStore('subscribes', () => {
     getSubscribeById,
     getSubscribeRevision,
     getSubscribesOrderRevision,
-    getSubscriptionContent,
     getSubscriptionContentWithRevision,
     saveSubscriptionContent,
-    importSubscribe,
     getSubscribeTemplate,
   }
 })

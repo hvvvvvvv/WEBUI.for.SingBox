@@ -14,7 +14,6 @@ type Command = {
   label: string
   literalLabel?: boolean
   cmd: string
-  desc?: string
   handler?: () => Promise<any> | any
   children?: Command[]
 }

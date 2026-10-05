@@ -50,11 +50,11 @@ export class NativeSubscription<T> {
     for (const handler of this.handlers.values()) handler(value)
   }
 
-  first(timeoutMs = 10000): Promise<T> {
-    return this.waitFor(() => true, timeoutMs)
+  first(): Promise<T> {
+    return this.waitFor(() => true)
   }
 
-  waitFor(predicate: (value: T) => boolean, timeoutMs = 10000): Promise<T> {
+  waitFor(predicate: (value: T) => boolean): Promise<T> {
     if (this.terminalError) return Promise.reject(this.terminalError)
     return new Promise((resolve, reject) => {
       let unregister = () => {}
@@ -68,7 +68,7 @@ export class NativeSubscription<T> {
         fail(
           new ConnectError('Native API did not provide an initial snapshot', Code.DeadlineExceeded),
         )
-      }, timeoutMs)
+      }, 10000)
       this.pending.add(fail)
       const receive = (value: T) => {
         if (!predicate(value)) return

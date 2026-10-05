@@ -9,10 +9,8 @@ import (
 )
 
 type subscriptionParseResult struct {
-	proxies      []map[string]any
-	usedFallback bool
-	total        int
-	skipped      int
+	proxies []map[string]any
+	skipped int
 }
 
 func parseNativeSubscription(body string) ([]map[string]any, error) {
@@ -59,7 +57,6 @@ func parseSubscriptionBody(body string, subscriptionType string, enableNodeConve
 	if nativeErr == nil {
 		return subscriptionParseResult{
 			proxies: proxies,
-			total:   len(proxies),
 		}, nil
 	}
 	if subscriptionType != "Http" {
@@ -74,9 +71,7 @@ func parseSubscriptionBody(body string, subscriptionType string, enableNodeConve
 		return subscriptionParseResult{}, fmt.Errorf("native parser: %v; fallback parser: %w", nativeErr, fallbackErr)
 	}
 	return subscriptionParseResult{
-		proxies:      fallback.Outbounds,
-		usedFallback: true,
-		total:        fallback.Total,
-		skipped:      fallback.Skipped,
+		proxies: fallback.Outbounds,
+		skipped: fallback.Skipped,
 	}, nil
 }

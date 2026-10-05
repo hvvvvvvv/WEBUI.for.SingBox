@@ -53,28 +53,6 @@ export enum RulesetFormat {
 }
 
 export enum RuleType {
-  Inbound = 'inbound',
-  Network = 'network',
-  Protocol = 'protocol',
-  Domain = 'domain',
-  DomainSuffix = 'domain_suffix',
-  DomainKeyword = 'domain_keyword',
-  DomainRegex = 'domain_regex',
-  SourceIPCidr = 'source_ip_cidr',
-  IPCidr = 'ip_cidr',
-  IpIsPrivate = 'ip_is_private',
-  SourcePort = 'source_port',
-  SourcePortRange = 'source_port_range',
-  Port = 'port',
-  PortRange = 'port_range',
-  ProcessName = 'process_name',
-  ProcessPath = 'process_path',
-  ProcessPathRegex = 'process_path_regex',
-  ClashMode = 'clash_mode',
-  RuleSet = 'rule_set',
-  IpAcceptAny = 'ip_accept_any',
-  // GUI
-  Inline = 'inline',
   InsertionPoint = 'InsertionPoint',
 }
 

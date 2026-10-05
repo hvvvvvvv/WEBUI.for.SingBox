@@ -70,7 +70,7 @@ interface ParsedFrame {
 }
 
 const parseFrame = (frame: QRSFrame): ParsedFrame => {
-  const payload = Buffer.from(frame.base64, 'base64')
+  const payload = Buffer.from(frame.content.slice(QRS_URL_PREFIX.length), 'base64')
   const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength)
   let offset = 0
   const degree = view.getInt32(offset, true)
@@ -229,16 +229,16 @@ describe('QRS fountain frames', () => {
 
     expect(frames).toHaveLength(3)
     // Generated independently with JVM Deflater and Kotlin 2.3.20 Random(seed: Long).
-    expect(frames.map((frame) => frame.base64)).toEqual([
+    expect(frames.map((frame) => frame.content.slice(QRS_URL_PREFIX.length))).toEqual([
       'AgAAAAIAAAABAAAAAwAAABgAAADgQc9hwSMIVhiaSPQ=',
       'AQAAAAAAAAADAAAAGAAAAOBBz2F4nEvLrEhNUQ==',
       'AwAAAAEAAAAAAAAAAgAAAAMAAAAYAAAA4EHPYbm/Q5200gWl',
     ])
-    for (const [index, frame] of frames.entries()) {
-      expect(frame.frameIndex).toBe(index)
-      expect(frame.content).toBe(QRS_URL_PREFIX + frame.base64)
-      expect(frame.base64).toMatch(/^[A-Za-z0-9+/]+={0,2}$/)
-      expect(frame.base64.length % 4).toBe(0)
+    for (const frame of frames) {
+      expect(frame.content.startsWith(QRS_URL_PREFIX)).toBe(true)
+      const base64 = frame.content.slice(QRS_URL_PREFIX.length)
+      expect(base64).toMatch(/^[A-Za-z0-9+/]+={0,2}$/)
+      expect(base64.length % 4).toBe(0)
     }
   })
 
@@ -247,7 +247,7 @@ describe('QRS fountain frames', () => {
       Array.from({ length: 200 }, (_, index) => `line-${index}:${index * 7919}`).join('\n'),
     )
     const initial = encodeQRS(wrapped, { sliceSize: 64, frameCount: 1 })
-    const totalBlocks = initial[0]!.totalBlocks
+    const totalBlocks = parseFrame(initial[0]!).totalBlocks
     const frames = encodeQRS(wrapped, {
       sliceSize: 64,
       frameCount: totalBlocks * 5 + 20,

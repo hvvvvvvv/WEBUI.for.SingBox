@@ -74,7 +74,6 @@ type rulesetHubItem struct {
 
 type appRuntimeService struct {
 	platform *platform.Service
-	paths    *storage.Paths
 	config   AppConfigReader
 	events   EventPublisher
 	kernel   KernelController
@@ -139,7 +138,6 @@ func NewService(platformService *platform.Service, paths *storage.Paths, configS
 	logs = trimScheduledTaskLogs(logs, tasks)
 	return &Service{
 		platform:    platformService,
-		paths:       paths,
 		config:      configStore,
 		events:      events,
 		kernel:      kernelController,
@@ -147,12 +145,6 @@ func NewService(platformService *platform.Service, paths *storage.Paths, configS
 		runningTask: map[string]bool{},
 		taskLogs:    logs,
 	}
-}
-
-func newAppRuntimeService(_ any, kernelController KernelController) *Service {
-	paths := runtimePaths.Load()
-	configStore, _ := config.NewStore(paths)
-	return NewService(nil, paths, configStore, nil, kernelController)
 }
 
 func (s *appRuntimeService) publish(eventName string, data ...any) {

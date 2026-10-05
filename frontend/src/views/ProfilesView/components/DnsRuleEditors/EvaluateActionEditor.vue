@@ -6,5 +6,5 @@ const model = defineModel<IDNSActionOptions>({ required: true })
 </script>
 
 <template>
-  <ServerQueryActionEditor v-model="model" :server-options="serverOptions" show-server />
+  <ServerQueryActionEditor v-model="model" :server-options="serverOptions" />
 </template>

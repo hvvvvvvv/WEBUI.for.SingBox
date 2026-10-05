@@ -29,7 +29,6 @@ enum Step {
 
 const props = withDefaults(defineProps<Props>(), {
   id: '',
-  isUpdate: false,
   step: Step.Name,
 })
 

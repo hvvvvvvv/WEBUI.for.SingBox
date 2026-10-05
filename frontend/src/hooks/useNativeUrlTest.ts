@@ -6,7 +6,7 @@ import type { Group, GroupItem } from '@/types/kernel'
 const resultWaitMs = 10_000
 const nativeTestConcurrency = 10
 
-export interface NativeUrlTestTimeout {
+interface NativeUrlTestTimeout {
   tag: string
   isGroup: boolean
   remainingCount: number
@@ -23,7 +23,6 @@ interface Options {
 type History = Pick<GroupItem, 'urlTestTime' | 'urlTestDelay'>
 type Task = {
   id: number
-  tag: string
   isGroup: boolean
   pid: number
   generation: number
@@ -138,7 +137,6 @@ export const useNativeUrlTest = (options: Options) => {
     }
     const task: Task = {
       id: ++nextTaskId,
-      tag,
       isGroup: groupMap.has(tag),
       pid: options.pid(),
       generation: getNativeApiGeneration(),

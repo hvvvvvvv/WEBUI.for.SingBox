@@ -98,7 +98,7 @@ func TestCoreWriterConcurrentConfigurationAndWrites(t *testing.T) {
 func TestCoreWriterFailureRetryRecoveryUsesOnlyApplicationLogger(t *testing.T) {
 	var app bytes.Buffer
 	previous := slog.Default()
-	slog.SetDefault(New(&app, LevelDebug))
+	slog.SetDefault(slog.New(NewConsoleHandler(&app, LevelDebug)))
 	defer slog.SetDefault(previous)
 	w := NewCoreWriter(t.TempDir(), 0)
 	defer w.Close()

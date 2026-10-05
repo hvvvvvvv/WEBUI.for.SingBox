@@ -42,7 +42,6 @@ type kernelRuntimeConfig struct {
 type ProcessRunner interface {
 	Exec(path string, args []string, options platform.ExecOptions) platform.Result
 	ExecBackground(path string, args []string, outEvent string, options platform.ExecOptions) platform.Result
-	ProcessInfo(pid int32) platform.Result
 	ProcessMemory(pid int32) platform.Result
 	KillProcess(pid int, timeout int) platform.Result
 	ResolvePath(path string) string
@@ -96,7 +95,6 @@ type Service struct {
 	restartExecutingID string
 	downloads          map[string]context.CancelFunc
 	nativeAPI          *nativeAPIInstance
-	nativeGeneration   uint64
 }
 
 var waitKernelAPIReadyFunc = waitKernelAPIReady
@@ -180,17 +178,6 @@ func (s *Service) setStarting(profileID string) error {
 	return nil
 }
 
-func (s *Service) setRunning(pid int, profileID string, profile *profilev1.Profile) {
-	s.updateCoreState(func() {
-		s.revokeNativeAPILocked()
-		s.status = kernelv1.CoreStatus_CORE_STATUS_RUNNING
-		s.activeProfileID = profileID
-		s.corePID = pid
-		s.currentProfile = cloneProfile(profile)
-		s.restartRequired = false
-	})
-}
-
 func (s *Service) completeStart(pid int, profileID string, profile *profilev1.Profile, secret string) bool {
 	s.stateEventMu.Lock()
 	defer s.stateEventMu.Unlock()
@@ -222,16 +209,6 @@ func (s *Service) setStopped() {
 		if !s.restarting {
 			s.restartRequired = false
 		}
-	})
-}
-
-func (s *Service) setCrashed() {
-	s.updateCoreState(func() {
-		s.revokeNativeAPILocked()
-		s.status = kernelv1.CoreStatus_CORE_STATUS_CRASHED
-		s.corePID = -1
-		s.currentProfile = nil
-		s.restartRequired = false
 	})
 }
 
@@ -357,12 +334,6 @@ func coreAPIUnavailableError(cause error) error {
 	err := connect.NewError(connect.CodeUnavailable, fmt.Errorf("kernel api is not ready: %w", cause))
 	err.Meta().Set(coreErrorReasonHeader, coreAPIUnavailable)
 	return err
-}
-
-func (s *Service) Status() (kernelv1.CoreStatus, string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.status, s.activeProfileID
 }
 
 func (s *Service) StartCore(
@@ -520,7 +491,6 @@ func (s *Service) launchPreparedCore(ctx context.Context, profile *profilev1.Pro
 		return -1, connect.NewError(connect.CodeUnavailable, fmt.Errorf("core process exited during startup"))
 	}
 
-	_ = ctx
 	return pid, nil
 }
 

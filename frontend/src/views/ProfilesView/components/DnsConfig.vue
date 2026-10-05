@@ -34,7 +34,6 @@ const { t } = useI18n()
 
 const handleAdd = () => {
   const handlerMap: Record<string, (() => void) | undefined> = {
-    common: () => {},
     rules: rulesConfigRef.value?.handleAdd,
     servers: serversConfigRef.value?.handleAdd,
   }

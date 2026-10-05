@@ -1,20 +1,16 @@
 <script setup lang="ts">
 import logo from '@/assets/logo'
 import { apiCall } from '@/bridge/http'
-import { useAppSettingsStore, useKernelApiStore, useAppStore } from '@/stores'
+import { useAppSettingsStore, useKernelApiStore } from '@/stores'
 import { APP_TITLE } from '@/utils'
 
 const appSettingsStore = useAppSettingsStore()
 const kernelApiStore = useKernelApiStore()
-const appStore = useAppStore()
 
 const handleLogout = async () => {
   await apiCall('/auth/logout').catch(() => {})
   location.reload()
 }
-
-
-
 </script>
 
 <template>
@@ -28,7 +24,6 @@ const handleLogout = async () => {
       class="font-bold w-full h-full flex items-center text-14"
     >
       {{ APP_TITLE }}
-      <CustomAction :actions="appStore.customActions.title_bar" />
       <Icon
         v-if="kernelApiStore.starting || kernelApiStore.stopping || kernelApiStore.restarting"
         :size="14"
@@ -38,8 +33,13 @@ const handleLogout = async () => {
     </div>
 
     <div v-if="appSettingsStore.sessionInfo.authEnabled" class="flex items-center">
-      <Button v-tips="'auth.logout'" type="text" icon="logout" size="small" @click.stop="handleLogout" />
+      <Button
+        v-tips="'auth.logout'"
+        type="text"
+        icon="logout"
+        size="small"
+        @click.stop="handleLogout"
+      />
     </div>
-
   </div>
 </template>

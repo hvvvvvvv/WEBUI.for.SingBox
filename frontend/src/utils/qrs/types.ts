@@ -45,16 +45,9 @@ export interface QRSEncodeOptions {
 }
 
 export interface QRSFrame {
-  base64: string
   content: string
-  frameIndex: number
-  totalBlocks: number
 }
 
 export interface QRSBundle {
-  bpfData: Uint8Array
-  wrappedData: Uint8Array
   frames: QRSFrame[]
-  frameCount: number
-  totalBlocks: number
 }

@@ -7,17 +7,6 @@ import {
   Theme,
   View,
 } from '@/enums/app'
-export const ProfilesFilePath = 'data/profiles.yaml'
-
-export const SubscribesFilePath = 'data/subscribes.yaml'
-
-export const RulesetsFilePath = 'data/rulesets.yaml'
-
-export const ScheduledTasksFilePath = 'data/scheduledtasks.yaml'
-
-export const RulesetHubFilePath = 'data/.cache/ruleset-list.json'
-
-export const RollingReleaseDirectory = 'data/rolling-release'
 
 export const DefaultFontFamily =
   'system-ui, "Microsoft YaHei UI", "Source Han Sans CN", "Twemoji Mozilla", sans-serif'

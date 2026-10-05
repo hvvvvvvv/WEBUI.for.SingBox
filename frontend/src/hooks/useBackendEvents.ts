@@ -169,9 +169,6 @@ export const useBackendEvents = () => {
       scheduleResourceRefresh({
         domain: value.domain as ResourceDomain,
         operation: value.operation as ResourceChangedEvent['operation'],
-        ids: Array.isArray(value.ids)
-          ? value.ids.filter((id): id is string => typeof id === 'string')
-          : [],
         instanceId: value.instanceId,
         stateRevision: value.stateRevision,
       })

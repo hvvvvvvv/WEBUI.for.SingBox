@@ -169,10 +169,7 @@ export const encodeQRS = (wrappedData: Uint8Array, options: QRSEncodeOptions = {
     })
     const base64 = encodeBase64(payload)
     return {
-      base64,
       content: QRS_URL_PREFIX + base64,
-      frameIndex,
-      totalBlocks,
     }
   })
 }
@@ -185,10 +182,6 @@ export const buildProfileQRS = (
   const wrappedData = appendQRSFileMeta(bpfData, input.name)
   const frames = encodeQRS(wrappedData, options)
   return {
-    bpfData,
-    wrappedData,
     frames,
-    frameCount: frames.length,
-    totalBlocks: frames[0]!.totalBlocks,
   }
 }

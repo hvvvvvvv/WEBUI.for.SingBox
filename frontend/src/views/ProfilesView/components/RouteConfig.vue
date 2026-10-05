@@ -28,7 +28,6 @@ const { t } = useI18n()
 
 const handleAdd = () => {
   const handlerMap: Record<string, (() => void) | undefined> = {
-    common: () => {},
     rules: rulesConfigRef.value?.handleAdd,
     rule_set: rulesetConfigRef.value?.handleAdd,
   }
@@ -57,10 +56,6 @@ defineExpose({ handleAdd })
         {{ t('kernel.route.default_domain_resolver.server') }}
         <Select v-model="model.default_domain_resolver.server" :options="serverOptions" clearable />
       </div>
-      <!-- <div class="form-item">
-        {{ t('kernel.route.default_domain_resolver.client_subnet') }}
-        <Input v-model="model.default_domain_resolver.client_subnet" editable />
-      </div> -->
       <div class="form-item">
         {{ t('kernel.route.final') }}
         <Select v-model="model.final" :options="outboundOptions" clearable />

@@ -88,8 +88,7 @@ func (s *Service) prepareCoreStart(ctx context.Context, profile *profilev1.Profi
 		return nil, err
 	}
 	generated, err := s.config.Generate(profile, &kernelv1.GenerateConfigOptions{
-		EnableAlphaConfigAdaptation: runtimeCfg.Branch == "alpha",
-		EnableMixinProcessing:       true, EnableScriptProcessing: true,
+		EnableMixinProcessing: true, EnableScriptProcessing: true,
 	})
 	if err != nil {
 		return nil, rpcutil.AsConnectError(err)

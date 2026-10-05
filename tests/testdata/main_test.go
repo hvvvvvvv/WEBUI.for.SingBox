@@ -119,7 +119,7 @@ func TestServiceProgramInitializationAndRuntimeFailure(t *testing.T) {
 
 	var logOutput bytes.Buffer
 	previousLogger := slog.Default()
-	slog.SetDefault(logging.New(&logOutput, logging.LevelInfo))
+	slog.SetDefault(slog.New(logging.NewConsoleHandler(&logOutput, logging.LevelInfo)))
 	defer slog.SetDefault(previousLogger)
 	exited := make(chan int, 1)
 	newApplication = func(bridge.Options) (application, error) {

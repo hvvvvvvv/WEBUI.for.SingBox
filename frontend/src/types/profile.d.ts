@@ -126,30 +126,6 @@ interface IOutbound {
   bridge_name: string
 }
 
-type RuleType =
-  | 'inbound'
-  | 'network'
-  | 'protocol'
-  | 'domain'
-  | 'domain_suffix'
-  | 'domain_keyword'
-  | 'domain_regex'
-  | 'source_ip_cidr'
-  | 'ip_cidr'
-  | 'source_port'
-  | 'source_port_range'
-  | 'port'
-  | 'port_range'
-  | 'process_name'
-  | 'process_path'
-  | 'process_path_regex'
-  | 'rule_set'
-  | 'ip_is_private'
-  | 'clash_mode'
-  | 'outbound'
-  | 'inline'
-  | 'InsertionPoint'
-
 interface IActionOptions {
   outbound: string
   override_address: string

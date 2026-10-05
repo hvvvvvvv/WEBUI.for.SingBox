@@ -18,16 +18,6 @@ export interface Menu {
   children?: Menu[]
 }
 
-export interface MenuItem {
-  type: 'item' | 'separator'
-  text?: string
-  tooltip?: string
-  event?: (() => void) | string
-  children?: MenuItem[]
-  hidden?: boolean
-  checked?: boolean
-}
-
 export interface AppSettings {
   lang: Lang | string
   theme: Theme

@@ -9,7 +9,7 @@ interface Props {
   isAlpha: boolean
 }
 
-const props = withDefaults(defineProps<Props>(), {})
+const props = defineProps<Props>()
 
 const emit = defineEmits(['config'])
 

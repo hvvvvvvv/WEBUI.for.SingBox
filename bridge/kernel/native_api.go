@@ -18,11 +18,10 @@ import (
 )
 
 type nativeAPIInstance struct {
-	pid        int
-	generation uint64
-	secret     string
-	ctx        context.Context
-	cancel     context.CancelFunc
+	pid    int
+	secret string
+	ctx    context.Context
+	cancel context.CancelFunc
 }
 
 // NativeAPIContext obtains the credential and cancellation scope of exactly one
@@ -52,9 +51,8 @@ func (s *Service) revokeNativeAPILocked() {
 
 func (s *Service) installNativeAPILocked(pid int, secret string) {
 	s.revokeNativeAPILocked()
-	s.nativeGeneration++
 	ctx, cancel := context.WithCancel(s.lifecycleCtx)
-	s.nativeAPI = &nativeAPIInstance{pid: pid, generation: s.nativeGeneration, secret: secret, ctx: ctx, cancel: cancel}
+	s.nativeAPI = &nativeAPIInstance{pid: pid, secret: secret, ctx: ctx, cancel: cancel}
 }
 
 func waitKernelAPIReady(ctx context.Context, controller, secret string, pid int, timeout time.Duration) error {

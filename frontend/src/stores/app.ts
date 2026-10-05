@@ -6,7 +6,7 @@ import { createRpcClient, EventsOff, EventsOn, GetPlatform, GetServiceStartTime 
 import { LanguageOptions } from '@/constant/app'
 import { message, sampleID, sleep } from '@/utils'
 
-import type { CustomAction, CustomActionFn, Menu } from '@/types/app'
+import type { Menu } from '@/types/app'
 import { AppUpdateService } from '../../gen/app/v1/app_update_service_pb'
 
 export const useAppStore = defineStore('app', () => {
@@ -41,34 +41,6 @@ export const useAppStore = defineStore('app', () => {
 
   /* i18n */
   const locales = ref<{ label: string; value: string }[]>(LanguageOptions)
-
-  /* Actions */
-  const customActions = ref({
-    core_state: [] as (CustomAction | CustomActionFn)[],
-    title_bar: [] as (CustomAction | CustomActionFn)[],
-    profiles_header: [] as (CustomAction | CustomActionFn)[],
-    subscriptions_header: [] as (CustomAction | CustomActionFn)[],
-  })
-  const addCustomActions = (
-    target: keyof typeof customActions.value,
-    actions: CustomAction | CustomAction[] | CustomActionFn | CustomActionFn[],
-  ) => {
-    if (!customActions.value[target]) throw new Error('Target does not exist: ' + target)
-    const _actions = Array.isArray(actions) ? actions : [actions]
-    _actions.forEach((action) => !action.id && (action.id = sampleID()))
-    customActions.value[target].push(..._actions)
-    const remove = () => {
-      customActions.value[target] = customActions.value[target].filter(
-        (a) => !_actions.some((added) => added.id === a.id),
-      )
-    }
-    return remove
-  }
-  const removeCustomActions = (target: keyof typeof customActions.value, id: string | string[]) => {
-    if (!customActions.value[target]) throw new Error('Target does not exist: ' + target)
-    const ids = Array.isArray(id) ? id : [id]
-    customActions.value[target] = customActions.value[target].filter((a) => !ids.includes(a.id!))
-  }
 
   const { t } = useI18n()
 
@@ -211,9 +183,6 @@ export const useAppStore = defineStore('app', () => {
     checkForUpdates,
     downloadApp,
     applyAppUpdate,
-    customActions,
-    addCustomActions,
-    removeCustomActions,
     locales,
   }
 })

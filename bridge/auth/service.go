@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"container/list"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -118,21 +117,6 @@ func (s *Service) RemoveSession(token string) {
 
 func (s *Service) ClearSessions() {
 	s.sessions.DeleteAll()
-}
-
-func (s *Service) ClearSessionsExcept(token string) {
-	removeItems := list.New()
-	s.sessions.Range(func(item *ttlcache.Item[string, struct{}]) bool {
-		if item.Key() != token {
-			removeItems.PushBack(item.Key())
-		}
-		return true
-	})
-	for item := removeItems.Front(); item != nil; item = item.Next() {
-		if key, ok := item.Value.(string); ok {
-			s.sessions.Delete(key)
-		}
-	}
 }
 
 func (s *Service) IsLoginRateLimited(remoteAddr string) bool {

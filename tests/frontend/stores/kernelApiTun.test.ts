@@ -15,7 +15,6 @@ const mocks = vi.hoisted(() => ({
   getClashModeStatus: vi.fn(),
   getGroupsSnapshot: vi.fn(),
   getOutboundsSnapshot: vi.fn(),
-  setClashMode: vi.fn(),
   events: vi.fn(),
   nativeGeneration: 1,
   toProto: vi.fn(),
@@ -27,7 +26,6 @@ vi.mock('@/api/kernel', () => ({
   getClashModeStatus: mocks.getClashModeStatus,
   getGroupsSnapshot: mocks.getGroupsSnapshot,
   getOutboundsSnapshot: mocks.getOutboundsSnapshot,
-  setClashMode: mocks.setClashMode,
   getNativeApiGeneration: () => mocks.nativeGeneration,
   onGroups: vi.fn(),
   onOutbounds: vi.fn(),
@@ -85,12 +83,11 @@ describe('home TUN shortcuts', () => {
     })
   })
 
-  it('keeps the previous TUN and interface settings after restart preflight fails', async () => {
+  it('keeps the previous TUN settings after restart preflight fails', async () => {
     const profile = protoProfileToIProfile(undefined)
     const tun = profile.inbounds.find((inbound) => inbound.type === 'tun')!
     tun.enable = false
     tun.tun!.stack = 'system'
-    profile.route.default_interface = 'old-interface'
     mocks.rpc.getCurrentProfile.mockResolvedValue({
       profile: create(ProfileSchema, iProfileToProto(profile)),
     })
@@ -104,14 +101,9 @@ describe('home TUN shortcuts', () => {
     )
     expect(store.running).toBe(true)
     expect(store.runtimeInbounds.find((inbound) => inbound.id === tun.id)?.enable).toBe(false)
-    await expect(
-      store.updateConfigs([
-        { field: 'tun-stack', value: { stack: 'gvisor' } },
-        { field: 'interface-name', value: { interface_name: 'new-interface' } },
-      ]),
-    ).rejects.toBe('configuration preflight failed')
-    expect(store.config.tun.stack).toBe('system')
-    expect(store.config['interface-name']).toBe('old-interface')
+    expect(store.runtimeInbounds.find((inbound) => inbound.id === tun.id)?.tun?.stack).toBe(
+      'system',
+    )
     expect(mocks.rpc.stopCore).not.toHaveBeenCalled()
   })
 
@@ -154,15 +146,10 @@ describe('home TUN shortcuts', () => {
     const store = useKernelApiStore()
     await store.refreshConfig()
     await store.updateRuntimeInboundEnable(tunInbound.id, true)
-    await store.updateConfigs([
-      { field: 'tun-stack', value: { stack: 'system' } },
-      { field: 'tun-device', value: { device: 'tun-test' } },
-      { field: 'interface-name', value: { interface_name: 'eth-test' } },
-    ])
     await store.updateRuntimeInboundEnable(tunInbound.id, false)
 
     expect(mocks.rpc.stopCore).not.toHaveBeenCalled()
-    expect(mocks.rpc.restartCore).toHaveBeenCalledTimes(3)
+    expect(mocks.rpc.restartCore).toHaveBeenCalledTimes(2)
     for (const [request] of mocks.rpc.restartCore.mock.calls) {
       const encoded = create(ProfileSchema, request.profile)
       const restored = protoProfileToIProfile(
@@ -173,8 +160,5 @@ describe('home TUN shortcuts', () => {
     const finalTun = store.runtimeInbounds.find((inbound) => inbound.type === 'tun')!
     expect(finalTun.enable).toBe(false)
     expect(finalTun.tun!.dns_mode).toBe(mode)
-    expect(finalTun.tun!.stack).toBe('system')
-    expect(finalTun.tun!.interface_name).toBe('tun-test')
-    expect(store.config['interface-name']).toBe('eth-test')
   })
 })

@@ -28,11 +28,10 @@ type ProcessIdentity struct {
 }
 
 type coreOwner struct {
-	Session    string          `json:"session"`
-	Backend    ProcessIdentity `json:"backend"`
-	Guard      ProcessIdentity `json:"guard"`
-	Core       ProcessIdentity `json:"core"`
-	ConfigPath string          `json:"config_path"`
+	Session string          `json:"session"`
+	Backend ProcessIdentity `json:"backend"`
+	Guard   ProcessIdentity `json:"guard"`
+	Core    ProcessIdentity `json:"core"`
 }
 
 func IdentifyProcess(pid int) (ProcessIdentity, error) {

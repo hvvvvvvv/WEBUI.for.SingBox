@@ -2,7 +2,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { useAppStore, useKernelApiStore } from '@/stores'
+import { useKernelApiStore } from '@/stores'
 import { formatBytes, handleChangeMode, message } from '@/utils'
 import { nativeModeOptions, sameKernelMode } from '@/utils/nativeKernelUi'
 
@@ -24,7 +24,6 @@ const statistics = ref({
 
 const { t } = useI18n()
 const [Modal, modalApi] = useModal({})
-const appStore = useAppStore()
 const kernelApiStore = useKernelApiStore()
 const modes = computed(() => nativeModeOptions(kernelApiStore.config.modeList))
 const changeMode = (mode: string) =>
@@ -145,7 +144,6 @@ onUnmounted(unregisterStatusHandler)
       >
         {{ inbound.tag }}
       </Switch>
-      <CustomAction :actions="appStore.customActions.core_state" />
       <Button
         v-tips="'home.overview.viewlog'"
         type="text"

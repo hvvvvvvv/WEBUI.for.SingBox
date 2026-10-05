@@ -1,14 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 
-interface TaskLogRecord<T = any> {
-  name: string
-  startTime: number
-  endTime: number
-  result: T
-}
-
-export interface KernelLogRecord {
+interface KernelLogRecord {
   id: number
   message: string
 }
@@ -18,7 +11,6 @@ let nextKernelLogID = 1
 
 export const useLogsStore = defineStore('logs', () => {
   const kernelLogs = ref<KernelLogRecord[]>([])
-  const scheduledtasksLogs = ref<TaskLogRecord[]>([])
 
   const recordKernelLog = (msg: string) => {
     kernelLogs.value.unshift({ id: nextKernelLogID++, message: msg })
@@ -26,10 +18,6 @@ export const useLogsStore = defineStore('logs', () => {
       kernelLogs.value.splice(maxKernelLogLines)
     }
   }
-
-  const recordScheduledTasksLog = (log: TaskLogRecord) => scheduledtasksLogs.value.unshift(log)
-
-  const isTasksLogEmpty = computed(() => scheduledtasksLogs.value.length === 0)
 
   const isEmpty = computed(() => kernelLogs.value.length === 0)
 
@@ -40,8 +28,5 @@ export const useLogsStore = defineStore('logs', () => {
     clearKernelLog,
     kernelLogs,
     isEmpty,
-    scheduledtasksLogs,
-    isTasksLogEmpty,
-    recordScheduledTasksLog,
   }
 })

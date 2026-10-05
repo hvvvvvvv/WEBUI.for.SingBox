@@ -29,13 +29,6 @@ const (
 	logLevelInfo  = "info"
 
 	ruleTypeInline         = "inline"
-	ruleTypeRuleSet        = "rule_set"
-	ruleTypeInbound        = "inbound"
-	ruleTypeIpIsPrivate    = "ip_is_private"
-	ruleTypeIpAcceptAny    = "ip_accept_any"
-	ruleTypeClashMode      = "clash_mode"
-	ruleTypePort           = "port"
-	ruleTypeSourcePort     = "source_port"
 	ruleTypeInsertionPoint = "InsertionPoint"
 
 	ruleActionRoute        = "route"
@@ -137,7 +130,7 @@ func (g *configGenerator) GenerateConfig(profile *configv1.Profile) (map[string]
 	}
 	config := map[string]any{
 		"log":          generateLog(profile.GetLog()),
-		"experimental": generateExperimental(profile.GetExperimental(), profile.GetOutbounds()),
+		"experimental": generateExperimental(profile.GetExperimental()),
 		"inbounds":     inbounds,
 	}
 
@@ -227,7 +220,7 @@ func generateLog(log *configv1.Log) map[string]any {
 	}
 }
 
-func generateExperimental(experimental *configv1.Experimental, outbounds []*configv1.Outbound) map[string]any {
+func generateExperimental(experimental *configv1.Experimental) map[string]any {
 	cacheFile := map[string]any{}
 	if experimental != nil && experimental.GetCacheFile() != nil {
 		source := experimental.GetCacheFile()
@@ -1796,57 +1789,6 @@ func rulesetFormatString(format configv1.RulesetFormat) string {
 		return "binary"
 	default:
 		return ""
-	}
-}
-
-func ruleTypeString(ruleType configv1.RuleType) (string, error) {
-	switch ruleType {
-	case configv1.RuleType_RULE_TYPE_INBOUND:
-		return ruleTypeInbound, nil
-	case configv1.RuleType_RULE_TYPE_NETWORK:
-		return "network", nil
-	case configv1.RuleType_RULE_TYPE_PROTOCOL:
-		return "protocol", nil
-	case configv1.RuleType_RULE_TYPE_DOMAIN:
-		return "domain", nil
-	case configv1.RuleType_RULE_TYPE_DOMAIN_SUFFIX:
-		return "domain_suffix", nil
-	case configv1.RuleType_RULE_TYPE_DOMAIN_KEYWORD:
-		return "domain_keyword", nil
-	case configv1.RuleType_RULE_TYPE_DOMAIN_REGEX:
-		return "domain_regex", nil
-	case configv1.RuleType_RULE_TYPE_SOURCE_IP_CIDR:
-		return "source_ip_cidr", nil
-	case configv1.RuleType_RULE_TYPE_IP_CIDR:
-		return "ip_cidr", nil
-	case configv1.RuleType_RULE_TYPE_IP_IS_PRIVATE:
-		return ruleTypeIpIsPrivate, nil
-	case configv1.RuleType_RULE_TYPE_SOURCE_PORT:
-		return ruleTypeSourcePort, nil
-	case configv1.RuleType_RULE_TYPE_SOURCE_PORT_RANGE:
-		return "source_port_range", nil
-	case configv1.RuleType_RULE_TYPE_PORT:
-		return ruleTypePort, nil
-	case configv1.RuleType_RULE_TYPE_PORT_RANGE:
-		return "port_range", nil
-	case configv1.RuleType_RULE_TYPE_PROCESS_NAME:
-		return "process_name", nil
-	case configv1.RuleType_RULE_TYPE_PROCESS_PATH:
-		return "process_path", nil
-	case configv1.RuleType_RULE_TYPE_PROCESS_PATH_REGEX:
-		return "process_path_regex", nil
-	case configv1.RuleType_RULE_TYPE_CLASH_MODE:
-		return ruleTypeClashMode, nil
-	case configv1.RuleType_RULE_TYPE_RULE_SET:
-		return ruleTypeRuleSet, nil
-	case configv1.RuleType_RULE_TYPE_IP_ACCEPT_ANY:
-		return ruleTypeIpAcceptAny, nil
-	case configv1.RuleType_RULE_TYPE_INLINE:
-		return ruleTypeInline, nil
-	case configv1.RuleType_RULE_TYPE_INSERTION_POINT:
-		return ruleTypeInsertionPoint, nil
-	default:
-		return "", invalidArgumentError{message: fmt.Sprintf("unsupported rule type: %v", ruleType)}
 	}
 }
 

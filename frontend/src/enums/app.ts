@@ -1,9 +1,3 @@
-export enum OS {
-  Windows = 'windows',
-  Linux = 'linux',
-  Darwin = 'darwin',
-}
-
 export enum Theme {
   Auto = 'auto',
   Light = 'light',

@@ -1,18 +1,14 @@
-import { render, h, type VNode, nextTick } from 'vue'
+import { render, h, type VNode } from 'vue'
 
 import i18n from '@/lang'
 import { APP_TITLE, sampleID } from '@/utils'
 
 import ConfirmComp from '@/components/Confirm/index.vue'
 import MessageComp from '@/components/Message/index.vue'
-import { useModal } from '@/components/Modal'
 import PickerComp from '@/components/Picker/index.vue'
-import PromptComp from '@/components/Prompt/index.vue'
 
 import type { ConfirmOptions } from '@/components/Confirm/index.vue'
-import type { Props as InputProps } from '@/components/Input/index.vue'
 import type { MessageIcon } from '@/components/Message/index.vue'
-import type { Props as ModalProps, Slots as ModalSlots } from '@/components/Modal/index.vue'
 import type { PickerItem } from '@/components/Picker/index.vue'
 
 const FloatingContainerCssText = `
@@ -112,12 +108,9 @@ class Message {
       initInstance()
 
       return {
-        id,
-        info: (content: string) => this.update(id, content, 'info'),
-        warn: (content: string) => this.update(id, content, 'warn'),
         error: (content: string) => this.update(id, content, 'error'),
         success: (content: string) => this.update(id, content, 'success'),
-        update: (content: string, icon?: MessageIcon) => this.update(id, content, icon),
+        update: (content: string) => this.update(id, content),
         destroy: onDestroy,
       }
     }
@@ -148,31 +141,18 @@ class Message {
 }
 
 class Picker {
-  constructor() {}
-
-  public single = <T>(title: string, options: PickerItem<T>[], initialValue: T[] = []) => {
-    return this.buildPicker('single', title, options, initialValue)
-  }
-
-  public multi = <T>(title: string, options: PickerItem<T>[], initialValue: T[] = []) => {
-    return this.buildPicker('multi', title, options, initialValue)
-  }
-
-  private buildPicker = <ValueType, PickerType extends 'single' | 'multi'>(
-    type: PickerType,
+  public multi = <ValueType>(
     title: string,
     options: PickerItem<ValueType>[],
-    initialValue: ValueType[],
-  ): Promise<PickerType extends 'single' ? ValueType : ValueType[]> => {
+  ): Promise<ValueType[]> => {
     return new Promise((resolve, reject) => {
       const { t } = i18n.global
       const dom = document.createElement('div')
       dom.style.cssText = FloatingContainerCssText
-      const vnode = h(PickerComp<ValueType, PickerType>, {
-        type,
+      const vnode = h(PickerComp<ValueType, 'multi'>, {
+        type: 'multi',
         title,
         options,
-        initialValue,
         onConfirm: resolve,
         onCancel: () => reject(t('common.canceled')),
         onFinish: () => {
@@ -215,39 +195,8 @@ const buildConfirm = (
   })
 }
 
-export const prompt = <T>(
-  title: string,
-  initialValue: string | number = '',
-  props: Partial<InputProps> = {},
-) => {
-  const { t } = i18n.global
-
-  return new Promise<T>((resolve, reject) => {
-    const dom = document.createElement('div')
-    dom.style.cssText = FloatingContainerCssText
-    const vnode = h(PromptComp, {
-      title,
-      initialValue,
-      props,
-      onSubmit: resolve,
-      onCancel: () => reject(t('common.canceled')),
-      onFinish: () => {
-        render(null, dom)
-        dom.remove()
-      },
-    })
-    bindAppContext(vnode)
-    document.body.appendChild(dom)
-    render(vnode, dom)
-  })
-}
-
-export const alert = (
-  title: string,
-  message: string,
-  options: ConfirmOptions = { type: 'text' },
-) => {
-  return buildConfirm(title, message, options, false)
+export const alert = (title: string, message: string) => {
+  return buildConfirm(title, message, { type: 'text' }, false)
 }
 
 export const confirm = (
@@ -268,27 +217,6 @@ export const confirmDelete = async () => {
   } catch {
     return false
   }
-}
-
-export const modal = (options: ModalProps = {}, slots: ModalSlots = {}) => {
-  const [Modal, api] = useModal(options, slots)
-  const vnode = h(Modal)
-  bindAppContext(vnode)
-
-  const container = document.createElement('div')
-  document.body.appendChild(container)
-  render(vnode, container)
-
-  const destroy = () => {
-    api.close()
-    nextTick(() => {
-      render(null, container)
-      container.remove()
-    })
-  }
-
-  const powerApi = { ...api, destroy }
-  return powerApi
 }
 
 export const picker = new Picker()

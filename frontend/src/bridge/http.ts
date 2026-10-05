@@ -1,6 +1,5 @@
 import { useAppSettingsStore } from '@/stores'
 
-
 type AuthResult = {
   flag: boolean
   data: string
@@ -12,7 +11,7 @@ const buildApiError = (status: number, statusText: string) => {
   return new Error(`API error: ${status} ${statusText}`)
 }
 
-export const requestAuthToken = async (secret = '') => {
+const requestAuthToken = async (secret = '') => {
   const resp = await fetch('/api/auth/login', {
     method: 'POST',
     headers: {
@@ -30,16 +29,15 @@ export const requestAuthToken = async (secret = '') => {
   return result.flag ? result.data : null
 }
 
-
 export const loadAuthToken = async () => {
   const appSettings = useAppSettingsStore()
-  if (appSettings.sessionInfo.cacheToken == "") {
+  if (appSettings.sessionInfo.cacheToken == '') {
     const token = await requestAuthToken()
-    if (token == "" || token == null) {
+    if (token == '' || token == null) {
       appSettings.sessionInfo.authEnabled = true
       appSettings.sessionInfo.requireLogin = true
       return false
-    } 
+    }
     appSettings.sessionInfo.cacheToken = token
     appSettings.sessionInfo.authEnabled = false
     appSettings.sessionInfo.requireLogin = false
@@ -55,11 +53,6 @@ export const loginAuthToken = async (secret: string) => {
   appSettings.sessionInfo.authEnabled = true
   return true
 }
-
-// export const clearAuthToken = () => {
-//   authToken = ''
-//   localStorage.removeItem(AUTH_TOKEN_KEY)
-// }
 
 export const checkAuthToken = async () => {
   const appSettings = useAppSettingsStore()
@@ -109,7 +102,7 @@ export const apiCall = async <T = any>(path: string, ...args: any[]): Promise<T>
     'Content-Type': 'application/json',
   }
 
-  if (appSettings.sessionInfo.cacheToken == "" && !(await recoverAuthToken())) {
+  if (appSettings.sessionInfo.cacheToken == '' && !(await recoverAuthToken())) {
     location.reload()
     throw buildApiError(401, 'Unauthorized')
   }
@@ -123,7 +116,7 @@ export const apiCall = async <T = any>(path: string, ...args: any[]): Promise<T>
   })
 
   if (resp.status === 401) {
-    if (!await recoverAuthToken()) {
+    if (!(await recoverAuthToken())) {
       location.reload()
       throw buildApiError(401, 'Unauthorized')
     }
@@ -135,7 +128,6 @@ export const apiCall = async <T = any>(path: string, ...args: any[]): Promise<T>
       body: JSON.stringify({ args }),
     })
   }
-
 
   if (!resp.ok) {
     if (resp.status === 401) {

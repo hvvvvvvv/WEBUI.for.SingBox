@@ -28,9 +28,6 @@ func (fakeProcesses) Exec(string, []string, platform.ExecOptions) platform.Resul
 func (fakeProcesses) ExecBackground(string, []string, string, platform.ExecOptions) platform.Result {
 	return platform.Result{Flag: true, Data: "1"}
 }
-func (fakeProcesses) ProcessInfo(int32) platform.Result {
-	return platform.Result{Flag: false}
-}
 func (fakeProcesses) ProcessMemory(int32) platform.Result {
 	return platform.Result{Flag: true, Data: "1024"}
 }

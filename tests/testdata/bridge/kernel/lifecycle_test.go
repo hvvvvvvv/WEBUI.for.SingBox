@@ -138,3 +138,20 @@ func TestShutdownDuringStartHandshakeDoesNotReportCrash(t *testing.T) {
 		t.Fatal(status)
 	}
 }
+
+func (s *Service) setRunning(pid int, profileID string, profile *profilev1.Profile) {
+	s.updateCoreState(func() {
+		s.revokeNativeAPILocked()
+		s.status = kernelv1.CoreStatus_CORE_STATUS_RUNNING
+		s.activeProfileID = profileID
+		s.corePID = pid
+		s.currentProfile = cloneProfile(profile)
+		s.restartRequired = false
+	})
+}
+
+func (s *Service) Status() (kernelv1.CoreStatus, string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.status, s.activeProfileID
+}

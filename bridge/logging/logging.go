@@ -75,10 +75,6 @@ func NewConsoleHandler(output io.Writer, level Level) *ConsoleHandler {
 	}
 }
 
-func New(output io.Writer, level Level) *slog.Logger {
-	return slog.New(NewConsoleHandler(output, level))
-}
-
 func (h *ConsoleHandler) Enabled(_ context.Context, level slog.Level) bool {
 	return level >= h.level
 }
