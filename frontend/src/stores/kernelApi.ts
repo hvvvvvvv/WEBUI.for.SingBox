@@ -92,7 +92,8 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
   const runtimeInbounds = ref<IInbound[]>([])
 
   const syncRuntimeInbounds = () => {
-    runtimeInbounds.value = runtimeProfile?.inbounds || []
+    // Switch edits must not change the profile used for restart rollback.
+    runtimeInbounds.value = deepClone(runtimeProfile?.inbounds || [])
   }
 
   const refreshConfig = async () => {

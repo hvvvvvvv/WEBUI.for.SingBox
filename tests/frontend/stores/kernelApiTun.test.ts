@@ -1,5 +1,6 @@
 import { create, fromBinary, toBinary } from '@bufbuild/protobuf'
 import { createPinia, setActivePinia } from 'pinia'
+import { nextTick } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { CoreStatus } from '@gen/kernel/v1/kernel_pb'
@@ -60,6 +61,43 @@ vi.mock('@/utils/others', () => ({
 import { iProfileToProto, protoProfileToIProfile } from '@/utils/profileRpc'
 import { useKernelApiStore } from '@/stores/kernelApi'
 
+const deferred = <T>() => {
+  let resolve!: (value: T) => void
+  let reject!: (reason: unknown) => void
+  const promise = new Promise<T>((accept, fail) => {
+    resolve = accept
+    reject = fail
+  })
+  return { promise, resolve, reject }
+}
+
+const loadRunningProfile = async (profile: IProfile) => {
+  mocks.rpc.getCurrentProfile.mockResolvedValue({
+    profile: create(ProfileSchema, iProfileToProto(profile)),
+  })
+  const store = useKernelApiStore()
+  await store.initCoreState()
+  await store.refreshConfig()
+  return store
+}
+
+const changeDisplayedInbound = async (
+  store: ReturnType<typeof useKernelApiStore>,
+  inbound: IInbound,
+  enable: boolean,
+) => {
+  // Switch updates v-model synchronously, then emits change on the next tick.
+  inbound.enable = enable
+  await nextTick()
+  return store.updateRuntimeInboundEnable(inbound.id, enable)
+}
+
+const decodeRestartProfile = (callIndex: number) => {
+  const request = mocks.rpc.restartCore.mock.calls[callIndex]![0]
+  const encoded = create(ProfileSchema, request.profile)
+  return protoProfileToIProfile(fromBinary(ProfileSchema, toBinary(ProfileSchema, encoded)))
+}
+
 describe('home TUN shortcuts', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
@@ -83,29 +121,99 @@ describe('home TUN shortcuts', () => {
     })
   })
 
-  it('keeps the previous TUN settings after restart preflight fails', async () => {
-    const profile = protoProfileToIProfile(undefined)
-    const tun = profile.inbounds.find((inbound) => inbound.type === 'tun')!
-    tun.enable = false
-    tun.tun!.stack = 'system'
-    mocks.rpc.getCurrentProfile.mockResolvedValue({
-      profile: create(ProfileSchema, iProfileToProto(profile)),
-    })
-    const store = useKernelApiStore()
-    await store.initCoreState()
-    await store.refreshConfig()
-    const error = new Error('configuration preflight failed')
-    mocks.rpc.restartCore.mockRejectedValue(error)
-    await expect(store.updateRuntimeInboundEnable(tun.id, true)).rejects.toBe(
-      'configuration preflight failed',
-    )
-    expect(store.running).toBe(true)
-    expect(store.runtimeInbounds.find((inbound) => inbound.id === tun.id)?.enable).toBe(false)
-    expect(store.runtimeInbounds.find((inbound) => inbound.id === tun.id)?.tun?.stack).toBe(
-      'system',
-    )
-    expect(mocks.rpc.stopCore).not.toHaveBeenCalled()
-  })
+  it.each([false, true])(
+    'restores the displayed TUN value %s after preflight failure without leaking it into the next restart',
+    async (previousEnable) => {
+      const profile = protoProfileToIProfile(undefined)
+      const tun = profile.inbounds.find((inbound) => inbound.type === 'tun')!
+      tun.enable = previousEnable
+      tun.tun!.stack = 'system'
+      tun.tun!.dns_mode = 'native'
+      const store = await loadRunningProfile(profile)
+      const displayedTun = store.runtimeInbounds.find((inbound) => inbound.id === tun.id)!
+      const error = new Error('configuration preflight failed')
+      mocks.rpc.restartCore.mockRejectedValueOnce(error)
+      await expect(changeDisplayedInbound(store, displayedTun, !previousEnable)).rejects.toBe(
+        'configuration preflight failed',
+      )
+
+      // A delayed view callback may still hold the object from before rollback.
+      displayedTun.enable = previousEnable
+      expect(store.running).toBe(true)
+      expect(store.pid).toBe(42)
+      expect
+        .soft(store.runtimeInbounds.find((inbound) => inbound.id === tun.id)?.enable)
+        .toBe(previousEnable)
+
+      const displayedMixed = store.runtimeInbounds.find((inbound) => inbound.type === 'mixed')!
+      const nextEnable = !displayedMixed.enable
+      await changeDisplayedInbound(store, displayedMixed, nextEnable)
+      expect(mocks.rpc.restartCore).toHaveBeenCalledTimes(2)
+      const restartedProfile = decodeRestartProfile(1)
+      const restartedTun = restartedProfile.inbounds.find((inbound) => inbound.id === tun.id)!
+      expect.soft(restartedTun.enable).toBe(previousEnable)
+      expect(restartedTun.tun!.stack).toBe('system')
+      expect(restartedTun.tun!.dns_mode).toBe('native')
+      expect(
+        restartedProfile.inbounds.find((inbound) => inbound.id === displayedMixed.id)?.enable,
+      ).toBe(nextEnable)
+      expect
+        .soft(store.runtimeInbounds.find((inbound) => inbound.id === tun.id)?.enable)
+        .toBe(previousEnable)
+      expect(store.runtimeInbounds.find((inbound) => inbound.id === tun.id)?.tun?.stack).toBe(
+        'system',
+      )
+      expect(mocks.rpc.stopCore).not.toHaveBeenCalled()
+    },
+  )
+
+  it.each(['stopped', 'replaced'] as const)(
+    'does not restore or mutate obsolete inbound settings after a late failure when the core is %s',
+    async (transition) => {
+      const profile = protoProfileToIProfile(undefined)
+      const tun = profile.inbounds.find((inbound) => inbound.type === 'tun')!
+      tun.enable = false
+      tun.tun!.stack = 'system'
+      const store = await loadRunningProfile(profile)
+      const displayedTun = store.runtimeInbounds.find((inbound) => inbound.id === tun.id)!
+      const request = deferred<{ pid: number }>()
+      mocks.rpc.restartCore.mockReturnValueOnce(request.promise)
+      const changed = changeDisplayedInbound(store, displayedTun, true)
+      const rejected = expect(changed).rejects.toBe('late restart failure')
+      await vi.waitFor(() => expect(mocks.rpc.restartCore).toHaveBeenCalledTimes(1))
+
+      const status = transition === 'stopped' ? CoreStatus.STOPPED : CoreStatus.RUNNING
+      const pid = transition === 'stopped' ? -1 : 84
+      mocks.rpc.getCoreStatus.mockResolvedValue({
+        status,
+        pid,
+        restartRequired: false,
+        restarting: false,
+      })
+      const handler = mocks.events.mock.calls.find(([name]) => name === 'kernelStateChanged')![1]
+      handler({ status, pid })
+      await vi.waitFor(() => expect(store.pid).toBe(pid))
+      if (transition === 'stopped') {
+        expect(store.runtimeInbounds).toEqual([])
+      } else {
+        // The RUNNING event adopts the profile submitted by the pending restart.
+        expect(store.runtimeInbounds.find((inbound) => inbound.id === tun.id)?.enable).toBe(true)
+      }
+
+      request.reject(new Error('late restart failure'))
+      await rejected
+      displayedTun.enable = false
+      expect(store.pid).toBe(pid)
+      expect(store.running).toBe(transition === 'replaced')
+      if (transition === 'stopped') {
+        expect(store.runtimeInbounds).toEqual([])
+      } else {
+        const currentTun = store.runtimeInbounds.find((inbound) => inbound.id === tun.id)!
+        expect(currentTun.enable).toBe(true)
+        expect(currentTun.tun!.stack).toBe('system')
+      }
+    },
+  )
 
   it('does not block stop events behind unresolved initial subscriptions or apply late snapshots', async () => {
     let resolveMode!: (value: { currentMode: string; modeList: string[] }) => void
@@ -134,31 +242,35 @@ describe('home TUN shortcuts', () => {
     expect(store.groups).toEqual([])
   })
 
-  it('preserves TUN DNS settings through runtime changes and protobuf serialization', async () => {
+  it('preserves TUN stack and DNS settings through successful displayed changes and protobuf serialization', async () => {
     const mode = 'native' as const
     const profile = protoProfileToIProfile(undefined)
     const tunInbound = profile.inbounds.find((inbound) => inbound.type === 'tun')!
     tunInbound.tun!.dns_mode = mode
-    mocks.rpc.getCurrentProfile.mockResolvedValue({
-      profile: create(ProfileSchema, iProfileToProto(profile)),
-    })
+    tunInbound.tun!.stack = 'system'
 
-    const store = useKernelApiStore()
-    await store.refreshConfig()
-    await store.updateRuntimeInboundEnable(tunInbound.id, true)
-    await store.updateRuntimeInboundEnable(tunInbound.id, false)
+    const store = await loadRunningProfile(profile)
+    for (const enable of [true, false]) {
+      const displayedTun = store.runtimeInbounds.find((inbound) => inbound.id === tunInbound.id)!
+      await changeDisplayedInbound(store, displayedTun, enable)
+      expect(store.runtimeInbounds.find((inbound) => inbound.id === tunInbound.id)?.enable).toBe(
+        enable,
+      )
+    }
 
     expect(mocks.rpc.stopCore).not.toHaveBeenCalled()
     expect(mocks.rpc.restartCore).toHaveBeenCalledTimes(2)
-    for (const [request] of mocks.rpc.restartCore.mock.calls) {
-      const encoded = create(ProfileSchema, request.profile)
-      const restored = protoProfileToIProfile(
-        fromBinary(ProfileSchema, toBinary(ProfileSchema, encoded)),
-      )
-      expect(restored.inbounds.find((inbound) => inbound.type === 'tun')!.tun!.dns_mode).toBe(mode)
+    for (const [index, enable] of [true, false].entries()) {
+      const restoredTun = decodeRestartProfile(index).inbounds.find(
+        (inbound) => inbound.id === tunInbound.id,
+      )!
+      expect(restoredTun.enable).toBe(enable)
+      expect(restoredTun.tun!.dns_mode).toBe(mode)
+      expect(restoredTun.tun!.stack).toBe('system')
     }
     const finalTun = store.runtimeInbounds.find((inbound) => inbound.type === 'tun')!
     expect(finalTun.enable).toBe(false)
     expect(finalTun.tun!.dns_mode).toBe(mode)
+    expect(finalTun.tun!.stack).toBe('system')
   })
 })

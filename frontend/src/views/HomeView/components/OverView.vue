@@ -75,7 +75,6 @@ const onRuntimeInboundSwitchChange = async (inbound: IInbound, enable: boolean) 
   try {
     await kernelApiStore.updateRuntimeInboundEnable(inbound.id, enable)
   } catch (error: any) {
-    inbound.enable = !enable
     console.error(error)
     message.error(error)
   }
