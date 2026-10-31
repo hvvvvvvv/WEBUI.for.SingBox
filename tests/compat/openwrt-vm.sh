@@ -7,9 +7,20 @@ plugins=$(realpath "${3:?plugin repository required}")
 scratch=$(mktemp -d)
 qemu_pid=''
 cleanup() {
+  local exit_status=$?
+  if (( exit_status != 0 )); then
+    for log in environment.log auth.log plugins.log http-auth.log restart.log serial.log image-prepare.log; do
+      if [[ -f "$build/$log" ]]; then
+        printf '\n::group::OpenWrt failure diagnostics: %s\n' "$log"
+        tail -n 100 "$build/$log" || true
+        echo '::endgroup::'
+      fi
+    done
+  fi
   if [[ -n "$qemu_pid" ]]; then kill "$qemu_pid" 2>/dev/null || true; wait "$qemu_pid" 2>/dev/null || true; fi
   # mktemp owns this directory; it never contains mounts or host device links.
   rm -rf -- "$scratch"
+  return "$exit_status"
 }
 trap cleanup EXIT
 case "$release" in
@@ -110,7 +121,9 @@ if [[ "$ready" != true ]]; then
 fi
 ssh "${ssh_opts[@]}" root@127.0.0.1 'set -e; uname -a; cat /etc/openwrt_release; free; date -u; status=$(/opt/webui/webui.for.singbox service status); echo "$status"; test "$status" = running; cat /etc/init.d/webui.for.singbox' > "$build/environment.log"
 ssh "${ssh_opts[@]}" root@127.0.0.1 '/opt/auth.test -test.timeout=8m -test.v' > "$build/auth.log" 2>&1
-ssh "${ssh_opts[@]}" root@127.0.0.1 'SING_BOX_114_PATH=/opt/sing-box /opt/plugin-goja /opt/plugins' > "$build/plugins.log" 2>&1
+# TCG emulates the entire CPU: allow the test harness time for all fixture
+# compilation and file I/O. Production per-hook/pipeline limits stay unchanged.
+ssh "${ssh_opts[@]}" root@127.0.0.1 'WEBUI_PLUGIN_SUITE_TIMEOUT=10m SING_BOX_114_PATH=/opt/sing-box /opt/plugin-goja /opt/plugins' > "$build/plugins.log" 2>&1
 # Compare clocks immediately before host-generated TOTP codes. A broken guest
 # clock is a test failure, never silently corrected to make authentication pass.
 host_before=$(date +%s)

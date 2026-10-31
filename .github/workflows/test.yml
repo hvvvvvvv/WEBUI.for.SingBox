@@ -25,7 +25,7 @@ jobs:
         with:
           repository: Ghostdehole/WEBUI.for.SingBox-Plugins
           # Pin test fixtures; the runtime plugin center still follows the independent catalog.
-          ref: ab35dd13de60e4911af98272889856d5ea1affd8
+          ref: 49e13c8b3ac6df2e72ae746fef1afd93e896645f
           path: .plugin-tests
           persist-credentials: false
       - uses: pnpm/action-setup@v6
@@ -78,7 +78,7 @@ jobs:
         with:
           repository: Ghostdehole/WEBUI.for.SingBox-Plugins
           # Pin test fixtures; the runtime plugin center still follows the independent catalog.
-          ref: ab35dd13de60e4911af98272889856d5ea1affd8
+          ref: 49e13c8b3ac6df2e72ae746fef1afd93e896645f
           path: .plugin-tests
           persist-credentials: false
       - uses: pnpm/action-setup@v6
