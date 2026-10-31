@@ -20,6 +20,7 @@ import (
 
 type HelperOptions struct {
 	ArchivePath      string
+	PreparedUpdate   string
 	TargetPath       string
 	ParentPID        int
 	ParentCreated    int64
@@ -49,16 +50,19 @@ var (
 func RunHelper(opts HelperOptions) error {
 	started := time.Now()
 	slog.Info("update helper started", "component", "app_update", "operation", "replace", "target", opts.TargetPath, "service_mode", opts.ServiceMode)
-	// Prepare the complete replacement while the current service is still
-	// running. Invalid archives and extraction write failures must not stop it.
-	extractDir, err := os.MkdirTemp(filepath.Dir(opts.ArchivePath), "gui-update-*")
+	var extractDir string
+	var err error
+	if opts.PreparedUpdate != "" {
+		extractDir, err = preparedUpdateDirectory(opts.ArchivePath, opts.TargetPath, opts.PreparedUpdate)
+	} else {
+		// Preserve support for directly invoked helpers; the application normally
+		// prepares the update before launching us or requesting shutdown.
+		extractDir, err = prepareApplicationUpdate(opts.ArchivePath)
+	}
 	if err != nil {
 		return err
 	}
 	defer os.RemoveAll(extractDir)
-	if err := extractUpdateArchive(opts.ArchivePath, extractDir); err != nil {
-		return err
-	}
 	if err := validateUpdateCandidate(extractDir); err != nil {
 		return err
 	}
@@ -101,6 +105,69 @@ func RunHelper(opts HelperOptions) error {
 	}
 	slog.Info("update helper completed", "component", "app_update", "operation", "replace", "target", opts.TargetPath, "service_mode", false, "duration", time.Since(started), "result", "success")
 	return nil
+}
+
+const preparedUpdatePrefix = "gui-update-"
+
+func prepareApplicationUpdate(archivePath string) (directory string, err error) {
+	directory, err = os.MkdirTemp(filepath.Dir(archivePath), preparedUpdatePrefix+"*")
+	if err != nil {
+		return "", err
+	}
+	defer func() {
+		if err != nil {
+			_ = os.RemoveAll(directory)
+		}
+	}()
+	if err = extractUpdateArchive(archivePath, directory); err != nil {
+		return directory, err
+	}
+	err = validateUpdateCandidate(directory)
+	return directory, err
+}
+
+// A handoff contains a random directory name, never a caller-selected path.
+// Resolve it only in the target application's cache and reject link redirects.
+func preparedUpdateDirectory(archivePath, targetPath, name string) (string, error) {
+	suffix, ok := strings.CutPrefix(name, preparedUpdatePrefix)
+	if !ok || suffix == "" {
+		return "", errors.New("invalid prepared update name")
+	}
+	for _, char := range suffix {
+		if char < '0' || char > '9' {
+			if char < 'a' || char > 'z' {
+				if char < 'A' || char > 'Z' {
+					return "", errors.New("invalid prepared update name")
+				}
+			}
+		}
+	}
+	expectedArchive, err := filepath.Abs(filepath.Join(filepath.Dir(targetPath), appUpdateCacheFilePath))
+	if err != nil {
+		return "", err
+	}
+	actualArchive, err := filepath.Abs(archivePath)
+	if err != nil {
+		return "", err
+	}
+	sameArchive := expectedArchive == actualArchive
+	if runtime.GOOS == "windows" {
+		sameArchive = strings.EqualFold(expectedArchive, actualArchive)
+	}
+	if !sameArchive {
+		return "", errors.New("prepared update archive is outside the application cache")
+	}
+	directory := filepath.Join(filepath.Dir(expectedArchive), name)
+	for _, path := range []string{filepath.Dir(expectedArchive), directory} {
+		info, err := os.Lstat(path)
+		if err != nil {
+			return "", err
+		}
+		if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+			return "", errors.New("prepared update must use an ordinary cache directory")
+		}
+	}
+	return directory, nil
 }
 
 func validateUpdateCandidate(extractDir string) error {

@@ -68,6 +68,7 @@ type serviceStatusCommand struct{}
 
 type updaterCommand struct {
 	ArchivePath      string `name:"archive-path" required:""`
+	PreparedUpdate   string `name:"prepared-update" hidden:""`
 	TargetPath       string `name:"target-path" required:""`
 	ParentPID        int    `name:"parent-pid" required:""`
 	ParentCreated    int64  `name:"parent-created" required:""`
@@ -290,6 +291,7 @@ func (c *updaterCommand) Run(runtime *commandRuntime) error {
 	}()
 	opts := appupdate.HelperOptions{
 		ArchivePath:      c.ArchivePath,
+		PreparedUpdate:   c.PreparedUpdate,
 		TargetPath:       c.TargetPath,
 		ParentPID:        c.ParentPID,
 		ParentCreated:    c.ParentCreated,

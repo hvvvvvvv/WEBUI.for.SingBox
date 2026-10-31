@@ -3,6 +3,7 @@ package appupdate
 import (
 	"archive/zip"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -161,6 +162,147 @@ func TestHelperPreparesUpdateBeforeStoppingService(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func TestHelperConsumesPreparedUpdateWithoutExtractingAgain(t *testing.T) {
+	for _, serviceMode := range []bool{false, true} {
+		t.Run(fmt.Sprint(serviceMode), func(t *testing.T) {
+			defer replaceHelperRuntimeForTest(t)()
+			base := t.TempDir()
+			archive := filepath.Join(base, appUpdateCacheFilePath)
+			if err := os.MkdirAll(filepath.Dir(archive), 0755); err != nil {
+				t.Fatal(err)
+			}
+			target := filepath.Join(base, appTitle+executableSuffix())
+			if err := os.WriteFile(target, []byte("old binary"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			writeHelperArchive(t, archive, appTitle+executableSuffix(), "new binary")
+			prepared, err := prepareApplicationUpdate(archive)
+			if err != nil {
+				t.Fatal(err)
+			}
+			extractUpdateArchive = func(string, string) error { t.Fatal("helper repeated disk-heavy extraction after handoff"); return nil }
+			waitForUpdateParent = func(platform.ProcessIdentity, time.Duration) error { return nil }
+			serviceControlDelay = 0
+			var stopped, restarted bool
+			controlUpdatedService = func(_, _, action string) error {
+				if action == "stop" {
+					stopped = true
+				}
+				if action == "start" {
+					restarted = true
+				}
+				return nil
+			}
+			startUpdatedApplication = func(string, []string, string) error { restarted = true; return nil }
+			if err := RunHelper(HelperOptions{ArchivePath: archive, PreparedUpdate: filepath.Base(prepared), TargetPath: target, ServiceMode: serviceMode}); err != nil {
+				t.Fatal(err)
+			}
+			data, err := os.ReadFile(target)
+			if err != nil || string(data) != "new binary" {
+				t.Fatalf("target=%q error=%v", data, err)
+			}
+			if stopped != serviceMode || !restarted {
+				t.Fatalf("stop=%v restart=%v", stopped, restarted)
+			}
+			if _, err := os.Stat(prepared); !errors.Is(err, os.ErrNotExist) {
+				t.Fatalf("prepared directory remains: %v", err)
+			}
+		})
+	}
+}
+
+func TestPreparedUpdateHandoffRejectsPathsAndSymlinks(t *testing.T) {
+	base := t.TempDir()
+	target := filepath.Join(base, appTitle+executableSuffix())
+	archive := filepath.Join(base, appUpdateCacheFilePath)
+	cache := filepath.Dir(archive)
+	if err := os.MkdirAll(cache, 0755); err != nil {
+		t.Fatal(err)
+	}
+	name := preparedUpdatePrefix + "123abc"
+	prepared := filepath.Join(cache, name)
+	if err := os.Mkdir(prepared, 0700); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := preparedUpdateDirectory(archive, target, name); err != nil || got != prepared {
+		t.Fatalf("valid handoff=%q error=%v", got, err)
+	}
+	for _, invalid := range []string{"", "..", prepared, name + "/child", name + `\child`, "gui-update-../outside", "gui-update-123:stream", "other-123"} {
+		if _, err := preparedUpdateDirectory(archive, target, invalid); err == nil {
+			t.Errorf("accepted handoff %q", invalid)
+		}
+	}
+	if _, err := preparedUpdateDirectory(filepath.Join(t.TempDir(), "gui-update.zip"), target, name); err == nil {
+		t.Error("accepted an archive outside the application cache")
+	}
+	t.Run("symlink", func(t *testing.T) {
+		outside := t.TempDir()
+		linkName := preparedUpdatePrefix + "link"
+		if err := os.Symlink(outside, filepath.Join(cache, linkName)); err != nil {
+			t.Skipf("symlinks unavailable: %v", err)
+		}
+		if _, err := preparedUpdateDirectory(archive, target, linkName); err == nil {
+			t.Fatal("accepted a symlink handoff")
+		}
+		if err := RunHelper(HelperOptions{ArchivePath: archive, TargetPath: target, PreparedUpdate: linkName}); err == nil {
+			t.Fatal("helper accepted symlink")
+		}
+		if _, err := os.Stat(outside); err != nil {
+			t.Fatalf("invalid handoff removed outside directory: %v", err)
+		}
+	})
+}
+
+func TestUpdateHelperCopyUsesExclusiveTemporaryFileAndCleansFailures(t *testing.T) {
+	directory := t.TempDir()
+	for _, name := range []string{"TMPDIR", "TMP", "TEMP"} {
+		t.Setenv(name, directory)
+	}
+	source := filepath.Join(directory, "source")
+	if err := os.WriteFile(source, []byte("helper executable"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	predictable := filepath.Join(directory, fmt.Sprintf("%s-updater-%d%s", appTitle, os.Getpid(), executableSuffix()))
+	if err := os.WriteFile(predictable, []byte("must not be overwritten"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	first, err := copyUpdateHelper(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Remove(first) })
+	second, err := copyUpdateHelper(source)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Remove(second) })
+	if first == second || first == predictable || second == predictable {
+		t.Fatal("helper copy reused a predictable path")
+	}
+	data, err := os.ReadFile(first)
+	if err != nil || string(data) != "helper executable" {
+		t.Fatalf("helper=%q error=%v", data, err)
+	}
+	data, err = os.ReadFile(predictable)
+	if err != nil || string(data) != "must not be overwritten" {
+		t.Fatal("existing temporary file was overwritten")
+	}
+	before, err := os.ReadDir(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := copyUpdateHelper(directory); err == nil {
+		t.Fatal("directory source unexpectedly copied")
+	}
+	after, err := os.ReadDir(directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(after) != len(before) {
+		t.Fatalf("failed helper copy leaked files: before=%d after=%d", len(before), len(after))
 	}
 }
 

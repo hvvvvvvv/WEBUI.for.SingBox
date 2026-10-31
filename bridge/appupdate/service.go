@@ -51,6 +51,8 @@ type Service struct {
 	logDays         int
 
 	mu             sync.Mutex
+	applying       bool
+	preparedUpdate string
 	updatedVersion string
 	downloads      map[string]context.CancelFunc
 }
@@ -215,6 +217,30 @@ func (s *Service) ApplyAppUpdate(
 	defer func() {
 		logging.Complete(ctx, "app_update", "apply", "application update started", started, responseErr, "service_mode", s.serviceMode)
 	}()
+	s.mu.Lock()
+	// A helper that cannot stop the service cleans its handoff directory before
+	// exiting. Allow a retry only after that cleanup is positively confirmed.
+	if s.applying && s.preparedUpdate != "" {
+		if _, err := os.Lstat(s.preparedUpdate); errors.Is(err, os.ErrNotExist) {
+			s.applying = false
+			s.preparedUpdate = ""
+		}
+	}
+	if s.applying {
+		s.mu.Unlock()
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("application update is already being applied"))
+	}
+	s.applying = true
+	s.mu.Unlock()
+	handedOff := false
+	defer func() {
+		if !handedOff {
+			s.mu.Lock()
+			s.applying = false
+			s.preparedUpdate = ""
+			s.mu.Unlock()
+		}
+	}()
 	current, updated := s.versions()
 	if current == updated {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("no downloaded update is available"))
@@ -226,13 +252,43 @@ func (s *Service) ApplyAppUpdate(
 	if !s.serviceMode && s.requestShutdown == nil {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("application shutdown coordinator is unavailable"))
 	}
-	if err := launchUpdateHelper(archivePath, s.serviceMode, s.logLevel, s.logDays); err != nil {
+	if err := ctx.Err(); err != nil {
+		return nil, updateContextError(err)
+	}
+	preparedDir, err := prepareApplicationUpdate(archivePath)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("prepare application update: %w", err))
+	}
+	defer func() {
+		if !handedOff {
+			_ = os.RemoveAll(preparedDir)
+		}
+	}()
+	if err := ctx.Err(); err != nil {
+		return nil, updateContextError(err)
+	}
+	if err := launchUpdateHelper(ctx, archivePath, filepath.Base(preparedDir), s.serviceMode, s.logLevel, s.logDays); err != nil {
+		if ctx.Err() != nil {
+			return nil, updateContextError(ctx.Err())
+		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	s.mu.Lock()
+	s.preparedUpdate = preparedDir
+	s.mu.Unlock()
+	handedOff = true
 	if !s.serviceMode {
 		s.requestShutdown()
 	}
 	return connect.NewResponse(&appv1.ApplyAppUpdateResponse{}), nil
+}
+
+func updateContextError(err error) error {
+	code := connect.CodeCanceled
+	if errors.Is(err, context.DeadlineExceeded) {
+		code = connect.CodeDeadlineExceeded
+	}
+	return connect.NewError(code, err)
 }
 
 func (s *Service) versions() (string, string) {
@@ -316,15 +372,30 @@ func fileExists(path string) bool {
 
 var launchUpdateHelper = startUpdateHelper
 
-func startUpdateHelper(archivePath string, serviceMode bool, logLevel logging.Level, logDays int) error {
+func startUpdateHelper(ctx context.Context, archivePath, preparedUpdate string, serviceMode bool, logLevel logging.Level, logDays int) (returnErr error) {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	currentExe, err := os.Executable()
 	if err != nil {
 		return err
 	}
-	helperPath := filepath.Join(os.TempDir(), fmt.Sprintf("%s-updater-%d%s", appTitle, os.Getpid(), executableSuffix()))
-	if err := copyFile(currentExe, helperPath, 0o755); err != nil {
+	preparedDir, err := preparedUpdateDirectory(archivePath, currentExe, preparedUpdate)
+	if err != nil {
 		return err
 	}
+	if err := validateUpdateCandidate(preparedDir); err != nil {
+		return err
+	}
+	helperPath, err := copyUpdateHelper(currentExe)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if returnErr != nil {
+			_ = os.Remove(helperPath)
+		}
+	}()
 	workingDir, _ := os.Getwd()
 	restartArgs, err := json.Marshal(os.Args[1:])
 	if err != nil {
@@ -335,14 +406,18 @@ func startUpdateHelper(archivePath string, serviceMode bool, logLevel logging.Le
 	if err != nil {
 		return fmt.Errorf("identify update parent: %w", err)
 	}
-	args := updateHelperArguments(archivePath, currentExe, identity, string(restartArgs), workingDir, serviceMode, logLevel, logDays)
+	args := updateHelperArguments(archivePath, preparedUpdate, currentExe, identity, string(restartArgs), workingDir, serviceMode, logLevel, logDays)
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	return startUpdateProcess(helperPath, args, workingDir, serviceMode)
 }
 
-func updateHelperArguments(archivePath, targetPath string, parent platform.ProcessIdentity, restartArgs, workingDir string, serviceMode bool, logLevel logging.Level, logDays int) []string {
+func updateHelperArguments(archivePath, preparedUpdate, targetPath string, parent platform.ProcessIdentity, restartArgs, workingDir string, serviceMode bool, logLevel logging.Level, logDays int) []string {
 	args := []string{
 		appUpdateHelperCommand,
 		"--archive-path", archivePath,
+		"--prepared-update", preparedUpdate,
 		"--target-path", targetPath,
 		"--parent-pid", strconv.Itoa(parent.PID),
 		"--parent-created", strconv.FormatInt(parent.Created, 10),
@@ -358,24 +433,37 @@ func updateHelperArguments(archivePath, targetPath string, parent platform.Proce
 	return args
 }
 
-func copyFile(source string, target string, mode os.FileMode) error {
+func copyUpdateHelper(source string) (_ string, returnErr error) {
 	in, err := os.Open(source)
 	if err != nil {
-		return err
+		return "", err
 	}
 	defer in.Close()
-	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
-		return err
-	}
-	out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, mode)
+	// Exclusive creation avoids following an attacker-created, predictable path
+	// in a shared temporary directory. Keep this handle through the entire copy.
+	out, err := os.CreateTemp("", appTitle+"-updater-*"+executableSuffix())
 	if err != nil {
-		return err
+		return "", err
 	}
-	defer out.Close()
+	defer func() {
+		_ = out.Close()
+		if returnErr != nil {
+			_ = os.Remove(out.Name())
+		}
+	}()
 	if _, err := io.Copy(out, in); err != nil {
-		return err
+		return "", err
 	}
-	return out.Chmod(mode)
+	if err := out.Chmod(0o755); err != nil {
+		return "", err
+	}
+	if err := out.Sync(); err != nil {
+		return "", err
+	}
+	if err := out.Close(); err != nil {
+		return "", err
+	}
+	return out.Name(), nil
 }
 
 func executableSuffix() string {
