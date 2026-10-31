@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, inject, h } from 'vue'
+import { ref, inject, h, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { isResourceConflict, isResourceNotFound, useSubscribesStore } from '@/stores'
@@ -21,6 +21,7 @@ const loading = ref(false)
 const reloading = ref(false)
 const conflict = ref<'changed' | 'deleted' | null>(null)
 const proxiesText = ref('')
+const proxiesEditor = useTemplateRef<{ getContent(): string }>('proxiesEditor')
 const sub = ref(deepClone(props.sub))
 sub.value.proxies ??= []
 let baseRevision: Pick<ExpectedRevision, 'instanceId' | 'revision'> | undefined
@@ -34,6 +35,8 @@ const handleSubmit = inject('submit') as any
 const handleSave = async () => {
   loading.value = true
   try {
+    // CodeMirror emits debounced updates; read its current document before saving.
+    proxiesText.value = proxiesEditor.value?.getContent() ?? proxiesText.value
     const { id } = sub.value
     const proxiesWithId: Record<string, any>[] = JSON.parse(proxiesText.value)
     const proxyIds = proxiesWithId.map((proxy) =>
@@ -128,6 +131,12 @@ defineExpose({ modalSlots })
       :loading="reloading"
       @reload="loadLatest"
     />
-    <CodeViewer v-model="proxiesText" lang="json" editable class="flex-1 min-h-0" />
+    <CodeViewer
+      ref="proxiesEditor"
+      v-model="proxiesText"
+      lang="json"
+      editable
+      class="flex-1 min-h-0"
+    />
   </div>
 </template>

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -95,6 +96,89 @@ func TestNativeAPIProxyPreservesFramesAndInjectsInstanceSecret(t *testing.T) {
 				t.Fatalf("native error tail changed: %x, status=%d, err=%v", got, response.StatusCode, err)
 			}
 		})
+	}
+}
+
+// Transport checks for additional request-body bytes after sending Content-Length
+// bytes. Hold that final read until the proxy flushes its first response, forcing
+// the otherwise timing-dependent overlap between the two directions.
+type delayedRequestEOF struct {
+	io.ReadCloser
+	remaining int64
+	flushed   <-chan struct{}
+	ctx       context.Context
+}
+
+func (body *delayedRequestEOF) Read(buffer []byte) (int, error) {
+	if body.remaining == 0 {
+		select {
+		case <-body.flushed:
+		case <-body.ctx.Done():
+			return 0, body.ctx.Err()
+		}
+	}
+	n, err := body.ReadCloser.Read(buffer)
+	body.remaining -= int64(n)
+	if n > 0 && err == io.EOF {
+		return n, nil
+	}
+	return n, err
+}
+
+type nativeFlushSignal struct {
+	http.ResponseWriter
+	flushed chan struct{}
+	once    sync.Once
+}
+
+func (writer *nativeFlushSignal) Unwrap() http.ResponseWriter { return writer.ResponseWriter }
+
+func (writer *nativeFlushSignal) Flush() {
+	_ = http.NewResponseController(writer.ResponseWriter).Flush()
+	writer.once.Do(func() { close(writer.flushed) })
+}
+
+func TestNativeAPIProxyPreservesTailWhileRequestWriterFinishes(t *testing.T) {
+	first := grpcWebFrame(0, "first")
+	last := grpcWebFrame(128, "grpc-status: 16\r\ngrpc-message: denied\r\n")
+	release := make(chan struct{})
+	core := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := io.ReadAll(r.Body); err != nil {
+			t.Error(err)
+			return
+		}
+		w.Header().Set("Content-Type", "application/grpc-web+proto")
+		_, _ = w.Write(first)
+		w.(http.Flusher).Flush()
+		select {
+		case <-release:
+			_, _ = w.Write(last)
+		case <-r.Context().Done():
+		}
+	}))
+	defer core.Close()
+	target, err := url.Parse(core.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		flushed := make(chan struct{})
+		r.Body = &delayedRequestEOF{ReadCloser: r.Body, remaining: r.ContentLength, flushed: flushed, ctx: r.Context()}
+		writer := &nativeFlushSignal{ResponseWriter: &responseRecorder{ResponseWriter: w, status: http.StatusOK}, flushed: flushed}
+		proxyNativeAPI(writer, r, target, "native-secret", func() bool { return true })
+	}))
+	defer proxy.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	response := nativeProxyRequest(t, proxy, ctx)
+	got := make([]byte, len(first))
+	if _, err := io.ReadFull(response.Body, got); err != nil || !bytes.Equal(got, first) {
+		t.Fatalf("initial frame changed while request completed: %x, %v", got, err)
+	}
+	close(release)
+	got, err = io.ReadAll(response.Body)
+	if err != nil || !bytes.Equal(got, last) {
+		t.Fatalf("final frame lost while request completed: %x, %v", got, err)
 	}
 }
 

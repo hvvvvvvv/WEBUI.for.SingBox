@@ -59,6 +59,12 @@ func (s *Server) handleKernelProxy(w http.ResponseWriter, r *http.Request) {
 }
 
 func proxyNativeAPI(w http.ResponseWriter, r *http.Request, upstream *url.URL, secret string, validSession func() bool) {
+	// HTTP/1 normally drains and closes the incoming body when flushing a
+	// response. Transport may still be checking that body's final EOF after the
+	// core has replied; closing it then aborts the upstream stream and loses its
+	// trailer frame. Let ReverseProxy own request reads until forwarding ends.
+	// HTTP/2 already permits concurrent request reads and response writes.
+	_ = http.NewResponseController(w).EnableFullDuplex()
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
 	go func() {

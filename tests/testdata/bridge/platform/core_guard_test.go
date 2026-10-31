@@ -58,7 +58,9 @@ func TestCoreGuardHelper(t *testing.T) {
 	if os.Args[len(os.Args)-1] == "check" {
 		fmt.Println("INFO configuration checked")
 		if os.Getenv("WEBUI_GUARD_TEST_SLOW_CHECK") == "1" {
-			select {}
+			// A standalone test helper has no test timeout timer. A bare select{}
+			// would abort with Go's deadlock detector instead of awaiting cancellation.
+			time.Sleep(time.Minute)
 		}
 		if os.Getenv("WEBUI_GUARD_TEST_BAD_CHECK") == "1" {
 			os.Exit(7)
@@ -342,21 +344,33 @@ func TestGuardStartCancellationClosesControlPipe(t *testing.T) {
 	s := NewService(storage.NewPaths(t.TempDir()), nil, Environment{})
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	checked := make(chan struct{}, 1)
+	checked := make(chan logging.CoreOutput, 1)
 	result := make(chan Result, 1)
 	go func() {
 		result <- s.ExecBackground(os.Args[0], []string{"-test.run=^TestCoreGuardHelper$"}, "", ExecOptions{
 			Guard: true, Context: ctx, CheckArgs: []string{"-test.run=^TestCoreGuardHelper$", "--", "check"},
-			Env:      map[string]string{"WEBUI_GUARD_TEST_ROLE": "core", "WEBUI_GUARD_TEST_SLOW_CHECK": "1"},
-			OnOutput: func(logging.CoreOutput) { checked <- struct{}{} },
+			Env: map[string]string{"WEBUI_GUARD_TEST_ROLE": "core", "WEBUI_GUARD_TEST_SLOW_CHECK": "1"},
+			OnOutput: func(output logging.CoreOutput) {
+				select {
+				case checked <- output:
+				default:
+				}
+			},
 		})
 	}()
+	var output logging.CoreOutput
 	select {
-	case <-checked:
+	case output = <-checked:
 	case <-time.After(5 * time.Second):
 		t.Fatal("no check output")
 	}
-	owner, err := readCoreOwner(s.BaseDir())
+	if output.Operation != "check" || output.PID <= 0 {
+		t.Fatalf("unexpected check output: %+v", output)
+	}
+	// Output is forwarded as soon as the PID is available, before the guard may
+	// have persisted process.json. Capture the live check directly so cancellation
+	// still exercises this early startup window instead of waiting for the file.
+	identity, err := IdentifyProcess(output.PID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -369,7 +383,10 @@ func TestGuardStartCancellationClosesControlPipe(t *testing.T) {
 	case <-time.After(7 * time.Second):
 		t.Fatal("cancellation blocked")
 	}
-	if alive, err := identityAlive(owner.Core); alive || err != nil {
+	if alive, err := identityAlive(identity); alive || err != nil {
 		t.Fatalf("cancelled check alive: %v %v", alive, err)
+	}
+	if _, err := os.Stat(filepath.Join(s.BaseDir(), coreOwnerPath)); !os.IsNotExist(err) {
+		t.Fatalf("cancelled check ownership record remains: %v", err)
 	}
 }
