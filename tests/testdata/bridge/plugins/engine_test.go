@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/dop251/goja"
 )
 
 func proxiesForTest() []map[string]any {
@@ -201,12 +203,16 @@ func TestLogLimitsAndInputLimits(t *testing.T) {
 
 func TestPipelineDeadlineIncludesWaitingAndMultipleHooks(t *testing.T) {
 	service := serviceForTest(t)
-	saveForTest(t, service, pluginForTest("one", "function onSubscribe(p) { const until=Date.now()+80; while(Date.now()<until) {} return p }"))
-	saveForTest(t, service, pluginForTest("two", "function onSubscribe(p) { const until=Date.now()+80; while(Date.now()<until) {} return p }"))
+	saveForTest(t, service, pluginForTest("one", "function onSubscribe(p) { p[0].tag = 'first hook'; return p }"))
+	saveForTest(t, service, pluginForTest("two", "function onSubscribe(p) { if (p[0].tag !== 'first hook') throw Error('missing first hook'); while (true) {} }"))
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Millisecond)
 	defer cancel()
+	started := time.Now()
 	if _, err := service.ApplySubscription(ctx, proxiesForTest(), nil); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("pipeline did not share the deadline: %v", err)
+	}
+	if elapsed := time.Since(started); elapsed >= HookTimeout/2 {
+		t.Fatalf("pipeline waited for a separate hook timeout instead of its parent deadline: %v", elapsed)
 	}
 	service.runSlot <- struct{}{}
 	ctx, cancel = context.WithTimeout(context.Background(), 20*time.Millisecond)
@@ -215,8 +221,56 @@ func TestPipelineDeadlineIncludesWaitingAndMultipleHooks(t *testing.T) {
 		t.Fatalf("execution queue ignored context cancellation: %v", err)
 	}
 	<-service.runSlot
+	saveForTest(t, service, pluginForTest("two", "function onSubscribe(p) { return p }"))
 	if _, err := service.ApplySubscription(context.Background(), proxiesForTest(), nil); err != nil {
 		t.Fatalf("canceled run prevented retry: %v", err)
+	}
+}
+
+// Model a context whose deadline has elapsed before its cancellation timer has
+// delivered Done/Err. This avoids relying on a scheduler race or JS wall time.
+type undeliveredDeadlineContext struct {
+	context.Context
+	deadline time.Time
+}
+
+func (ctx undeliveredDeadlineContext) Deadline() (time.Time, bool) {
+	return ctx.deadline, true
+}
+
+type waitForDeadlineJSON struct{ deadline time.Time }
+
+func (value waitForDeadlineJSON) MarshalJSON() ([]byte, error) {
+	timer := time.NewTimer(time.Until(value.deadline))
+	defer timer.Stop()
+	<-timer.C
+	return []byte("true"), nil
+}
+
+func TestHookRejectsResultBeforeDeadlineCancellationIsDelivered(t *testing.T) {
+	program, err := goja.Compile("deadline.js", "function onSubscribe(p) { return p }", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := undeliveredDeadlineContext{Context: context.Background(), deadline: time.Now().Add(20 * time.Millisecond)}
+	current := execution{
+		plugin:  Plugin{Configuration: map[string]any{"wait": waitForDeadlineJSON{deadline: ctx.deadline}}},
+		program: program,
+	}
+	output, err := executeHook(ctx, current, OnSubscribe, []byte(`[{"type":"direct","tag":"original"}]`), []byte("null"), &logBuffer{}, nil)
+	if ctx.Err() != nil {
+		t.Fatal("test context delivered cancellation instead of exercising the deadline check")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) || output != nil {
+		t.Fatalf("expired hook published a result before cancellation delivery: %s, %v", output, err)
+	}
+}
+
+func TestPipelineRejectsExpiredDeadlineBeforeCancellationIsDelivered(t *testing.T) {
+	service := serviceForTest(t)
+	ctx := undeliveredDeadlineContext{Context: context.Background(), deadline: time.Now().Add(-time.Second)}
+	if output, err := service.ApplySubscription(ctx, proxiesForTest(), nil); !errors.Is(err, context.DeadlineExceeded) || output != nil {
+		t.Fatalf("expired no-op pipeline published a result: %#v, %v", output, err)
 	}
 }
 

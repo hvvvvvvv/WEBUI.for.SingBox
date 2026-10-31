@@ -25,6 +25,19 @@ type execution struct {
 	program *goja.Program
 }
 
+// Timer cancellation can be delivered after its deadline under scheduler load.
+// Check the monotonic deadline as well so a finished hook cannot publish a late
+// result while the context's cancellation callback is still waiting to run.
+func executionContextError(ctx context.Context) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if deadline, ok := ctx.Deadline(); ok && !time.Now().Before(deadline) {
+		return context.DeadlineExceeded
+	}
+	return nil
+}
+
 func (s *Service) ApplySubscription(ctx context.Context, proxies []map[string]any, subscription map[string]any) ([]map[string]any, error) {
 	result, _, err := s.run(ctx, OnSubscribe, "", proxies, subscription)
 	if err != nil {
@@ -86,11 +99,14 @@ func (s *Service) executions(trigger, id string) ([]execution, error) {
 func (s *Service) run(ctx context.Context, trigger, id string, input any, subscription map[string]any) (any, []string, error) {
 	ctx, cancel := context.WithTimeout(ctx, PipelineTimeout)
 	defer cancel()
-	if err := ctx.Err(); err != nil {
+	if err := executionContextError(ctx); err != nil {
 		return nil, nil, err
 	}
 	selected, err := s.executions(trigger, id)
 	if err != nil {
+		return nil, nil, err
+	}
+	if err := executionContextError(ctx); err != nil {
 		return nil, nil, err
 	}
 	if len(selected) == 0 {
@@ -104,6 +120,9 @@ func (s *Service) run(ctx context.Context, trigger, id string, input any, subscr
 		defer func() { <-s.runSlot }()
 	case <-ctx.Done():
 		return nil, nil, ctx.Err()
+	}
+	if err := executionContextError(ctx); err != nil {
+		return nil, nil, err
 	}
 	if trigger != OnGenerate && input.([]map[string]any) == nil {
 		input = []map[string]any{}
@@ -124,7 +143,7 @@ func (s *Service) run(ctx context.Context, trigger, id string, input any, subscr
 	}
 	logs := &logBuffer{lines: []string{}}
 	for _, current := range selected {
-		if err := ctx.Err(); err != nil {
+		if err := executionContextError(ctx); err != nil {
 			return nil, logs.lines, err
 		}
 		payload, err = runHook(ctx, current, trigger, payload, metadata, logs)
@@ -135,10 +154,10 @@ func (s *Service) run(ctx context.Context, trigger, id string, input any, subscr
 			return nil, logs.lines, fmt.Errorf("plugin %q output: %w", current.plugin.ID, err)
 		}
 	}
-	if err := ctx.Err(); err != nil {
-		return nil, logs.lines, err
-	}
 	result, err := decodeResult(payload, trigger)
+	if contextErr := executionContextError(ctx); contextErr != nil {
+		return nil, logs.lines, contextErr
+	}
 	return result, logs.lines, err
 }
 
@@ -156,7 +175,7 @@ func executeHook(ctx context.Context, current execution, trigger string, payload
 	vm.SetMaxCallStackSize(MaxCallStack)
 	stop := context.AfterFunc(ctx, func() { vm.Interrupt(ctx.Err()) })
 	defer stop()
-	if err := ctx.Err(); err != nil {
+	if err := executionContextError(ctx); err != nil {
 		return nil, err
 	}
 	jsonObject := vm.Get("JSON").ToObject(vm)
@@ -269,9 +288,6 @@ func executeHook(ctx context.Context, current execution, trigger string, payload
 		return nil, fmt.Errorf("%s result is not JSON data", hook)
 	}
 	output := serialized.String()
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
 	limit := MaxIOBytes
 	if diagnostic != nil {
 		limit = MaxDiagnosticReportBytes
@@ -279,20 +295,24 @@ func executeHook(ctx context.Context, current execution, trigger string, payload
 	if len(output) > limit {
 		return nil, fmt.Errorf("output exceeds %d bytes", limit)
 	}
-	return []byte(output), nil
+	payload = []byte(output)
+	if err := executionContextError(ctx); err != nil {
+		return nil, err
+	}
+	return payload, nil
 }
 
 func executionError(ctx context.Context, toString goja.Callable, err error) error {
-	if ctx.Err() != nil {
-		return ctx.Err()
+	if contextErr := executionContextError(ctx); contextErr != nil {
+		return contextErr
 	}
 	message := "JavaScript execution failed"
 	if exception, ok := err.(*goja.Exception); ok {
 		// Exception.Error() may invoke a user-defined toString. Keep that work
 		// within the interruptible VM, and return only inert bounded text to Go.
 		value, conversionErr := toString(goja.Undefined(), exception.Value())
-		if ctx.Err() != nil {
-			return ctx.Err()
+		if contextErr := executionContextError(ctx); contextErr != nil {
+			return contextErr
 		}
 		if conversionErr == nil {
 			message = value.String()
