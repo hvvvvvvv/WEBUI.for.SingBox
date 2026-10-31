@@ -729,7 +729,7 @@ export default {
     importSource: 'Import JS',
     exportSource: 'Export JS',
     sourceHelp:
-      'Supports onSubscribe(proxies, subscription), onGenerate(config, profile), and onRun(proxies, subscription). Read settings through the global configuration object. Saved source runs on the backend.',
+      'Supports onSubscribe(proxies, subscription), onGenerate(config), and onRun(proxies, subscription); diagnostics use onRun() without arguments. Read settings through the global configuration object. Saved source runs on the backend.',
     invalidConfiguration: 'Configuration must be a valid JSON object.',
     sourceTooLarge: 'JavaScript source cannot exceed 256 KiB.',
     draftPreserved:
@@ -740,6 +740,12 @@ export default {
     chooseSubscription: 'Select a cached subscription',
     noCachedSubscriptions: 'No subscriptions have cached nodes. Update a subscription first.',
     runResult: 'Completed: {before} nodes before processing, {after} nodes after processing.',
+    diagnosticHint:
+      'Run a diagnostic from the router backend and display a report. Subscriptions, configuration, and selected nodes are unchanged. Plugin settings determine request destinations and routing.',
+    manualTarget: 'Manual run target',
+    subscriptionTarget: 'Subscription cache',
+    diagnosticTarget: 'Router diagnostic',
+    conflictsWith: 'Conflicts with these enabled plugins. Disable one first:',
     retry: 'Retry',
   },
   rulesets: {
@@ -848,7 +854,8 @@ export default {
     },
     autoStartKernel: 'Start core on launch',
     realMemoryUsage: 'Show core process RSS',
-    realMemoryUsageHint: 'Sample every 30 seconds while Overview is active. Stored only in this browser.',
+    realMemoryUsageHint:
+      'Sample every 30 seconds while Overview is active. Stored only in this browser.',
     coreLogDays: {
       name: 'Core log retention days',
       tips: '0 to disable',
@@ -888,7 +895,8 @@ export default {
         env: 'Environment Variables',
         args: 'Runtime Arguments',
         preview: 'Preview with server paths',
-        previewUnavailable: 'Server paths are unavailable. You can still edit, but an accurate preview cannot be shown.',
+        previewUnavailable:
+          'Server paths are unavailable. You can still edit, but an accurate preview cannot be shown.',
       },
     },
     userAgent: {

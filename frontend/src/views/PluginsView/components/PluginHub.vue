@@ -3,10 +3,21 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePluginsStore } from '@/stores/plugins'
 import { message } from '@/utils'
+import type { Plugin } from '@/types/plugin'
 
 const { t } = useI18n()
 const store = usePluginsStore()
 const keywords = ref('')
+const enabledConflicts = (candidate: Plugin) =>
+  store.plugins
+    .filter(
+      (installed) =>
+        !installed.disabled &&
+        installed.id !== candidate.id &&
+        (candidate.conflicts?.includes(installed.id) ||
+          installed.conflicts?.includes(candidate.id)),
+    )
+    .map((plugin) => plugin.name)
 const filtered = computed(() =>
   store.catalog.plugins.filter((plugin) =>
     `${plugin.name} ${plugin.description}`
@@ -64,6 +75,9 @@ onMounted(() => {
           ><Tag size="small">{{ plugin.version }}</Tag></template
         >
         <p class="plugin-hub-description">{{ plugin.description }}</p>
+        <p v-if="enabledConflicts(plugin).length" class="plugin-hub-note">
+          {{ t('plugins.conflictsWith') }} {{ enabledConflicts(plugin).join('、') }}
+        </p>
         <div class="plugin-hub-bottom">
           <Tag v-for="trigger in plugin.triggers" :key="trigger" size="small">{{
             t('plugin.' + trigger)
@@ -81,7 +95,7 @@ onMounted(() => {
             size="small"
             icon="add"
             type="primary"
-            :disabled="store.busy"
+            :disabled="store.busy || enabledConflicts(plugin).length > 0"
             class="ml-auto"
             @click="install(plugin.id)"
             >{{ t('plugins.install') }}</Button

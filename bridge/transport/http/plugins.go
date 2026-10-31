@@ -88,6 +88,34 @@ func (s *Server) registerPluginRoutes(mux *http.ServeMux) {
 				return
 			}
 			if operation == "run" {
+				var selected *plugins.Plugin
+				for _, item := range s.options.Plugins.List().Plugins {
+					if item.ID == request.ID {
+						selected = &item
+						break
+					}
+				}
+				if selected == nil {
+					pluginError(w, plugins.ErrNotFound)
+					return
+				}
+				if selected.ManualTarget == plugins.ManualDiagnostic {
+					if request.SubscriptionID != "" {
+						pluginError(w, fmt.Errorf("diagnostic runs do not accept subscription_id"))
+						return
+					}
+					report, logs, err := s.options.Plugins.RunDiagnostic(r.Context(), request.ID)
+					if err != nil {
+						pluginError(w, err)
+						return
+					}
+					jsonResponse(w, map[string]any{"report": report, "logs": logs})
+					return
+				}
+				if strings.TrimSpace(request.SubscriptionID) == "" {
+					pluginError(w, fmt.Errorf("subscription_id is required for this plugin"))
+					return
+				}
 				if s.options.PluginRunner == nil {
 					http.Error(w, "Subscription runner unavailable", http.StatusServiceUnavailable)
 					return
@@ -207,6 +235,11 @@ func readPluginRequest(w http.ResponseWriter, r *http.Request, operation string)
 		"reorder": {"ids", "expected_revision"}, "install": {"id", "expected_revision"},
 		"update": {"id", "expected_revision"}, "run": {"id", "subscription_id"},
 	}[operation]
+	if operation == "run" {
+		if _, exists := fields["subscription_id"]; !exists {
+			allowed = []string{"id"}
+		}
+	}
 	if len(fields) != len(allowed) {
 		return request, fmt.Errorf("request fields do not match %s", operation)
 	}
@@ -225,7 +258,7 @@ func readPluginRequest(w http.ResponseWriter, r *http.Request, operation string)
 	if operation != "save" && operation != "reorder" && strings.TrimSpace(request.ID) == "" {
 		return request, fmt.Errorf("id must not be empty")
 	}
-	if operation == "run" && strings.TrimSpace(request.SubscriptionID) == "" {
+	if _, exists := fields["subscription_id"]; operation == "run" && exists && strings.TrimSpace(request.SubscriptionID) == "" {
 		return request, fmt.Errorf("subscription_id must not be empty")
 	}
 	return request, nil

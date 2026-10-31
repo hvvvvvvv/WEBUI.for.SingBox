@@ -196,6 +196,9 @@ func TestPluginHTTPUpdatePreservesUserSettingsAndInstallDoesNotExecute(t *testin
 
 func TestPluginHTTPManualDispatchAndContextErrors(t *testing.T) {
 	service := pluginHTTPService(t)
+	if _, err := service.Save(httpPlugin("chosen-plugin"), 0); err != nil {
+		t.Fatal(err)
+	}
 	calls := 0
 	var failure error
 	runner := pluginRunnerFunc(func(ctx context.Context, pluginID, subscriptionID string) (appruntime.PluginSubscriptionResult, error) {

@@ -1,4 +1,4 @@
-// WEBUI.for.SingBox router script plugin. GPL-3.0-or-later.
+// WEBUI.for.SingBox router script plugin. GPL-3.0-only.
 // Independently adapted for the backend plugin API; no desktop/Wails access.
 function stable(value) {
   if (Array.isArray(value)) return "[" + value.map(stable).join(",") + "]";

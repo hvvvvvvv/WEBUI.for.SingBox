@@ -2,13 +2,28 @@
 import { createApp, defineComponent, h, nextTick, type App } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const mocks = vi.hoisted(() => ({ run: vi.fn(), setup: vi.fn() }))
-vi.mock('@/stores/plugins', () => ({ usePluginsStore: () => ({ runPlugin: mocks.run }) }))
+const mocks = vi.hoisted(() => ({
+  run: vi.fn(),
+  setup: vi.fn(),
+  diagnostic: false,
+}))
+vi.mock('@/stores/plugins', () => ({
+  usePluginsStore: () => ({
+    runPlugin: mocks.run,
+    getPluginById: () => ({
+      manual_target: mocks.diagnostic ? 'diagnostic' : 'subscription',
+    }),
+  }),
+}))
 vi.mock('@/stores/subscribes', () => ({
   useSubscribesStore: () => ({
     setupSubscribes: mocks.setup,
     subscribes: [
-      { id: 'cached', name: 'Cached', proxies: [{ tag: 'one' }, { tag: 'two' }] },
+      {
+        id: 'cached',
+        name: 'Cached',
+        proxies: [{ tag: 'one' }, { tag: 'two' }],
+      },
       { id: 'empty', name: 'Empty', proxies: [] },
     ],
   }),
@@ -21,6 +36,7 @@ describe('manual backend plugin execution', () => {
   let host: HTMLDivElement
   beforeEach(() => {
     vi.clearAllMocks()
+    mocks.diagnostic = false
     mocks.setup.mockResolvedValue(undefined)
     mocks.run.mockResolvedValue({
       before: 2,
@@ -83,5 +99,32 @@ describe('manual backend plugin execution', () => {
     await vi.waitFor(() => expect(mocks.setup).toHaveBeenCalledTimes(2))
     expect(host.textContent).toContain('deduplicated')
     expect(host.textContent).toContain('plugins.runResult')
+  })
+  it('runs diagnostics without fetching or writing subscription caches and renders reports as text', async () => {
+    mocks.diagnostic = true
+    mocks.run.mockResolvedValue({
+      report: { message: '<img src=x onerror=alert(1)>' },
+      logs: ['checked'],
+    })
+    app = createApp(PluginRun, { id: 'network-diagnostic' })
+    app.component(
+      'Button',
+      defineComponent({
+        props: ['disabled', 'loading'],
+        setup:
+          (props, { slots }) =>
+          () =>
+            h('button', { disabled: props.disabled || props.loading }, slots.default?.()),
+      }),
+    )
+    app.mount(host)
+    await nextTick()
+    expect(mocks.setup).not.toHaveBeenCalled()
+    expect(host.querySelector('select')).toBeNull()
+    host.querySelector('button')!.click()
+    await vi.waitFor(() => expect(mocks.run).toHaveBeenCalledWith('network-diagnostic', undefined))
+    await vi.waitFor(() => expect(host.textContent).toContain('<img src=x onerror=alert(1)>'))
+    expect(host.querySelector('img')).toBeNull()
+    expect(mocks.setup).not.toHaveBeenCalled()
   })
 })

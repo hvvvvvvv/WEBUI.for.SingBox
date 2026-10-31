@@ -73,6 +73,13 @@ func (s *Service) executions(trigger, id string) ([]execution, error) {
 	if trigger == OnManual && len(result) == 0 {
 		return nil, ErrNotFound
 	}
+	for i := range result {
+		for j := 0; j < i; j++ {
+			if err := checkConflict(result[i].plugin, result[j].plugin); err != nil {
+				return nil, err
+			}
+		}
+	}
 	return result, nil
 }
 
@@ -88,6 +95,9 @@ func (s *Service) run(ctx context.Context, trigger, id string, input any, subscr
 	}
 	if len(selected) == 0 {
 		return input, []string{}, nil
+	}
+	if trigger == OnManual && selected[0].plugin.ManualTarget == ManualDiagnostic {
+		return nil, nil, fmt.Errorf("%w: diagnostic plugins must run without a subscription", ErrInvalid)
 	}
 	select {
 	case s.runSlot <- struct{}{}:
@@ -133,10 +143,15 @@ func (s *Service) run(ctx context.Context, trigger, id string, input any, subscr
 }
 
 // Every invocation gets a fresh VM and JSON-owned objects. No Go maps, service
-// instances, filesystem, network, shell or desktop bridge are exposed to JS.
+// instances, filesystem, shell or desktop bridge are exposed to JS. Network
+// access is installed separately only for an explicit diagnostic invocation.
 func runHook(parent context.Context, current execution, trigger string, payload, metadata []byte, logs *logBuffer) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(parent, HookTimeout)
 	defer cancel()
+	return executeHook(ctx, current, trigger, payload, metadata, logs, nil)
+}
+
+func executeHook(ctx context.Context, current execution, trigger string, payload, metadata []byte, logs *logBuffer, diagnostic *diagnosticRun) ([]byte, error) {
 	vm := goja.New()
 	vm.SetMaxCallStackSize(MaxCallStack)
 	stop := context.AfterFunc(ctx, func() { vm.Interrupt(ctx.Err()) })
@@ -186,6 +201,11 @@ func runHook(parent context.Context, current execution, trigger string, payload,
 	if err := api.Set("Log", logger); err != nil {
 		return nil, err
 	}
+	if diagnostic != nil {
+		if err := diagnostic.install(vm, api); err != nil {
+			return nil, err
+		}
+	}
 	if err := vm.Set("console", console); err != nil {
 		return nil, err
 	}
@@ -215,6 +235,9 @@ func runHook(parent context.Context, current execution, trigger string, payload,
 	if trigger != OnGenerate {
 		args = append(args, subscription)
 	}
+	if diagnostic != nil {
+		args = nil
+	}
 	result, err := function(goja.Undefined(), args...)
 	if err != nil {
 		return nil, failure(err)
@@ -235,7 +258,7 @@ func runHook(parent context.Context, current execution, trigger string, payload,
 	if result == nil || goja.IsUndefined(result) {
 		result = argument
 	}
-	if goja.IsNull(result) {
+	if goja.IsNull(result) && diagnostic == nil {
 		return nil, fmt.Errorf("%s must return transformed data or mutate its argument", hook)
 	}
 	serialized, err := stringify(goja.Undefined(), result)
@@ -249,8 +272,12 @@ func runHook(parent context.Context, current execution, trigger string, payload,
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if len(output) > MaxIOBytes {
-		return nil, fmt.Errorf("output exceeds %d bytes", MaxIOBytes)
+	limit := MaxIOBytes
+	if diagnostic != nil {
+		limit = MaxDiagnosticReportBytes
+	}
+	if len(output) > limit {
+		return nil, fmt.Errorf("output exceeds %d bytes", limit)
 	}
 	return []byte(output), nil
 }

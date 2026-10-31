@@ -148,6 +148,45 @@ describe('plugin graphical settings and automatic persistence', () => {
     expect(mocks.save).not.toHaveBeenCalled()
   })
 
+  it('persists multiline settings as literal text and blocks changes while disabled', async () => {
+    const item = plugin()
+    item.configuration_schema = [
+      {
+        key: 'hosts',
+        title: 'Hosts',
+        description: '',
+        component: 'TextArea',
+        value: '',
+      },
+    ]
+    const config = ref<Record<string, unknown>>({})
+    const disabled = ref(false)
+    await mount(() =>
+      h(PluginConfigItem, {
+        plugin: item,
+        modelValue: config.value,
+        disabled: disabled.value,
+        'onUpdate:modelValue': (value: Record<string, unknown>) => {
+          config.value = value
+        },
+      }),
+    )
+    const textarea = host.querySelector('textarea')!
+    const text = '127.0.0.1 router.lan\n<img src=x onerror=alert(1)>'
+    textarea.value = text
+    textarea.dispatchEvent(new Event('change', { bubbles: true }))
+    await nextTick()
+    expect(config.value.hosts).toBe(text)
+    expect(host.querySelector('img')).toBeNull()
+    disabled.value = true
+    await nextTick()
+    expect(textarea.disabled).toBe(true)
+    textarea.value = 'changed'
+    textarea.dispatchEvent(new Event('change', { bubbles: true }))
+    await nextTick()
+    expect(config.value.hosts).toBe(text)
+  })
+
   it('automatically serializes changes across cards and preserves edits made during a save', async () => {
     mocks.state.plugins.push(plugin('second'))
     const pending = Promise.withResolvers<{

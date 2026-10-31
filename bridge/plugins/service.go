@@ -15,15 +15,18 @@ import (
 	"strings"
 	"sync"
 
+	"guiforcores/bridge/network"
 	"guiforcores/bridge/storage"
 
 	"github.com/dop251/goja"
 )
 
 const (
-	OnSubscribe = "on::subscribe"
-	OnGenerate  = "on::generate"
-	OnManual    = "on::manual"
+	OnSubscribe        = "on::subscribe"
+	OnGenerate         = "on::generate"
+	OnManual           = "on::manual"
+	ManualSubscription = "subscription"
+	ManualDiagnostic   = "diagnostic"
 
 	MaxPlugins            = 32
 	MaxSourceBytes        = 256 << 10
@@ -46,6 +49,8 @@ type Plugin struct {
 	Description         string         `json:"description"`
 	Version             string         `json:"version"`
 	Triggers            []string       `json:"triggers"`
+	ManualTarget        string         `json:"manual_target,omitempty"`
+	Conflicts           []string       `json:"conflicts,omitempty"`
 	Disabled            bool           `json:"disabled"`
 	Source              string         `json:"source"`
 	Configuration       map[string]any `json:"configuration,omitempty"`
@@ -68,11 +73,12 @@ type Snapshot struct {
 }
 
 type Service struct {
-	mu       sync.RWMutex
-	path     string
-	state    Snapshot
-	programs map[string]*goja.Program
-	runSlot  chan struct{}
+	mu             sync.RWMutex
+	path           string
+	state          Snapshot
+	programs       map[string]*goja.Program
+	runSlot        chan struct{}
+	networkOptions func() network.Options
 }
 
 func NewService(paths *storage.Paths) (*Service, error) {
@@ -151,6 +157,22 @@ func validatePlugin(plugin Plugin) (*goja.Program, error) {
 		}
 		seen[trigger] = true
 	}
+	if plugin.ManualTarget != "" && plugin.ManualTarget != ManualSubscription && plugin.ManualTarget != ManualDiagnostic {
+		return nil, fmt.Errorf("%w: unsupported manual_target", ErrInvalid)
+	}
+	if plugin.ManualTarget == ManualDiagnostic && (len(plugin.Triggers) != 1 || plugin.Triggers[0] != OnManual) {
+		return nil, fmt.Errorf("%w: diagnostic plugins must use only the manual trigger", ErrInvalid)
+	}
+	if len(plugin.Conflicts) > MaxPlugins {
+		return nil, fmt.Errorf("%w: at most %d conflicts are allowed", ErrInvalid, MaxPlugins)
+	}
+	seenConflicts := map[string]bool{}
+	for _, id := range plugin.Conflicts {
+		if !pluginID.MatchString(id) || id == plugin.ID || seenConflicts[id] {
+			return nil, fmt.Errorf("%w: conflicts must contain unique other plugin ids", ErrInvalid)
+		}
+		seenConflicts[id] = true
+	}
 	if strings.TrimSpace(plugin.Source) == "" || len(plugin.Source) > MaxSourceBytes {
 		return nil, fmt.Errorf("%w: source must contain 1-%d bytes", ErrInvalid, MaxSourceBytes)
 	}
@@ -185,7 +207,7 @@ func validateSettings(plugin Plugin) error {
 			case "Switch":
 				_, ok := value.(bool)
 				return ok
-			case "Input":
+			case "Input", "TextArea":
 				text, ok := value.(string)
 				return ok && len(text) <= 16384
 			case "Radio":
@@ -248,6 +270,15 @@ func (s *Service) Save(plugin Plugin, expectedRevision uint64) (Snapshot, error)
 		return Snapshot{}, fmt.Errorf("%w: %v", ErrInvalid, err)
 	}
 	plugin = canonical
+	if !plugin.Disabled {
+		for _, existing := range s.state.Plugins {
+			if existing.ID != plugin.ID && !existing.Disabled {
+				if err := checkConflict(plugin, existing); err != nil {
+					return Snapshot{}, err
+				}
+			}
+		}
+	}
 	next := cloneSnapshot(s.state)
 	index := -1
 	for i := range next.Plugins {
@@ -343,6 +374,7 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	result := Snapshot{Revision: snapshot.Revision, Plugins: make([]Plugin, len(snapshot.Plugins))}
 	for index, plugin := range snapshot.Plugins {
 		plugin.Triggers = append([]string{}, plugin.Triggers...)
+		plugin.Conflicts = append([]string(nil), plugin.Conflicts...)
 		if plugin.ConfigurationSchema != nil {
 			plugin.ConfigurationSchema = append([]Setting{}, plugin.ConfigurationSchema...)
 			for i := range plugin.ConfigurationSchema {
@@ -357,6 +389,20 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 		result.Plugins[index] = plugin
 	}
 	return result
+}
+
+func checkConflict(left, right Plugin) error {
+	for _, id := range left.Conflicts {
+		if id == right.ID {
+			return fmt.Errorf("%w: plugins %q and %q conflict; disable one before enabling or running them together", ErrInvalid, left.Name, right.Name)
+		}
+	}
+	for _, id := range right.Conflicts {
+		if id == left.ID {
+			return fmt.Errorf("%w: plugins %q and %q conflict; disable one before enabling or running them together", ErrInvalid, left.Name, right.Name)
+		}
+	}
+	return nil
 }
 
 func cloneValue(value any) any {

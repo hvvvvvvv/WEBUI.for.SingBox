@@ -163,7 +163,7 @@ func TestRemoteRefreshCacheCloneAndFailedUpdateFallback(t *testing.T) {
 	service := NewService(cachePath)
 	service.baseURL = server.URL + "/"
 	initial, err := service.Get(context.Background(), false)
-	if err != nil || initial.Source != "bundled" || len(initial.Plugins) != 4 || requestCount.Load() != 0 {
+	if err != nil || initial.Source != "bundled" || len(initial.Plugins) != bundledCount(t) || requestCount.Load() != 0 {
 		t.Fatalf("offline catalog made a request or failed: %#v %v", initial, err)
 	}
 	remote, err := service.Get(context.Background(), true)
@@ -205,7 +205,7 @@ func TestRemoteFallbackStatusRedirectOversizeAndInvalidCache(t *testing.T) {
 			t.Fatal(err)
 		}
 		result, err := NewService(cachePath).Get(context.Background(), false)
-		if err != nil || result.Source != "bundled" || len(result.Plugins) != 4 {
+		if err != nil || result.Source != "bundled" || len(result.Plugins) != bundledCount(t) {
 			t.Fatalf("corrupt cache blocked bundled fallback: %#v %v", result, err)
 		}
 	}
@@ -228,7 +228,7 @@ func TestRemoteFallbackStatusRedirectOversizeAndInvalidCache(t *testing.T) {
 			service := NewService("")
 			service.baseURL = server.URL + "/"
 			result, err := service.Get(context.Background(), true)
-			if err != nil || result.Source != "bundled" || result.Warning == "" || len(result.Plugins) != 4 {
+			if err != nil || result.Source != "bundled" || result.Warning == "" || len(result.Plugins) != bundledCount(t) {
 				t.Fatalf("remote failure did not keep bundled catalog: %#v %v", result, err)
 			}
 		})

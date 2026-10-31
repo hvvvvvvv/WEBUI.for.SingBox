@@ -122,6 +122,7 @@ func New(options Options) (_ *Application, resultErr error) {
 		value.CoreProxy = kernelService.CoreRequestProxy
 		return value
 	})
+	pluginService.SetNetworkOptions(platformService.NetworkOptions)
 	coreLogs := logging.NewCoreWriter(paths.Resolve("data/logs/core"), int(appConfig.Current().CoreLogDays))
 	defer func() {
 		if resultErr != nil {

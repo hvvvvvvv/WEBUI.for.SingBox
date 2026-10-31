@@ -15,7 +15,7 @@ const props = withDefaults(
     disabled?: boolean;
     heading?: string;
   }>(),
-  { modelValue: () => ({}), disabled: false, heading: '' },
+  { modelValue: () => ({}), disabled: false, heading: "" },
 );
 const emit = defineEmits<{
   "update:modelValue": [value: Record<string, unknown>];
@@ -95,6 +95,15 @@ defineExpose({ reset: resetAll });
         :aria-label="setting.title"
         @update:model-value="(value) => onChange(setting, value)"
       />
+      <textarea
+        v-else-if="setting.component === 'TextArea'"
+        :value="String(valueOf(setting))"
+        :disabled="disabled"
+        :aria-label="setting.title"
+        rows="6"
+        class="plugin-setting-textarea"
+        @change="(event) => onChange(setting, (event.target as HTMLTextAreaElement).value)"
+      />
       <Input
         v-else
         :model-value="String(valueOf(setting))"
@@ -118,6 +127,17 @@ defineExpose({ reset: resetAll });
 }
 .plugin-setting-input {
   max-width: 100%;
+}
+.plugin-setting-textarea {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 8px;
+  resize: vertical;
+  font-family: monospace;
+  color: inherit;
+  background: var(--card-bg);
+  border: 1px solid var(--primary-color);
+  border-radius: 4px;
 }
 .plugin-setting-card :deep(.gui-radio) {
   max-width: 100%;

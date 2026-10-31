@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { h, inject, ref, useTemplateRef } from 'vue'
+import { computed, h, inject, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { PluginApiError, usePluginsStore } from '@/stores/plugins'
@@ -43,11 +43,22 @@ const configurationMode = ref<'form' | 'json'>(
   draft.value.configuration_schema?.length ? 'form' : 'json',
 )
 let baseRevision = store.revision
-const triggerOptions = [
+const allTriggerOptions = [
   { label: 'plugin.on::subscribe', value: 'on::subscribe' },
   { label: 'plugin.on::generate', value: 'on::generate' },
   { label: 'plugin.on::manual', value: 'on::manual' },
 ]
+const triggerOptions = computed(() =>
+  draft.value.manual_target === 'diagnostic'
+    ? allTriggerOptions.filter((item) => item.value === 'on::manual')
+    : allTriggerOptions,
+)
+watch(
+  () => draft.value.manual_target,
+  (target) => {
+    if (target === 'diagnostic') draft.value.triggers = ['on::manual']
+  },
+)
 
 const readConfiguration = (): Record<string, unknown> => {
   if (configurationMode.value === 'form') return deepClone(draft.value.configuration || {})
@@ -139,8 +150,7 @@ const exportSource = () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 const modalSlots = {
-  cancel: () =>
-    h(Button, { disabled: loading.value, onClick: cancel }, () => t('common.cancel')),
+  cancel: () => h(Button, { disabled: loading.value, onClick: cancel }, () => t('common.cancel')),
   submit: () =>
     h(
       Button,
@@ -191,6 +201,19 @@ defineExpose({ modalSlots })
         />
       </div>
       <div class="plugin-field">
+        <span>{{ t('plugins.manualTarget') }}</span>
+        <Radio
+          :model-value="draft.manual_target || 'subscription'"
+          :options="[
+            { label: 'plugins.subscriptionTarget', value: 'subscription' },
+            { label: 'plugins.diagnosticTarget', value: 'diagnostic' },
+          ]"
+          @update:model-value="
+            (value) => (draft.manual_target = value as 'subscription' | 'diagnostic')
+          "
+        />
+      </div>
+      <div class="plugin-field">
         <span>{{ t('common.disable') }}</span
         ><Switch v-model="draft.disabled" :aria-label="t('common.disable')" />
       </div>
@@ -231,9 +254,7 @@ defineExpose({ modalSlots })
     <template v-if="mode !== 'configuration'">
       <div class="plugin-source-toolbar">
         <strong>{{ t('plugins.source') }}</strong>
-        <Button size="small" @click="fileInput?.click()">{{
-          t('plugins.importSource')
-        }}</Button>
+        <Button size="small" @click="fileInput?.click()">{{ t('plugins.importSource') }}</Button>
         <Button size="small" @click="exportSource">{{ t('plugins.exportSource') }}</Button>
         <input
           ref="fileInput"

@@ -3,15 +3,19 @@
   "plugins": [
     {
       "configuration": {},
-      "description": "按节点顺序添加索引以避免重名，并同步订阅内部出站引用。",
+      "description": "按节点顺序添加索引以避免重名，保留节点 ID 并同步内部出站引用；重复执行不追加相同索引。与其它命名插件择一启用。",
       "id": "plugin-index-the-proxy-name",
       "name": "防代理重名",
       "path": "plugins/plugin-index-the-proxy-name.js",
-      "sha256": "e5fdaa5ccc1f9147e990c831f9db0ce4016a32820e5fade0ad06aad6ae50bdbc",
       "triggers": [
         "on::subscribe"
       ],
-      "version": "1.1.0"
+      "version": "1.2.0",
+      "conflicts": [
+        "plugin-modify-proxy-name",
+        "plugin-beautiful-node-name"
+      ],
+      "sha256": "cda3baba2938962008b71b6d3710baf0a6ae83b499df70c79bc1a3aad90b9782"
     },
     {
       "configuration": {},
@@ -50,15 +54,19 @@
           "value": "-|_|油|羊|🇨🇳"
         }
       ],
-      "description": "按节点名称中的地区关键词添加旗帜，可配置关键词移除与索引；不进行 IP 地理定位。",
+      "description": "使用完整官方地区表及兼容别名识别旗帜，可配置关键词移除与索引；不进行 IP 定位。与其它命名插件择一启用。",
       "id": "plugin-modify-proxy-name",
       "name": "更好的代理名称显示",
       "path": "plugins/plugin-modify-proxy-name.js",
-      "sha256": "a0661857d61c50b4ebd768b5315f48fd6464733981aceea1971a10b2e74bfb2c",
       "triggers": [
         "on::subscribe"
       ],
-      "version": "1.1.0"
+      "version": "1.2.0",
+      "conflicts": [
+        "plugin-index-the-proxy-name",
+        "plugin-beautiful-node-name"
+      ],
+      "sha256": "509e2978fd7d9fcb475b262b57c062d9311fd78155899fc59ea99a84001e53e6"
     },
     {
       "configuration": {},
@@ -104,16 +112,20 @@
           "value": "BGP|IEPL|IPLC|(\\d+(?:\\.\\d+)?)[xX]"
         }
       ],
-      "description": "按地区整理节点名称，配置订阅前缀、旗帜、城市和保留关键词；支持对已有缓存手动运行。",
+      "description": "使用完整官方地区和城市表整理节点名，保留原参数、节点 ID 与内部引用，支持缓存手动执行；与其它命名插件择一启用。",
       "id": "plugin-beautiful-node-name",
       "name": "美化节点名称",
       "path": "plugins/plugin-beautiful-node-name.js",
-      "sha256": "95c559972cc216f81a0528e53c578da34c4ec8ec85c6caa2fac4da1f69d514cf",
       "triggers": [
         "on::subscribe",
         "on::manual"
       ],
-      "version": "1.1.0"
+      "version": "1.2.0",
+      "conflicts": [
+        "plugin-index-the-proxy-name",
+        "plugin-modify-proxy-name"
+      ],
+      "sha256": "c530fe6bd84bf37941dd70289ef411e020379d31dbf1685d6f5e03ec52e7269d"
     },
     {
       "configuration": {},
@@ -121,11 +133,509 @@
       "id": "plugin-duplicate-proxies-removal",
       "name": "重复节点移除",
       "path": "plugins/plugin-duplicate-proxies-removal.js",
-      "sha256": "2d428292564059fec0085f1dbb972aee5662dda2cc63d0948faf956bddcc68ce",
+      "sha256": "ece41071e77349defb98cf59ad0aafa248c34892aa86d61b812617301069d315",
       "triggers": [
         "on::subscribe"
       ],
       "version": "1.1.0"
+    },
+    {
+      "id": "plugin-hosts-management",
+      "name": "路由器 Hosts DNS",
+      "description": "将显式 hosts 映射合并到 sing-box DNS，仅匹配指定域名，不改写路由器 /etc/hosts。",
+      "triggers": [
+        "on::generate"
+      ],
+      "configuration_schema": [
+        {
+          "key": "Enabled",
+          "title": "启用",
+          "description": "",
+          "component": "Switch",
+          "value": false
+        },
+        {
+          "key": "Hosts",
+          "title": "Hosts 映射",
+          "description": "每行 IP 域名，可用 # 注释；最多 256 个域名。sing-box 1.14。",
+          "component": "TextArea",
+          "value": ""
+        }
+      ],
+      "configuration": {},
+      "version": "1.2.0",
+      "path": "plugins/plugin-hosts-management.js",
+      "sha256": "76dabd6f28dc091516e529a32f664ad06c6bc8589e9da42f1fc1caaf83532d2d"
+    },
+    {
+      "id": "plugin-adguardhome",
+      "name": "AdGuardHome DNS 对接",
+      "description": "对接已由 procd/systemd 管理的 AdGuardHome；不重复安装、启动进程或占用 DNS 53 端口。",
+      "triggers": [
+        "on::generate"
+      ],
+      "configuration_schema": [
+        {
+          "key": "Enabled",
+          "title": "启用",
+          "description": "",
+          "component": "Switch",
+          "value": false
+        },
+        {
+          "key": "Address",
+          "title": "服务 IP 地址",
+          "description": "",
+          "component": "Input",
+          "value": "127.0.0.1"
+        },
+        {
+          "key": "Port",
+          "title": "DNS 端口",
+          "description": "请与已运行的 AdGuardHome 一致；不要配置为 sing-box 自己的 DNS 入站。",
+          "component": "Input",
+          "value": "20053"
+        },
+        {
+          "key": "Protocol",
+          "title": "DNS 协议",
+          "description": "",
+          "component": "Radio",
+          "value": "udp",
+          "options": [
+            "UDP,udp",
+            "TCP,tcp"
+          ]
+        },
+        {
+          "key": "Mode",
+          "title": "适用范围",
+          "description": "AdGuardHome 上游不得再指向此 sing-box DNS，避免递归环路。",
+          "component": "Radio",
+          "value": "domains",
+          "options": [
+            "仅下列域名后缀,domains",
+            "默认 DNS（明确替换 final）,final"
+          ]
+        },
+        {
+          "key": "Domains",
+          "title": "域名后缀",
+          "description": "以换行、空格或逗号分隔，启用前填写。",
+          "component": "TextArea",
+          "value": ""
+        }
+      ],
+      "configuration": {},
+      "version": "1.2.0",
+      "path": "plugins/plugin-adguardhome.js",
+      "sha256": "09fc8debcd90e7c721d77cd78a1b8a1ebad9db3e8ac70f3158b0d8d484be17b5"
+    },
+    {
+      "id": "plugin-network-info",
+      "name": "路由器出口与连通诊断",
+      "description": "合并网络信息与当前出口 IP 查询；最多 6 个站点，显式选择路由器请求出口，不切换节点或执行持续测速。",
+      "manual_target": "diagnostic",
+      "triggers": [
+        "on::manual"
+      ],
+      "configuration_schema": [
+        {
+          "key": "Route",
+          "title": "请求出口",
+          "description": "服务环境代理取自路由器进程；核心代理要求正在运行的 HTTP/mixed 入站。不会切换全局节点。",
+          "component": "Radio",
+          "value": "configured",
+          "options": [
+            "遵循 WebUI 设置,configured",
+            "直连,direct",
+            "使用运行核心,core"
+          ]
+        },
+        {
+          "key": "Sites",
+          "title": "站点列表 JSON",
+          "description": "最多 6 个 {name,url}；使用 HEAD，不下载大文件。出口 IP 由 Cloudflare trace 查询。",
+          "component": "TextArea",
+          "value": "[{\"name\":\"Google 204\",\"url\":\"https://www.gstatic.com/generate_204\"},{\"name\":\"Cloudflare\",\"url\":\"https://www.cloudflare.com/\"}]"
+        }
+      ],
+      "configuration": {},
+      "version": "1.2.0",
+      "path": "plugins/plugin-network-info.js",
+      "sha256": "82c2303bafbb614f5577bea3e5231eadcf8d8bce7dadcef64e6c46c4564258a5"
+    },
+    {
+      "id": "plugin-geoip-search",
+      "name": "IP 地区与运营商查询",
+      "description": "手动向 ipwho.is 查询指定 IP；留空查询路由器所选出口。第三方地理结果仅供参考。",
+      "manual_target": "diagnostic",
+      "triggers": [
+        "on::manual"
+      ],
+      "configuration_schema": [
+        {
+          "key": "Route",
+          "title": "请求出口",
+          "description": "服务环境代理取自路由器进程；核心代理要求正在运行的 HTTP/mixed 入站。不会切换全局节点。",
+          "component": "Radio",
+          "value": "configured",
+          "options": [
+            "遵循 WebUI 设置,configured",
+            "直连,direct",
+            "使用运行核心,core"
+          ]
+        },
+        {
+          "key": "IP",
+          "title": "IP 地址",
+          "description": "填写的 IP 会发送给 ipwho.is；不接受账户、订阅链接或 API 密钥。",
+          "component": "Input",
+          "value": ""
+        }
+      ],
+      "configuration": {},
+      "version": "1.2.0",
+      "path": "plugins/plugin-geoip-search.js",
+      "sha256": "9d9f9a3dc907abec14a2ab09626e1d011547c3e0b43aff3fd17bcfa3cd95a744"
+    },
+    {
+      "id": "plugin-media-unlock-checker",
+      "name": "流媒体可达性诊断",
+      "description": "适配 Netflix、YouTube Premium、Spotify 的只读检查；报告明确的区域拒绝或未知，不将 HTTP 200 宣称为完整解锁。",
+      "manual_target": "diagnostic",
+      "triggers": [
+        "on::manual"
+      ],
+      "configuration_schema": [
+        {
+          "key": "Route",
+          "title": "请求出口",
+          "description": "服务环境代理取自路由器进程；核心代理要求正在运行的 HTTP/mixed 入站。不会切换全局节点。",
+          "component": "Radio",
+          "value": "core",
+          "options": [
+            "遵循 WebUI 设置,configured",
+            "直连,direct",
+            "使用运行核心,core"
+          ]
+        }
+      ],
+      "configuration": {},
+      "version": "1.2.0",
+      "path": "plugins/plugin-media-unlock-checker.js",
+      "sha256": "0b243589a6872936f71a98d497563ab49b954e81235c021246e1db9a274558b5"
+    },
+    {
+      "id": "plugin-speedtest",
+      "name": "路由器限量下载测速",
+      "description": "当前出口 HTTP 采样：默认 1 MiB，最多 8 MiB / 5 秒。不切换 LAN 共用节点、不下载第三方测速程序。",
+      "manual_target": "diagnostic",
+      "triggers": [
+        "on::manual"
+      ],
+      "configuration_schema": [
+        {
+          "key": "Route",
+          "title": "请求出口",
+          "description": "服务环境代理取自路由器进程；核心代理要求正在运行的 HTTP/mixed 入站。不会切换全局节点。",
+          "component": "Radio",
+          "value": "core",
+          "options": [
+            "遵循 WebUI 设置,configured",
+            "直连,direct",
+            "使用运行核心,core"
+          ]
+        },
+        {
+          "key": "Bytes",
+          "title": "采样字节上限",
+          "description": "65536–8388608；限制流量和路由器资源，不代表完整线路带宽。",
+          "component": "Input",
+          "value": "1048576"
+        },
+        {
+          "key": "URL",
+          "title": "自定义测速文件 URL",
+          "description": "留空使用 Cloudflare __down；只接受 HTTP(S)，管理员自行选择可公开下载的测试文件。",
+          "component": "Input",
+          "value": ""
+        }
+      ],
+      "configuration": {},
+      "version": "1.2.0",
+      "path": "plugins/plugin-speedtest.js",
+      "sha256": "ef133cbc847848c942682d3edaf14168aa0bc90f625f1704c35cdb138bf444c8"
+    },
+    {
+      "id": "plugin-outbound-chain-manager",
+      "name": "出站链管理",
+      "version": "1.0.0",
+      "description": "按出站或分组设置上游 detour，合并原中继、节点链和策略组批量链功能。完整检查组成员、现有 detour 与新增链路的环；已有不同 detour 或出口绑定不会被覆盖。标签按当前生成配置填写，空规则不生效。",
+      "path": "plugins/plugin-outbound-chain-manager.js",
+      "triggers": [
+        "on::generate"
+      ],
+      "configuration": {},
+      "configuration_schema": [
+        {
+          "key": "Rules",
+          "title": "链路规则 JSON",
+          "description": "数组，例如 [{\"source\":\"出口分组\",\"target\":\"上游节点\",\"recursive\":true}]。source 可以是节点或 selector/urltest；target 为已有出站标签；enabled:false 可停用单条。组展开后每个节点只能由一条规则设置，不能覆盖已有出口绑定。",
+          "component": "TextArea",
+          "value": "[]"
+        }
+      ],
+      "sha256": "35c562b7aeb80041468ade9c1b0fbdcf9066adff37804c25b9b09e6b1d2aaebb"
+    },
+    {
+      "id": "plugin-config-override",
+      "name": "配置覆盖",
+      "version": "1.0.0",
+      "description": "将明确提供的 JSON 深合并到生成配置，数组默认替换，可指定路径追加。保留现有入站、端点与管理 API，拒绝标签、端口和出站引用冲突。仅处理粘贴的数据，不读取服务端文件或远程 URL。",
+      "path": "plugins/plugin-config-override.js",
+      "triggers": [
+        "on::generate"
+      ],
+      "configuration": {},
+      "configuration_schema": [
+        {
+          "key": "Enabled",
+          "title": "启用配置覆盖",
+          "description": "开启后在生成配置时合并下方 JSON；先预览确认结果。",
+          "component": "Switch",
+          "value": false
+        },
+        {
+          "key": "Override",
+          "title": "覆盖 JSON",
+          "description": "顶层 JSON 对象，例如 {\"log\":{\"level\":\"debug\"}}。已有入站和端点必须原样保留，管理 API 不可覆盖；修改这些对象请使用配置页面。",
+          "component": "TextArea",
+          "value": "{}"
+        },
+        {
+          "key": "AppendPaths",
+          "title": "数组追加路径 JSON",
+          "description": "字符串数组，例如 [\"route.rules\",\"route.rule_set\"]。仅下方覆盖对象确实提供数组时有效；未匹配或非数组路径会报错。其他数组保持替换语义。",
+          "component": "TextArea",
+          "value": "[]"
+        }
+      ],
+      "sha256": "ad83297a160e3e9171cee131256635701b5b0012c73977ec66c7294e5cf635d0"
+    },
+    {
+      "id": "plugin-add-rulesets",
+      "name": "按需引用规则集",
+      "version": "1.0.0",
+      "description": "只为选定的 HTTPS sing-box 规则集生成远程引用，可同时指定出站或拒绝动作。保留规则集中心，不批量安装整表、不在插件中下载；核心启动后按配置下载。Clash YAML/MRS 不能直接填写。",
+      "path": "plugins/plugin-add-rulesets.js",
+      "triggers": [
+        "on::generate"
+      ],
+      "configuration": {},
+      "configuration_schema": [
+        {
+          "key": "Rulesets",
+          "title": "规则集引用 JSON",
+          "description": "数组，例如 [{\"tag\":\"selected-set\",\"url\":\"https://example.org/rules.srs\",\"format\":\"binary\",\"outbound\":\"代理\"}]。format 为 binary/source；可选 download_detour、update_interval（24h）、action（route/reject）、enabled。省略 action/outbound 仅注册引用。",
+          "component": "TextArea",
+          "value": "[]"
+        },
+        {
+          "key": "RulePosition",
+          "title": "新路由规则顺序",
+          "description": "追加保留现有规则优先级；前置仅在确实需要优先命中时使用。",
+          "component": "Radio",
+          "value": "append",
+          "options": [
+            "追加,append",
+            "前置,prepend"
+          ]
+        }
+      ],
+      "sha256": "2a66d4468d465d5fe530a1baaa352afb8ccc2f94d4393a3d5306306ce37b07ce"
+    },
+    {
+      "id": "plugin-router-transparent-proxy",
+      "name": "路由器透明代理",
+      "version": "1.0.0",
+      "description": "为 Linux/OpenWrt 1.14+ 生成显式 LAN 接口范围的 TUN、auto_route/auto_redirect、客户端分流和可选 DNS 劫持。默认关闭，不替换现有 TUN、不运行系统命令。核心启动后才按生成配置管理路由；先检查 TUN、NET_ADMIN、转发和 nftables/fw4。",
+      "path": "plugins/plugin-router-transparent-proxy.js",
+      "triggers": [
+        "on::generate"
+      ],
+      "configuration": {},
+      "configuration_schema": [
+        {
+          "key": "Enabled",
+          "title": "启用透明代理配置",
+          "description": "仅适用于 Linux/OpenWrt 和 sing-box 1.14+。开启后仍需手动启动/重启核心。与已有 TUN、default_mark/routing_mark 冲突时拒绝生成。",
+          "component": "Switch",
+          "value": false
+        },
+        {
+          "key": "LANInterfaces",
+          "title": "LAN 接口 JSON",
+          "description": "必须明确填写实际接口名，例如 [\"br-lan\"]；不会猜测设备型号或修改防火墙。只捕获所列接口进入的流量。",
+          "component": "TextArea",
+          "value": "[]"
+        },
+        {
+          "key": "Tag",
+          "title": "TUN 标签",
+          "description": "使用未被当前入站、端点、服务占用的标签。",
+          "component": "Input",
+          "value": "router-tun"
+        },
+        {
+          "key": "InterfaceName",
+          "title": "TUN 网卡名",
+          "description": "可留空让核心自动选择；不可与 LAN 接口重名。",
+          "component": "Input",
+          "value": ""
+        },
+        {
+          "key": "Addresses",
+          "title": "TUN 地址 JSON",
+          "description": "例如 [\"172.19.0.1/30\"]；启用 IPv6 时可添加私有 IPv6 前缀。须选择不与设备现有网段重叠的地址，插件无法探测系统路由。",
+          "component": "TextArea",
+          "value": "[\"172.19.0.1/30\"]"
+        },
+        {
+          "key": "ExcludeRoutes",
+          "title": "排除目标网段 JSON",
+          "description": "按实际 LAN、管理与其他 VPN 网段填写 CIDR 数组；不会自动排除或改写现有系统路由。",
+          "component": "TextArea",
+          "value": "[]"
+        },
+        {
+          "key": "HijackDNS",
+          "title": "劫持经 TUN 的 DNS",
+          "description": "需要先配置有效 DNS 服务器；仅添加该 TUN 的端口 53 规则，不绑定系统 53，不修改 dnsmasq。发送到路由器自身接口地址的 DNS 由原服务处理，sing-box 1.14 不会自动劫持它。",
+          "component": "Switch",
+          "value": false
+        },
+        {
+          "key": "ClientRules",
+          "title": "客户端分流 JSON",
+          "description": "按顺序匹配，例如 [{\"source_ip_cidr\":[\"192.168.8.10/32\"],\"outbound\":\"代理\"}]；仅影响新增 TUN，未知出站会报错。客户端 IP 变化时需更新配置。",
+          "component": "TextArea",
+          "value": "[]"
+        },
+        {
+          "key": "DefaultOutbound",
+          "title": "其余 TUN 流量出站",
+          "description": "留空沿用当前路由规则；填已有出站标签时，该 TUN 未匹配客户端规则的流量使用它，原 route.final 保持不变。",
+          "component": "Input",
+          "value": ""
+        }
+      ],
+      "sha256": "4df1743703163b887dafd325cb81093063c858c26e31fe05a02c7b3338de32dd"
+    },
+    {
+      "id": "plugin-router-listeners",
+      "name": "路由器独立代理端口",
+      "version": "1.0.0",
+      "description": "添加 HTTP、SOCKS 或 mixed 入站，并按入站标签绑定现有出站或沿用全局路由。默认不添加端口，保留现有监听和管理 API。只检查配置内端口冲突，系统实际端口是否可绑定仍由核心启动确认。",
+      "path": "plugins/plugin-router-listeners.js",
+      "triggers": [
+        "on::generate"
+      ],
+      "configuration": {},
+      "configuration_schema": [
+        {
+          "key": "Listeners",
+          "title": "监听端口 JSON",
+          "description": "例如 [{\"tag\":\"office\",\"type\":\"mixed\",\"listen\":\"192.168.8.1\",\"listen_port\":18080,\"outbound\":\"代理\",\"users\":[{\"username\":\"user\",\"password\":\"请替换\"}]}]。省略 listen 仅监听 127.0.0.1；省略 outbound 沿用路由。LAN 无认证必须显式设置 allow_lan_without_auth:true；不要在 WAN 开放无认证代理。",
+          "component": "TextArea",
+          "value": "[]"
+        }
+      ],
+      "sha256": "0ea3b6ba1f586af1f17cac27cd950ebbeb1313601a4323ad38839a9d63f2a84e"
+    },
+    {
+      "id": "plugin-router-urltest",
+      "name": "核心自动测速选择",
+      "version": "1.2.0",
+      "path": "plugins/plugin-router-urltest.js",
+      "description": "生成 sing-box URLTest 组，由核心持续探测和选择节点；合并智能切换的基础需求，不等同 EWMA 算法或日志错误阈值故障转移。保存后需手动重启核心。",
+      "triggers": [
+        "on::generate"
+      ],
+      "configuration": {},
+      "configuration_schema": [
+        {
+          "key": "Enabled",
+          "title": "启用",
+          "description": "填写实际代理节点 tag 后启用；先预览配置，保存后手动重启核心。",
+          "component": "Switch",
+          "value": false
+        },
+        {
+          "key": "Tag",
+          "title": "测速组 tag",
+          "description": "必须为未使用的出站 tag；不会覆盖现有策略组。",
+          "component": "Input",
+          "value": "router-auto"
+        },
+        {
+          "key": "Outbounds",
+          "title": "参与测速的节点",
+          "description": "每行一个已存在的代理节点 tag，最多 256 个；不接受 selector、urltest、direct、block、dns。需要匹配最终生成的 tag。",
+          "component": "TextArea",
+          "value": ""
+        },
+        {
+          "key": "SelectorTag",
+          "title": "加入的选择器 tag",
+          "description": "可选：追加到一个已存在的 selector。留空只生成组，需要自行让路由使用它。",
+          "component": "Input",
+          "value": ""
+        },
+        {
+          "key": "MakeDefault",
+          "title": "设为选择器默认项",
+          "description": "显式替换所选 selector 的 default；已有核心缓存的人工选择可能优先，重启后按需选择该组。",
+          "component": "Switch",
+          "value": false
+        },
+        {
+          "key": "TestURL",
+          "title": "探测地址",
+          "description": "HTTP(S)，不带账号、密码或片段；选择在目标网络稳定可访问的轻量地址。",
+          "component": "Input",
+          "value": "https://www.gstatic.com/generate_204"
+        },
+        {
+          "key": "Interval",
+          "title": "探测间隔",
+          "description": "30 秒至 24 小时，填写 30s、3m 或 1h；探测会产生网络流量。",
+          "component": "Input",
+          "value": "3m"
+        },
+        {
+          "key": "Tolerance",
+          "title": "延迟容差（毫秒）",
+          "description": "0..10000 整数；实际选择及默认值遵循当前 sing-box 核心。",
+          "component": "Input",
+          "value": "50"
+        },
+        {
+          "key": "IdleTimeout",
+          "title": "空闲超时",
+          "description": "不短于探测间隔，最多 24h；核心空闲后暂停探测，重新使用时恢复。",
+          "component": "Input",
+          "value": "30m"
+        },
+        {
+          "key": "InterruptExisting",
+          "title": "切换时中断现有连接",
+          "description": "开启后核心可能中断经该组的入站连接；默认关闭。不能保证立即切换所有活跃连接。",
+          "component": "Switch",
+          "value": false
+        }
+      ],
+      "sha256": "a28c1bb39b01dab610731fab30798fd42c9989fb2b6772e2ad337269f5cd3bc0"
     }
   ]
 }

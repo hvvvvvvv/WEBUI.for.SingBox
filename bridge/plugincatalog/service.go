@@ -34,6 +34,8 @@ type Entry struct {
 	Description         string            `json:"description"`
 	Version             string            `json:"version"`
 	Triggers            []string          `json:"triggers"`
+	ManualTarget        string            `json:"manual_target,omitempty"`
+	Conflicts           []string          `json:"conflicts,omitempty"`
 	Configuration       map[string]any    `json:"configuration"`
 	ConfigurationSchema []plugins.Setting `json:"configuration_schema,omitempty"`
 	Path                string            `json:"path"`
@@ -60,6 +62,7 @@ type Service struct {
 	items          []plugins.Plugin
 	lastAttempt    time.Time
 	warning        string
+	cacheWarning   string
 	networkOptions func() network.Options
 }
 
@@ -115,7 +118,7 @@ func Read(read func(string) ([]byte, error)) ([]plugins.Plugin, error) {
 		if hex.EncodeToString(digest[:]) != entry.SHA256 {
 			return nil, fmt.Errorf("checksum mismatch for %s", entry.Path)
 		}
-		item := plugins.Plugin{ID: entry.ID, Name: entry.Name, Description: entry.Description, Version: entry.Version, Triggers: entry.Triggers, Configuration: entry.Configuration, ConfigurationSchema: entry.ConfigurationSchema, Source: string(source)}
+		item := plugins.Plugin{ID: entry.ID, Name: entry.Name, Description: entry.Description, Version: entry.Version, Triggers: entry.Triggers, ManualTarget: entry.ManualTarget, Conflicts: entry.Conflicts, Configuration: entry.Configuration, ConfigurationSchema: entry.ConfigurationSchema, Source: string(source)}
 		if err := plugins.ValidatePlugin(item); err != nil {
 			return nil, fmt.Errorf("%s: %w", entry.ID, err)
 		}
@@ -144,18 +147,23 @@ func (s *Service) Get(ctx context.Context, refresh bool) (Result, error) {
 			_ = file.Close()
 			var items []plugins.Plugin
 			if readErr == nil && len(raw) <= maxCatalogBytes && json.Unmarshal(raw, &items) == nil && validateItems(items) == nil {
-				s.items = items
+				bundled, err := Bundled()
+				if err != nil {
+					return result, err
+				}
+				s.items, s.cacheWarning = mergeBundledCatalog(items, bundled)
 			}
 		}
 	}
 	if refresh && (s.lastAttempt.IsZero() || time.Since(s.lastAttempt) >= 5*time.Second) {
 		s.warning = ""
 		fetchCtx, cancel := context.WithTimeout(ctx, 15*time.Second)
-		items, err := Read(func(path string) ([]byte, error) { return s.download(fetchCtx, path) })
+		items, err := s.refreshRemote(fetchCtx)
 		cancel()
 		s.lastAttempt = time.Now()
 		if err == nil {
 			s.items = items
+			s.cacheWarning = ""
 			result.Source = "remote"
 			if s.cachePath != "" {
 				raw, _ := json.Marshal(items)
@@ -179,7 +187,7 @@ func (s *Service) Get(ctx context.Context, refresh bool) (Result, error) {
 			return result, err
 		}
 	}
-	result.Warning = s.warning
+	result.Warning = strings.TrimSpace(s.cacheWarning + " " + s.warning)
 	return result, nil
 }
 
@@ -204,10 +212,15 @@ func validateItems(items []plugins.Plugin) error {
 			return err
 		}
 	}
+	if raw, err := json.Marshal(items); err != nil || len(raw) > maxCatalogBytes {
+		return fmt.Errorf("plugin catalog exceeds serialized size limit")
+	}
 	return nil
 }
 
-func (s *Service) download(ctx context.Context, path string) ([]byte, error) {
+// One refresh uses one policy snapshot and HTTP connection pool for the complete
+// index, instead of repeating proxy resolution and TLS handshakes for every file.
+func (s *Service) refreshRemote(ctx context.Context) ([]plugins.Plugin, error) {
 	client := s.client
 	options := network.Options{UserAgent: "WEBUI.for.SingBox-Plugin-Hub"}
 	if s.networkOptions != nil {
@@ -223,6 +236,10 @@ func (s *Service) download(ctx context.Context, path string) ([]byte, error) {
 		defer client.CloseIdleConnections()
 		client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error { return fmt.Errorf("catalog redirects are not allowed") }
 	}
+	return Read(func(path string) ([]byte, error) { return s.download(ctx, path, client, options) })
+}
+
+func (s *Service) download(ctx context.Context, path string, client *http.Client, options network.Options) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.baseURL+path, nil)
 	if err != nil {
 		return nil, err

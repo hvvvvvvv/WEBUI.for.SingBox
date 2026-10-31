@@ -389,9 +389,23 @@ func TestBundledSubscriptionPluginsKeepNodeIDsAcrossRefreshes(t *testing.T) {
 	}
 	const body = `[{"type":"shadowsocks","tag":"HK","server":"127.0.0.1","server_port":1,"method":"aes-128-gcm","password":"p"},{"type":"shadowsocks","tag":"HK","server":"127.0.0.1","server_port":2,"method":"aes-128-gcm","password":"p"},{"type":"shadowsocks","tag":"HK duplicate","server":"127.0.0.1","server_port":1,"method":"aes-128-gcm","password":"p"}]`
 	groups := make(map[string][]pluginservice.Plugin)
-	groups["combined"] = available
+	var dedupe pluginservice.Plugin
 	for _, plugin := range available {
-		groups[plugin.ID] = []pluginservice.Plugin{plugin}
+		if plugin.ID == "plugin-duplicate-proxies-removal" {
+			dedupe = plugin
+		}
+	}
+	for _, plugin := range available {
+		for _, trigger := range plugin.Triggers {
+			if trigger == pluginservice.OnSubscribe {
+				groups[plugin.ID] = []pluginservice.Plugin{plugin}
+				if plugin.ID != dedupe.ID {
+					groups[plugin.ID+"+dedupe"] = []pluginservice.Plugin{plugin, dedupe}
+					groups["dedupe+"+plugin.ID] = []pluginservice.Plugin{dedupe, plugin}
+				}
+				break
+			}
+		}
 	}
 	for name, group := range groups {
 		t.Run(name, func(t *testing.T) {
@@ -422,7 +436,7 @@ func TestBundledSubscriptionPluginsKeepNodeIDsAcrossRefreshes(t *testing.T) {
 			if !reflect.DeepEqual(first, second) {
 				t.Fatalf("bundled transformation replaced selected node identities: first=%v second=%v", first, second)
 			}
-			if (name == "combined" || name == "plugin-duplicate-proxies-removal") && len(second) != 2 {
+			if (strings.Contains(name, "dedupe") || name == "plugin-duplicate-proxies-removal") && len(second) != 2 {
 				t.Fatalf("GUI identity prevented duplicate removal: %v", second)
 			}
 			if strings.Contains(string(readPluginFixture(t, subscriptionContentPath("selected"))), "__id_in_gui") {

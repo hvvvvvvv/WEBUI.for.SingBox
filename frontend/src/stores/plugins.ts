@@ -89,8 +89,11 @@ export const usePluginsStore = defineStore('plugins', () => {
       if (requestID === catalogSequence) catalogLoading.value = false
     }
   }
-  const runPlugin = (id: string, subscriptionID: string) =>
-    requestPlugins<PluginRunResult>('/run', { id, subscription_id: subscriptionID })
+  const runPlugin = (id: string, subscriptionID?: string) =>
+    requestPlugins<PluginRunResult>('/run', {
+      id,
+      ...(subscriptionID === undefined ? {} : { subscription_id: subscriptionID }),
+    })
   const getPluginById = (id: string) => plugins.value.find((plugin) => plugin.id === id)
   const availableUpdate = (plugin: Plugin) =>
     catalog.value.plugins.find((item) => item.id === plugin.id && item.version !== plugin.version)

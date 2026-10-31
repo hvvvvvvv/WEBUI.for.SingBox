@@ -8,6 +8,7 @@ import type { PluginRunResult } from '@/types/plugin'
 const props = defineProps<{ id: string }>()
 const { t } = useI18n()
 const store = usePluginsStore()
+const diagnostic = computed(() => store.getPluginById(props.id)?.manual_target === 'diagnostic')
 const subscriptions = useSubscribesStore()
 const subscriptionID = ref('')
 const loading = ref(false)
@@ -20,6 +21,7 @@ const options = computed(() =>
     .map((item) => ({ label: `${item.name} (${item.proxies.length})`, value: item.id })),
 )
 onMounted(async () => {
+  if (diagnostic.value) return
   refreshing.value = true
   try {
     await subscriptions.setupSubscribes()
@@ -30,13 +32,16 @@ onMounted(async () => {
   }
 })
 const run = async () => {
-  if (!subscriptionID.value || loading.value) return
+  if ((!diagnostic.value && !subscriptionID.value) || loading.value) return
   loading.value = true
   error.value = ''
   result.value = undefined
   try {
-    result.value = await store.runPlugin(props.id, subscriptionID.value)
-    await subscriptions.setupSubscribes()
+    result.value = await store.runPlugin(
+      props.id,
+      diagnostic.value ? undefined : subscriptionID.value,
+    )
+    if (!diagnostic.value) await subscriptions.setupSubscribes()
   } catch (value) {
     error.value = value instanceof Error ? value.message : String(value)
   } finally {
@@ -47,9 +52,10 @@ const run = async () => {
 
 <template>
   <div class="plugin-run">
-    <p>{{ t('plugins.runHint') }}</p>
+    <p>{{ t(diagnostic ? 'plugins.diagnosticHint' : 'plugins.runHint') }}</p>
     <div class="plugin-run-controls">
       <Select
+        v-if="!diagnostic"
         v-model="subscriptionID"
         :options="options"
         :placeholder="t('plugins.chooseSubscription')"
@@ -59,15 +65,24 @@ const run = async () => {
       <Button
         type="primary"
         :loading="loading"
-        :disabled="refreshing || !options.some((item) => item.value === subscriptionID)"
+        :disabled="
+          refreshing || (!diagnostic && !options.some((item) => item.value === subscriptionID))
+        "
         @click="run"
         >{{ t('common.run') }}</Button
       >
     </div>
-    <p v-if="!options.length && !refreshing">{{ t('plugins.noCachedSubscriptions') }}</p>
+    <p v-if="!diagnostic && !options.length && !refreshing">
+      {{ t('plugins.noCachedSubscriptions') }}
+    </p>
     <p v-if="error" role="alert">{{ error }}</p>
     <div v-if="result" role="status">
-      <p>{{ t('plugins.runResult', { before: result.before, after: result.after }) }}</p>
+      <p v-if="!diagnostic">
+        {{ t('plugins.runResult', { before: result.before, after: result.after }) }}
+      </p>
+      <pre v-if="diagnostic && result.report !== undefined">{{
+        JSON.stringify(result.report, null, 2)
+      }}</pre>
       <pre v-if="result.logs?.length">{{ result.logs.join('\n') }}</pre>
     </div>
   </div>

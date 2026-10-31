@@ -9,6 +9,15 @@ import (
 	"guiforcores/bridge/storage"
 )
 
+func bundledCount(t *testing.T) int {
+	t.Helper()
+	items, err := Bundled()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return len(items)
+}
+
 func bundledPlugin(t *testing.T, id string) plugins.Plugin {
 	t.Helper()
 	items, err := Bundled()

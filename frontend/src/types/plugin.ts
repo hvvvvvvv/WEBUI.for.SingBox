@@ -4,7 +4,7 @@ export interface PluginSetting {
   key: string
   title: string
   description: string
-  component: 'Switch' | 'Radio' | 'Input'
+  component: 'Switch' | 'Radio' | 'Input' | 'TextArea'
   value: boolean | string
   options?: string[]
 }
@@ -19,6 +19,8 @@ export interface Plugin {
   source: string
   configuration?: Record<string, unknown>
   configuration_schema?: PluginSetting[]
+  manual_target?: 'subscription' | 'diagnostic'
+  conflicts?: string[]
 }
 
 export interface PluginSnapshot {
@@ -33,7 +35,8 @@ export interface PluginCatalog {
 }
 export interface PluginRunResult {
   logs: string[]
-  before: number
-  after: number
-  subscription_id: string
+  before?: number
+  after?: number
+  subscription_id?: string
+  report?: unknown
 }
