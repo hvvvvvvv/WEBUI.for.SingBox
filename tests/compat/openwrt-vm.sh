@@ -47,9 +47,11 @@ download() {
 }
 download "$base/$kernel" "$scratch/kernel" "$kernel_sha"
 download "$base/$rootfs" "$scratch/rootfs.gz" "$rootfs_sha"
-download 'https://github.com/SagerNet/sing-box/releases/download/v1.14.4/sing-box-1.14.4-linux-arm64.tar.gz' \
-  "$scratch/core.tar.gz" 436441f76ee2f7fe21b5b2d426d3cb261a480455a704865789ad533e4273ec26
-tar -xzf "$scratch/core.tar.gz" -C "$scratch" --strip-components=1 sing-box-1.14.4-linux-arm64/sing-box
+# Match the application's DetectLibc-based selection: OpenWrt uses musl, while
+# the unqualified upstream ARM64 archive requires a different ELF interpreter.
+download 'https://github.com/SagerNet/sing-box/releases/download/v1.14.4/sing-box-1.14.4-linux-arm64-musl.tar.gz' \
+  "$scratch/core.tar.gz" b95e25f921dc5e17a4cf13327243d1177642c7e35425bf5372862c477c359f56
+tar -xzf "$scratch/core.tar.gz" -C "$scratch" --strip-components=1 sing-box-1.14.4-linux-arm64-musl/sing-box
 gzip -dc "$scratch/rootfs.gz" > "$scratch/rootfs.img"
 truncate -s 256M "$scratch/rootfs.img"
 e2fsck -pf "$scratch/rootfs.img" || test "$?" -eq 1
@@ -100,7 +102,9 @@ set_inode_field /opt/sing-box mode 0100755
 write $scratch/plugins.tar.gz /opt/plugins.tar.gz
 INJECT
 debugfs -w -f "$scratch/inject" "$scratch/rootfs.img" > "$build/image-prepare.log" 2>&1
-debugfs -R 'stat /opt/webui/webui.for.singbox' "$scratch/rootfs.img" | grep 'Type: regular'
+for guest_file in /opt/webui/webui.for.singbox /opt/auth.test /opt/plugin-goja /opt/sing-box; do
+  debugfs -R "stat $guest_file" "$scratch/rootfs.img" | grep 'Type: regular'
+done
 qemu-system-aarch64 -machine virt -cpu cortex-a53 -smp 4 -m 512 -nographic -no-reboot \
   -kernel "$scratch/kernel" -append 'root=/dev/vda rootwait console=ttyAMA0' \
   -drive "file=$scratch/rootfs.img,if=none,format=raw,id=rootfs" -device virtio-blk-device,drive=rootfs \
@@ -119,7 +123,7 @@ if [[ "$ready" != true ]]; then
   ssh "${ssh_opts[@]}" root@127.0.0.1 'cat /tmp/webui-install.log; logread | tail -60' || true
   exit 1
 fi
-ssh "${ssh_opts[@]}" root@127.0.0.1 'set -e; uname -a; cat /etc/openwrt_release; free; date -u; status=$(/opt/webui/webui.for.singbox service status); echo "$status"; test "$status" = running; cat /etc/init.d/webui.for.singbox' > "$build/environment.log"
+ssh "${ssh_opts[@]}" root@127.0.0.1 'set -e; uname -a; cat /etc/openwrt_release; free; date -u; ls -l /lib/ld-musl-* /opt/sing-box; /opt/sing-box version; status=$(/opt/webui/webui.for.singbox service status); echo "$status"; test "$status" = running; cat /etc/init.d/webui.for.singbox' > "$build/environment.log" 2>&1
 ssh "${ssh_opts[@]}" root@127.0.0.1 '/opt/auth.test -test.timeout=8m -test.v' > "$build/auth.log" 2>&1
 # TCG emulates the entire CPU: allow the test harness time for all fixture
 # compilation and file I/O. Production per-hook/pipeline limits stay unchanged.
