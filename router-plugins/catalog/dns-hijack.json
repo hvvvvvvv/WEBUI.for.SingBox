@@ -1,0 +1,11 @@
+{
+  "apiVersion": "webui.router/v1",
+  "id": "router.dns-hijack",
+  "name": "LAN DNS hijacking",
+  "description": "Send port 53 traffic from the selected TUN inbound to sing-box DNS, before client routing rules. Other inbound traffic is unaffected.",
+  "version": "1.0.0",
+  "kind": "dns-hijack",
+  "config": {
+    "inbound": ""
+  }
+}

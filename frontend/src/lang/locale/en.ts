@@ -612,6 +612,7 @@ export default {
       route: 'Route',
       dns: 'DNS',
       'mixin-script': 'Mixin & Script',
+      'router-plugins': 'Router Plugins',
     },
     proxies: 'Reference proxies',
     use: 'Reference subscriptions',
@@ -628,6 +629,73 @@ export default {
     },
     scriptSettings: {
       name: 'Script',
+    },
+    routerPlugins: {
+      intro:
+        'Declarative JSON plugins for routers. Add a bundled plugin or import an independent community package. Desktop JavaScript plugins are not loaded. New plugins are disabled until you configure and enable them.',
+      restartNotice:
+        'Changes are saved to this profile. Manually restart the core after saving to apply them. Preview the generated configuration first.',
+      preview: 'Preview generated config',
+      import: 'Import JSON plugin',
+      export: 'Export JSON',
+      catalog: 'Plugin catalog',
+      refreshCatalog: 'Check catalog updates',
+      repository: 'Independent plugin repository',
+      source: {
+        bundled: 'Bundled catalog',
+        cache: 'Cached catalog',
+        remote: 'Remote catalog fetched',
+      },
+      loadFailed: 'Could not load: {error}',
+      install: 'Add to this profile',
+      installed: 'Plugins in this profile',
+      empty: 'No plugins yet. Add one from the catalog or import a JSON plugin file.',
+      enabled: 'Enable plugin',
+      orderNotice:
+        'Reorder rules of the same kind. DNS hijack rules always precede device routing rules. Catalog updates never automatically change installed plugins.',
+      inbound: 'Enabled TUN inbound',
+      selectInbound: 'Select TUN inbound',
+      noTun: 'Add and enable a TUN inbound in the Inbounds settings first.',
+      tunNotice:
+        'This plugin enables automatic routing on the selected TUN. Empty lists preserve existing settings. Included interfaces replace the old restriction; excluded networks are added to the existing list. Exclude router administration and NAS networks as needed.',
+      dnsNotice:
+        'Only DNS traffic entering the selected TUN is intercepted. Requests to the router LAN address or dnsmasq port 53 are not automatically captured. Check forwarding on vendor firmware or fw3 systems.',
+      sourceNotice:
+        'Device routing takes priority over existing route rules, overriding their policy for these devices. DNS hijack plugins still run first. Use the TUN plugin exclusions to keep administration or NAS networks direct.',
+      autoRedirect: 'Auto redirect (Linux / nftables)',
+      strictRoute: 'Strict routing',
+      includeInterface: 'Included interfaces',
+      excludeAddress: 'Excluded networks (CIDR)',
+      sourceAddress: 'Device addresses or networks (CIDR)',
+      outbound: 'Target outbound',
+      selectOutbound: 'Select outbound',
+      moveUp: 'Move up',
+      moveDown: 'Move down',
+      remove: 'Remove',
+      update: 'Update to v{version}',
+      updated:
+        'Plugin draft updated; parameters and enabled state were kept. Preview, save, then manually restart the core.',
+      diagnostics: 'Router environment diagnostics',
+      refreshDiagnostics: 'Run diagnostics',
+      diagnosticsNotice:
+        'Diagnostics check current system capabilities. They do not guarantee working transparent proxying or change the firewall or system configuration.',
+      status: { ok: 'OK', warning: 'Check needed', unsupported: 'Unsupported' },
+      errors: {
+        invalidJson: 'Choose a valid JSON plugin file.',
+        invalidManifest: 'The plugin manifest is invalid.',
+        unsupportedApi: 'Only webui.router/v1 declarative plugins are supported.',
+        unknownKind: 'This plugin kind is not supported.',
+        invalidField: 'Invalid plugin field: {field}',
+        tooLarge: 'A plugin file cannot exceed 16 KiB.',
+        totalTooLarge: 'Plugin content in this profile cannot exceed 256 KiB in total.',
+        tooMany: 'A profile can contain at most 32 plugin instances.',
+        missingInbound: 'Plugin “{name}” needs an enabled TUN inbound from this profile.',
+        missingSource: 'Plugin “{name}” needs at least one device address or network.',
+        missingOutbound: 'Plugin “{name}” needs an outbound from this profile.',
+        incompatibleUpdate:
+          'The plugin kind or API is incompatible. Import the new plugin separately.',
+        authentication: 'Your session expired. Sign in again and retry.',
+      },
     },
   },
   profiles: {

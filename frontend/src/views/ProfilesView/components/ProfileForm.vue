@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { isResourceConflict, isResourceNotFound, useAppStore, useProfilesStore } from '@/stores'
 import { deepClone, generateConfigViaRpcByProfile, message } from '@/utils'
 import { validateTunInbounds } from '@/utils/tun'
+import { validateProfileRouterPlugins } from '@/utils/profileRouterPlugins'
 
 import Button from '@/components/Button/index.vue'
 import CodeViewer from '@/components/CodeViewer/index.vue'
@@ -25,6 +26,7 @@ enum Step {
   Route = 4,
   Dns = 5,
   MixinScript = 6,
+  RouterPlugins = 7,
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -38,6 +40,7 @@ import InboundsConfig from './InboundsConfig.vue'
 import MixinAndScript from './MixinAndScriptConfig.vue'
 import OutboundsConfig from './OutboundsConfig.vue'
 import RouteConfig from './RouteConfig.vue'
+import RouterPluginsConfig from './RouterPluginsConfig.vue'
 
 const { t } = useI18n()
 const inboundsRef = useTemplateRef('inboundsRef')
@@ -61,6 +64,7 @@ const stepItems = [
   { title: 'profile.step.route' },
   { title: 'profile.step.dns' },
   { title: 'profile.step.mixin-script' },
+  { title: 'profile.step.router-plugins' },
 ] as const
 
 const profile = ref<IProfile>(profilesStore.getProfileTemplate())
@@ -98,12 +102,28 @@ const mixinAndScriptConfig = computed({
   },
 })
 
+const routerPlugins = computed({
+  get: () => profile.value.router_plugins || [],
+  set: (plugins: IRouterPlugin[]) => {
+    profile.value.router_plugins = plugins
+  },
+})
+
+const validateRouterPlugins = () => {
+  const issue = validateProfileRouterPlugins(profile.value)
+  if (!issue) return true
+  currentStep.value = Step.RouterPlugins
+  message.error(t(issue.key, { field: issue.field || '', name: issue.name || '' }))
+  return false
+}
+
 const handleCancel = inject('cancel') as any
 const handleSubmit = inject('submit') as any
 const handlePrevStep = () => currentStep.value--
 const handleNextStep = () => currentStep.value++
 
 const handleSave = async () => {
+  if (!validateRouterPlugins()) return
   const validationError = validateTunInbounds(profile.value.inbounds, appStore.platformOS)
   if (validationError) {
     currentStep.value = Step.Inbounds
@@ -162,6 +182,7 @@ const handleAdd = () => {
 }
 
 const handlePreview = async () => {
+  if (!validateRouterPlugins()) return
   try {
     const config = await generateConfigViaRpcByProfile(profile.value)
     previewModalApi.setProps({
@@ -334,6 +355,9 @@ defineExpose({ modalSlots })
     </div>
     <div v-if="currentStep === Step.MixinScript">
       <MixinAndScript v-model="mixinAndScriptConfig" />
+    </div>
+    <div v-if="currentStep === Step.RouterPlugins">
+      <RouterPluginsConfig v-model="routerPlugins" :profile="profile" @preview="handlePreview" />
     </div>
     <PreviewModal />
   </div>

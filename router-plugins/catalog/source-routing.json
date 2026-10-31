@@ -1,0 +1,13 @@
+{
+  "apiVersion": "webui.router/v1",
+  "id": "router.source-routing",
+  "name": "LAN client routing",
+  "description": "Route selected client IP ranges from an existing TUN inbound through a selected outbound. DNS hijacking takes precedence.",
+  "version": "1.0.0",
+  "kind": "source-routing",
+  "config": {
+    "inbound": "",
+    "source_ip_cidr": [],
+    "outbound": ""
+  }
+}

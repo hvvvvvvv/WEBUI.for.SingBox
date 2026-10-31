@@ -57,6 +57,7 @@ const menuList: Menu[] = [
   'profile.step.route',
   'profile.step.dns',
   'profile.step.mixin-script',
+  'profile.step.router-plugins',
 ].map((v, i) => {
   return {
     label: v,

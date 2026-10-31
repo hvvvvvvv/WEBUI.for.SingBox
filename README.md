@@ -6,12 +6,13 @@
 
 本项目 fork 自 [hvvvvvvv/WEBUI.for.SingBox](https://github.com/hvvvvvvv/WEBUI.for.SingBox)，最初源自 [GUI-for-Cores/GUI.for.SingBox](https://github.com/GUI-for-Cores/GUI.for.SingBox)。感谢两个上游提供的 Web 服务、原始界面、配置模型和规则集仓库等。
 
-路由器部署请先阅读 [OpenWrt / GL.iNet 部署说明](docs/routers.md)。本分支的修复、上游移植范围及验证记录见 [集成说明](docs/upstream-integration.md)。
+路由器部署请先阅读 [OpenWrt / GL.iNet 部署说明](docs/routers.md)。本分支的修复、上游移植范围及验证记录见 [集成说明](docs/upstream-integration.md)。路由器插件使用独立的 [插件仓库](https://github.com/Ghostdehole/WEBUI.for.SingBox-Plugins)，使用与开发方法见 [插件说明](docs/router-plugins.md)。
 
 ## 相比上游的主要改动
 
 - 将应用调整为由 Go HTTP 后端提供服务的 Web UI。
-- 移除了 Wails 桌面端、托盘和插件相关代码。
+- 移除了 Wails 桌面端、托盘和原有桌面脚本插件代码。
+- 新增独立的声明式路由器插件：TUN 透明路由、客户端分流、TUN DNS 接管和只读环境诊断；支持离线目录、独立仓库手动更新与配置内的插件版本快照。
 - 更新了项目名称、发布信息和检查更新地址，使其指向当前仓库。
 - 更适合透明代理部署场景，可作为远程管理界面运行在网关、旁路由或服务器上。
 
