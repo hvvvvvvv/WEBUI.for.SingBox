@@ -127,7 +127,10 @@ ssh "${ssh_opts[@]}" root@127.0.0.1 'set -e; uname -a; cat /etc/openwrt_release;
 ssh "${ssh_opts[@]}" root@127.0.0.1 '/opt/auth.test -test.timeout=8m -test.v' > "$build/auth.log" 2>&1
 # TCG emulates the entire CPU: allow the test harness time for all fixture
 # compilation and file I/O. Production per-hook/pipeline limits stay unchanged.
-ssh "${ssh_opts[@]}" root@127.0.0.1 'WEBUI_PLUGIN_SUITE_TIMEOUT=10m SING_BOX_114_PATH=/opt/sing-box /opt/plugin-goja /opt/plugins' > "$build/plugins.log" 2>&1
+# Limit only this test process to one Go execution thread to reduce TCG's
+# cross-vCPU/GC scheduling noise. The service and auth tests retain four vCPUs;
+# emulated wall times are compatibility evidence, not hardware benchmarks.
+ssh "${ssh_opts[@]}" root@127.0.0.1 'echo "Plugin harness only: GOMAXPROCS=1 GODEBUG=gctrace=1; production hook/pipeline limits remain 2s/5s; TCG timing is not a hardware benchmark"; GOMAXPROCS=1 GODEBUG=gctrace=1 WEBUI_PLUGIN_SUITE_TIMEOUT=10m SING_BOX_114_PATH=/opt/sing-box /opt/plugin-goja /opt/plugins' > "$build/plugins.log" 2>&1
 # Compare clocks immediately before host-generated TOTP codes. A broken guest
 # clock is a test failure, never silently corrected to make authentication pass.
 host_before=$(date +%s)
