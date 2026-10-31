@@ -1,9 +1,26 @@
 package config
 
+import (
+	"net"
+	"strconv"
+)
+
+// CoreAPIController is fixed for production and may be replaced before starting
+// an isolated integration test. It must not change while a core is running.
+var CoreAPIController = "127.0.0.1:20123"
+
 // EnforceNativeAPIConfig reserves the managed service after user mixins and
 // scripts. Each generated configuration has its own credential; a preview can
 // never retrieve the credential of an already running core.
 func EnforceNativeAPIConfig(root map[string]any) error {
+	host, portText, err := net.SplitHostPort(CoreAPIController)
+	if err != nil {
+		return invalidArgumentError{message: "invalid native API controller address"}
+	}
+	port, err := strconv.Atoi(portText)
+	if err != nil || port < 1 || port > 65535 || !net.ParseIP(host).IsLoopback() {
+		return invalidArgumentError{message: "native API controller must use a loopback IP and a valid port"}
+	}
 	secret, err := generateCoreAPISecret()
 	if err != nil {
 		return err
@@ -26,8 +43,8 @@ func EnforceNativeAPIConfig(root map[string]any) error {
 		managed = append(managed, value)
 	}
 	managed = append(managed, map[string]any{
-		"type": "api", "tag": CoreAPIServiceTag, "listen": "127.0.0.1",
-		"listen_port": 20123, "secret": secret, "dashboard": false,
+		"type": "api", "tag": CoreAPIServiceTag, "listen": host,
+		"listen_port": port, "secret": secret, "dashboard": false,
 	})
 	root["services"] = managed
 	return nil

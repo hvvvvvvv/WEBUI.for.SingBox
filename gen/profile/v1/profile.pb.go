@@ -3019,6 +3019,58 @@ func (x *DnsRule) GetSourcePortRange() []string {
 	return nil
 }
 
+type DnsOptimisticCache struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Enabled       bool                   `protobuf:"varint,1,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	Timeout       string                 `protobuf:"bytes,2,opt,name=timeout,proto3" json:"timeout,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *DnsOptimisticCache) Reset() {
+	*x = DnsOptimisticCache{}
+	mi := &file_profile_v1_profile_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *DnsOptimisticCache) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*DnsOptimisticCache) ProtoMessage() {}
+
+func (x *DnsOptimisticCache) ProtoReflect() protoreflect.Message {
+	mi := &file_profile_v1_profile_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use DnsOptimisticCache.ProtoReflect.Descriptor instead.
+func (*DnsOptimisticCache) Descriptor() ([]byte, []int) {
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *DnsOptimisticCache) GetEnabled() bool {
+	if x != nil {
+		return x.Enabled
+	}
+	return false
+}
+
+func (x *DnsOptimisticCache) GetTimeout() string {
+	if x != nil {
+		return x.Timeout
+	}
+	return ""
+}
+
 type Dns struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Servers       []*DnsServer           `protobuf:"bytes,1,rep,name=servers,proto3" json:"servers,omitempty"`
@@ -3028,13 +3080,14 @@ type Dns struct {
 	ClientSubnet  string                 `protobuf:"bytes,6,opt,name=client_subnet,json=clientSubnet,proto3" json:"client_subnet,omitempty"`
 	Final         string                 `protobuf:"bytes,7,opt,name=final,proto3" json:"final,omitempty"`
 	Strategy      Strategy               `protobuf:"varint,8,opt,name=strategy,proto3,enum=profile.v1.Strategy" json:"strategy,omitempty"`
+	Optimistic    *DnsOptimisticCache    `protobuf:"bytes,9,opt,name=optimistic,proto3" json:"optimistic,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Dns) Reset() {
 	*x = Dns{}
-	mi := &file_profile_v1_profile_proto_msgTypes[18]
+	mi := &file_profile_v1_profile_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3046,7 +3099,7 @@ func (x *Dns) String() string {
 func (*Dns) ProtoMessage() {}
 
 func (x *Dns) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[18]
+	mi := &file_profile_v1_profile_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3059,7 +3112,7 @@ func (x *Dns) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Dns.ProtoReflect.Descriptor instead.
 func (*Dns) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{18}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Dns) GetServers() []*DnsServer {
@@ -3111,6 +3164,13 @@ func (x *Dns) GetStrategy() Strategy {
 	return Strategy_STRATEGY_UNSPECIFIED
 }
 
+func (x *Dns) GetOptimistic() *DnsOptimisticCache {
+	if x != nil {
+		return x.Optimistic
+	}
+	return nil
+}
+
 type Mixin struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Priority      MixinPriority          `protobuf:"varint,1,opt,name=priority,proto3,enum=profile.v1.MixinPriority" json:"priority,omitempty"`
@@ -3122,7 +3182,7 @@ type Mixin struct {
 
 func (x *Mixin) Reset() {
 	*x = Mixin{}
-	mi := &file_profile_v1_profile_proto_msgTypes[19]
+	mi := &file_profile_v1_profile_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3134,7 +3194,7 @@ func (x *Mixin) String() string {
 func (*Mixin) ProtoMessage() {}
 
 func (x *Mixin) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[19]
+	mi := &file_profile_v1_profile_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3147,7 +3207,7 @@ func (x *Mixin) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Mixin.ProtoReflect.Descriptor instead.
 func (*Mixin) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{19}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *Mixin) GetPriority() MixinPriority {
@@ -3180,7 +3240,7 @@ type Script struct {
 
 func (x *Script) Reset() {
 	*x = Script{}
-	mi := &file_profile_v1_profile_proto_msgTypes[20]
+	mi := &file_profile_v1_profile_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3192,7 +3252,7 @@ func (x *Script) String() string {
 func (*Script) ProtoMessage() {}
 
 func (x *Script) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[20]
+	mi := &file_profile_v1_profile_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3205,7 +3265,7 @@ func (x *Script) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Script.ProtoReflect.Descriptor instead.
 func (*Script) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{20}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *Script) GetCode() string {
@@ -3233,7 +3293,7 @@ type Profile struct {
 
 func (x *Profile) Reset() {
 	*x = Profile{}
-	mi := &file_profile_v1_profile_proto_msgTypes[21]
+	mi := &file_profile_v1_profile_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3245,7 +3305,7 @@ func (x *Profile) String() string {
 func (*Profile) ProtoMessage() {}
 
 func (x *Profile) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[21]
+	mi := &file_profile_v1_profile_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3258,7 +3318,7 @@ func (x *Profile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Profile.ProtoReflect.Descriptor instead.
 func (*Profile) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{21}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *Profile) GetId() string {
@@ -3577,7 +3637,10 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\x14source_ip_is_private\x18& \x01(\bR\x11sourceIpIsPrivate\x12\x1f\n" +
 	"\vsource_port\x18' \x03(\rR\n" +
 	"sourcePort\x12*\n" +
-	"\x11source_port_range\x18( \x03(\tR\x0fsourcePortRangeJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05J\x04\b\a\x10\vR\x04typeR\apayloadR\x06serverR\bstrategyR\rdisable_cacheR\rclient_subnet\"\x9a\x02\n" +
+	"\x11source_port_range\x18( \x03(\tR\x0fsourcePortRangeJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05J\x04\b\a\x10\vR\x04typeR\apayloadR\x06serverR\bstrategyR\rdisable_cacheR\rclient_subnet\"H\n" +
+	"\x12DnsOptimisticCache\x12\x18\n" +
+	"\aenabled\x18\x01 \x01(\bR\aenabled\x12\x18\n" +
+	"\atimeout\x18\x02 \x01(\tR\atimeout\"\xda\x02\n" +
 	"\x03Dns\x12/\n" +
 	"\aservers\x18\x01 \x03(\v2\x15.profile.v1.DnsServerR\aservers\x12)\n" +
 	"\x05rules\x18\x02 \x03(\v2\x13.profile.v1.DnsRuleR\x05rules\x12#\n" +
@@ -3585,7 +3648,10 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\x0edisable_expire\x18\x04 \x01(\bR\rdisableExpire\x12#\n" +
 	"\rclient_subnet\x18\x06 \x01(\tR\fclientSubnet\x12\x14\n" +
 	"\x05final\x18\a \x01(\tR\x05final\x120\n" +
-	"\bstrategy\x18\b \x01(\x0e2\x14.profile.v1.StrategyR\bstrategy\"\x87\x01\n" +
+	"\bstrategy\x18\b \x01(\x0e2\x14.profile.v1.StrategyR\bstrategy\x12>\n" +
+	"\n" +
+	"optimistic\x18\t \x01(\v2\x1e.profile.v1.DnsOptimisticCacheR\n" +
+	"optimistic\"\x87\x01\n" +
 	"\x05Mixin\x125\n" +
 	"\bpriority\x18\x01 \x01(\x0e2\x19.profile.v1.MixinPriorityR\bpriority\x12/\n" +
 	"\x06format\x18\x02 \x01(\x0e2\x17.profile.v1.MixinFormatR\x06format\x12\x16\n" +
@@ -3736,7 +3802,7 @@ func file_profile_v1_profile_proto_rawDescGZIP() []byte {
 }
 
 var file_profile_v1_profile_proto_enumTypes = make([]protoimpl.EnumInfo, 14)
-var file_profile_v1_profile_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_profile_v1_profile_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_profile_v1_profile_proto_goTypes = []any{
 	(LogLevel)(0),                      // 0: profile.v1.LogLevel
 	(InboundType)(0),                   // 1: profile.v1.InboundType
@@ -3770,11 +3836,12 @@ var file_profile_v1_profile_proto_goTypes = []any{
 	(*DnsServer)(nil),                  // 29: profile.v1.DnsServer
 	(*DnsActionOptions)(nil),           // 30: profile.v1.DnsActionOptions
 	(*DnsRule)(nil),                    // 31: profile.v1.DnsRule
-	(*Dns)(nil),                        // 32: profile.v1.Dns
-	(*Mixin)(nil),                      // 33: profile.v1.Mixin
-	(*Script)(nil),                     // 34: profile.v1.Script
-	(*Profile)(nil),                    // 35: profile.v1.Profile
-	nil,                                // 36: profile.v1.DnsServer.PredefinedEntry
+	(*DnsOptimisticCache)(nil),         // 32: profile.v1.DnsOptimisticCache
+	(*Dns)(nil),                        // 33: profile.v1.Dns
+	(*Mixin)(nil),                      // 34: profile.v1.Mixin
+	(*Script)(nil),                     // 35: profile.v1.Script
+	(*Profile)(nil),                    // 36: profile.v1.Profile
+	nil,                                // 37: profile.v1.DnsServer.PredefinedEntry
 }
 var file_profile_v1_profile_proto_depIdxs = []int32{
 	0,  // 0: profile.v1.Log.level:type_name -> profile.v1.LogLevel
@@ -3799,27 +3866,28 @@ var file_profile_v1_profile_proto_depIdxs = []int32{
 	18, // 19: profile.v1.Route.rule_set:type_name -> profile.v1.RuleSet
 	27, // 20: profile.v1.Route.default_domain_resolver:type_name -> profile.v1.RouteDefaultDomainResolver
 	9,  // 21: profile.v1.DnsServer.type:type_name -> profile.v1.DnsServerType
-	36, // 22: profile.v1.DnsServer.predefined:type_name -> profile.v1.DnsServer.PredefinedEntry
+	37, // 22: profile.v1.DnsServer.predefined:type_name -> profile.v1.DnsServer.PredefinedEntry
 	11, // 23: profile.v1.DnsRule.action:type_name -> profile.v1.DnsRuleAction
 	30, // 24: profile.v1.DnsRule.action_options:type_name -> profile.v1.DnsActionOptions
 	29, // 25: profile.v1.Dns.servers:type_name -> profile.v1.DnsServer
 	31, // 26: profile.v1.Dns.rules:type_name -> profile.v1.DnsRule
 	8,  // 27: profile.v1.Dns.strategy:type_name -> profile.v1.Strategy
-	12, // 28: profile.v1.Mixin.priority:type_name -> profile.v1.MixinPriority
-	13, // 29: profile.v1.Mixin.format:type_name -> profile.v1.MixinFormat
-	14, // 30: profile.v1.Profile.log:type_name -> profile.v1.Log
-	16, // 31: profile.v1.Profile.experimental:type_name -> profile.v1.Experimental
-	23, // 32: profile.v1.Profile.inbounds:type_name -> profile.v1.Inbound
-	24, // 33: profile.v1.Profile.outbounds:type_name -> profile.v1.Outbound
-	28, // 34: profile.v1.Profile.route:type_name -> profile.v1.Route
-	32, // 35: profile.v1.Profile.dns:type_name -> profile.v1.Dns
-	33, // 36: profile.v1.Profile.mixin:type_name -> profile.v1.Mixin
-	34, // 37: profile.v1.Profile.script:type_name -> profile.v1.Script
-	38, // [38:38] is the sub-list for method output_type
-	38, // [38:38] is the sub-list for method input_type
-	38, // [38:38] is the sub-list for extension type_name
-	38, // [38:38] is the sub-list for extension extendee
-	0,  // [0:38] is the sub-list for field type_name
+	32, // 28: profile.v1.Dns.optimistic:type_name -> profile.v1.DnsOptimisticCache
+	12, // 29: profile.v1.Mixin.priority:type_name -> profile.v1.MixinPriority
+	13, // 30: profile.v1.Mixin.format:type_name -> profile.v1.MixinFormat
+	14, // 31: profile.v1.Profile.log:type_name -> profile.v1.Log
+	16, // 32: profile.v1.Profile.experimental:type_name -> profile.v1.Experimental
+	23, // 33: profile.v1.Profile.inbounds:type_name -> profile.v1.Inbound
+	24, // 34: profile.v1.Profile.outbounds:type_name -> profile.v1.Outbound
+	28, // 35: profile.v1.Profile.route:type_name -> profile.v1.Route
+	33, // 36: profile.v1.Profile.dns:type_name -> profile.v1.Dns
+	34, // 37: profile.v1.Profile.mixin:type_name -> profile.v1.Mixin
+	35, // 38: profile.v1.Profile.script:type_name -> profile.v1.Script
+	39, // [39:39] is the sub-list for method output_type
+	39, // [39:39] is the sub-list for method input_type
+	39, // [39:39] is the sub-list for extension type_name
+	39, // [39:39] is the sub-list for extension extendee
+	0,  // [0:39] is the sub-list for field type_name
 }
 
 func init() { file_profile_v1_profile_proto_init() }
@@ -3836,7 +3904,7 @@ func file_profile_v1_profile_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_profile_v1_profile_proto_rawDesc), len(file_profile_v1_profile_proto_rawDesc)),
 			NumEnums:      14,
-			NumMessages:   23,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

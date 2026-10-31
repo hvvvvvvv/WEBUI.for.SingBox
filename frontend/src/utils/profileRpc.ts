@@ -454,6 +454,12 @@ const normalizeDns = (dns: any, fallback: IDNS): IDNS => {
     ...d,
     disable_cache: d.disable_cache ?? d.disablecache ?? fallback.disable_cache,
     disable_expire: d.disable_expire ?? d.disableexpire ?? fallback.disable_expire,
+    optimistic: {
+      enabled:
+        (typeof d.optimistic === 'boolean' ? d.optimistic : d.optimistic?.enabled) ??
+        fallback.optimistic.enabled,
+      timeout: d.optimistic?.timeout || fallback.optimistic.timeout,
+    },
     client_subnet: d.client_subnet ?? d.clientsubnet ?? fallback.client_subnet,
     strategy: normalizeStrategy(d.strategy),
     servers: Array.isArray(d.servers)

@@ -67,6 +67,7 @@ func TestNativeAPIProductionLifecycle(t *testing.T) {
 	if binary == "" {
 		t.Skip("set SINGBOX_NATIVE_TEST_BINARY to the official sing-box 1.14.2 executable")
 	}
+	nativeIsolateAPIEndpoint(t)
 	paths := storage.NewPaths(t.TempDir())
 	filename := "sing-box"
 	if runtime.GOOS == "windows" {

@@ -46,6 +46,7 @@ type githubRelease struct {
 type githubAsset struct {
 	Name               string `json:"name"`
 	BrowserDownloadURL string `json:"browser_download_url"`
+	Digest             string `json:"digest"`
 	Uploader           struct {
 		Type string `json:"type"`
 	} `json:"uploader"`
@@ -128,18 +129,17 @@ func (s *Service) DownloadCore(
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 
-	if err := s.downloadCoreAsset(downloadCtx, asset.BrowserDownloadURL, downloadCacheFile, progressEvent); err != nil {
+	if err := s.downloadCoreAsset(downloadCtx, asset, downloadCacheFile, progressEvent); err != nil {
 		if errors.Is(downloadCtx.Err(), context.Canceled) {
-			_ = os.Remove(downloadCacheFile)
 			return nil, connect.NewError(connect.CodeCanceled, fmt.Errorf("download canceled"))
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
+	defer os.Remove(downloadCacheFile)
 
 	if err := s.installCoreArchive(downloadCtx, downloadCacheFile, cacheDir, branch); err != nil {
 		return nil, rpcutil.AsConnectError(err)
 	}
-	_ = os.Remove(downloadCacheFile)
 
 	info := s.coreBranchLocalVersion(branch)
 	return connect.NewResponse(&kernelv1.DownloadCoreResponse{
@@ -300,71 +300,34 @@ func (s *Service) fetchCoreRelease(ctx context.Context, branch appv1.KernelBranc
 	return release, nil
 }
 
-func (s *Service) downloadCoreAsset(ctx context.Context, url string, path string, progressEvent string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return err
-	}
-	if token := strings.TrimSpace(s.appConfig.Current().GitHubAPIToken); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
-	}
-
-	resp, err := (&http.Client{Timeout: 0}).Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return fmt.Errorf("download failed: %s %s", resp.Status, strings.TrimSpace(string(body)))
-	}
-
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	buffer := make([]byte, 128*1024)
-	var downloaded int64
-	total := resp.ContentLength
-	for {
-		n, readErr := resp.Body.Read(buffer)
-		if n > 0 {
-			if _, err := file.Write(buffer[:n]); err != nil {
-				return err
-			}
-			downloaded += int64(n)
-			s.publish(progressEvent, downloaded, total)
-		}
-		if readErr == io.EOF {
-			break
-		}
-		if readErr != nil {
-			return readErr
-		}
-	}
-	return nil
+func (s *Service) downloadCoreAsset(ctx context.Context, asset githubAsset, path string, progressEvent string) error {
+	return platform.DownloadReleaseAsset(ctx, asset.BrowserDownloadURL, asset.Digest, path, s.appConfig.Current().GitHubAPIToken, func(downloaded, total int64) {
+		s.publish(progressEvent, downloaded, total)
+	})
 }
 
 func (s *Service) installCoreArchive(ctx context.Context, archivePath string, cacheDir string, branch appv1.KernelBranch) error {
+	extractDir, err := os.MkdirTemp(cacheDir, "core-extract-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(extractDir)
 	extractName := filepath.Base(archivePath)
 	if strings.HasSuffix(extractName, ".tar.gz") {
 		extractName = strings.TrimSuffix(extractName, ".tar.gz")
-		if err := extractTarGZ(archivePath, cacheDir); err != nil {
+		if err := extractTarGZ(archivePath, extractDir); err != nil {
 			return err
 		}
 	} else if strings.HasSuffix(extractName, ".zip") {
 		extractName = strings.TrimSuffix(extractName, ".zip")
-		if err := extractZip(archivePath, cacheDir); err != nil {
+		if err := extractZip(archivePath, extractDir); err != nil {
 			return err
 		}
 	} else {
 		return fmt.Errorf("unsupported core archive: %s", archivePath)
 	}
-	defer os.RemoveAll(filepath.Join(cacheDir, extractName))
 
-	sourcePath := filepath.Join(cacheDir, extractName, getKernelFileName(false))
+	sourcePath := filepath.Join(extractDir, extractName, getKernelFileName(false))
 	if runtime.GOOS != "windows" {
 		if err := os.Chmod(sourcePath, 0o755); err != nil {
 			return err
@@ -596,8 +559,14 @@ func getKernelAssetFileNameForPlatform(version, goos, goarch, libc string) strin
 	libcSuffix := ""
 	if goos == "linux" {
 		// The application's ARM build uses GOARM=7; upstream names it armv7.
-		if goarch == "arm" {
+		switch goarch {
+		case "arm":
 			goarch = "armv7"
+		case "mips", "mipsle":
+			// Use the portable static soft-float build on routers, including
+			// devices without an FPU or with musl/uClibc instead of glibc.
+			goarch += "-softfloat"
+			libc = ""
 		}
 		if libc := strings.TrimSpace(libc); libc != "" {
 			libcSuffix = "-" + libc

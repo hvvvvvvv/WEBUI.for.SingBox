@@ -18,6 +18,39 @@ type failedNativeEntropy struct{}
 
 func (failedNativeEntropy) Read([]byte) (int, error) { return 0, errors.New("entropy unavailable") }
 
+func TestNativeAPIControllerAddress(t *testing.T) {
+	previous := CoreAPIController
+	t.Cleanup(func() { CoreAPIController = previous })
+	for _, tc := range []struct {
+		address string
+		host    string
+		port    int
+	}{
+		{"127.0.0.1:45678", "127.0.0.1", 45678},
+		{"[::1]:45679", "::1", 45679},
+	} {
+		CoreAPIController = tc.address
+		root := map[string]any{}
+		if err := EnforceNativeAPIConfig(root); err != nil {
+			t.Fatal(err)
+		}
+		service := root["services"].([]any)[0].(map[string]any)
+		if service["listen"] != tc.host || service["listen_port"] != tc.port {
+			t.Fatalf("controller %q and generated listener differ: %#v", tc.address, service)
+		}
+	}
+	for _, address := range []string{"127.0.0.1", "127.0.0.1:0", "127.0.0.1:65536", "127.0.0.1:bad", "0.0.0.0:20123", "example.com:20123"} {
+		CoreAPIController = address
+		root := map[string]any{}
+		if err := EnforceNativeAPIConfig(root); err == nil {
+			t.Errorf("accepted unsafe controller %q", address)
+		}
+		if len(root) != 0 {
+			t.Errorf("invalid controller %q modified config", address)
+		}
+	}
+}
+
 func TestNativeAPICredentialGenerationFailurePropagates(t *testing.T) {
 	previous := rand.Reader
 	rand.Reader = failedNativeEntropy{}

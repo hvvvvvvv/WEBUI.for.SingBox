@@ -395,6 +395,11 @@ message DnsRule {
   repeated string source_port_range = 40;
 }
 
+message DnsOptimisticCache {
+  bool enabled = 1;
+  string timeout = 2;
+}
+
 message Dns {
   repeated DnsServer servers = 1;
   repeated DnsRule rules = 2;
@@ -403,6 +408,7 @@ message Dns {
   string client_subnet = 6;
   string final = 7;
   Strategy strategy = 8;
+  DnsOptimisticCache optimistic = 9;
 }
 
 message Mixin {

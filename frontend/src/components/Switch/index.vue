@@ -30,11 +30,22 @@ const toggle = () => {
   model.value = !model.value
   nextTick(() => emits('change', model.value))
 }
+
+const handleKeydown = (event: KeyboardEvent) => {
+  if (event.target !== event.currentTarget || event.isComposing) return
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  if (!event.repeat) toggle()
+}
 </script>
 
 <template>
   <div
     v-tips.slow="label"
+    role="switch"
+    :tabindex="disabled ? -1 : 0"
+    :aria-checked="model"
+    :aria-disabled="disabled || undefined"
     :class="[
       size,
       border,
@@ -44,6 +55,7 @@ const toggle = () => {
     ]"
     class="gui-switch relative cursor-pointer h-24 inline-flex items-center text-12 duration-200"
     @click="toggle"
+    @keydown="handleKeydown"
   >
     <div
       :class="[border === 'square' ? 'rounded-4' : 'rounded-full']"
@@ -60,6 +72,10 @@ const toggle = () => {
 <style lang="less" scoped>
 .gui-switch {
   min-width: 50px;
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
   // .slot {
   //   transition: margin 0.2s;
   // }

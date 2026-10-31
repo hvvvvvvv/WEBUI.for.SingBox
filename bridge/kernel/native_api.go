@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"os"
 	"strconv"
 	"time"
 
@@ -63,17 +62,13 @@ func waitKernelAPIReadyWithClient(ctx context.Context, controller, secret string
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	client := daemonconnect.NewStartedServiceClient(httpClient, "http://"+controller, connect.WithGRPCWeb())
-	proc, _ := os.FindProcess(pid)
 	var lastErr error
 	for {
 		if err := ctx.Err(); err != nil {
 			return fmt.Errorf("waiting for native kernel API: %w (last error: %v)", err, lastErr)
 		}
-		if proc != nil {
-			alive, err := platform.IsProcessAlive(proc)
-			if err == nil && !alive {
-				return fmt.Errorf("core process %s exited before native API ready: %v", strconv.Itoa(pid), lastErr)
-			}
+		if alive, err := platform.IsPIDAlive(pid); err == nil && !alive {
+			return fmt.Errorf("core process %s exited before native API ready: %v", strconv.Itoa(pid), lastErr)
 		}
 		versionReq := connect.NewRequest(&emptypb.Empty{})
 		versionReq.Header().Set("Authorization", "Bearer "+secret)

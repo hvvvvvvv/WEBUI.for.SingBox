@@ -71,7 +71,6 @@ const (
 	mixinPriorityMixin = "mixin"
 	mixinPriorityGUI   = "gui"
 
-	CoreAPIController = "127.0.0.1:20123"
 	CoreAPIServiceTag = "webui-api"
 )
 
@@ -345,9 +344,23 @@ func generateInbounds(inbounds []*configv1.Inbound, platformOS string) ([]any, e
 func (g *configGenerator) generateOutbounds(outbounds []*configv1.Outbound) ([]any, error) {
 	result := make([]any, 0, len(outbounds))
 	proxyItems := make([]any, 0)
-	proxySeen := map[string]struct{}{}
+	proxyKeys := make([]subscriptionOutboundKey, 0)
+	proxySeen := map[subscriptionOutboundKey]struct{}{}
+	proxyReferences := make([]subscriptionOutboundReference, 0)
 	builtInTags := make([]string, 0)
 	builtInSeen := map[string]struct{}{}
+	appendProxy := func(group map[string]any, subscriptionID string, candidate map[string]any) {
+		tag, _ := candidate["tag"].(string)
+		key := subscriptionOutboundKey{subscriptionID: subscriptionID, tag: tag}
+		members := group["outbounds"].([]any)
+		proxyReferences = append(proxyReferences, subscriptionOutboundReference{group: group, index: len(members), key: key})
+		group["outbounds"] = append(members, tag)
+		if _, exists := proxySeen[key]; !exists {
+			proxySeen[key] = struct{}{}
+			proxyKeys = append(proxyKeys, key)
+			proxyItems = append(proxyItems, deepCopyMap(candidate))
+		}
+	}
 
 	for outboundIndex, outbound := range outbounds {
 		if outbound == nil {
@@ -422,8 +435,7 @@ func (g *configGenerator) generateOutbounds(outbounds []*configv1.Outbound) ([]a
 						if !match(tag) {
 							continue
 						}
-						item["outbounds"] = append(item["outbounds"].([]any), tag)
-						proxyItems = appendUniqueProxy(proxyItems, proxySeen, subID+"\x00"+tag, candidate)
+						appendProxy(item, subID, candidate)
 					}
 					continue
 				}
@@ -438,8 +450,7 @@ func (g *configGenerator) generateOutbounds(outbounds []*configv1.Outbound) ([]a
 					if tag != nodeTag || !match(tag) {
 						continue
 					}
-					item["outbounds"] = append(item["outbounds"].([]any), tag)
-					proxyItems = appendUniqueProxy(proxyItems, proxySeen, subID+"\x00"+tag, candidate)
+					appendProxy(item, subID, candidate)
 					matched = true
 					break
 				}
@@ -452,20 +463,15 @@ func (g *configGenerator) generateOutbounds(outbounds []*configv1.Outbound) ([]a
 		result = append(result, item)
 	}
 
+	if err := assignSubscriptionOutboundTags(result, builtInTags, proxyItems, proxyKeys, proxyReferences); err != nil {
+		return nil, err
+	}
 	result = append(result, proxyItems...)
 	for _, tag := range builtInTags {
 		result = append(result, map[string]any{"type": tag, "tag": tag})
 	}
 
 	return result, nil
-}
-
-func appendUniqueProxy(items []any, seen map[string]struct{}, key string, proxy map[string]any) []any {
-	if _, ok := seen[key]; ok {
-		return items
-	}
-	seen[key] = struct{}{}
-	return append(items, deepCopyMap(proxy))
 }
 
 func (g *configGenerator) generateRoute(
@@ -479,10 +485,9 @@ func (g *configGenerator) generateRoute(
 	}
 
 	result := map[string]any{
-		"rules":                   make([]any, 0),
-		"rule_set":                make([]any, 0, len(route.GetRuleSet())),
-		"auto_detect_interface":   route.GetAutoDetectInterface(),
-		"default_domain_resolver": map[string]any{},
+		"rules":                 make([]any, 0),
+		"rule_set":              make([]any, 0, len(route.GetRuleSet())),
+		"auto_detect_interface": route.GetAutoDetectInterface(),
 	}
 
 	if route.GetFindProcess() {
@@ -503,7 +508,7 @@ func (g *configGenerator) generateRoute(
 		return nil, err
 	}
 	if server != "" {
-		result["default_domain_resolver"].(map[string]any)["server"] = server
+		result["default_domain_resolver"] = map[string]any{"server": server}
 	}
 
 	for ruleIndex, rule := range route.GetRules() {
@@ -848,6 +853,16 @@ func (g *configGenerator) generateDNS(
 		"disable_cache":  dns.GetDisableCache(),
 		"disable_expire": dns.GetDisableExpire(),
 	}
+	if optimistic := dns.GetOptimistic(); optimistic != nil {
+		if optimistic.GetEnabled() && (dns.GetDisableCache() || dns.GetDisableExpire()) {
+			return nil, invalidArgumentError{message: "dns.optimistic: enabled conflicts with disable_cache and disable_expire"}
+		}
+		options := map[string]any{"enabled": optimistic.GetEnabled()}
+		if timeout := optimistic.GetTimeout(); optimistic.GetEnabled() && timeout != "" {
+			options["timeout"] = timeout
+		}
+		result["optimistic"] = options
+	}
 	if strategy := strategyString(dns.GetStrategy()); strategy != strategyDefault && strategy != "" {
 		result["strategy"] = strategy
 	}
@@ -859,6 +874,11 @@ func (g *configGenerator) generateDNS(
 		return nil, err
 	}
 	if final != "" {
+		for _, server := range dns.GetServers() {
+			if server.GetId() == dns.GetFinal() && server.GetType() == configv1.DnsServerType_DNS_SERVER_TYPE_FAKEIP {
+				return nil, invalidArgumentError{message: "dns.final: fakeip cannot be the default DNS server"}
+			}
+		}
 		result["final"] = final
 	}
 

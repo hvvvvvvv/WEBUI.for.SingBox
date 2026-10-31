@@ -3,6 +3,7 @@
 package platform
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -37,6 +38,10 @@ func configureCoreGuard(cmd *exec.Cmd)   { SetCmdWindowHidden(cmd) }
 func equalPlatformPath(a, b string) bool { return strings.EqualFold(a, b) }
 func prepareCoreGuardIO()                {}
 
+func isProcessMissing(err error) bool {
+	return errors.Is(err, windows.ERROR_INVALID_PARAMETER)
+}
+
 func SendExitSignal(p *os.Process) error {
 	if ret, _, err := procFreeConsole.Call(); ret == 0 && err != windows.ERROR_INVALID_HANDLE {
 		return err
@@ -62,16 +67,28 @@ func SendExitSignal(p *os.Process) error {
 }
 
 func IsProcessAlive(p *os.Process) (bool, error) {
+	return processAliveWithWait(p, 0)
+}
+
+func processExitedDuringIdentityRead(p *os.Process) bool {
+	// Windows can deny executable/creation-time queries during teardown before
+	// signaling the process handle. Wait briefly for that confirmation; a process
+	// that remains alive or inaccessible still fails identity verification.
+	alive, err := processAliveWithWait(p, 100)
+	return err == nil && !alive
+}
+
+func processAliveWithWait(p *os.Process, timeout uint32) (bool, error) {
 	h, err := windows.OpenProcess(windows.SYNCHRONIZE, false, uint32(p.Pid))
 	if err != nil {
-		if err == windows.ERROR_INVALID_PARAMETER {
+		if isProcessMissing(err) {
 			return false, nil
 		}
 		return false, err
 	}
 	defer windows.CloseHandle(h)
 
-	s, err := windows.WaitForSingleObject(h, 0)
+	s, err := windows.WaitForSingleObject(h, timeout)
 	if err != nil {
 		return false, err
 	}

@@ -25,10 +25,12 @@ import (
 
 const (
 	appTitle               = "webui.for.singbox"
-	appLatestReleaseAPIURL = "https://api.github.com/repos/hvvvvvvv/WEBUI.for.SingBox/releases/latest"
 	appUpdateCacheFilePath = "data/.cache/gui-update.zip"
 	appUpdateHelperCommand = "__updater"
 )
+
+// Repository is injected by release builds so a fork updates from its own assets.
+var Repository = "Ghostdehole/WEBUI.for.SingBox"
 
 type AppConfigReader interface {
 	Current() config.AppConfig
@@ -63,6 +65,7 @@ type githubRelease struct {
 type githubAsset struct {
 	Name               string `json:"name"`
 	BrowserDownloadURL string `json:"browser_download_url"`
+	Digest             string `json:"digest"`
 }
 
 func NewService(
@@ -162,12 +165,10 @@ func (s *Service) DownloadAppUpdate(
 	}()
 
 	cachePath := s.platform.ResolvePath(appUpdateCacheFilePath)
-	_ = os.Remove(cachePath)
 	if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
-	if err := s.downloadAsset(downloadCtx, asset.BrowserDownloadURL, cachePath, progressEvent); err != nil {
-		_ = os.Remove(cachePath)
+	if err := s.downloadAsset(downloadCtx, asset, cachePath, progressEvent); err != nil {
 		if errors.Is(downloadCtx.Err(), context.Canceled) {
 			return nil, connect.NewError(connect.CodeCanceled, fmt.Errorf("download canceled"))
 		}
@@ -202,7 +203,6 @@ func (s *Service) CancelAppUpdate(
 			cancel()
 		}
 	}
-	_ = os.Remove(s.platform.ResolvePath(appUpdateCacheFilePath))
 	logging.FromContext(ctx).InfoContext(ctx, "application update download cancelled", "component", "app_update", "operation", "cancel_download", "progress_event", progressEvent, "result", "cancelled")
 	return connect.NewResponse(&appv1.CancelAppUpdateResponse{}), nil
 }
@@ -242,7 +242,7 @@ func (s *Service) versions() (string, string) {
 }
 
 func (s *Service) fetchLatestAsset(ctx context.Context) (githubRelease, githubAsset, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, appLatestReleaseAPIURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/"+Repository+"/releases/latest", nil)
 	if err != nil {
 		return githubRelease{}, githubAsset{}, err
 	}
@@ -277,53 +277,14 @@ func (s *Service) fetchLatestAsset(ctx context.Context) (githubRelease, githubAs
 	return githubRelease{}, githubAsset{}, fmt.Errorf("asset not found: %s", assetName)
 }
 
-func (s *Service) downloadAsset(ctx context.Context, url string, path string, progressEvent string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
-	if err != nil {
-		return err
-	}
+func (s *Service) downloadAsset(ctx context.Context, asset githubAsset, path string, progressEvent string) error {
+	token := ""
 	if s.appConfig != nil {
-		if token := strings.TrimSpace(s.appConfig.Current().GitHubAPIToken); token != "" {
-			req.Header.Set("Authorization", "Bearer "+token)
-		}
+		token = s.appConfig.Current().GitHubAPIToken
 	}
-
-	resp, err := (&http.Client{}).Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		body, _ := io.ReadAll(io.LimitReader(resp.Body, 1024))
-		return fmt.Errorf("download failed: %s %s", resp.Status, strings.TrimSpace(string(body)))
-	}
-
-	file, err := os.Create(path)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	buffer := make([]byte, 128*1024)
-	var downloaded int64
-	total := resp.ContentLength
-	for {
-		n, readErr := resp.Body.Read(buffer)
-		if n > 0 {
-			if _, err := file.Write(buffer[:n]); err != nil {
-				return err
-			}
-			downloaded += int64(n)
-			s.publish(progressEvent, downloaded, total)
-		}
-		if readErr == io.EOF {
-			break
-		}
-		if readErr != nil {
-			return readErr
-		}
-	}
-	return nil
+	return platform.DownloadReleaseAsset(ctx, asset.BrowserDownloadURL, asset.Digest, path, token, func(downloaded, total int64) {
+		s.publish(progressEvent, downloaded, total)
+	})
 }
 
 func (s *Service) publish(eventName string, data ...any) {

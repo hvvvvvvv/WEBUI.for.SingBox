@@ -4,8 +4,6 @@ import (
 	"net/http"
 	"net/url"
 	"time"
-
-	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
 func proxyFor(rawProxy string) func(*http.Request) (*url.URL, error) {
@@ -25,11 +23,6 @@ func requestTimeout(seconds int) time.Duration {
 		return 15 * time.Second
 	}
 	return time.Duration(seconds) * time.Second
-}
-
-func decodeCommandOutput(data []byte) string {
-	decoded, _ := simplifiedchinese.GB18030.NewDecoder().Bytes(data)
-	return string(decoded)
 }
 
 func ConvertByte2String(data []byte) string {

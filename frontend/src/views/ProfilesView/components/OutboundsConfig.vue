@@ -38,6 +38,11 @@ const fields = ref<IOutbound>(DefaultOutbound())
 const { t } = useI18n()
 const subscribesStore = useSubscribesStore()
 
+const getOutboundName = (proxy: IOutbound['outbounds'][number]) =>
+  proxy.type === 'Subscription'
+    ? subscribesStore.getSubscribeById(proxy.id)?.name || proxy.tag
+    : proxy.tag
+
 const handleAdd = () => {
   updateGroupId = -1
   fields.value = DefaultOutbound()
@@ -248,7 +253,7 @@ subscribesStore.subscribes.forEach(async ({ id, name, proxies }) => {
     <Empty v-if="fields.outbounds.length === 0" />
     <div v-draggable="[fields.outbounds, DraggableOptions]">
       <Button v-for="proxy in fields.outbounds" :key="proxy.id" type="link">
-        {{ proxy.tag }}
+        {{ getOutboundName(proxy) }}
       </Button>
     </div>
   </Modal>

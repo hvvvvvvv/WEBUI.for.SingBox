@@ -142,6 +142,17 @@ func TestRuleSetHTTPClientsWithSingBox114(t *testing.T) {
 				if err != nil {
 					t.Fatal(err)
 				}
+				// This test only exercises rule downloads. Avoid binding the
+				// generated API's fixed port alongside native API lifecycle tests.
+				services, _ := config["services"].([]any)
+				filteredServices := make([]any, 0, len(services))
+				for _, value := range services {
+					service, _ := value.(map[string]any)
+					if service["type"] != "api" {
+						filteredServices = append(filteredServices, value)
+					}
+				}
+				config["services"] = filteredServices
 			} else if err := normalizeRuleSetHTTPClients(config); err != nil {
 				t.Fatal(err)
 			}

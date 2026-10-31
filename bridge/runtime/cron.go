@@ -5,125 +5,109 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/robfig/cron/v3"
 )
 
-type cronField struct {
-	allowed map[int]bool
+var taskCronParser = cron.NewParser(cron.SecondOptional | cron.Minute | cron.Hour | cron.Dom | cron.Month | cron.Dow)
+
+func parseCron(expr string) (cron.Schedule, error) {
+	parts := strings.Fields(expr)
+	if len(parts) != 5 && len(parts) != 6 {
+		return nil, fmt.Errorf("cron must have 5 or 6 fields (seconds are optional)")
+	}
+	weekday, err := normalizeCronWeekday(parts[len(parts)-1])
+	if err != nil {
+		return nil, err
+	}
+	parts[len(parts)-1] = weekday
+	return taskCronParser.Parse(strings.Join(parts, " "))
 }
 
-func parseCronField(expr string, minValue int, maxValue int) (cronField, error) {
-	field := cronField{allowed: map[int]bool{}}
-	for _, part := range strings.Split(expr, ",") {
-		part = strings.TrimSpace(part)
-		if part == "" {
+// Preserve Sunday=7 for existing tasks and the frontend Croner parser.
+func normalizeCronWeekday(field string) (string, error) {
+	field = strings.ToUpper(field)
+	for index, name := range []string{"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"} {
+		field = strings.ReplaceAll(field, name, strconv.Itoa(index))
+	}
+	var normalized []string
+	for _, part := range strings.Split(field, ",") {
+		if !strings.Contains(part, "7") {
+			normalized = append(normalized, part)
+			continue
+		}
+		stepParts := strings.Split(part, "/")
+		if len(stepParts) > 2 {
+			return "", fmt.Errorf("invalid cron weekday %q", part)
+		}
+		// Leave wildcard steps intact to retain day-of-month/day-of-week semantics.
+		if stepParts[0] == "*" || stepParts[0] == "?" {
+			normalized = append(normalized, part)
 			continue
 		}
 		step := 1
-		if strings.Contains(part, "/") {
-			pieces := strings.SplitN(part, "/", 2)
-			part = pieces[0]
-			value, err := strconv.Atoi(pieces[1])
-			if err != nil || value <= 0 {
-				return field, fmt.Errorf("invalid cron step %q", pieces[1])
-			}
-			step = value
-		}
-		start, end := minValue, maxValue
-		if part != "*" && part != "?" {
-			if strings.Contains(part, "-") {
-				pieces := strings.SplitN(part, "-", 2)
-				rangeStart, err := strconv.Atoi(pieces[0])
-				if err != nil {
-					return field, err
-				}
-				rangeEnd, err := strconv.Atoi(pieces[1])
-				if err != nil {
-					return field, err
-				}
-				start, end = rangeStart, rangeEnd
-			} else {
-				value, err := strconv.Atoi(part)
-				if err != nil {
-					return field, err
-				}
-				start, end = value, value
+		if len(stepParts) == 2 {
+			var err error
+			step, err = strconv.Atoi(stepParts[1])
+			if err != nil || step < 1 {
+				return "", fmt.Errorf("invalid cron weekday step %q", part)
 			}
 		}
-		if start < minValue || end > maxValue || start > end {
-			return field, fmt.Errorf("cron value out of range: %s", expr)
+		bounds := strings.Split(stepParts[0], "-")
+		if len(bounds) > 2 {
+			return "", fmt.Errorf("invalid cron weekday %q", part)
 		}
-		for value := start; value <= end; value += step {
-			field.allowed[value] = true
+		start, err := strconv.Atoi(bounds[0])
+		if err != nil || start < 0 || start > 7 {
+			return "", fmt.Errorf("invalid cron weekday %q", part)
+		}
+		end := start
+		if len(bounds) == 2 {
+			end, err = strconv.Atoi(bounds[1])
+		} else if len(stepParts) == 2 {
+			end = 7
+		}
+		if err != nil || end < start || end > 7 {
+			return "", fmt.Errorf("invalid cron weekday %q", part)
+		}
+		for value := start; value <= end; {
+			normalized = append(normalized, strconv.Itoa(value%7))
+			if step > end-value {
+				break
+			}
+			value += step
 		}
 	}
-	return field, nil
-}
-
-func (f cronField) match(value int) bool {
-	return f.allowed[value]
-}
-
-func parseCron(expr string) ([]cronField, error) {
-	parts := strings.Fields(expr)
-	if len(parts) != 6 {
-		return nil, fmt.Errorf("cron must have 6 fields")
-	}
-	ranges := [][2]int{{0, 59}, {0, 59}, {0, 23}, {1, 31}, {1, 12}, {0, 7}}
-	fields := make([]cronField, 6)
-	for index, part := range parts {
-		field, err := parseCronField(part, ranges[index][0], ranges[index][1])
-		if err != nil {
-			return nil, err
-		}
-		fields[index] = field
-	}
-	return fields, nil
+	return strings.Join(normalized, ","), nil
 }
 
 func cronMatches(expr string, current time.Time) bool {
-	fields, err := parseCron(expr)
+	schedule, err := parseCron(expr)
 	if err != nil {
 		return false
 	}
-	weekday := int(current.Weekday())
-	return fields[0].match(current.Second()) &&
-		fields[1].match(current.Minute()) &&
-		fields[2].match(current.Hour()) &&
-		fields[3].match(current.Day()) &&
-		fields[4].match(int(current.Month())) &&
-		(fields[5].match(weekday) || (weekday == 0 && fields[5].match(7)))
+	current = current.Truncate(time.Second)
+	return schedule.Next(current.Add(-time.Second)).Equal(current)
 }
 
-func cronRunKey(expr string, current time.Time) int64 {
-	parts := strings.Fields(expr)
-	if len(parts) == 6 && (parts[0] == "*" || parts[0] == "?") {
-		return current.Truncate(time.Minute).Unix()
-	}
-	return current.Unix()
-}
+func cronRunKey(_ string, current time.Time) int64 { return current.Unix() }
 
 func nextCronRuns(expr string, count int, from time.Time) ([]int64, error) {
-	if _, err := parseCron(expr); err != nil {
+	schedule, err := parseCron(expr)
+	if err != nil {
 		return nil, err
 	}
-	var runs []int64
-	seen := map[int64]bool{}
-	cursor := from.Truncate(time.Second).Add(time.Second)
-	deadline := cursor.AddDate(1, 0, 0)
-	for len(runs) < count && cursor.Before(deadline) {
-		if cronMatches(expr, cursor) {
-			runKey := cronRunKey(expr, cursor)
-			if seen[runKey] {
-				cursor = cursor.Add(time.Second)
-				continue
-			}
-			seen[runKey] = true
-			runs = append(runs, cursor.UnixMilli())
-		}
-		cursor = cursor.Add(time.Second)
+	if count < 1 || count > 100 {
+		return nil, fmt.Errorf("run count must be between 1 and 100")
 	}
-	if len(runs) == 0 {
-		return nil, fmt.Errorf("no runs found within one year")
+	runs := make([]int64, 0, count)
+	for len(runs) < count {
+		// Jump between matching dates instead of scanning millions of seconds on a router CPU.
+		from = schedule.Next(from)
+		if from.IsZero() {
+			return nil, fmt.Errorf("cron has no future run")
+		}
+		runs = append(runs, from.UnixMilli())
 	}
 	return runs, nil
 }

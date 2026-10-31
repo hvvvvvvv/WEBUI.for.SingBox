@@ -9,9 +9,10 @@ interface Props {
   icon?: IconName
   loading?: boolean
   disabled?: boolean
+  role?: string
 }
 
-withDefaults(defineProps<Props>(), {
+const props = withDefaults(defineProps<Props>(), {
   type: 'normal',
   size: 'default',
   iconSize: undefined,
@@ -19,13 +20,42 @@ withDefaults(defineProps<Props>(), {
   icon: undefined,
   loading: false,
   disabled: false,
+  role: 'button',
 })
+
+const handleKeydown = (event: KeyboardEvent) => {
+  if (event.target !== event.currentTarget || event.isComposing) return
+  if (event.key !== 'Enter' && event.key !== ' ') return
+  event.preventDefault()
+  if (event.key === 'Enter' && !event.repeat && !props.disabled && !props.loading) {
+    ;(event.currentTarget as HTMLElement).click()
+  }
+}
+
+const handleKeyup = (event: KeyboardEvent) => {
+  if (event.target !== event.currentTarget || event.key !== ' ' || event.isComposing) return
+  event.preventDefault()
+  if (!props.disabled && !props.loading) (event.currentTarget as HTMLElement).click()
+}
+
+const guardDisabledClick = (event: MouseEvent) => {
+  if (props.disabled || props.loading) {
+    event.preventDefault()
+    event.stopImmediatePropagation()
+  }
+}
 </script>
 
 <template>
   <div
+    :role="role"
+    :tabindex="disabled || loading ? -1 : 0"
+    :aria-disabled="disabled || loading || undefined"
     :class="[type, size, { 'pointer-events-none': disabled || loading }]"
     class="gui-button inline-flex items-center justify-center text-center align-middle rounded-6 text-14 text-nowrap cursor-pointer px-12 py-6 duration-200"
+    @keydown="handleKeydown"
+    @keyup="handleKeyup"
+    @click.capture="guardDisabledClick"
   >
     <Icon
       v-if="loading"
@@ -54,6 +84,11 @@ withDefaults(defineProps<Props>(), {
 </template>
 
 <style lang="less" scoped>
+.gui-button:focus-visible {
+  outline: 2px solid var(--primary-color);
+  outline-offset: 2px;
+}
+
 .normal {
   color: var(--btn-normal-color);
   background-color: var(--btn-normal-bg);

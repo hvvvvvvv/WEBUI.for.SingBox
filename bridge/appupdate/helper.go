@@ -49,6 +49,19 @@ var (
 func RunHelper(opts HelperOptions) error {
 	started := time.Now()
 	slog.Info("update helper started", "component", "app_update", "operation", "replace", "target", opts.TargetPath, "service_mode", opts.ServiceMode)
+	// Prepare the complete replacement while the current service is still
+	// running. Invalid archives and extraction write failures must not stop it.
+	extractDir, err := os.MkdirTemp(filepath.Dir(opts.ArchivePath), "gui-update-*")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(extractDir)
+	if err := extractUpdateArchive(opts.ArchivePath, extractDir); err != nil {
+		return err
+	}
+	if err := validateUpdateCandidate(extractDir); err != nil {
+		return err
+	}
 	if opts.ServiceMode {
 		time.Sleep(serviceControlDelay)
 		if err := controlUpdatedService(opts.TargetPath, opts.WorkingDir, "stop"); err != nil {
@@ -68,15 +81,6 @@ func RunHelper(opts HelperOptions) error {
 		return fmt.Errorf("wait for core shutdown: %w", err)
 	}
 
-	extractDir, err := os.MkdirTemp(filepath.Dir(opts.ArchivePath), "gui-update-*")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(extractDir)
-
-	if err := extractUpdateArchive(opts.ArchivePath, extractDir); err != nil {
-		return err
-	}
 	if err := replaceUpdatedApplication(extractDir, opts.TargetPath); err != nil {
 		return err
 	}
@@ -96,6 +100,23 @@ func RunHelper(opts HelperOptions) error {
 		return err
 	}
 	slog.Info("update helper completed", "component", "app_update", "operation", "replace", "target", opts.TargetPath, "service_mode", false, "duration", time.Since(started), "result", "success")
+	return nil
+}
+
+func validateUpdateCandidate(extractDir string) error {
+	path := filepath.Join(extractDir, appTitle+executableSuffix())
+	info, err := os.Lstat(path)
+	if err != nil {
+		return fmt.Errorf("update executable is missing: %w", err)
+	}
+	if !info.Mode().IsRegular() || info.Size() == 0 {
+		return fmt.Errorf("update executable must be a non-empty regular file")
+	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(path, 0o755); err != nil {
+			return fmt.Errorf("prepare update executable permissions: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -208,8 +229,13 @@ func writeExtractedFile(path string, reader io.Reader, mode os.FileMode) error {
 		return err
 	}
 	defer file.Close()
-	_, err = io.Copy(file, reader)
-	return err
+	if _, err := io.Copy(file, reader); err != nil {
+		return err
+	}
+	if err := file.Sync(); err != nil {
+		return err
+	}
+	return file.Close()
 }
 
 func safeJoin(baseDir string, name string) (string, error) {

@@ -7,6 +7,7 @@ export type ResourceDomain = 'profiles' | 'subscriptions' | 'rulesets' | 'schedu
 interface LocalResourceState {
   instanceId: string
   stateRevision: bigint
+  snapshotRevision: bigint
   orderRevision: bigint
   itemRevisions: Record<string, bigint>
 }
@@ -21,6 +22,7 @@ export interface ResourceChangedEvent {
 export const createLocalResourceState = (): LocalResourceState => ({
   instanceId: '',
   stateRevision: 0n,
+  snapshotRevision: 0n,
   orderRevision: 0n,
   itemRevisions: {},
 })
@@ -35,6 +37,7 @@ export const applyResourceSnapshot = (
   }
   target.instanceId = source.instanceId
   target.stateRevision = source.stateRevision
+  target.snapshotRevision = source.stateRevision
   target.orderRevision = source.orderRevision
   target.itemRevisions = { ...source.itemRevisions }
   return true
@@ -78,7 +81,9 @@ export const expectedOrderRevision = (
 })
 
 export const eventRevisionApplied = (state: LocalResourceState, event: ResourceChangedEvent) =>
-  state.instanceId === event.instanceId && state.stateRevision >= BigInt(event.stateRevision)
+  // A mutation response contains only its own item/order. Its newer domain
+  // revision cannot confirm that changes from other clients were received.
+  state.instanceId === event.instanceId && state.snapshotRevision >= BigInt(event.stateRevision)
 
 export const isResourceConflict = (error: unknown) =>
   error instanceof ConnectError &&

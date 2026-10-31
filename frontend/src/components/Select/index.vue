@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, useId, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { deepClone } from '@/utils'
@@ -38,6 +38,64 @@ const model = ref(props.multiple ? deepClone(props.modelValue || []) : props.mod
 
 const { t } = useI18n()
 const search = ref('')
+const listboxId = `select-options-${useId()}`
+const triggerRef = ref<HTMLElement>()
+const optionsRef = ref<HTMLElement>()
+const searchRef = ref<HTMLInputElement>()
+
+const enabledOptionElements = () =>
+  Array.from(
+    optionsRef.value?.querySelectorAll<HTMLElement>(
+      '[role="option"]:not([aria-disabled="true"])',
+    ) || [],
+  )
+
+const focusOption = (last = false) => {
+  const options = enabledOptionElements()
+  ;(last ? options.at(-1) : options[0])?.focus()
+}
+
+const closeAndFocus = (close: () => void) => {
+  close()
+  triggerRef.value?.focus()
+}
+
+const handleTriggerKeydown = async (event: KeyboardEvent, open: () => void) => {
+  if (event.target !== event.currentTarget || event.isComposing) return
+  if (!['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) return
+  event.preventDefault()
+  event.stopPropagation()
+  open()
+  await nextTick()
+  if (searchRef.value && (event.key === 'Enter' || event.key === ' ')) searchRef.value.focus()
+  else focusOption(event.key === 'ArrowUp')
+}
+
+const handleOptionsKeydown = (event: KeyboardEvent) => {
+  if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return
+  event.preventDefault()
+  const options = enabledOptionElements()
+  const current = options.indexOf(document.activeElement as HTMLElement)
+  const next =
+    event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? options.length - 1
+        : current + (event.key === 'ArrowDown' ? 1 : -1)
+  options[(next + options.length) % options.length]?.focus()
+}
+
+const handleSearchKeydown = (event: KeyboardEvent, close: () => void) => {
+  if (event.isComposing || event.keyCode === 229) return
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault()
+    focusOption(event.key === 'ArrowUp')
+  } else if (event.key === 'Enter' && creatableValue.value) {
+    event.preventDefault()
+    handleCreate()
+    if (!props.multiple) closeAndFocus(close)
+  }
+}
 
 const innerClearable = computed(
   () => props.clearable && (props.multiple ? (model.value as string[]).length !== 0 : model.value),
@@ -146,8 +204,14 @@ const handleClear = () => {
 
 <template>
   <Dropdown :trigger="['click']" coordinate="viewport">
-    <template #default="{ toggle, close }">
+    <template #default="{ open, toggle, close, opened }">
       <div
+        ref="triggerRef"
+        role="combobox"
+        tabindex="0"
+        aria-haspopup="listbox"
+        :aria-expanded="opened"
+        :aria-controls="listboxId"
         :aria-label="ariaLabel"
         :class="{
           border,
@@ -157,6 +221,7 @@ const handleClear = () => {
           'min-h-30': size === 'default',
         }"
         class="gui-select cursor-pointer inline-flex items-center min-w-128 rounded-4 px-8"
+        @keydown="handleTriggerKeydown($event, open)"
       >
         <span class="line-clamp-1 break-all">
           {{ t(displayLabel) }}
@@ -164,6 +229,7 @@ const handleClear = () => {
         <Button
           :icon="innerClearable ? 'close' : 'arrowDown'"
           type="text"
+          tabindex="-1"
           size="small"
           class="ml-auto"
           style="margin-right: -6px"
@@ -185,49 +251,66 @@ const handleClear = () => {
       <div class="flex flex-col gap-4 min-w-64 p-4">
         <input
           v-if="searchable || allowCreate"
+          ref="searchRef"
           v-model="search"
           :aria-label="ariaLabel"
           class="select-search rounded-4 px-8 py-6 outline-none"
           type="text"
           autocomplete="off"
-          @keydown.enter.prevent="handleCreate"
+          @keydown="handleSearchKeydown($event, close)"
         />
-        <slot v-if="filteredOptions.length === 0 && !creatableValue" name="empty">
-          <Empty :icon-size="42" />
-        </slot>
-        <Button
-          v-for="o in filteredOptions"
-          :key="o.value"
-          type="text"
-          :disabled="o.disabled"
-          @click="
-            () => {
-              handleSelect(o.value, o.disabled)
-              !props.multiple && close()
-            }
-          "
+        <div
+          :id="listboxId"
+          ref="optionsRef"
+          role="listbox"
+          :aria-label="ariaLabel"
+          :aria-multiselectable="multiple || undefined"
+          class="flex flex-col gap-4"
+          @keydown="handleOptionsKeydown"
         >
-          <div class="realtive w-full">
-            <div v-if="isSelected(o.value)" class="absolute left-8">
-              <Icon icon="selected" :size="18" />
+          <slot v-if="filteredOptions.length === 0 && !creatableValue" name="empty">
+            <Empty :icon-size="42" />
+          </slot>
+          <Button
+            v-for="o in filteredOptions"
+            :key="o.value"
+            role="option"
+            tabindex="-1"
+            :aria-selected="isSelected(o.value)"
+            type="text"
+            :disabled="o.disabled"
+            @click="
+              () => {
+                handleSelect(o.value, o.disabled)
+                !props.multiple && closeAndFocus(close)
+              }
+            "
+          >
+            <div class="realtive w-full">
+              <div v-if="isSelected(o.value)" class="absolute left-8">
+                <Icon icon="selected" :size="18" />
+              </div>
+              <div class="">
+                {{ t(o.label) }}
+              </div>
             </div>
-            <div class="">
-              {{ t(o.label) }}
-            </div>
-          </div>
-        </Button>
-        <Button
-          v-if="creatableValue"
-          type="text"
-          @click="
-            () => {
-              handleCreate()
-              !props.multiple && close()
-            }
-          "
-        >
-          <div class="w-full text-left">+ {{ creatableValue }}</div>
-        </Button>
+          </Button>
+          <Button
+            v-if="creatableValue"
+            role="option"
+            tabindex="-1"
+            :aria-selected="false"
+            type="text"
+            @click="
+              () => {
+                handleCreate()
+                !props.multiple && closeAndFocus(close)
+              }
+            "
+          >
+            <div class="w-full text-left">+ {{ creatableValue }}</div>
+          </Button>
+        </div>
       </div>
     </template>
   </Dropdown>
@@ -236,6 +319,10 @@ const handleClear = () => {
 <style lang="less" scoped>
 .gui-select {
   background: var(--select-bg);
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
 }
 
 .auto-size {

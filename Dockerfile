@@ -5,7 +5,7 @@
 FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend-builder
 WORKDIR /src/frontend
 RUN npm install --global pnpm@latest
-COPY frontend/package.json frontend/pnpm-lock.yaml ./
+COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY frontend/ ./
 RUN pnpm build
@@ -15,6 +15,7 @@ FROM --platform=$BUILDPLATFORM golang:1.26-alpine AS backend-builder
 ARG TARGETOS
 ARG TARGETARCH
 ARG TARGETVARIANT
+ARG APP_REPOSITORY=Ghostdehole/WEBUI.for.SingBox
 WORKDIR /src
 RUN apk add --no-cache make
 COPY go.mod go.sum Makefile ./
@@ -23,7 +24,7 @@ COPY . .
 COPY --from=frontend-builder /src/frontend/dist ./frontend/dist
 RUN export CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH"; \
   if [ "$TARGETARCH" = "arm" ]; then export GOARM="${TARGETVARIANT#v}"; fi; \
-  make backend OUTPUT_DIR=/out
+  make backend OUTPUT_DIR=/out APP_REPOSITORY="$APP_REPOSITORY"
 
 # Runtime image for the selected target platform.
 FROM alpine:3.21

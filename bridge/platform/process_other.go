@@ -21,6 +21,10 @@ func equalPlatformPath(a, b string) bool { return a == b }
 // must instead observe the write error and clean up its child first.
 func prepareCoreGuardIO() { signal.Ignore(syscall.SIGPIPE) }
 
+func isProcessMissing(err error) bool {
+	return errors.Is(err, syscall.ESRCH) || errors.Is(err, os.ErrProcessDone)
+}
+
 func SendExitSignal(p *os.Process) error {
 	return p.Signal(syscall.SIGINT)
 }
@@ -42,6 +46,11 @@ func IsProcessAlive(p *os.Process) (bool, error) {
 		}
 	}
 	return false, fmt.Errorf("failed to check process %d: %w", p.Pid, err)
+}
+
+func processExitedDuringIdentityRead(p *os.Process) bool {
+	alive, err := IsProcessAlive(p)
+	return err == nil && !alive
 }
 
 func IsPrivileged() (bool, error) {

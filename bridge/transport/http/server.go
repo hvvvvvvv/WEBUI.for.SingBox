@@ -479,7 +479,8 @@ func registerAPIRoutes(mux *http.ServeMux, authService *auth.Service) {
 
 	apiRouteWithRequest(mux, "/api/auth/setup", func(r *http.Request, args []json.RawMessage) any {
 		secret, _ := unmarshalArg[string](args, 0)
-		needClear := !(secret == "" || auth.HashSecret(secret) == authService.SecretHash())
+		currentHash, hashErr := authService.SecretHash()
+		needClear := secret != "" && (hashErr != nil || auth.HashSecret(secret) != currentHash)
 
 		err := authService.SetSecret(secret)
 		if err != nil {

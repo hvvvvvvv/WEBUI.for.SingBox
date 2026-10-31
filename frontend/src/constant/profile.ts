@@ -13,7 +13,7 @@ import {
   ClashMode,
 } from '@/enums/kernel'
 import i18n from '@/lang'
-import { sampleID } from '@/utils'
+import { sampleID } from '@/utils/others'
 
 import { DefaultTestURL } from './app'
 
@@ -697,6 +697,7 @@ export const DefaultDns = (): IDNS => ({
   rules: DefaultDnsRules(),
   disable_cache: false,
   disable_expire: false,
+  optimistic: { enabled: false, timeout: '3d' },
   client_subnet: '',
   final: DefaultDnsServersIds.RemoteDns,
   strategy: Strategy.Default,

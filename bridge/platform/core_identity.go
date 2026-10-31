@@ -54,8 +54,8 @@ func identityAlive(identity ProcessIdentity) (bool, error) {
 	if identity.PID <= 0 {
 		return false, nil
 	}
-	p, err := os.FindProcess(identity.PID)
-	if err != nil {
+	p, err := findProcess(identity.PID)
+	if err != nil || p == nil {
 		return false, err
 	}
 	defer p.Release()
@@ -79,7 +79,7 @@ func identityAlive(identity ProcessIdentity) (bool, error) {
 		if errors.Is(err, process.ErrorProcessNotRunning) {
 			return false, nil
 		}
-		if stillAlive, checkErr := IsProcessAlive(p); checkErr == nil && !stillAlive {
+		if processExitedDuringIdentityRead(p) {
 			return false, nil
 		}
 		return false, fmt.Errorf("verify process %d: %w", identity.PID, err)
@@ -212,12 +212,7 @@ func PrepareCore(ctx context.Context, base string) error {
 	if err != nil || pid <= 0 {
 		return fmt.Errorf("invalid legacy core PID; remove stale PID file after checking running processes")
 	}
-	p, err := os.FindProcess(pid)
-	if err != nil {
-		return err
-	}
-	defer p.Release()
-	alive, err := IsProcessAlive(p)
+	alive, err := IsPIDAlive(pid)
 	if err != nil {
 		return err
 	}
@@ -280,8 +275,8 @@ func terminateIdentity(ctx context.Context, identity ProcessIdentity, graceful b
 	if err != nil || !alive {
 		return err
 	}
-	p, err := os.FindProcess(identity.PID)
-	if err != nil {
+	p, err := findProcess(identity.PID)
+	if err != nil || p == nil {
 		return err
 	}
 	defer p.Release()

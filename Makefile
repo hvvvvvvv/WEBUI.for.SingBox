@@ -1,5 +1,6 @@
 OUTPUT_DIR ?= build/bin
-APP_VERSION ?= 1.1.4
+APP_VERSION ?= 1.1.5
+APP_REPOSITORY ?= Ghostdehole/WEBUI.for.SingBox
 VERSION ?= $(APP_VERSION)
 BUF ?= buf
 
@@ -20,7 +21,7 @@ CHECK_DIR = test -d $(1) || { echo "$(1)/ is required but was not found." >&2; e
 endif
 
 OUTPUT_PATH := $(OUTPUT_DIR)/$(BINARY_NAME)
-GO_LDFLAGS := -s -w -X main.version=$(VERSION)
+GO_LDFLAGS := -s -w -X main.version=$(VERSION) -X guiforcores/bridge/appupdate.Repository=$(APP_REPOSITORY)
 
 .PHONY: build frontend backend test test-go test-frontend check-tools proto proto-lint proto-check check-proto-tools print-version clean
 

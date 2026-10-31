@@ -59,11 +59,16 @@ func requireCompatibleCoreVersion(version string) error {
 }
 
 func (s *Service) checkCoreVersion(ctx context.Context, corePath string, env map[string]string) error {
+	_, err := s.readCompatibleCoreVersion(ctx, corePath, env)
+	return err
+}
+
+func (s *Service) readCompatibleCoreVersion(ctx context.Context, corePath string, env map[string]string) (string, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 	result := s.processes.Exec(corePath, []string{"version"}, platform.ExecOptions{Context: ctx, Env: env})
 	if !result.Flag {
-		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("cannot read sing-box version: %s", result.Data))
+		return "", connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("cannot read sing-box version: %s", result.Data))
 	}
 	matches := coreVersionRE.FindStringSubmatch(result.Data)
 	version := ""
@@ -71,9 +76,30 @@ func (s *Service) checkCoreVersion(ctx context.Context, corePath string, env map
 		version = matches[1]
 	}
 	if err := requireCompatibleCoreVersion(version); err != nil {
-		return connect.NewError(connect.CodeFailedPrecondition, err)
+		return "", connect.NewError(connect.CodeFailedPrecondition, err)
 	}
-	return nil
+	return version, nil
+}
+
+func adaptConfigToCoreVersion(root map[string]any, version string) {
+	matches := semanticCoreVersionRE.FindStringSubmatch(strings.TrimSpace(version))
+	if matches == nil {
+		return
+	}
+	major, _ := strconv.ParseUint(matches[1], 10, 64)
+	minor, _ := strconv.ParseUint(matches[2], 10, 64)
+	if major < 1 || (major == 1 && minor < 15) {
+		return
+	}
+	// sing-box 1.15 (including prereleases) uses sing-tun's native stack.
+	// The old stack selector is deprecated in 1.15 and removed in 1.17.
+	// Adapt to the installed binary, regardless of the selected download branch.
+	inbounds, _ := root["inbounds"].([]any)
+	for _, value := range inbounds {
+		if inbound, ok := value.(map[string]any); ok && inbound["type"] == "tun" {
+			delete(inbound, "stack")
+		}
+	}
 }
 
 type preparedCoreStart struct {
@@ -84,7 +110,8 @@ type preparedCoreStart struct {
 
 // The temporary check never replaces the configuration of a running core.
 func (s *Service) prepareCoreStart(ctx context.Context, profile *profilev1.Profile, runtimeCfg kernelRuntimeConfig, path string) (*preparedCoreStart, error) {
-	if err := s.checkCoreVersion(ctx, path, runtimeCfg.Env); err != nil {
+	version, err := s.readCompatibleCoreVersion(ctx, path, runtimeCfg.Env)
+	if err != nil {
 		return nil, err
 	}
 	generated, err := s.config.Generate(profile, &kernelv1.GenerateConfigOptions{
@@ -96,6 +123,7 @@ func (s *Service) prepareCoreStart(ctx context.Context, profile *profilev1.Profi
 	if err := config.EnforceNativeAPIConfig(generated); err != nil {
 		return nil, rpcutil.AsConnectError(err)
 	}
+	adaptConfigToCoreVersion(generated, version)
 	config.FinalizeGeneratedConfig(generated)
 	if err := s.checkPreparedConfig(ctx, path, runtimeCfg.Env, generated); err != nil {
 		return nil, err

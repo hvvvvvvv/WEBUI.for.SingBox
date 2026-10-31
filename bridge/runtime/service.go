@@ -41,6 +41,7 @@ const (
 	scheduledTaskLogsPath        = "data/scheduledtasklogs.yaml"
 	defaultScheduledTaskLogLimit = 20
 	maxSubscriptionBodyBytes     = 32 << 20
+	maxRuleSetBodyBytes          = 32 << 20
 	rulesetHubPath               = "data/.cache/ruleset-list.json"
 	defaultSourceRuleSetContent  = `{"version":2,"rules":[]}`
 )
@@ -1173,7 +1174,8 @@ func subscriptionRequestHeaders(headers map[string]string, defaultUserAgent stri
 }
 
 func updateSubscriptionAt(items []subscription, idx int, defaultUserAgent string) (*appv1.TaskResult, bool) {
-	sub := &items[idx]
+	next := cloneSubscription(items[idx])
+	sub := &next
 	if sub.Disabled {
 		return subscriptionFailureResult(sub, errors.New("subscription is disabled")), false
 	}
@@ -1294,6 +1296,7 @@ func updateSubscriptionAt(items []subscription, idx int, defaultUserAgent string
 			return subscriptionFailureResult(sub, err), false
 		}
 	}
+	items[idx] = next
 
 	message := fmt.Sprintf(
 		"Subscription [%s] updated successfully. Imported %d proxies; filtered %d proxies; skipped %d invalid or unsupported proxies.",
@@ -1334,8 +1337,20 @@ func countRules(value any) int {
 	}
 }
 
+func downloadRuleSet(rawURL string) (string, error) {
+	resp, body, err := httpRequestWithLimit(http.MethodGet, rawURL, nil, "", false, 15, maxRuleSetBodyBytes)
+	if err != nil {
+		return "", err
+	}
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		return "", fmt.Errorf("ruleset request returned HTTP status %d", resp.StatusCode)
+	}
+	return body, nil
+}
+
 func updateRulesetAt(items []ruleset, idx int) (*appv1.TaskResult, bool) {
-	r := &items[idx]
+	next := items[idx]
+	r := &next
 	if r.Disabled {
 		return taskResult(false, r.ID, r.Tag, r.Tag+" Disabled"), false
 	}
@@ -1345,7 +1360,7 @@ func updateRulesetAt(items []ruleset, idx int) (*appv1.TaskResult, bool) {
 		exists := true
 		switch r.Type {
 		case "Http":
-			_, body, err = httpRequest(http.MethodGet, r.URL, nil, "", false, 15)
+			body, err = downloadRuleSet(r.URL)
 		case "Manual":
 			body, err = readText(r.Path)
 			if err != nil {
@@ -1373,21 +1388,17 @@ func updateRulesetAt(items []ruleset, idx int) (*appv1.TaskResult, bool) {
 	}
 	if r.Format == "binary" {
 		if r.Type == "Http" {
-			resp, err := http.Get(r.URL)
+			body, err := downloadRuleSet(r.URL)
 			if err != nil {
 				return taskResult(false, r.ID, r.Tag, err.Error()), false
 			}
-			defer resp.Body.Close()
-			data, err := io.ReadAll(resp.Body)
-			if err != nil {
-				return taskResult(false, r.ID, r.Tag, err.Error()), false
-			}
-			if err := storage.AtomicWriteFile(GetPath(r.Path), data, 0644); err != nil {
+			if err := storage.AtomicWriteFile(GetPath(r.Path), []byte(body), 0644); err != nil {
 				return taskResult(false, r.ID, r.Tag, err.Error()), false
 			}
 		}
 	}
 	r.UpdateTime = time.Now().UnixMilli()
+	items[idx] = next
 	return taskResult(true, r.ID, r.Tag, fmt.Sprintf("Ruleset [%s] updated successfully.", r.Tag)), true
 }
 
@@ -2479,6 +2490,9 @@ func decodeScheduledTask(raw string) (scheduledTask, error) {
 	}
 	if !isSupportedScheduledTaskType(task.Type) {
 		return task, invalidArgumentError{message: "unsupported scheduled task type: " + task.Type}
+	}
+	if _, err := parseCron(task.Cron); err != nil {
+		return task, invalidArgumentError{message: "invalid cron expression: " + err.Error()}
 	}
 	task.LogLimit = normalizeScheduledTaskLogLimit(task.LogLimit)
 	return task, nil

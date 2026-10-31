@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -56,19 +57,46 @@ func HashSecret(plain string) string {
 }
 
 func (s *Service) VerifySecret(plain string) bool {
-	hash := s.SecretHash()
-	return hash == "" || HashSecret(plain) == hash
+	hash, err := s.SecretHash()
+	return err == nil && (hash == "" || HashSecret(plain) == hash)
 }
 
-func (s *Service) SecretHash() string {
+func (s *Service) SecretHash() (string, error) {
 	s.secretMu.RLock()
 	defer s.secretMu.RUnlock()
 
-	data, err := os.ReadFile(s.paths.Resolve(secretPath))
+	path := s.paths.Resolve(secretPath)
+	info, err := os.Stat(path)
 	if err != nil {
-		return ""
+		if os.IsNotExist(err) {
+			// A missing key is the original unconfigured state. A broken key
+			// symlink is a read failure, not a request to disable authentication.
+			if _, linkErr := os.Lstat(path); os.IsNotExist(linkErr) {
+				parent, parentErr := os.Stat(filepath.Dir(path))
+				if os.IsNotExist(parentErr) || (parentErr == nil && parent.IsDir()) {
+					return "", nil
+				}
+			}
+		}
+		return "", fmt.Errorf("inspect authentication secret: %w", err)
 	}
-	return strings.TrimSpace(string(data))
+	if !info.Mode().IsRegular() {
+		return "", fmt.Errorf("authentication secret must be a regular file")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", fmt.Errorf("read authentication secret: %w", err)
+	}
+	// SetSecret("") deliberately writes an empty file to disable login.
+	if len(data) == 0 {
+		return "", nil
+	}
+	hash := strings.TrimSpace(string(data))
+	decoded, err := hex.DecodeString(hash)
+	if err != nil || len(decoded) != sha256.Size {
+		return "", fmt.Errorf("authentication secret contains an invalid hash")
+	}
+	return hash, nil
 }
 
 func (s *Service) SetSecret(secret string) error {
@@ -83,7 +111,7 @@ func (s *Service) SetSecret(secret string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return err
 	}
-	return os.WriteFile(path, content, 0o600)
+	return storage.AtomicWriteFile(path, content, 0o600)
 }
 
 func (s *Service) GenerateToken() (string, error) {

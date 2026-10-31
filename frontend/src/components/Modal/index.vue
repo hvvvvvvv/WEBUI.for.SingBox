@@ -3,7 +3,7 @@ export const IS_IN_MODAL = 'IS_IN_MODAL'
 </script>
 
 <script setup lang="ts">
-import { computed, provide, ref, watch } from 'vue'
+import { computed, provide, ref, useId, watch } from 'vue'
 
 import { useBool } from '@/hooks'
 import useI18n from '@/lang'
@@ -47,6 +47,7 @@ export interface Slots {
 }
 
 const slots = defineSlots<Slots>()
+const titleId = `modal-title-${useId()}`
 
 const props = withDefaults(defineProps<Props>(), {
   title: '',
@@ -169,6 +170,10 @@ provide(IS_IN_MODAL, true)
         @click.self="onMaskClick"
       >
         <div
+          role="dialog"
+          aria-modal="true"
+          :aria-labelledby="title && !slots.title ? titleId : undefined"
+          :aria-label="title && slots.title ? t(title) : undefined"
           :style="contentStyle"
           :class="props.class"
           class="gui-modal-modal transition duration-200 flex flex-col rounded-8 shadow"
@@ -179,7 +184,7 @@ provide(IS_IN_MODAL, true)
             @dblclick.self="toggleMaximize"
           >
             <slot name="title">
-              <div v-if="title" class="font-bold">{{ t(title) }}</div>
+              <div v-if="title" :id="titleId" class="font-bold">{{ t(title) }}</div>
             </slot>
             <div class="ml-auto flex items-center">
               <slot name="toolbar"></slot>

@@ -1,10 +1,15 @@
 package main
 
-import "github.com/kardianos/service"
+import (
+	"strings"
+
+	"github.com/kardianos/service"
+)
 
 const (
 	systemdServicePlatform = "linux-systemd"
 	openRCServicePlatform  = "linux-openrc"
+	procdServicePlatform   = "linux-procd"
 	windowsServicePlatform = "windows-service"
 	launchdServicePlatform = "darwin-launchd"
 )
@@ -18,6 +23,8 @@ func configureServicePlatform(config *service.Config, platform string) {
 		}
 	case openRCServicePlatform:
 		config.Dependencies = []string{"need net"}
+	case procdServicePlatform:
+		config.Option["SysvScript"] = makeProcdScript(config)
 	case windowsServicePlatform:
 		config.Option["DelayedAutoStart"] = true
 	case launchdServicePlatform:
@@ -27,6 +34,32 @@ func configureServicePlatform(config *service.Config, platform string) {
 		config.Option["RunAtLoad"] = false
 		config.Option["LaunchdConfig"] = networkAwareLaunchdConfig
 	}
+}
+
+func makeProcdScript(config *service.Config) string {
+	args := append([]string{config.Executable}, config.Arguments...)
+	for index, arg := range args {
+		// Quote each argument once for the shell, and prevent the service library's
+		// template parser from interpreting literal braces in paths or arguments.
+		args[index] = strings.ReplaceAll("'"+strings.ReplaceAll(arg, "'", "'\"'\"'")+"'", "{{", "{'{'")
+	}
+	return `#!/bin/sh /etc/rc.common
+USE_PROCD=1
+# Match kardianos/service's installation links; network starts at S20.
+START=50
+STOP=02
+
+start_service() {
+    procd_open_instance
+    procd_set_param command ` + strings.Join(args, " ") + `
+    procd_set_param respawn 3600 5 5
+    # Allow the backend to drain streams and the core to remove its TUN routes.
+    procd_set_param term_timeout 35
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_close_instance
+}
+`
 }
 
 const networkAwareLaunchdConfig = `<?xml version="1.0" encoding="UTF-8"?>

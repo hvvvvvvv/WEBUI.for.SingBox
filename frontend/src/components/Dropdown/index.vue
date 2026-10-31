@@ -144,6 +144,18 @@ const onDomClick = (e: MouseEvent) => {
   }
 }
 
+const onFocusOut = (event: FocusEvent) => {
+  if (!domRef.value?.contains(event.relatedTarget as Node | null)) close()
+}
+
+const onKeydown = (event: KeyboardEvent) => {
+  if (event.key !== 'Escape' || !show.value) return
+  event.preventDefault()
+  event.stopPropagation()
+  close()
+  domRef.value?.querySelector<HTMLElement>('[role="combobox"], button, [tabindex="0"]')?.focus()
+}
+
 onMounted(() => {
   if (hasTrigger('click')) {
     document.addEventListener('click', onDomClick)
@@ -166,8 +178,10 @@ onUnmounted(() => {
     @mouseenter="onMouseEnter"
     @mouseleave="onMouseLeave"
     @click="onClick"
+    @focusout="onFocusOut"
+    @keydown="onKeydown"
   >
-    <slot v-bind="{ open, close, toggle }"></slot>
+    <slot v-bind="{ open, close, toggle, opened: show }"></slot>
     <Transition name="overlay">
       <div
         v-show="show"
@@ -176,7 +190,7 @@ onUnmounted(() => {
         class="gui-dropdown-overlay fixed z-99 rounded-8 backdrop-blur-sm shadow overflow-y-auto"
         @click.stop
       >
-        <slot name="overlay" v-bind="{ open, close, toggle }"></slot>
+        <slot name="overlay" v-bind="{ open, close, toggle, opened: show }"></slot>
       </div>
     </Transition>
   </div>

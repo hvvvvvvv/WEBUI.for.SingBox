@@ -1,11 +1,13 @@
 package appupdate
 
 import (
+	"archive/zip"
 	"errors"
 	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -46,11 +48,117 @@ func TestHelperRefusesReplacementWhenCoreOrLockCannotBeVerified(t *testing.T) {
 			} else {
 				waitForUpdateCore = func(string) error { return errors.New("identity cannot be verified") }
 			}
-			extractUpdateArchive = func(string, string) error { t.Error("extracted before cleanup confirmed"); return nil }
+			extractUpdateArchive = func(_ string, destination string) error {
+				return os.WriteFile(filepath.Join(destination, appTitle+executableSuffix()), []byte("candidate"), 0755)
+			}
 			replaceUpdatedApplication = func(string, string) error { t.Error("replaced before cleanup confirmed"); return nil }
 			startUpdatedApplication = func(string, []string, string) error { t.Error("started before cleanup confirmed"); return nil }
-			if err := RunHelper(HelperOptions{TargetPath: filepath.Join(t.TempDir(), "webui")}); err == nil {
+			base := t.TempDir()
+			if err := RunHelper(HelperOptions{ArchivePath: filepath.Join(base, "update.zip"), TargetPath: filepath.Join(base, "webui")}); err == nil {
 				t.Fatal("unsafe update succeeded")
+			}
+		})
+	}
+}
+
+func writeHelperArchive(t *testing.T, path, name, content string) {
+	t.Helper()
+	file, err := os.Create(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	writer := zip.NewWriter(file)
+	entry, err := writer.Create(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.WriteString(entry, content); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := file.Close(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHelperPreparesUpdateBeforeStoppingService(t *testing.T) {
+	for _, mode := range []string{"success", "corrupt_archive", "write_failure", "missing_binary", "empty_binary", "directory_binary"} {
+		t.Run(mode, func(t *testing.T) {
+			defer replaceHelperRuntimeForTest(t)()
+			base := t.TempDir()
+			archive := filepath.Join(base, "update.zip")
+			target := filepath.Join(base, appTitle+executableSuffix())
+			if err := os.WriteFile(target, []byte("old binary"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			name, content := appTitle+executableSuffix(), "new binary"
+			switch mode {
+			case "missing_binary":
+				name = "README.md"
+			case "empty_binary":
+				content = ""
+			case "directory_binary":
+				name, content = name+"/", ""
+			}
+			writeHelperArchive(t, archive, name, content)
+			if mode == "corrupt_archive" {
+				if err := os.WriteFile(archive, []byte("not a zip"), 0600); err != nil {
+					t.Fatal(err)
+				}
+			}
+			var steps []string
+			extractUpdateArchive = func(source, destination string) error {
+				steps = append(steps, "extract")
+				if mode == "write_failure" {
+					if err := os.WriteFile(filepath.Join(destination, "partial"), []byte("partial"), 0600); err != nil {
+						return err
+					}
+					return syscall.ENOSPC
+				}
+				return extractZip(source, destination)
+			}
+			serviceControlDelay = 0
+			controlUpdatedService = func(_, _, action string) error { steps = append(steps, action); return nil }
+			waitForUpdateParent = func(platform.ProcessIdentity, time.Duration) error { steps = append(steps, "parent"); return nil }
+			acquireUpdateLock = func(string) (io.Closer, error) {
+				steps = append(steps, "lock")
+				return io.NopCloser(strings.NewReader("")), nil
+			}
+			waitForUpdateCore = func(string) error { steps = append(steps, "core"); return nil }
+			replaceUpdatedApplication = func(extractDir, target string) error {
+				steps = append(steps, "replace")
+				return replaceApplication(extractDir, target)
+			}
+			err := RunHelper(HelperOptions{ArchivePath: archive, TargetPath: target, ServiceMode: true})
+			wantSteps, wantBinary := "extract", "old binary"
+			if mode == "success" {
+				wantSteps, wantBinary = "extract,stop,parent,lock,core,replace,start", "new binary"
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil {
+				t.Fatal("invalid update succeeded")
+			}
+			if mode == "write_failure" && !errors.Is(err, syscall.ENOSPC) {
+				t.Fatalf("write error lost: %v", err)
+			}
+			if got := strings.Join(steps, ","); got != wantSteps {
+				t.Fatalf("steps=%s want=%s", got, wantSteps)
+			}
+			binary, err := os.ReadFile(target)
+			if err != nil || string(binary) != wantBinary {
+				t.Fatalf("target=%q error=%v", binary, err)
+			}
+			entries, err := os.ReadDir(base)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, entry := range entries {
+				if strings.HasPrefix(entry.Name(), "gui-update-") {
+					t.Fatalf("extraction leftover: %s", entry.Name())
+				}
 			}
 		})
 	}

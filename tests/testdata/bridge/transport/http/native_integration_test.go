@@ -18,6 +18,7 @@ import (
 
 	"guiforcores/bridge/auth"
 	"guiforcores/bridge/config"
+	"guiforcores/bridge/platform"
 	"guiforcores/bridge/storage"
 	"guiforcores/gen/native/daemon"
 	"guiforcores/gen/native/daemon/daemonconnect"
@@ -43,13 +44,28 @@ func nativeFirst[T any](t *testing.T, stream *connect.ServerStreamForClient[T], 
 	return stream.Msg()
 }
 
+// These integration tests are intentionally sequential: the native endpoint is
+// shared by the config generator, readiness probe, and production proxy.
+func nativeIsolateAPIEndpoint(t *testing.T) {
+	t.Helper()
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	previous := config.CoreAPIController
+	config.CoreAPIController = listener.Addr().String()
+	listener.Close()
+	t.Cleanup(func() { config.CoreAPIController = previous })
+}
+
 // This opt-in acceptance test uses the released binary, never a Go dependency
-// on sing-box. All traffic except the native single-node URLTest stays local.
+// on sing-box. URLTest uses the local test group's URL, keeping all traffic local.
 func TestNativeAPIRealCore(t *testing.T) {
 	binary := os.Getenv("SINGBOX_NATIVE_TEST_BINARY")
 	if binary == "" {
 		t.Skip("set SINGBOX_NATIVE_TEST_BINARY to the official sing-box 1.14.2 executable")
 	}
+	nativeIsolateAPIEndpoint(t)
 	directory := t.TempDir()
 	var tests atomic.Int32
 	trafficServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +115,7 @@ func TestNativeAPIRealCore(t *testing.T) {
 	stop := func() {
 		if core := current.Swap(nil); core != nil {
 			core.cancel()
-			core.cmd.Process.Signal(os.Interrupt)
+			platform.SendExitSignal(core.cmd.Process)
 			done := make(chan struct{})
 			go func() { core.cmd.Wait(); close(done) }()
 			select {
@@ -125,6 +141,7 @@ func TestNativeAPIRealCore(t *testing.T) {
 			t.Fatal(err)
 		}
 		check := exec.Command(binary, "check", "-c", configPath)
+		platform.SetCmdWindowHidden(check)
 		check.Dir = directory
 		if out, err := check.CombinedOutput(); err != nil {
 			t.Fatalf("real core config check: %s: %v", out, err)
@@ -136,6 +153,7 @@ func TestNativeAPIRealCore(t *testing.T) {
 		ctx, cancel := context.WithCancel(context.Background())
 		core := &runningCore{secret: config.NativeAPISecret(root), ctx: ctx, cancel: cancel, log: logFile}
 		core.cmd = exec.Command(binary, "run", "-c", configPath)
+		platform.SetCmdWindowHidden(core.cmd)
 		core.cmd.Dir = directory
 		core.cmd.Stdout, core.cmd.Stderr = logFile, logFile
 		if err := core.cmd.Start(); err != nil {
@@ -223,9 +241,6 @@ func TestNativeAPIRealCore(t *testing.T) {
 	nativeFirst(t, outboundStream, err)
 	outboundStream.Close()
 	if _, err := client.URLTest(ctx, nativeRequest(&daemon.URLTestRequest{OutboundTag: "auto"})); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := client.URLTest(ctx, nativeRequest(&daemon.URLTestRequest{OutboundTag: "direct-a"})); err != nil {
 		t.Fatal(err)
 	}
 	for groupStream.Receive() {

@@ -42,12 +42,7 @@ func (a *App) Exec(path string, args []string, options ExecOptions) FlagResult {
 
 	out, err := cmd.CombinedOutput()
 
-	var output string
-	if options.Convert {
-		output = strings.TrimSpace(ConvertByte2String(out))
-	} else {
-		output = strings.TrimSpace(string(out))
-	}
+	output := strings.TrimSpace(decodeCommandOutput(out))
 
 	if err != nil {
 		slog.Debug("process execution failed", "component", "process", "operation", "execute", "executable", exePath, "args", args, "working_directory", options.WorkingDirectory, "duration", time.Since(started), "result", "failure", "error", err)
@@ -108,12 +103,7 @@ func (a *App) ExecBackground(path string, args []string, outEvent string, option
 			scanner := bufio.NewScanner(reader)
 			stopOutput := false
 			for scanner.Scan() {
-				var text string
-				if options.Convert {
-					text = ConvertByte2String(scanner.Bytes())
-				} else {
-					text = scanner.Text()
-				}
+				text := decodeCommandOutput(scanner.Bytes())
 
 				if !stopOutput {
 					a.publish(outEvent, text)
@@ -202,6 +192,29 @@ func (a *App) ProcessMemory(pid int32) FlagResult {
 	return FlagResult{true, strconv.FormatUint(memInfo.RSS, 10)}
 }
 
+// findProcess returns nil without an error only when the process is confirmed
+// absent. Access failures must not be mistaken for a completed shutdown.
+func findProcess(pid int) (*os.Process, error) {
+	if pid <= 0 {
+		return nil, fmt.Errorf("invalid process ID: %d", pid)
+	}
+	p, err := os.FindProcess(pid)
+	if isProcessMissing(err) {
+		return nil, nil
+	}
+	return p, err
+}
+
+// IsPIDAlive also handles processes that disappeared before a handle was opened.
+func IsPIDAlive(pid int) (bool, error) {
+	p, err := findProcess(pid)
+	if err != nil || p == nil {
+		return false, err
+	}
+	defer p.Release()
+	return IsProcessAlive(p)
+}
+
 func (a *App) KillProcess(pid int, timeout int) FlagResult {
 	started := time.Now()
 	managed := a.trackedProcess(pid)
@@ -215,10 +228,14 @@ func (a *App) KillProcess(pid int, timeout int) FlagResult {
 	if managed != nil {
 		target = managed.process
 	} else {
-		process, err := os.FindProcess(pid)
+		process, err := findProcess(pid)
 		if err != nil {
 			return FlagResult{false, err.Error()}
 		}
+		if process == nil {
+			return FlagResult{true, "Success"}
+		}
+		defer process.Release()
 		target = process
 	}
 

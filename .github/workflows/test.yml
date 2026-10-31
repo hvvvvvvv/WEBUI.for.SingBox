@@ -1,0 +1,46 @@
+name: Test and cross-compile
+
+on:
+  push:
+    branches: [main, 'codex/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: latest
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: pnpm --dir frontend install --frozen-lockfile
+      - run: pnpm --dir frontend test
+      - run: pnpm --dir frontend build
+      - run: go run ./tests ./... -count=1 -timeout=180s
+      - if: runner.os == 'Linux'
+        run: go run ./tests -race -short ./... -count=1 -timeout=180s
+      - if: runner.os == 'Linux'
+        name: Static Linux cross-compilation
+        shell: bash
+        run: |
+          mkdir -p build/check
+          for arch in amd64 arm64 arm mips mipsle; do
+            CGO_ENABLED=0 GOOS=linux GOARCH="$arch" GOARM=7 GOMIPS=softfloat \
+              go build -trimpath -o "build/check/server-$arch" .
+            go version -m "build/check/server-$arch" | grep 'CGO_ENABLED=0'
+          done

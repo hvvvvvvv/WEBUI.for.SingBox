@@ -5,7 +5,7 @@
 - `frontend/`：前端回归测试，按功能目录分类。
 - `testdata/`：Go 回归测试，目录与生产包的相对路径对应。
 - `run.go`：生成临时 Go overlay，并在原包上下文中执行测试。
-- `vitest.config.ts`：限定前端测试搜索范围，复用前端依赖与源码别名。
+- `vitest.config.mts`：限定前端测试搜索范围，复用前端依赖与源码别名，显式使用 ESM 配置。
 
 Go 会跳过 `testdata` 目录。overlay 让测试继续访问包内接口、使用原包的工作目录和平台构建约束，无需给生产代码增加测试专用导出，也不会把文件复制回生产目录。直接执行 `go test ./...` 不会加载这些测试，请使用下面的入口。
 
@@ -21,8 +21,8 @@ go run ./tests -race ./bridge/kernel -run TestRestart -count=1
 go run ./tests -short ./... -count=1
 
 # 前端测试已移出 frontend/src，单独检查与格式化
-pnpm --dir frontend exec oxlint ../tests/frontend ../tests/vitest.config.ts
-pnpm --dir frontend exec oxfmt ../tests/frontend ../tests/vitest.config.ts
+frontend/node_modules/.bin/oxlint tests/frontend tests/vitest.config.mts
+frontend/node_modules/.bin/oxfmt tests/frontend tests/vitest.config.mts
 ```
 
 真实 sing-box 测试通过 `SING_BOX_114_PATH`（1.14.0，配置生成、订阅解析）和 `SINGBOX_NATIVE_TEST_BINARY`（1.14.2，原生 API 与生命周期）指定核心可执行文件，未提供时会明确跳过。路径应为绝对路径。HTTP 长流测试需要约 61 秒，`-short` 会跳过。

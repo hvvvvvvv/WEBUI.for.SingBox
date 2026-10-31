@@ -1,8 +1,9 @@
 <script lang="ts" setup>
-import { computed, ref, useTemplateRef } from 'vue'
+import { computed, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { DomainStrategyOptions } from '@/constant/kernel'
+import { DnsServer } from '@/enums/kernel'
 
 import DnsRulesConfig from './DnsRulesConfig.vue'
 import DnsServersConfig from './DnsServersConfig.vue'
@@ -19,6 +20,20 @@ const model = defineModel<IDNS>({ required: true })
 
 const serversOptions = computed(() =>
   model.value.servers.map((v) => ({ label: v.tag, value: v.id })),
+)
+const finalServersOptions = computed(() =>
+  model.value.servers
+    .filter((server) => server.type !== DnsServer.FakeIP)
+    .map((server) => ({ label: server.tag, value: server.id })),
+)
+watch(
+  finalServersOptions,
+  (options) => {
+    if (model.value.final && !options.some((option) => option.value === model.value.final)) {
+      model.value.final = ''
+    }
+  },
+  { immediate: true },
 )
 
 const activeKey = ref('common')
@@ -40,6 +55,17 @@ const handleAdd = () => {
   handlerMap[activeKey.value]?.()
 }
 
+const onDisableCacheChange = (value: boolean) => {
+  if (value) model.value.optimistic.enabled = false
+}
+
+const onOptimisticEnabledChange = (value: boolean) => {
+  if (value) {
+    model.value.disable_cache = false
+    model.value.disable_expire = false
+  }
+}
+
 defineExpose({ handleAdd })
 </script>
 
@@ -48,15 +74,23 @@ defineExpose({ handleAdd })
     <template #common>
       <div class="form-item">
         {{ t('kernel.dns.disable_cache') }}
-        <Switch v-model="model.disable_cache" />
+        <Switch v-model="model.disable_cache" @change="onDisableCacheChange" />
       </div>
       <div class="form-item">
         {{ t('kernel.dns.disable_expire') }}
-        <Switch v-model="model.disable_expire" />
+        <Switch v-model="model.disable_expire" @change="onDisableCacheChange" />
+      </div>
+      <div class="form-item">
+        {{ t('kernel.dns.optimistic.name') }}
+        <Switch v-model="model.optimistic.enabled" @change="onOptimisticEnabledChange" />
+      </div>
+      <div v-if="model.optimistic.enabled" class="form-item">
+        {{ t('kernel.dns.optimistic.timeout') }}
+        <Input v-model="model.optimistic.timeout" editable />
       </div>
       <div class="form-item">
         {{ t('kernel.dns.final') }}
-        <Select v-model="model.final" :options="serversOptions" />
+        <Select v-model="model.final" :options="finalServersOptions" />
       </div>
       <div class="form-item">
         {{ t('kernel.dns.strategy') }}

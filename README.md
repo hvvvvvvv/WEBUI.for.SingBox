@@ -4,7 +4,9 @@
 
 这个分支主要面向透明代理场景：将管理界面从桌面应用形态调整为可通过浏览器访问的 Web 服务，方便部署在网关、旁路由、软路由、服务器或容器环境中，用于远程维护 sing-box 的配置和运行状态。
 
-本项目基于 [GUI-for-Cores/GUI.for.SingBox](https://github.com/GUI-for-Cores/GUI.for.SingBox) 修改而来。感谢上游项目提供的原始界面、配置模型和规则集仓库等。
+本项目 fork 自 [hvvvvvvv/WEBUI.for.SingBox](https://github.com/hvvvvvvv/WEBUI.for.SingBox)，最初源自 [GUI-for-Cores/GUI.for.SingBox](https://github.com/GUI-for-Cores/GUI.for.SingBox)。感谢两个上游提供的 Web 服务、原始界面、配置模型和规则集仓库等。
+
+路由器部署请先阅读 [OpenWrt / GL.iNet 部署说明](docs/routers.md)。本分支的修复、上游移植范围及验证记录见 [集成说明](docs/upstream-integration.md)。
 
 ## 相比上游的主要改动
 
@@ -26,7 +28,7 @@
 构建二进制执行文件：
 
 ```bash
-git clone https://github.com/hvvvvvvv/WEBUI.for.SingBox.git
+git clone https://github.com/Ghostdehole/WEBUI.for.SingBox.git
 cd WEBUI.for.SingBox
 
 make build
@@ -63,8 +65,10 @@ chmod +x data/sing-box/sing-box-latest
 
 拉取并运行最新稳定版本：
 
+以下镜像地址对应当前 fork，需要先在该仓库成功运行发布流程；本地源码提交不会自动生成远端镜像。
+
 ```bash
-docker pull ghcr.io/hvvvvvvv/webui.for.singbox:latest
+docker pull ghcr.io/ghostdehole/webui.for.singbox:latest
 
 docker run -d \
   --name webui-for-singbox \
@@ -77,7 +81,7 @@ docker run -d \
   -v webui-for-singbox-data:/app/data \
   -e GFS_HOST=0.0.0.0 \
   -e GFS_PORT=9090 \
-  ghcr.io/hvvvvvvv/webui.for.singbox:latest
+  ghcr.io/ghostdehole/webui.for.singbox:latest
 ```
 
 ## 系统服务

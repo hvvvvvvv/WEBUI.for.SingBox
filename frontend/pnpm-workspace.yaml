@@ -1,0 +1,8 @@
+# These lint consumers use Minimatch.match(), not the APIs removed in v11.
+# Remove these overrides when their upstream ranges include the security fix.
+overrides:
+  'eslint>minimatch': 11.0.1
+  '@eslint/config-array>minimatch': 11.0.1
+  '@typescript-eslint/typescript-estree>minimatch': 11.0.1
+  'brace-expansion@>=5.0.0 <5.0.12': 5.0.12
+  'tinypool@2.1.0': 2.1.2

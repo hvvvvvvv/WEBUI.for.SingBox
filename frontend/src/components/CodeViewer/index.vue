@@ -12,7 +12,7 @@ import {
   searchPanelOpen,
   setSearchQuery,
 } from '@codemirror/search'
-import { Compartment, EditorState } from '@codemirror/state'
+import { Compartment, EditorSelection, EditorState } from '@codemirror/state'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { keymap, placeholder as Placeholder } from '@codemirror/view'
 import { EditorView, basicSetup } from 'codemirror'
@@ -74,10 +74,16 @@ const searchLocaleCompartment = new Compartment()
 const domRef = useTemplateRef('domRef')
 const appSettings = useAppSettingsStore()
 
-const getContent = () =>
-  (editorView || mergeView?.b)?.state.doc.toString() ?? props.modelValue
+const getContent = () => (editorView || mergeView?.b)?.state.doc.toString() ?? props.modelValue
 
-defineExpose({ getContent })
+defineExpose({
+  getContent,
+  format: async () => {
+    await editorReady
+    const view = editorView || mergeView?.b
+    if (view) await formatDoc(view)
+  },
+})
 
 const getEditorViews = () =>
   editorView ? [editorView] : mergeView ? [mergeView.a, mergeView.b] : []
@@ -94,9 +100,7 @@ const readOnlyCursorTheme = EditorView.theme({
 const getEditorModeExtensions = (readOnly: boolean) => [
   EditorState.readOnly.of(readOnly),
   EditorView.editable.of(!readOnly),
-  ...(readOnly
-    ? [EditorView.contentAttributes.of({ tabindex: '0' }), readOnlyCursorTheme]
-    : []),
+  ...(readOnly ? [EditorView.contentAttributes.of({ tabindex: '0' }), readOnlyCursorTheme] : []),
 ]
 
 const getSearchPhrases = (): Record<string, string> => {
@@ -132,8 +136,8 @@ const onChange = debounce((content: string) => {
 
 const formatDoc = async (view: EditorView) => {
   if (view.state.readOnly) return
-  const content = view.state.doc.toString()
-  const cursor = view.state.selection.ranges[0]?.from || 0
+  const { doc, selection } = view.state
+  const content = doc.toString()
   try {
     const parser = { javascript: 'babel', yaml: 'yaml', json: 'json' }[props.lang]
     const plugins = {
@@ -141,20 +145,35 @@ const formatDoc = async (view: EditorView) => {
       yaml: [parserYaml],
       json: [parserBabel, estreePlugin],
     }[props.lang]
-    const { formatted, cursorOffset } = await prettier.formatWithCursor(content, {
-      cursorOffset: cursor,
+    const options = {
       parser,
       plugins,
       semi: false,
       tabWidth: 2,
       singleQuote: true,
       printWidth: 160,
-      trailingComma: 'none',
-    })
+      trailingComma: 'none' as const,
+    }
+    const offsets = [...new Set(selection.ranges.flatMap(({ anchor, head }) => [anchor, head]))]
+    const results = await Promise.all(
+      offsets.map((cursorOffset) =>
+        prettier.formatWithCursor(content, { ...options, cursorOffset }),
+      ),
+    )
+    const formatted = results[0]!.formatted
+    const mappedOffsets = new Map(offsets.map((offset, i) => [offset, results[i]!.cursorOffset]))
+    // Formatting is asynchronous; keep edits and cursor movements made while it runs.
+    if (editorDestroyed || view.state.doc !== doc || !view.state.selection.eq(selection)) return
     if (content !== formatted) {
       view.dispatch({
         changes: { from: 0, to: content.length, insert: formatted },
-        selection: { anchor: cursorOffset, head: cursorOffset },
+        selection: EditorSelection.create(
+          selection.ranges.map(({ anchor, head }) =>
+            EditorSelection.range(mappedOffsets.get(anchor)!, mappedOffsets.get(head)!),
+          ),
+          selection.mainIndex,
+        ),
+        scrollIntoView: true,
       })
     }
   } catch (error: any) {
@@ -183,9 +202,7 @@ watch(
       const query = panelOpen ? getSearchQuery(view.state) : null
       if (panelOpen) closeSearchPanel(view)
       view.dispatch({
-        effects: searchLocaleCompartment.reconfigure(
-          EditorState.phrases.of(getSearchPhrases()),
-        ),
+        effects: searchLocaleCompartment.reconfigure(EditorState.phrases.of(getSearchPhrases())),
       })
       if (panelOpen && query) {
         openSearchPanel(view)
@@ -196,8 +213,10 @@ watch(
 )
 
 let timer: number
+let editorDestroyed = false
 onMounted(() => (timer = setTimeout(() => initEditor(), inject(IS_IN_MODAL, false) ? 100 : 0)))
 onUnmounted(() => {
+  editorDestroyed = true
   clearTimeout(timer)
   const view = editorView || mergeView
   view?.destroy()

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { marked } from 'marked'
-import { h, onMounted, ref, render, type VNode } from 'vue'
+import { computed, h, onMounted, ref, render, type VNode } from 'vue'
 
 import useI18n from '@/lang'
 import { useAppStore } from '@/stores'
 import { APP_TITLE, sampleID } from '@/utils'
+import { sanitizeHtml } from '@/utils/html'
 
 import CodeViewer from '@/components/CodeViewer/index.vue'
 import Divider from '@/components/Divider/index.vue'
@@ -34,6 +35,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emits = defineEmits(['confirm', 'cancel', 'finish'])
 
 const content = ref<string | Record<string, any>>('')
+const safeContent = computed(() => sanitizeHtml(String(content.value)))
 const visible = ref(true)
 const closing = ref(false)
 const domContainers: (() => void)[] = []
@@ -95,7 +97,7 @@ marked.use({
           title: text,
           key: text,
           align: align || 'center',
-          customRender: ({ value }) => h('div', { innerHTML: value }),
+          customRender: ({ value }) => h('div', { innerHTML: sanitizeHtml(String(value ?? '')) }),
         })),
         dataSource: rows.map((row) => {
           const record: Record<string, any> = {}
@@ -139,6 +141,14 @@ const renderContent = async () => {
 
 onMounted(renderContent)
 
+const handleMarkdownLinkClick = (event: MouseEvent) => {
+  const anchor = (event.target as Element | null)?.closest?.('a')
+  if (!anchor) return
+  event.preventDefault()
+  const href = anchor.getAttribute('href') || ''
+  if (/^https?:\/\//i.test(href)) window.open(href, '_blank', 'noopener,noreferrer')
+}
+
 const handleConfirm = () => {
   if (closing.value) return
   closing.value = true
@@ -171,7 +181,8 @@ const handleAfterLeave = () => {
       <div
         v-if="options.type === 'markdown'"
         class="gui-confirm-content flex-1 overflow-y-auto break-all whitespace-pre-wrap select-text"
-        v-html="content"
+        @click="handleMarkdownLinkClick"
+        v-html="safeContent"
       ></div>
       <div
         v-else
