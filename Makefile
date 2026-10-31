@@ -1,5 +1,5 @@
 OUTPUT_DIR ?= build/bin
-APP_VERSION ?= 1.1.5
+APP_VERSION ?= 1.2.0
 APP_REPOSITORY ?= Ghostdehole/WEBUI.for.SingBox
 VERSION ?= $(APP_VERSION)
 BUF ?= buf

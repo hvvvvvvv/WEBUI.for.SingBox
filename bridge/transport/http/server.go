@@ -27,6 +27,8 @@ import (
 	"guiforcores/bridge/kernel"
 	"guiforcores/bridge/logging"
 	"guiforcores/bridge/platform"
+	"guiforcores/bridge/plugincatalog"
+	"guiforcores/bridge/plugins"
 	"guiforcores/bridge/profile"
 	"guiforcores/bridge/ruleset"
 	"guiforcores/bridge/scheduler"
@@ -51,6 +53,8 @@ type Options struct {
 	Scheduler      *scheduler.Service
 	Update         *appupdate.Service
 	System         *appsystem.Service
+	Plugins        *plugins.Service
+	PluginRunner   SubscriptionPluginRunner
 	RollingRelease func() bool
 }
 
@@ -61,6 +65,7 @@ type Server struct {
 	requestSequence    atomic.Uint64
 	lifecycleContext   context.Context
 	lifecycleCancel    context.CancelFunc
+	pluginCatalog      *plugincatalog.Service
 }
 
 type FlagResult = platform.Result
@@ -73,6 +78,11 @@ func NewServer(options Options) (*Server, error) {
 		lifecycleContext:   lifecycleContext,
 		lifecycleCancel:    lifecycleCancel,
 	}
+	cachePath := ""
+	if options.Platform != nil {
+		cachePath = options.Platform.ResolvePath("data/.cache/plugin-hub.json")
+	}
+	server.pluginCatalog = plugincatalog.NewService(cachePath)
 	handler, err := server.buildHandler()
 	if err != nil {
 		lifecycleCancel()
@@ -248,6 +258,7 @@ func (s *Server) buildProtectedMux() *http.ServeMux {
 
 	mux.HandleFunc("/api/kernel/", s.handleKernelProxy)
 	s.registerAppRoutes(mux)
+	s.registerPluginRoutes(mux)
 	s.registerRPCRoutes(mux)
 	registerAPIRoutes(mux, s.options.Auth)
 

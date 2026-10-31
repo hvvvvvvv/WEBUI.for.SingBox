@@ -28,6 +28,7 @@ export interface AppSettings {
   profilesView: View
   subscribesView: View
   rulesetsView: View
+  pluginsView: View
   scheduledtasksView: View
   connections: {
     visibility: Record<string, boolean>

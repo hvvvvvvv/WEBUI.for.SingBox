@@ -2,6 +2,7 @@ import { type RouteRecordRaw } from 'vue-router'
 
 import HomeView from '@/views/HomeView/index.vue'
 import ProfilesView from '@/views/ProfilesView/index.vue'
+import PluginsView from '@/views/PluginsView/index.vue'
 import RulesetsView from '@/views/RulesetsView/index.vue'
 import ScheduledTasksView from '@/views/ScheduledTasksView/index.vue'
 import SettingsView from '@/views/SettingsView/index.vue'
@@ -43,6 +44,12 @@ const routes: RouteRecordRaw[] = [
       name: 'router.rulesets',
       icon: 'rulesets',
     },
+  },
+  {
+    path: '/plugins',
+    name: 'Plugins',
+    component: PluginsView,
+    meta: { name: 'router.plugins', icon: 'plugins' },
   },
   {
     path: '/scheduledtasks',

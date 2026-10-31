@@ -473,6 +473,7 @@ export default {
     overview: 'Overview',
     subscriptions: 'Subscriptions',
     rulesets: 'Rulesets',
+    plugins: 'Plugins',
     settings: 'Settings',
     about: 'About',
     profiles: 'Profiles',
@@ -683,6 +684,50 @@ export default {
     path: 'Save Path',
     interval: 'Interval',
     updating: 'Updating',
+  },
+  plugin: {
+    name: 'Name',
+    version: 'Version',
+    description: 'Description',
+    trigger: 'Triggers',
+    'on::subscribe': 'On subscription update',
+    'on::generate': 'On config generation',
+    'on::manual': 'Manual',
+  },
+  plugins: {
+    hub: 'Plugin center',
+    checkForUpdates: 'Check updates',
+    source: 'Source',
+    configuration: 'Configuration',
+    empty:
+      'No plugins installed. Install from the plugin center or add your own JavaScript plugin.',
+    updateSuccess: 'Catalog checked. Use the plugin menu to install an available update.',
+    newVersion: 'Update available',
+    installed: 'Installed',
+    install: 'Install',
+    search: 'Search plugins',
+    repository: 'Independent plugin repository',
+    moveUp: 'Move up',
+    moveDown: 'Move down',
+    hubHint:
+      'This catalog contains JavaScript plugins adapted for the WebUI backend. You can view and edit their source after installation.',
+    runtimeHint:
+      'Plugins run on the router backend even when the browser is closed. Subscription and configuration hooks run in list order.',
+    importSource: 'Import JS',
+    exportSource: 'Export JS',
+    sourceHelp:
+      'Supports onSubscribe(proxies, subscription), onGenerate(config, profile), and onRun(proxies, subscription). Read settings through the global configuration object. Saved source runs on the backend.',
+    invalidConfiguration: 'Configuration must be a valid JSON object.',
+    sourceTooLarge: 'JavaScript source cannot exceed 256 KiB.',
+    draftPreserved:
+      'Your unsaved draft remains in the editor. Export the source or save it as a new plugin.',
+    saveCopy: 'Save as new plugin',
+    runHint:
+      'Select a cached subscription. Running the plugin saves its processed nodes without downloading the subscription or restarting the core.',
+    chooseSubscription: 'Select a cached subscription',
+    noCachedSubscriptions: 'No subscriptions have cached nodes. Update a subscription first.',
+    runResult: 'Completed: {before} nodes before processing, {after} nodes after processing.',
+    retry: 'Retry',
   },
   rulesets: {
     hub: 'Ruleset-Hub',

@@ -3,6 +3,7 @@ package config
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -27,7 +28,15 @@ const (
 type Service struct {
 	paths   *storage.Paths
 	appName string
+	plugins ConfigPlugins
 }
+
+type ConfigPlugins interface {
+	ApplyConfig(context.Context, map[string]any) (map[string]any, error)
+}
+
+// SetPlugins is configured once, before the application starts serving requests.
+func (s *Service) SetPlugins(value ConfigPlugins) { s.plugins = value }
 
 func NewService(paths *storage.Paths, appName string) *Service {
 	return &Service{paths: paths, appName: appName}
@@ -58,9 +67,9 @@ func (s *Service) GenerateConfig(
 	defer func() {
 		logging.Complete(ctx, "config", "generate", "core configuration generated", started, responseErr, "profile_id", profileID)
 	}()
-	config, err := s.Generate(req.Msg.GetProfile(), req.Msg.GetOptions())
+	config, err := s.GenerateContext(ctx, req.Msg.GetProfile(), req.Msg.GetOptions())
 	if err != nil {
-		return nil, asConnectError(err)
+		return nil, asGenerateError(err)
 	}
 
 	configStruct, err := structpb.NewStruct(config)
@@ -80,9 +89,9 @@ func (s *Service) GenerateConfigFile(
 	defer func() {
 		logging.Complete(ctx, "config", "generate_file", "core configuration file generated", started, responseErr, "profile_id", profileID, "path", CoreConfigFilePath)
 	}()
-	config, err := s.Generate(req.Msg.GetProfile(), req.Msg.GetOptions())
+	config, err := s.GenerateContext(ctx, req.Msg.GetProfile(), req.Msg.GetOptions())
 	if err != nil {
-		return nil, asConnectError(err)
+		return nil, asGenerateError(err)
 	}
 
 	FinalizeGeneratedConfig(config)
@@ -105,6 +114,23 @@ func (s *Service) Generate(
 	profile *profilev1.Profile,
 	options *kernelv1.GenerateConfigOptions,
 ) (map[string]any, error) {
+	return s.GenerateContext(context.Background(), profile, options)
+}
+
+func asGenerateError(err error) error {
+	if errors.Is(err, context.Canceled) {
+		return connect.NewError(connect.CodeCanceled, err)
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return connect.NewError(connect.CodeDeadlineExceeded, err)
+	}
+	return asConnectError(err)
+}
+
+func (s *Service) GenerateContext(ctx context.Context, profile *profilev1.Profile, options *kernelv1.GenerateConfigOptions) (map[string]any, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if profile == nil {
 		return nil, invalidArgumentError{message: "profile is required"}
 	}
@@ -133,6 +159,22 @@ func (s *Service) Generate(
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if s.plugins != nil {
+		config, err = s.plugins.ApplyConfig(ctx, config)
+		if err != nil {
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				return nil, err
+			}
+			return nil, invalidArgumentError{message: "configuration plugin: " + err.Error()}
+		}
+		if config == nil {
+			return nil, invalidArgumentError{message: "configuration plugin returned a null configuration"}
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 
 	if err := normalizeRuleSetHTTPClients(config); err != nil {

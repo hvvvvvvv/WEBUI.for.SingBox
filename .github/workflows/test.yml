@@ -33,6 +33,7 @@ jobs:
       - run: pnpm --dir frontend test
       - run: pnpm --dir frontend build
       - run: go run ./tests ./... -count=1 -timeout=180s
+      - run: go run ./cmd/plugin-check ./plugin-catalog
       - if: runner.os == 'Linux'
         run: go run ./tests -race -short ./... -count=1 -timeout=180s
       - if: runner.os == 'Linux'

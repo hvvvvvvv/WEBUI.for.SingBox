@@ -1,0 +1,63 @@
+{
+  "apiVersion": "webui.plugins/v1",
+  "plugins": [
+    {
+      "configuration": {},
+      "description": "仅为重名节点添加索引，保持节点名称唯一，并同步订阅内部的出站引用。",
+      "id": "plugin-index-the-proxy-name",
+      "name": "防代理重名",
+      "path": "plugins/plugin-index-the-proxy-name.js",
+      "sha256": "aacce83e4aec1b549a1e04f043acdda798d3f324e8f77a3a82aa91daf2bcc3d1",
+      "triggers": [
+        "on::subscribe"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "configuration": {
+        "EnableAddEmoji": true,
+        "EnableRemoveKeywords": false,
+        "RemoveKeywords": "",
+        "EnableIndexProxyName": "2"
+      },
+      "description": "按节点名称中的地区关键词添加旗帜，可配置关键词移除与索引；不进行 IP 地理定位。",
+      "id": "plugin-modify-proxy-name",
+      "name": "更好的代理名称显示",
+      "path": "plugins/plugin-modify-proxy-name.js",
+      "sha256": "8f483927dcc0ee74e6016db8cb5d8b28e05a5948030512cf73ec0d96d8b31b6a",
+      "triggers": [
+        "on::subscribe"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "configuration": {
+        "EnableSubscriptionName": true,
+        "EnableNationalEmoji": true,
+        "EnableUnifyRegionName": "不启用"
+      },
+      "description": "清理多余空格，按需添加订阅名、地区旗帜或统一地区名称；支持对已缓存订阅手动运行。",
+      "id": "plugin-beautiful-node-name",
+      "name": "美化节点名称",
+      "path": "plugins/plugin-beautiful-node-name.js",
+      "sha256": "56ec5feaa05bd27880d8de983c2c9870625ea27ba307078b2e7bb99996501de7",
+      "triggers": [
+        "on::subscribe",
+        "on::manual"
+      ],
+      "version": "1.0.0"
+    },
+    {
+      "configuration": {},
+      "description": "仅合并除名称外完整配置相同的节点，保留凭据、TLS、协议等存在差异的节点，并修复内部引用。",
+      "id": "plugin-duplicate-proxies-removal",
+      "name": "重复节点移除",
+      "path": "plugins/plugin-duplicate-proxies-removal.js",
+      "sha256": "2d428292564059fec0085f1dbb972aee5662dda2cc63d0948faf956bddcc68ce",
+      "triggers": [
+        "on::subscribe"
+      ],
+      "version": "1.0.0"
+    }
+  ]
+}

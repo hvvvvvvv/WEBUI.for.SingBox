@@ -79,6 +79,7 @@ type appRuntimeService struct {
 	events   EventPublisher
 	kernel   KernelController
 	state    *syncstate.Coordinator
+	plugins  SubscriptionPlugins // guarded by subscriptionsMu
 
 	mu               sync.Mutex
 	subscriptionsMu  sync.Mutex
@@ -1174,8 +1175,15 @@ func subscriptionRequestHeaders(headers map[string]string, defaultUserAgent stri
 }
 
 func updateSubscriptionAt(items []subscription, idx int, defaultUserAgent string) (*appv1.TaskResult, bool) {
+	return updateSubscriptionAtWithPlugins(context.Background(), items, idx, defaultUserAgent, nil)
+}
+
+func updateSubscriptionAtWithPlugins(ctx context.Context, items []subscription, idx int, defaultUserAgent string, plugins SubscriptionPlugins) (*appv1.TaskResult, bool) {
 	next := cloneSubscription(items[idx])
 	sub := &next
+	if err := ctx.Err(); err != nil {
+		return subscriptionFailureResult(sub, err), false
+	}
 	if sub.Disabled {
 		return subscriptionFailureResult(sub, errors.New("subscription is disabled")), false
 	}
@@ -1282,8 +1290,49 @@ func updateSubscriptionAt(items []subscription, idx int, defaultUserAgent string
 	processedSub.Updating = false
 	*sub = processedSub
 	sub.Proxies = proxyRefsFromOutbounds(processedProxies, sub.Proxies)
+	pluginChanged := false
+	if plugins != nil {
+		// A hook may mutate its input in place. Compare serialized snapshots
+		// for Manual sources, whose cache otherwise remains untouched.
+		var previousDigest [32]byte
+		if sub.Type == "Manual" {
+			previousDigest, err = subscriptionPluginDigest(processedProxies)
+			if err != nil {
+				return subscriptionFailureResult(sub, err), false
+			}
+		}
+		metadata, err := subscriptionPluginMetadata(*sub)
+		if err != nil {
+			return subscriptionFailureResult(sub, err), false
+		}
+		intermediateRefs := sub.Proxies
+		annotatePluginProxyIDs(processedProxies, intermediateRefs)
+		pluginProxies, err := plugins.ApplySubscription(ctx, processedProxies, metadata)
+		if err != nil {
+			return subscriptionFailureResult(sub, err), false
+		}
+		processedProxies = pluginProxies
+		if processedProxies == nil {
+			processedProxies = []map[string]any{}
+		}
+		finalRefs, err := pluginProxyRefs(processedProxies, items[idx].Proxies, intermediateRefs)
+		if err != nil {
+			return subscriptionFailureResult(sub, err), false
+		}
+		if sub.Type == "Manual" {
+			currentDigest, err := subscriptionPluginDigest(processedProxies)
+			if err != nil {
+				return subscriptionFailureResult(sub, err), false
+			}
+			pluginChanged = currentDigest != previousDigest
+		}
+		sub.Proxies = finalRefs
+	}
+	if err := ctx.Err(); err != nil {
+		return subscriptionFailureResult(sub, err), false
+	}
 
-	if sub.Type == "Http" {
+	if sub.Type == "Http" || pluginChanged {
 		data, err := json.MarshalIndent(processedProxies, "", "  ")
 		if err != nil {
 			return subscriptionFailureResult(sub, err), false
@@ -1413,7 +1462,7 @@ func mustRead(path string) []byte {
 	return data
 }
 
-func (s *appRuntimeService) updateSubscription(id string) ([]*appv1.TaskResult, *commonv1.MutationState, error) {
+func (s *appRuntimeService) updateSubscription(ctx context.Context, id string) ([]*appv1.TaskResult, *commonv1.MutationState, error) {
 	s.subscriptionsMu.Lock()
 	items, err := loadSubscriptions()
 	if err != nil {
@@ -1424,7 +1473,7 @@ func (s *appRuntimeService) updateSubscription(id string) ([]*appv1.TaskResult, 
 	for i := range items {
 		if items[i].ID == id {
 			before := cloneSubscription(items[i])
-			result, changed := updateSubscriptionAt(items, i, defaultUserAgent)
+			result, changed := updateSubscriptionAtWithPlugins(ctx, items, i, defaultUserAgent, s.plugins)
 			if changed {
 				if err := saveSubscriptions(items); err != nil {
 					s.subscriptionsMu.Unlock()
@@ -1454,7 +1503,7 @@ func (s *appRuntimeService) updateSubscription(id string) ([]*appv1.TaskResult, 
 	return nil, nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("subscription %q not found", id))
 }
 
-func (s *appRuntimeService) updateAllSubscriptions() ([]*appv1.TaskResult, *commonv1.MutationState, error) {
+func (s *appRuntimeService) updateAllSubscriptions(ctx context.Context) ([]*appv1.TaskResult, *commonv1.MutationState, error) {
 	s.subscriptionsMu.Lock()
 	items, err := loadSubscriptions()
 	if err != nil {
@@ -1470,7 +1519,7 @@ func (s *appRuntimeService) updateAllSubscriptions() ([]*appv1.TaskResult, *comm
 			continue
 		}
 		before := cloneSubscription(items[i])
-		result, didChange := updateSubscriptionAt(items, i, defaultUserAgent)
+		result, didChange := updateSubscriptionAtWithPlugins(ctx, items, i, defaultUserAgent, s.plugins)
 		results = append(results, result)
 		if didChange {
 			changedIDs = append(changedIDs, items[i].ID)
@@ -1651,7 +1700,7 @@ func (s *appRuntimeService) runScheduledTask(ctx context.Context, id string, pub
 	switch task.Type {
 	case scheduledTaskUpdateSubscription:
 		for _, subID := range task.Subscriptions {
-			r, _, err := s.updateSubscription(subID)
+			r, _, err := s.updateSubscription(ctx, subID)
 			if err != nil {
 				results = append(results, taskResult(false, subID, "", err.Error()))
 				continue
@@ -1668,7 +1717,7 @@ func (s *appRuntimeService) runScheduledTask(ctx context.Context, id string, pub
 			results = append(results, r...)
 		}
 	case scheduledTaskUpdateAllSubscription:
-		results, _, err = s.updateAllSubscriptions()
+		results, _, err = s.updateAllSubscriptions(ctx)
 	case scheduledTaskUpdateAllRuleset:
 		results, _, err = s.updateAllRulesets()
 	default:
@@ -1938,7 +1987,7 @@ func (s *appRuntimeService) ReorderSubscriptions(ctx context.Context, req *conne
 }
 
 func (s *appRuntimeService) UpdateSubscription(ctx context.Context, req *connect.Request[appv1.UpdateSubscriptionRequest]) (*connect.Response[appv1.UpdateSubscriptionResponse], error) {
-	results, state, err := s.updateSubscription(req.Msg.GetId())
+	results, state, err := s.updateSubscription(ctx, req.Msg.GetId())
 	if err != nil {
 		return nil, asConnectError(err)
 	}
@@ -1946,7 +1995,7 @@ func (s *appRuntimeService) UpdateSubscription(ctx context.Context, req *connect
 }
 
 func (s *appRuntimeService) UpdateAllSubscriptions(ctx context.Context, req *connect.Request[appv1.UpdateAllSubscriptionsRequest]) (*connect.Response[appv1.UpdateAllSubscriptionsResponse], error) {
-	results, state, err := s.updateAllSubscriptions()
+	results, state, err := s.updateAllSubscriptions(ctx)
 	if err != nil {
 		return nil, asConnectError(err)
 	}

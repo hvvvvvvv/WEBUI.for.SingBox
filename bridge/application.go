@@ -20,6 +20,7 @@ import (
 	"guiforcores/bridge/kernel"
 	"guiforcores/bridge/logging"
 	"guiforcores/bridge/platform"
+	"guiforcores/bridge/plugins"
 	"guiforcores/bridge/profile"
 	"guiforcores/bridge/ruleset"
 	appruntime "guiforcores/bridge/runtime"
@@ -108,6 +109,11 @@ func New(options Options) (_ *Application, resultErr error) {
 		return nil, fmt.Errorf("load app config: %w", err)
 	}
 	configService := config.NewService(paths, options.AppName)
+	pluginService, err := plugins.NewService(paths)
+	if err != nil {
+		return nil, fmt.Errorf("load plugins: %w", err)
+	}
+	configService.SetPlugins(pluginService)
 	profileService := profile.NewService(paths, events, resourceState)
 	kernelService := kernel.NewService(platformService, configService, appConfig, profileService, events)
 	coreLogs := logging.NewCoreWriter(paths.Resolve("data/logs/core"), int(appConfig.Current().CoreLogDays))
@@ -121,6 +127,7 @@ func New(options Options) (_ *Application, resultErr error) {
 	appConfigService := config.NewAppService(appConfig)
 	appConfigService.SetChangeHandler(kernelService)
 	runtimeService := appruntime.NewService(platformService, paths, appConfig, events, kernelService, resourceState)
+	runtimeService.SetPlugins(pluginService)
 	subscriptionService := subscription.NewService(runtimeService)
 	ruleSetService := ruleset.NewService(runtimeService)
 	schedulerService := scheduler.NewService(runtimeService)
@@ -143,6 +150,8 @@ func New(options Options) (_ *Application, resultErr error) {
 		Scheduler:     schedulerService,
 		Update:        updateService,
 		System:        systemService,
+		Plugins:       pluginService,
+		PluginRunner:  runtimeService,
 		RollingRelease: func() bool {
 			return appConfig.Current().RollingRelease
 		},

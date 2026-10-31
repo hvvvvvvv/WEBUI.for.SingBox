@@ -54,6 +54,7 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       profilesView: defaults.profilesView,
       subscribesView: defaults.subscribesView,
       rulesetsView: defaults.rulesetsView,
+      pluginsView: defaults.pluginsView,
       scheduledtasksView: defaults.scheduledtasksView,
       connections: { ...defaults.connections },
       kernel: { ...defaults.kernel },
@@ -71,6 +72,7 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       'profilesView',
       'subscribesView',
       'rulesetsView',
+      'pluginsView',
       'scheduledtasksView',
       'debugOutline',
       'debugNoAnimation',
@@ -138,6 +140,7 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     profilesView: View.Grid,
     subscribesView: View.Grid,
     rulesetsView: View.Grid,
+    pluginsView: View.Grid,
     scheduledtasksView: View.Grid,
     connections: DefaultConnections(),
     kernel: {
