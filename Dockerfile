@@ -31,6 +31,7 @@ FROM alpine:3.21
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=backend-builder /out/webui.for.singbox.server ./
+COPY --chmod=755 docker/entrypoint.sh /app/entrypoint.sh
 
 VOLUME /app/data
 
@@ -38,4 +39,4 @@ ENV GFS_HOST=0.0.0.0
 ENV GFS_PORT=9090
 EXPOSE 9090
 
-ENTRYPOINT ["sh", "-c", "exec ./webui.for.singbox.server --addr ${GFS_HOST}:${GFS_PORT}"]
+ENTRYPOINT ["/app/entrypoint.sh"]

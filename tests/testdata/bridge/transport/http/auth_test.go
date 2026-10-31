@@ -11,31 +11,26 @@ import (
 	"guiforcores/bridge/storage"
 )
 
-func TestLoginRateLimitIgnoresEmptySecretProbe(t *testing.T) {
+func TestLoginRateLimitCountsEmptyPasswordFailures(t *testing.T) {
 	authService, handler := newAuthTestHandler(t)
 	const remoteAddr = "192.0.2.1:1234"
-
-	for range maxLoginProbeCount {
+	for range 5 {
 		result := requestLogin(t, handler, remoteAddr, "")
-		if result.Flag || result.Data != "Invalid secret" {
-			t.Fatalf("unexpected empty-secret result: %#v", result)
+		if result.Flag || result.Data != auth.ErrCredentials.Error() {
+			t.Fatalf("unexpected result: %#v", result)
 		}
 	}
-	if authService.IsLoginRateLimited(remoteAddr) {
-		t.Fatal("empty-secret probes must not trigger login rate limiting")
-	}
-	if result := requestLogin(t, handler, remoteAddr, "correct"); !result.Flag {
-		t.Fatalf("valid login after probes failed: %#v", result)
+	if !authService.IsLoginRateLimited(remoteAddr) {
+		t.Fatal("empty password bypassed rate limit")
 	}
 }
-
 func TestLoginRateLimitStillCountsNonEmptyFailures(t *testing.T) {
 	authService, handler := newAuthTestHandler(t)
 	const remoteAddr = "192.0.2.2:1234"
 
 	for range 5 {
 		result := requestLogin(t, handler, remoteAddr, "wrong")
-		if result.Flag || result.Data != "Invalid secret" {
+		if result.Flag || result.Data != auth.ErrCredentials.Error() {
 			t.Fatalf("unexpected failed-login result: %#v", result)
 		}
 	}

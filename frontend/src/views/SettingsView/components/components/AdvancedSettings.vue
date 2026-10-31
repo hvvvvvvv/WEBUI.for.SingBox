@@ -2,7 +2,6 @@
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { apiCall } from '@/bridge/http'
 import { useAppConfigStore, useAppSettingsStore } from '@/stores'
 import { message } from '@/utils'
 import { parseCoreLogDays } from '@/utils/coreLogDays'
@@ -10,10 +9,6 @@ import { parseCoreLogDays } from '@/utils/coreLogDays'
 const { t } = useI18n()
 const appSettings = useAppSettingsStore()
 const appConfig = useAppConfigStore()
-
-const authSecret = ref('')
-const authSecretConfirm = ref('')
-const authLoading = ref(false)
 
 const coreLogDays = ref<number | string>(appConfig.config.coreLogDays)
 const coreLogDaysSaving = ref(false)
@@ -41,50 +36,6 @@ const saveCoreLogDays = async (input: number | string) => {
     message.error(error.message || String(error))
   } finally {
     coreLogDaysSaving.value = false
-  }
-}
-
-const handleSetupAuth = async () => {
-  if (!authSecret.value) return
-  if (authSecret.value !== authSecretConfirm.value) {
-    message.error(t('auth.mismatch'))
-    return
-  }
-  authLoading.value = true
-  try {
-    const result = await apiCall<{ flag: boolean; data: string }>('/auth/setup', authSecret.value)
-    if (result.flag) {
-      appSettings.sessionInfo.authEnabled = true
-      if (result.data) appSettings.sessionInfo.cacheToken = result.data
-      message.success(t('auth.updateSuccess'))
-      appSettings.sessionInfo.authEnabled = true
-      authSecret.value = ''
-      authSecretConfirm.value = ''
-    } else {
-      message.error(result.data)
-    }
-  } catch (e: any) {
-    message.error(e.message || e)
-  } finally {
-    authLoading.value = false
-  }
-}
-
-const handleClearAuth = async () => {
-  authLoading.value = true
-  try {
-    const result = await apiCall<{ flag: boolean; data: string }>('/auth/setup', '')
-    if (result.flag) {
-      if (result.data) appSettings.sessionInfo.cacheToken = result.data
-      appSettings.sessionInfo.authEnabled = false
-      message.success(t('auth.clearSuccess'))
-    } else {
-      message.error(result.data)
-    }
-  } catch (e: any) {
-    message.error(e.message || e)
-  } finally {
-    authLoading.value = false
   }
 }
 </script>
@@ -141,73 +92,4 @@ const handleClearAuth = async () => {
       </Input>
     </div>
   </Card>
-
-  <div class="px-8 py-12 text-18 font-bold">{{ $t('auth.setup') }}</div>
-
-  <Card>
-    <div class="px-8 py-12 flex items-center justify-between">
-      <div class="text-16 font-bold">
-        {{ $t('auth.setup') }}
-        <span class="font-normal text-12">({{ $t('auth.setupTips') }})</span>
-      </div>
-      <Tag v-if="appSettings.sessionInfo.authEnabled" color="primary">{{
-        $t('auth.authEnabled')
-      }}</Tag>
-      <Tag v-else>{{ $t('auth.authDisabled') }}</Tag>
-    </div>
-    <div class="px-8 py-12 flex items-center justify-between">
-      <div class="text-16 font-bold">{{ $t('auth.secret') }}</div>
-      <input
-        v-model="authSecret"
-        type="password"
-        :placeholder="$t('auth.placeholder')"
-        class="auth-input"
-      />
-    </div>
-    <div class="px-8 py-12 flex items-center justify-between">
-      <div class="text-16 font-bold">{{ $t('auth.confirmSecret') }}</div>
-      <input
-        v-model="authSecretConfirm"
-        type="password"
-        :placeholder="$t('auth.confirmSecret')"
-        class="auth-input"
-      />
-    </div>
-    <div class="px-8 py-12 flex items-center justify-end gap-8">
-      <Button
-        v-if="appSettings.sessionInfo.authEnabled"
-        type="text"
-        :loading="authLoading"
-        @click="handleClearAuth"
-      >
-        {{ $t('auth.clearAuth') }}
-      </Button>
-      <Button
-        type="primary"
-        :loading="authLoading"
-        :disabled="!authSecret || !authSecretConfirm"
-        @click="handleSetupAuth"
-      >
-        {{ $t('common.save') }}
-      </Button>
-    </div>
-  </Card>
 </template>
-
-<style scoped>
-.auth-input {
-  width: 220px;
-  padding: 6px 10px;
-  border: 1px solid var(--border-color, #ddd);
-  border-radius: 6px;
-  font-size: 14px;
-  outline: none;
-  background: var(--input-bg-color, #fafafa);
-  color: var(--text-color, #333);
-  transition: border-color 0.2s;
-}
-
-.auth-input:focus {
-  border-color: var(--primary-color, #409eff);
-}
-</style>

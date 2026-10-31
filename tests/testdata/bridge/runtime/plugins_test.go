@@ -436,7 +436,9 @@ func TestExternalSubscriptionPluginsKeepNodeIDsAcrossRefreshes(t *testing.T) {
 		for _, trigger := range plugin.Triggers {
 			if trigger == pluginservice.OnSubscribe {
 				groups[plugin.ID] = []pluginservice.Plugin{plugin}
-				if plugin.ID != dedupe.ID {
+				// The unified organizer replaces deduplication; running both is an
+				// intentional conflict, covered separately below in both orders.
+				if plugin.ID != dedupe.ID && plugin.ID != "plugin-subscription-organizer" {
 					groups[plugin.ID+"+dedupe"] = []pluginservice.Plugin{plugin, dedupe}
 					groups["dedupe+"+plugin.ID] = []pluginservice.Plugin{dedupe, plugin}
 				}
@@ -478,6 +480,94 @@ func TestExternalSubscriptionPluginsKeepNodeIDsAcrossRefreshes(t *testing.T) {
 			}
 			if strings.Contains(string(readPluginFixture(t, subscriptionContentPath("selected"))), "__id_in_gui") {
 				t.Fatal("external plugin persisted internal node identity")
+			}
+		})
+	}
+}
+
+func TestExternalOrganizerConfiguredRefreshPreservesIDsAndAppliesOverrides(t *testing.T) {
+	available := externalSubscriptionPlugins(t)
+	var organizer pluginservice.Plugin
+	for _, plugin := range available {
+		if plugin.ID == "plugin-subscription-organizer" {
+			organizer = plugin
+		}
+	}
+	if organizer.ID == "" {
+		t.Fatal("external catalog is missing the subscription organizer")
+	}
+	// These overrides exercise all three stages and override the default flag
+	// option. A no-op/default-disabled organizer cannot satisfy this expectation.
+	organizer.Configuration = map[string]any{
+		"Enabled": true, "FilterEnabled": true, "IncludeName": "^PREFIX-HK",
+		"IncludeTypes": `["shadowsocks"]`, "RemoveDuplicates": true,
+		"RenameMode": "flags", "EnableAddEmoji": false,
+		"EnableRemoveKeywords": true, "RemoveKeywords": "^PREFIX-",
+		"EnableIndexProxyName": "0",
+	}
+	const body = `[{"type":"shadowsocks","tag":"PREFIX-HK","server":"127.0.0.1","server_port":1,"method":"aes-128-gcm","password":"p"},{"type":"shadowsocks","tag":"PREFIX-JP","server":"127.0.0.1","server_port":2,"method":"aes-128-gcm","password":"p"},{"type":"shadowsocks","tag":"PREFIX-HK-copy","server":"127.0.0.1","server_port":1,"method":"aes-128-gcm","password":"p"}]`
+	withTempBasePath(t)
+	stubSubscriptionResponse(t, body)
+	writePluginFixture(t, []subscription{{ID: "selected", Name: "Selected", Type: "Http"}}, "selected", body)
+	engine, err := pluginservice.NewService(runtimePaths.Load())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := engine.Save(organizer, 0); err != nil {
+		t.Fatal(err)
+	}
+	service := newTestRuntimeService(nil)
+	service.SetPlugins(engine)
+	var previous []proxyRef
+	for attempt := 0; attempt < 2; attempt++ {
+		response, err := service.UpdateSubscription(context.Background(), connect.NewRequest(&appv1.UpdateSubscriptionRequest{Id: "selected"}))
+		if err != nil || !response.Msg.Results[0].GetOk() {
+			t.Fatalf("organizer refresh %d failed: %v %v", attempt, response, err)
+		}
+		items, err := loadSubscriptions()
+		if err != nil || len(items) != 1 || len(items[0].Proxies) != 1 || items[0].Proxies[0].Tag != "HK" || items[0].Proxies[0].ID == "" {
+			t.Fatalf("organizer settings did not filter, deduplicate and rename: %v %v", items, err)
+		}
+		if attempt > 0 && !reflect.DeepEqual(previous, items[0].Proxies) {
+			t.Fatalf("configured organizer replaced selected node identity: first=%v second=%v", previous, items[0].Proxies)
+		}
+		previous = append([]proxyRef(nil), items[0].Proxies...)
+		if strings.Contains(string(readPluginFixture(t, subscriptionContentPath("selected"))), "__id_in_gui") {
+			t.Fatal("organizer persisted internal node identity")
+		}
+	}
+}
+
+func TestExternalOrganizerRejectsLegacyDedupeInBothOrders(t *testing.T) {
+	available := externalSubscriptionPlugins(t)
+	byID := make(map[string]pluginservice.Plugin)
+	for _, plugin := range available {
+		byID[plugin.ID] = plugin
+	}
+	for _, ids := range [][]string{
+		{"plugin-subscription-organizer", "plugin-duplicate-proxies-removal"},
+		{"plugin-duplicate-proxies-removal", "plugin-subscription-organizer"},
+	} {
+		t.Run(strings.Join(ids, "+"), func(t *testing.T) {
+			withTempBasePath(t)
+			engine, err := pluginservice.NewService(runtimePaths.Load())
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, id := range ids {
+				if byID[id].ID == "" {
+					t.Fatalf("external catalog is missing %s", id)
+				}
+			}
+			if _, err := engine.Save(byID[ids[0]], 0); err != nil {
+				t.Fatal(err)
+			}
+			before := engine.List()
+			if _, err := engine.Save(byID[ids[1]], before.Revision); !errors.Is(err, pluginservice.ErrInvalid) || !strings.Contains(err.Error(), "conflict") {
+				t.Fatalf("organizer and legacy dedupe must conflict: %v", err)
+			}
+			if !reflect.DeepEqual(engine.List(), before) {
+				t.Fatal("rejected legacy/new combination changed installed plugins")
 			}
 		})
 	}

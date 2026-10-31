@@ -4,7 +4,7 @@ import type { DescService } from '@bufbuild/protobuf'
 
 import { useAppSettingsStore } from '@/stores'
 
-import { loadAuthToken } from './http'
+import { loadAuthToken, recoverAuthToken } from './http'
 
 let transport: ReturnType<typeof createConnectTransport> | undefined
 
@@ -25,8 +25,7 @@ const getTransport = () => {
 
       let resp = await fetch(input, { ...init, headers })
       if (resp.status === 401) {
-        appSettings.sessionInfo.cacheToken = ''
-        if (!(await loadAuthToken())) {
+        if (!(await recoverAuthToken())) {
           location.reload()
         }
 

@@ -15,6 +15,7 @@ export default {
       '@codemirror/state',
       '@codemirror/view',
       'prettier',
+      'qrcode',
     ],
     alias: [
       { find: '@', replacement: fileURLToPath(new URL('../frontend/src', import.meta.url)) },

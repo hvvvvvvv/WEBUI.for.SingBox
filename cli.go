@@ -14,10 +14,11 @@ import (
 	"github.com/alecthomas/kong"
 	"github.com/kardianos/service"
 
-	"guiforcores/bridge"
 	"guiforcores/bridge/appupdate"
+	"guiforcores/bridge/auth"
 	"guiforcores/bridge/logging"
 	"guiforcores/bridge/platform"
+	"guiforcores/bridge/storage"
 )
 
 const (
@@ -39,10 +40,11 @@ type coreGuardCommand struct{}
 func (*coreGuardCommand) Run() error { return platform.RunCoreGuard(os.Stdin, os.Stdout) }
 
 type serverCommand struct {
-	Addr      string `name:"addr" default:"${defaultAddress}" help:"HTTP server listen address."`
-	LogLevel  string `name:"log-level" default:"info" enum:"debug,info,warn,error" help:"Minimum backend log level."`
-	LogDays   int    `name:"log-days" default:"7" help:"Number of local calendar days to retain application log files; <= 0 disables file logging."`
-	ResetAuth string `name:"reset-auth" help:"Reset auth secret (provide new secret, or 'clear' to remove)."`
+	Addr           string `name:"addr" default:"${defaultAddress}" help:"HTTP server listen address."`
+	LogLevel       string `name:"log-level" default:"info" enum:"debug,info,warn,error" help:"Minimum backend log level."`
+	LogDays        int    `name:"log-days" default:"7" help:"Number of local calendar days to retain application log files; <= 0 disables file logging."`
+	ResetAuth      string `name:"reset-auth" help:"Local recovery: reset password and remove TOTP/recovery codes (new password, or 'clear'). Stop the service first."`
+	ResetAuthStdin bool   `name:"reset-auth-stdin" help:"Read a replacement password from standard input, remove TOTP/recovery codes. Stop the service first."`
 }
 
 type serviceCommand struct {
@@ -82,6 +84,7 @@ type updaterCommand struct {
 
 type commandRuntime struct {
 	stdout io.Writer
+	stdin  io.Reader
 }
 
 var (
@@ -106,7 +109,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintln(stderr, err)
 		return 2
 	}
-	if err := ctx.Run(&commandRuntime{stdout: stdout}); err != nil {
+	if err := ctx.Run(&commandRuntime{stdout: stdout, stdin: os.Stdin}); err != nil {
 		fmt.Fprintln(stderr, err)
 		return 1
 	}
@@ -140,6 +143,20 @@ func newCommandParser(cli *commandLine, stdout, stderr io.Writer, exit func(int)
 }
 
 func (c *serverCommand) Run(runtime *commandRuntime) error {
+	if c.ResetAuthStdin {
+		if c.ResetAuth != "" {
+			return errors.New("choose either --reset-auth or --reset-auth-stdin")
+		}
+		reader := runtime.stdin
+		if reader == nil {
+			reader = os.Stdin
+		}
+		password, err := readRecoveryPassword(reader)
+		if err != nil {
+			return err
+		}
+		return resetAuth(c.Addr, password, runtime.stdout)
+	}
 	if c.ResetAuth != "" {
 		return resetAuth(c.Addr, c.ResetAuth, runtime.stdout)
 	}
@@ -150,23 +167,46 @@ func (c *serverCommand) Run(runtime *commandRuntime) error {
 	return runApplication(c.Addr, runtime.stdout, level, c.LogDays)
 }
 
-func resetAuth(addr, secret string, stdout io.Writer) error {
-	app, err := newApplication(bridge.Options{Address: addr, Assets: assets, AppVersion: version})
+func readRecoveryPassword(reader io.Reader) (string, error) {
+	data, err := io.ReadAll(io.LimitReader(reader, 1027))
 	if err != nil {
-		return fmt.Errorf("failed to initialize application: %w", err)
+		return "", errors.New("cannot read recovery password")
 	}
+	password := strings.TrimSuffix(strings.TrimSuffix(string(data), "\n"), "\r")
+	if password == "" || password == "clear" || len(password) > 1024 {
+		return "", errors.New("replacement password must contain 1 to 1024 bytes; use --reset-auth clear to remove authentication")
+	}
+	return password, nil
+}
+
+func resetAuth(_ string, secret string, stdout io.Writer) error {
+	executable, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("resolve recovery directory: %w", err)
+	}
+	return resetAuthInDirectory(filepath.Dir(executable), secret, stdout)
+}
+
+func resetAuthInDirectory(directory, secret string, stdout io.Writer) error {
+	paths := storage.NewPaths(directory)
+	lock, err := storage.LockFile(paths.Resolve("data/backend.lock"))
+	if err != nil {
+		return fmt.Errorf("stop the backend service before local authentication recovery: %w", err)
+	}
+	defer lock.Close()
+	authentication := auth.NewService(paths)
 
 	if secret == "clear" {
-		if err := app.SetAuthSecret(""); err != nil {
+		if err := authentication.SetSecret(""); err != nil {
 			return fmt.Errorf("failed to clear auth secret: %w", err)
 		}
-		fmt.Fprintln(stdout, "Auth secret cleared.")
+		fmt.Fprintln(stdout, "Auth secret cleared; TOTP and recovery codes removed. Existing sessions invalidated.")
 		return nil
 	}
-	if err := app.SetAuthSecret(secret); err != nil {
+	if err := authentication.SetSecret(secret); err != nil {
 		return fmt.Errorf("failed to update auth secret: %w", err)
 	}
-	fmt.Fprintln(stdout, "Auth secret updated.")
+	fmt.Fprintln(stdout, "Auth secret updated; TOTP and recovery codes removed. Existing sessions invalidated.")
 	return nil
 }
 

@@ -9,6 +9,7 @@ vi.mock('@/utils', async () => {
   return { debounce, deepClone }
 })
 import { DefaultVisiblePages } from '@/constant/app'
+import { Theme } from '@/enums/app'
 import { useAppSettingsStore } from '@/stores/appSettings'
 
 describe('browser UI preferences', () => {
@@ -28,6 +29,7 @@ describe('browser UI preferences', () => {
   afterEach(() => {
     disposePinia(pinia)
     vi.useRealTimers()
+    delete (document as Partial<Document>).startViewTransition
   })
 
   it('migrates existing settings without hiding navigation or changing theme and font', () => {
@@ -50,6 +52,69 @@ describe('browser UI preferences', () => {
     expect(store.app.debugUsePointer).toBe(true)
     expect(store.app.debugModalSideBySide).toBe(false)
     expect(store.app.kernel.realMemoryUsage).toBe(false)
+  })
+  it('applies and follows the system theme while authentication is still required', async () => {
+    const addEventListener = vi.fn()
+    vi.mocked(window.matchMedia).mockReturnValue({
+      matches: true,
+      addEventListener,
+      removeEventListener: vi.fn(),
+    } as unknown as MediaQueryList)
+    sessionStorage.setItem(
+      'sessionInfo',
+      JSON.stringify({ authEnabled: true, cacheToken: '', requireLogin: true }),
+    )
+    const store = useAppSettingsStore()
+    store.setupAppSettings()
+    await nextTick()
+    expect(document.body.getAttribute('theme-mode')).toBe('dark')
+    expect(store.sessionInfo.requireLogin).toBe(true)
+    const listener = addEventListener.mock.calls[0]![1]
+    listener({ matches: false })
+    await nextTick()
+    expect(document.body.getAttribute('theme-mode')).toBe('light')
+    expect(store.sessionInfo.cacheToken).toBe('')
+  })
+  it('handles aborted view-transition promises and ignores an older theme callback', async () => {
+    const callbacks: Array<() => void> = []
+    document.startViewTransition = vi.fn((update) => {
+      callbacks.push(update as () => void)
+      return {
+        ready: Promise.reject(new DOMException('Transition aborted', 'AbortError')),
+        finished: Promise.reject(new DOMException('Transition aborted', 'AbortError')),
+        updateCallbackDone: Promise.resolve(),
+      } as ViewTransition
+    })
+    const store = useAppSettingsStore()
+    store.setupAppSettings()
+    store.app.theme = Theme.Dark
+    await nextTick()
+    callbacks.at(-1)!()
+    callbacks[0]!()
+    expect(document.body.getAttribute('theme-mode')).toBe('dark')
+    await Promise.resolve()
+  })
+  it('still applies the latest theme when transition startup or its update callback fails', async () => {
+    document.startViewTransition = vi.fn(() => {
+      throw new DOMException('Not available', 'InvalidStateError')
+    })
+    const store = useAppSettingsStore()
+    store.setupAppSettings()
+    store.app.theme = Theme.Dark
+    await nextTick()
+    expect(document.body.getAttribute('theme-mode')).toBe('dark')
+    document.startViewTransition = vi.fn(
+      () =>
+        ({
+          ready: Promise.reject(new Error('aborted')),
+          finished: Promise.reject(new Error('aborted')),
+          updateCallbackDone: Promise.reject(new Error('aborted')),
+        }) as ViewTransition,
+    )
+    store.app.theme = Theme.Light
+    await nextTick()
+    await Promise.resolve()
+    expect(document.body.getAttribute('theme-mode')).toBe('light')
   })
 
   it('persists an empty page selection and feature changes through a browser reload', async () => {

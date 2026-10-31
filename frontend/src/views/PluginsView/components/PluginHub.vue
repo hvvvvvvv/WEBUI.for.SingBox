@@ -8,6 +8,12 @@ import type { PluginCatalogItem } from '@/types/plugin'
 const { t } = useI18n()
 const store = usePluginsStore()
 const keywords = ref('')
+const showLegacy = ref(false)
+const legacyCount = computed(
+  () => store.catalog.plugins.filter((plugin) => plugin.deprecated).length,
+)
+const replacementName = (plugin: PluginCatalogItem) =>
+  store.catalog.plugins.find((item) => item.id === plugin.replaced_by)?.name || plugin.replaced_by
 const enabledConflicts = (candidate: PluginCatalogItem) =>
   store.plugins
     .filter(
@@ -19,10 +25,12 @@ const enabledConflicts = (candidate: PluginCatalogItem) =>
     )
     .map((plugin) => plugin.name)
 const filtered = computed(() =>
-  store.catalog.plugins.filter((plugin) =>
-    `${plugin.name} ${plugin.description}`
-      .toLocaleLowerCase()
-      .includes(keywords.value.trim().toLocaleLowerCase()),
+  store.catalog.plugins.filter(
+    (plugin) =>
+      (!plugin.deprecated || showLegacy.value) &&
+      `${plugin.name} ${plugin.description}`
+        .toLocaleLowerCase()
+        .includes(keywords.value.trim().toLocaleLowerCase()),
   ),
 )
 const repositoryURL = computed(() =>
@@ -69,6 +77,14 @@ onMounted(() => {
       >
     </div>
     <p class="plugin-hub-note">{{ t('plugins.hubHint') }}</p>
+    <Button
+      v-if="legacyCount"
+      size="small"
+      :aria-expanded="showLegacy"
+      @click="showLegacy = !showLegacy"
+    >
+      {{ t(showLegacy ? 'plugins.hideLegacy' : 'plugins.showLegacy', { count: legacyCount }) }}
+    </Button>
     <p v-if="store.catalog.source !== 'empty'" class="plugin-hub-note">
       {{ t(store.catalog.source === 'cache' ? 'plugins.catalogCached' : 'plugins.catalogRemote') }}
     </p>
@@ -88,6 +104,9 @@ onMounted(() => {
           ><Tag size="small">{{ plugin.version }}</Tag></template
         >
         <p class="plugin-hub-description">{{ plugin.description }}</p>
+        <p v-if="plugin.deprecated" class="plugin-hub-note">
+          {{ t('plugins.legacyHint', { name: replacementName(plugin) || '' }) }}
+        </p>
         <p v-if="enabledConflicts(plugin).length" class="plugin-hub-note">
           {{ t('plugins.conflictsWith') }} {{ enabledConflicts(plugin).join('、') }}
         </p>

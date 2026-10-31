@@ -56,6 +56,7 @@ const initApp = async () => {
     message.error(err)
   }
   if (!authed) {
+    appSettings.sessionInfo.requireLogin = true
     loading.value = false
     return
   }
@@ -89,12 +90,12 @@ const initApp = async () => {
 }
 
 const handleAuthenticated = () => {
-  appSettings.sessionInfo.authEnabled = true
   appSettings.sessionInfo.requireLogin = false
   if (appInitialized.value) {
     location.reload()
     return
   }
+  loading.value = true
   initApp()
 }
 

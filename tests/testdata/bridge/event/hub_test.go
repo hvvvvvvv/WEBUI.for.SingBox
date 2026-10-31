@@ -134,3 +134,23 @@ func TestHubConcurrentPublishAndClose(t *testing.T) {
 		t.Fatalf("hub was not fully closed: clients=%d closed=%v", len(hub.clients), hub.closed)
 	}
 }
+
+func TestRevokedSessionCannotSendAlreadyQueuedPayload(t *testing.T) {
+	sessions := newTestSessions()
+	hub := NewHub(sessions)
+	queued := &client{hub: hub, token: "token", send: make(chan []byte, 1), done: make(chan struct{})}
+	if !hub.addClient(queued) {
+		t.Fatal("cannot add client")
+	}
+	hub.Publish("queued-before-revocation")
+	sessions.valid.Store(false)
+	finished := make(chan struct{})
+	go func() { defer close(finished); queued.writeLoop() }()
+	select {
+	case <-finished:
+	case <-time.After(time.Second):
+		t.Fatal("revoked queued client remained alive")
+	}
+	// The client deliberately has no socket: reaching a write would panic.
+	waitForClients(t, hub, 0)
+}

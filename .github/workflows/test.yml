@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-latest]
     runs-on: ${{ matrix.os }}
     env:
       WEBUI_PLUGIN_REPO: ${{ github.workspace }}/.plugin-tests
@@ -44,7 +44,7 @@ jobs:
       - run: go run ./cmd/plugin-check ./.plugin-tests
       - if: runner.os == 'Linux'
         run: go run ./tests -race -short ./... -count=1 -timeout=180s
-      - if: runner.os == 'Linux'
+      - if: matrix.os == 'ubuntu-latest'
         name: Static Linux cross-compilation
         shell: bash
         run: |
@@ -54,3 +54,77 @@ jobs:
               go build -trimpath -o "build/check/server-$arch" .
             go version -m "build/check/server-$arch" | grep 'CGO_ENABLED=0'
           done
+      - if: matrix.os == 'ubuntu-latest'
+        name: Cross-compile other published desktop targets
+        shell: bash
+        run: |
+          for target in windows/386 windows/arm64 darwin/amd64 darwin/arm64; do
+            CGO_ENABLED=0 GOOS="${target%/*}" GOARCH="${target#*/}" \
+              go build -trimpath -o "build/check/server-${target/\//-}" .
+          done
+
+  router-vm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        openwrt: ['21.02.7', '24.10.4']
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+        with:
+          repository: Ghostdehole/WEBUI.for.SingBox-Plugins
+          path: .plugin-tests
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: latest
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - run: pnpm --dir frontend install --frozen-lockfile
+      - run: pnpm --dir frontend build
+      - name: Build ARM64 application and guest checks
+        shell: bash
+        run: |
+          mkdir -p build/compat
+          go build -o build/compat/test-runner ./tests
+          export CGO_ENABLED=0 GOOS=linux GOARCH=arm64
+          go build -trimpath -o build/compat/webui.for.singbox .
+          build/compat/test-runner -c -o build/compat/auth.test ./bridge/auth
+          go build -o build/compat/plugin-goja ./.plugin-tests/tests/goja/main.go
+      - name: Install isolated VM tools
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends qemu-system-arm qemu-utils e2fsprogs openssh-client
+      - name: Boot OpenWrt ARM64 with 512 MiB RAM and verify services, auth and plugins
+        run: bash tests/compat/openwrt-vm.sh '${{ matrix.openwrt }}' build/compat .plugin-tests
+      - if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: openwrt-${{ matrix.openwrt }}-logs
+          path: build/compat/*.log
+
+  container:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build and smoke-test container defaults and argument forwarding
+        shell: bash
+        run: |
+          docker build -t webui:test .
+          docker run --rm webui:test --help | grep -- '--log-days'
+          docker run -d --name webui-smoke --memory 512m --cpus 2 \
+            -e GFS_HOST=:: -p 127.0.0.1:49091:9090 webui:test --log-days 0
+          trap 'docker logs webui-smoke; docker rm -f webui-smoke' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:49091/api/app/start-time; then break; fi
+            sleep 1
+          done
+          curl --fail --silent http://127.0.0.1:49091/api/app/start-time
+          docker exec webui-smoke sh -c 'test ! -d /app/data/logs/app'

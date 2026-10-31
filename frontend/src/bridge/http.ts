@@ -1,9 +1,11 @@
 import { useAppSettingsStore } from '@/stores'
-
-type AuthResult = {
-  flag: boolean
-  data: string
-}
+import {
+  AuthError,
+  getAuthStatus,
+  requestLoginToken,
+  replaceAuthSession,
+  waitForAuthChange,
+} from '@/api/auth'
 
 let authRecoverPromise: Promise<boolean> | null = null
 
@@ -11,28 +13,20 @@ const buildApiError = (status: number, statusText: string) => {
   return new Error(`API error: ${status} ${statusText}`)
 }
 
-const requestAuthToken = async (secret = '') => {
-  const resp = await fetch('/api/auth/login', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ args: [secret] }),
-  })
-
-  if (!resp.ok) {
-    throw buildApiError(resp.status, resp.statusText)
-  }
-
-  const result = (await resp.json()) as AuthResult
-
-  return result.flag ? result.data : null
-}
-
 export const loadAuthToken = async () => {
+  await waitForAuthChange()
   const appSettings = useAppSettingsStore()
   if (appSettings.sessionInfo.cacheToken == '') {
-    const token = await requestAuthToken()
+    const status = await getAuthStatus()
+    appSettings.sessionInfo.authEnabled = status.enabled
+    if (status.enabled) {
+      appSettings.sessionInfo.requireLogin = true
+      return false
+    }
+    const token = await requestLoginToken().catch((error) => {
+      if (error instanceof AuthError && [200, 401, 403].includes(error.status)) return null
+      throw error
+    })
     if (token == '' || token == null) {
       appSettings.sessionInfo.authEnabled = true
       appSettings.sessionInfo.requireLogin = true
@@ -45,16 +39,15 @@ export const loadAuthToken = async () => {
   return true
 }
 
-export const loginAuthToken = async (secret: string) => {
-  const appSettings = useAppSettingsStore()
-  const token = await requestAuthToken(secret)
+export const loginAuthToken = async (secret: string, code = '') => {
+  const token = await requestLoginToken(secret, code)
   if (!token) return false
-  appSettings.sessionInfo.cacheToken = token
-  appSettings.sessionInfo.authEnabled = true
+  replaceAuthSession(token, secret !== '')
   return true
 }
 
 export const checkAuthToken = async () => {
+  await waitForAuthChange()
   const appSettings = useAppSettingsStore()
   const token = appSettings.sessionInfo.cacheToken
   if (!token) return false
@@ -80,7 +73,10 @@ export const recoverAuthToken = async () => {
   }
 
   authRecoverPromise = (async () => {
+    await waitForAuthChange()
     const appSettings = useAppSettingsStore()
+    // The failed request may have used a token that a security change just replaced.
+    if (appSettings.sessionInfo.cacheToken && (await checkAuthToken())) return true
     appSettings.sessionInfo.cacheToken = ''
     const recovered = await loadAuthToken().catch(() => false)
     if (!recovered) {

@@ -15,6 +15,10 @@ func TestLockedSecretFailsClosedAndFailedReplacementPreservesKey(t *testing.T) {
 	if err := s.SetSecret("correct"); err != nil {
 		t.Fatal(err)
 	}
+	s.AddSession("before-lock")
+	if !s.ValidateSession("before-lock") {
+		t.Fatal("cannot establish cached session")
+	}
 	path, err := windows.UTF16PtrFromString(paths.Resolve(secretPath))
 	if err != nil {
 		t.Fatal(err)
@@ -29,6 +33,9 @@ func TestLockedSecretFailsClosedAndFailedReplacementPreservesKey(t *testing.T) {
 			_ = windows.CloseHandle(handle)
 		}
 	})
+	if s.ValidateSession("before-lock") {
+		t.Fatal("cached session bypassed OS access failure")
+	}
 	if _, err := s.SecretHash(); err == nil {
 		t.Fatal("exclusive lock should prevent reading the key")
 	}

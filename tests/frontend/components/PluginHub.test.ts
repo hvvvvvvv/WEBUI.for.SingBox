@@ -112,6 +112,26 @@ describe('independent plugin repository catalog', () => {
   const button = (text: string, within: ParentNode = host) =>
     [...within.querySelectorAll('button')].find((item) => item.textContent?.trim() === text)!
 
+  it('hides legacy entries until requested without replacing existing installations', async () => {
+    const legacy = { ...plugin, id: 'legacy-rename', name: 'Legacy rename', deprecated: true, replaced_by: plugin.id }
+    mocks.request.mockResolvedValueOnce({ ...remote(), plugins: [plugin, legacy] })
+    store.plugins = [{ ...plugin, source: 'function onSubscribe(p){return p}', configuration: {}, disabled: true, id: legacy.id, version: '0.9' }]
+    await mount()
+    expect(host.querySelectorAll('section')).toHaveLength(1)
+    expect(host.textContent).not.toContain(legacy.name)
+    expect(store.availableUpdate(store.plugins[0]!)).toMatchObject({ id: legacy.id })
+    button('plugins.showLegacy').click()
+    await settle()
+    expect(host.querySelectorAll('section')).toHaveLength(2)
+    expect(host.textContent).toContain('plugins.legacyHint')
+    expect(host.textContent).toContain('plugins.installed')
+    expect(store.plugins[0]?.version).toBe('0.9')
+    expect(mocks.request.mock.calls).toEqual([['/catalog']])
+    button('plugins.hideLegacy').click()
+    await settle()
+    expect(host.querySelectorAll('section')).toHaveLength(1)
+  })
+
   it('fetches the first catalog without refresh and shows loading until the repository responds', async () => {
     const first = Promise.withResolvers<PluginCatalog>()
     mocks.request.mockReturnValueOnce(first.promise)

@@ -91,7 +91,12 @@ func NewServer(options Options) (*Server, error) {
 		lifecycleCancel()
 		return nil, err
 	}
-	server.server = &http.Server{Addr: options.Address, Handler: handler}
+	server.server = &http.Server{
+		Addr: options.Address, Handler: handler,
+		ReadHeaderTimeout: 5 * time.Second,
+		IdleTimeout:       60 * time.Second,
+		MaxHeaderBytes:    64 * 1024,
+	}
 	return server, nil
 }
 
@@ -269,7 +274,7 @@ func (s *Server) buildProtectedMux() *http.ServeMux {
 }
 
 func isPublicRoute(requestPath string) bool {
-	return requestPath == "/api/auth/login" || requestPath == "/api/app/start-time"
+	return requestPath == "/api/auth/login" || requestPath == "/api/auth/status" || requestPath == "/api/app/start-time"
 }
 
 func (s *Server) registerAppRoutes(mux *http.ServeMux) {
@@ -449,74 +454,6 @@ func (s *Server) cancelRequests() {
 func (s *Server) Close(ctx context.Context) error {
 	s.cancelRequests()
 	return s.server.Shutdown(ctx)
-}
-
-func registerAPIRoutes(mux *http.ServeMux, authService *auth.Service) {
-	apiRouteWithRequest(mux, "/api/auth/login", func(r *http.Request, args []json.RawMessage) any {
-		logger := logging.FromContext(r.Context()).With("component", "auth", "operation", "login", "remote_addr", r.RemoteAddr)
-		if authService.IsLoginRateLimited(r.RemoteAddr) {
-			logger.WarnContext(r.Context(), "login rate limited", "result", "failure")
-			return FlagResult{Flag: false, Data: "Too many failed attempts, try again later"}
-		}
-
-		plainSecret, _ := unmarshalArg[string](args, 0)
-		if !authService.VerifySecret(plainSecret) {
-			if plainSecret != "" {
-				authService.RecordLoginFailure(r.RemoteAddr)
-			}
-			logger.WarnContext(r.Context(), "login rejected", "result", "failure")
-			return FlagResult{Flag: false, Data: "Invalid secret"}
-		}
-		token, err := authService.GenerateToken()
-		if err != nil {
-			logger.ErrorContext(r.Context(), "session token generation failed", "result", "failure", "error", err)
-			return FlagResult{Flag: false, Data: "Failed to generate token"}
-		}
-		authService.ClearLoginFailures(r.RemoteAddr)
-		authService.AddSession(token)
-		logger.InfoContext(r.Context(), "login succeeded", "result", "success")
-		return FlagResult{Flag: true, Data: token}
-	})
-
-	apiRouteWithRequest(mux, "/api/auth/logout", func(r *http.Request, args []json.RawMessage) any {
-		token := authTokenFromRequest(r)
-		if token != "" {
-			authService.RemoveSession(token)
-		}
-		logging.FromContext(r.Context()).InfoContext(r.Context(), "session logged out", "component", "auth", "operation", "logout", "remote_addr", r.RemoteAddr, "result", "success")
-		return FlagResult{Flag: true, Data: "Success"}
-	})
-
-	apiRoute(mux, "/api/auth/session", func(args []json.RawMessage) any {
-		return FlagResult{Flag: true, Data: "Valid"}
-	})
-
-	apiRouteWithRequest(mux, "/api/auth/setup", func(r *http.Request, args []json.RawMessage) any {
-		secret, _ := unmarshalArg[string](args, 0)
-		currentHash, hashErr := authService.SecretHash()
-		needClear := secret != "" && (hashErr != nil || auth.HashSecret(secret) != currentHash)
-
-		err := authService.SetSecret(secret)
-		if err != nil {
-			logging.FromContext(r.Context()).ErrorContext(r.Context(), "authentication configuration failed", "component", "auth", "operation", "configure", "enabled", secret != "", "result", "failure", "error", err)
-			return FlagResult{Flag: false, Data: err.Error()}
-		}
-		if needClear {
-			token, err := authService.GenerateToken()
-			if err != nil {
-				logging.FromContext(r.Context()).ErrorContext(r.Context(), "session token generation failed", "component", "auth", "operation", "configure", "result", "failure", "error", err)
-				return FlagResult{Flag: false, Data: "Failed to generate token"}
-			}
-			authService.ClearSessions()
-			authService.AddSession(token)
-			logging.FromContext(r.Context()).InfoContext(r.Context(), "authentication configured", "component", "auth", "operation", "configure", "enabled", true, "sessions_cleared", true, "result", "success")
-			return FlagResult{Flag: true, Data: token}
-		}
-
-		logging.FromContext(r.Context()).InfoContext(r.Context(), "authentication configured", "component", "auth", "operation", "configure", "enabled", secret != "", "sessions_cleared", false, "result", "success")
-		return FlagResult{Flag: true, Data: ""}
-	})
-
 }
 
 func apiRoute(mux *http.ServeMux, path string, handler func(args []json.RawMessage) any) {

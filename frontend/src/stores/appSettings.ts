@@ -66,9 +66,7 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       debugNoAnimation: defaults.debugNoAnimation,
       debugNoRounded: defaults.debugNoRounded,
       debugUsePointer:
-        typeof raw.debugUsePointer === 'boolean'
-          ? raw.debugUsePointer
-          : defaults.debugUsePointer,
+        typeof raw.debugUsePointer === 'boolean' ? raw.debugUsePointer : defaults.debugUsePointer,
       debugModalSideBySide:
         typeof raw.debugModalSideBySide === 'boolean'
           ? raw.debugModalSideBySide
@@ -273,13 +271,24 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     mediaQueryList.removeEventListener('change', onThemeChange)
     saveAppSettings.cancel()
   })
+  let themeRevision = 0
   const setAppTheme = (theme: Theme.Dark | Theme.Light) => {
+    const revision = ++themeRevision
+    const applyTheme = () => {
+      if (revision === themeRevision) document.body.setAttribute('theme-mode', theme)
+    }
     if (document.startViewTransition) {
-      document.startViewTransition(() => {
-        document.body.setAttribute('theme-mode', theme)
-      })
+      try {
+        const transition = document.startViewTransition(applyTheme)
+        // A newer transition or hidden page may abort the visual animation.
+        void transition.ready.catch(() => undefined)
+        void transition.finished.catch(() => undefined)
+        void transition.updateCallbackDone.catch(applyTheme)
+      } catch {
+        applyTheme()
+      }
     } else {
-      document.body.setAttribute('theme-mode', theme)
+      applyTheme()
     }
   }
   watch(themeMode, setAppTheme, { immediate: true })

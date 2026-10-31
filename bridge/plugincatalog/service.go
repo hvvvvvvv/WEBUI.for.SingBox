@@ -40,6 +40,8 @@ type Entry struct {
 	ConfigurationSchema []plugins.Setting `json:"configuration_schema,omitempty"`
 	Path                string            `json:"path"`
 	SHA256              string            `json:"sha256"`
+	Deprecated          bool              `json:"deprecated,omitempty"`
+	ReplacedBy          string            `json:"replaced_by,omitempty"`
 }
 
 type Index struct {
@@ -109,6 +111,19 @@ func parseIndex(data []byte) (Index, error) {
 		seenIDs[entry.ID], seenPaths[entry.Path] = true, true
 		if err := plugins.ValidateMetadata(entry.plugin("")); err != nil {
 			return Index{}, fmt.Errorf("%s: %w", entry.ID, err)
+		}
+	}
+	for _, entry := range index.Plugins {
+		if entry.ReplacedBy == "" {
+			continue
+		}
+		if !entry.Deprecated || entry.ReplacedBy == entry.ID || !seenIDs[entry.ReplacedBy] {
+			return Index{}, fmt.Errorf("%s: invalid replacement plugin", entry.ID)
+		}
+		for _, replacement := range index.Plugins {
+			if replacement.ID == entry.ReplacedBy && replacement.Deprecated {
+				return Index{}, fmt.Errorf("%s: replacement plugin must be current", entry.ID)
+			}
 		}
 	}
 	if raw, err := json.Marshal(index); err != nil || len(raw) > maxIndexBytes {

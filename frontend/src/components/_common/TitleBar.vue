@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { nextTick } from 'vue'
 import logo from '@/assets/logo'
 import { apiCall } from '@/bridge/http'
 import { useAppSettingsStore, useKernelApiStore } from '@/stores'
@@ -9,6 +10,9 @@ const kernelApiStore = useKernelApiStore()
 
 const handleLogout = async () => {
   await apiCall('/auth/logout').catch(() => {})
+  appSettingsStore.sessionInfo.cacheToken = ''
+  appSettingsStore.sessionInfo.requireLogin = true
+  await nextTick()
   location.reload()
 }
 </script>

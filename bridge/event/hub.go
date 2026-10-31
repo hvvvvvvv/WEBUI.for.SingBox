@@ -164,6 +164,10 @@ func (c *client) writeLoop() {
 	for {
 		select {
 		case payload := <-c.send:
+			// Revocation can happen after Publish queued this message.
+			if !c.hub.sessions.ValidateSessionWithoutTouch(c.token) {
+				return
+			}
 			if err := c.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
 				return
 			}
