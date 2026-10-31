@@ -86,6 +86,6 @@ WebUI 根据实际核心版本处理 TUN `stack`：1.14 保留现有配置，1.1
 
 1.4.0 的 CI 包含 Linux x64/ARM64、Windows、macOS 原生测试及其他发布目标交叉编译；容器验证 IPv6 监听、额外参数传递和管理接口启动。完整 ARM64 QEMU 虚拟机分别启动官方 OpenWrt 21.02.7 与 24.10.4 镜像，使用四个模拟 CPU、512 MiB RAM、独立磁盘及私有用户态 NAT。前者覆盖 GL-MT3600BE 厂商固件所用的 OpenWrt 21.02/Linux 5.4 系列环境，后者覆盖较新的 OpenWrt 环境；均不是厂商固件镜像。
 
-虚拟机检查实际 procd 安装/启动/停止/重启、密码/TOTP/恢复码/会话撤销，以及 ARM64 Goja 插件与 sing-box 1.14.2 配置校验。镜像与核心下载均核对固定 SHA256，入口为 `tests/compat/openwrt-vm.sh`，日志保存在对应 Actions 的构建产物中。每次检查是否通过，以该提交 Actions 结果为准。
+虚拟机检查实际 procd 安装/启动/停止/重启、密码/TOTP/恢复码/会话撤销，以及 ARM64 Goja 插件与 sing-box 1.14.4 配置校验。镜像与核心下载均核对固定 SHA256，入口为 `tests/compat/openwrt-vm.sh`，日志保存在对应 Actions 的构建产物中。每次检查是否通过，以该提交 Actions 结果为准。
 
 这不会连接用户正在使用的设备，也不会接入真实 LAN 或修改宿主防火墙。未模拟 MTK 硬件加速、无线、厂商 VPN、多 WAN 或真实多客户端转发吞吐量；通过虚拟机检查不等于已在 GL-MT3600BE 实机验证透明代理。实际部署仍需在维护窗口确认 LAN/DNS 连通性、TUN/防火墙能力和停止服务后的路由恢复。

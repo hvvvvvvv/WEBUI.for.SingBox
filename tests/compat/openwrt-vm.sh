@@ -47,9 +47,9 @@ download() {
 }
 download "$base/$kernel" "$scratch/kernel" "$kernel_sha"
 download "$base/$rootfs" "$scratch/rootfs.gz" "$rootfs_sha"
-download 'https://github.com/SagerNet/sing-box/releases/download/v1.14.2/sing-box-1.14.2-linux-arm64.tar.gz' \
-  "$scratch/core.tar.gz" b43a1fb1bda131c6653576741ce527eb2bdeab7c9308ca90ee8b972abb7e4a7f
-tar -xzf "$scratch/core.tar.gz" -C "$scratch" --strip-components=1 sing-box-1.14.2-linux-arm64/sing-box
+download 'https://github.com/SagerNet/sing-box/releases/download/v1.14.4/sing-box-1.14.4-linux-arm64.tar.gz' \
+  "$scratch/core.tar.gz" 436441f76ee2f7fe21b5b2d426d3cb261a480455a704865789ad533e4273ec26
+tar -xzf "$scratch/core.tar.gz" -C "$scratch" --strip-components=1 sing-box-1.14.4-linux-arm64/sing-box
 gzip -dc "$scratch/rootfs.gz" > "$scratch/rootfs.img"
 truncate -s 256M "$scratch/rootfs.img"
 e2fsck -pf "$scratch/rootfs.img" || test "$?" -eq 1
