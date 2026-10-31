@@ -24,6 +24,8 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: Ghostdehole/WEBUI.for.SingBox-Plugins
+          # Pin test fixtures; the runtime plugin center still follows the independent catalog.
+          ref: ab35dd13de60e4911af98272889856d5ea1affd8
           path: .plugin-tests
           persist-credentials: false
       - uses: pnpm/action-setup@v6
@@ -75,6 +77,8 @@ jobs:
       - uses: actions/checkout@v6
         with:
           repository: Ghostdehole/WEBUI.for.SingBox-Plugins
+          # Pin test fixtures; the runtime plugin center still follows the independent catalog.
+          ref: ab35dd13de60e4911af98272889856d5ea1affd8
           path: .plugin-tests
           persist-credentials: false
       - uses: pnpm/action-setup@v6
@@ -118,7 +122,8 @@ jobs:
         shell: bash
         run: |
           docker build -t webui:test .
-          docker run --rm webui:test --help | grep -- '--log-days'
+          docker run --rm webui:test --help > build-help.txt
+          grep 'Usage: webui.for.singbox' build-help.txt
           docker run -d --name webui-smoke --memory 512m --cpus 2 \
             -e GFS_HOST=:: -p 127.0.0.1:49091:9090 webui:test --log-days 0
           trap 'docker logs webui-smoke; docker rm -f webui-smoke' EXIT
