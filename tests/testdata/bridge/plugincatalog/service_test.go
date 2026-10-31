@@ -147,8 +147,8 @@ func TestRemoteRefreshCacheCloneAndFailedUpdateFallback(t *testing.T) {
 			t.Error("missing catalog User-Agent")
 		}
 		path := strings.TrimPrefix(r.URL.Path, "/")
-		if corrupt.Load() && path != "index.json" {
-			_, _ = w.Write([]byte("modified source"))
+		if corrupt.Load() {
+			_, _ = w.Write([]byte("invalid index"))
 			return
 		}
 		data, exists := files[path]
@@ -162,29 +162,25 @@ func TestRemoteRefreshCacheCloneAndFailedUpdateFallback(t *testing.T) {
 	cachePath := filepath.Join(t.TempDir(), "catalog.json")
 	service := NewService(cachePath)
 	service.baseURL = server.URL + "/"
-	initial, err := service.Get(context.Background(), false)
-	if err != nil || initial.Source != "bundled" || len(initial.Plugins) != bundledCount(t) || requestCount.Load() != 0 {
-		t.Fatalf("offline catalog made a request or failed: %#v %v", initial, err)
-	}
-	remote, err := service.Get(context.Background(), true)
+	remote, err := service.Get(context.Background(), false)
 	if err != nil || remote.Source != "remote" || remote.Warning != "" || remote.Repository != Repository || len(remote.Plugins) != 1 {
-		t.Fatalf("refresh failed: %#v %v", remote, err)
+		t.Fatalf("first visit did not fetch the independent catalog: %#v %v", remote, err)
 	}
 	disk, err := os.ReadFile(cachePath)
 	if err != nil {
 		t.Fatal(err)
 	}
-	remote.Plugins[0].Source = "changed caller source"
+	remote.Plugins[0].Name = "changed caller metadata"
 	remote.Plugins[0].Triggers[0] = plugins.OnManual
 	remote.Plugins[0].Configuration["nested"].(map[string]any)["value"] = "changed"
 	throttled, err := service.Get(context.Background(), true)
-	if err != nil || throttled.Source != "cache" || requestCount.Load() != 2 || throttled.Plugins[0].Source == remote.Plugins[0].Source || throttled.Plugins[0].Configuration["nested"].(map[string]any)["value"] != "original" {
+	if err != nil || throttled.Source != "cache" || requestCount.Load() != 1 || throttled.Plugins[0].Name == remote.Plugins[0].Name || throttled.Plugins[0].Configuration["nested"].(map[string]any)["value"] != "original" {
 		t.Fatalf("throttling or clone isolation failed: %#v %v", throttled, err)
 	}
 	corrupt.Store(true)
 	service.lastAttempt = time.Now().Add(-time.Minute)
 	fallback, err := service.Get(context.Background(), true)
-	if err != nil || fallback.Source != "cache" || !strings.Contains(fallback.Warning, "checksum mismatch") || fallback.Plugins[0].Source != throttled.Plugins[0].Source {
+	if err != nil || fallback.Source != "cache" || !strings.Contains(fallback.Warning, "invalid plugin index") || fallback.Plugins[0].Name != throttled.Plugins[0].Name {
 		t.Fatalf("failed refresh replaced previous catalog: %#v %v", fallback, err)
 	}
 	after, err := os.ReadFile(cachePath)
@@ -192,21 +188,27 @@ func TestRemoteRefreshCacheCloneAndFailedUpdateFallback(t *testing.T) {
 		t.Fatal("failed refresh overwrote offline cache")
 	}
 	restarted := NewService(cachePath)
+	beforeRestart := requestCount.Load()
+	restarted.baseURL = server.URL + "/"
 	cached, err := restarted.Get(context.Background(), false)
-	if err != nil || cached.Source != "cache" || cached.Plugins[0].Source != throttled.Plugins[0].Source {
+	if err != nil || cached.Source != "cache" || cached.Plugins[0].Name != throttled.Plugins[0].Name || requestCount.Load() != beforeRestart {
 		t.Fatalf("restart did not load validated cache: %#v %v", cached, err)
 	}
 }
 
 func TestRemoteFallbackStatusRedirectOversizeAndInvalidCache(t *testing.T) {
+	unavailable := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Error(w, "offline", http.StatusServiceUnavailable) }))
+	defer unavailable.Close()
 	for _, raw := range []string{"null", `[{"id":"bad","source":"function {"}]`, strings.Repeat("x", maxCatalogBytes+1)} {
 		cachePath := filepath.Join(t.TempDir(), "catalog.json")
 		if err := os.WriteFile(cachePath, []byte(raw), 0o600); err != nil {
 			t.Fatal(err)
 		}
-		result, err := NewService(cachePath).Get(context.Background(), false)
-		if err != nil || result.Source != "bundled" || len(result.Plugins) != bundledCount(t) {
-			t.Fatalf("corrupt cache blocked bundled fallback: %#v %v", result, err)
+		service := NewService(cachePath)
+		service.baseURL = unavailable.URL + "/"
+		result, err := service.Get(context.Background(), false)
+		if err != nil || result.Source != "empty" || len(result.Plugins) != 0 || result.Plugins == nil || result.Warning == "" {
+			t.Fatalf("corrupt cache was not reported as an unavailable remote catalog: %#v %v", result, err)
 		}
 	}
 	var followed atomic.Int64
@@ -228,8 +230,8 @@ func TestRemoteFallbackStatusRedirectOversizeAndInvalidCache(t *testing.T) {
 			service := NewService("")
 			service.baseURL = server.URL + "/"
 			result, err := service.Get(context.Background(), true)
-			if err != nil || result.Source != "bundled" || result.Warning == "" || len(result.Plugins) != bundledCount(t) {
-				t.Fatalf("remote failure did not keep bundled catalog: %#v %v", result, err)
+			if err != nil || result.Source != "empty" || result.Warning == "" || len(result.Plugins) != 0 || result.Plugins == nil {
+				t.Fatalf("remote failure was not returned as an explicit empty catalog: %#v %v", result, err)
 			}
 		})
 	}
@@ -285,7 +287,53 @@ func TestRefreshKeepsRemoteResultWhenCacheWriteFailsAndSerializesConcurrentCalls
 			remote++
 		}
 	}
-	if requests.Load() != 2 || remote != 1 {
+	if requests.Load() != 1 || remote != 1 {
 		t.Fatalf("concurrent refresh bypassed gate/throttle: %d requests, %d remote results", requests.Load(), remote)
+	}
+}
+
+func TestFirstVisitFailureIsEmptyAndRetryRecoversWithoutPartialCache(t *testing.T) {
+	_, files := catalogFixture(t, "function onSubscribe(p) { return p }")
+	var healthy atomic.Bool
+	var requests atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		requests.Add(1)
+		if !healthy.Load() {
+			http.Error(w, "offline", http.StatusServiceUnavailable)
+			return
+		}
+		_, _ = w.Write(files[strings.TrimPrefix(r.URL.Path, "/")])
+	}))
+	defer server.Close()
+	cache := filepath.Join(t.TempDir(), "catalog.json")
+	s := NewService(cache)
+	s.baseURL = server.URL + "/"
+	first, err := s.Get(context.Background(), false)
+	if err != nil || first.Source != "empty" || first.Plugins == nil || len(first.Plugins) != 0 || !strings.Contains(first.Warning, Repository) || requests.Load() != 1 {
+		t.Fatalf("first unavailable remote catalog: %+v err=%v requests=%d", first, err, requests.Load())
+	}
+	if _, err := os.Stat(cache); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("failed fetch created a cache: %v", err)
+	}
+	// Multiple openings or retry clicks must not turn an outage into a busy loop.
+	for _, refresh := range []bool{false, true} {
+		result, err := s.Get(context.Background(), refresh)
+		if err != nil || result.Source != "empty" || result.Warning != first.Warning || requests.Load() != 1 {
+			t.Fatalf("failed fetch retry was not coalesced: %+v err=%v requests=%d", result, err, requests.Load())
+		}
+	}
+	healthy.Store(true)
+	s.lastAttempt = time.Now().Add(-time.Minute)
+	retry, err := s.Get(context.Background(), true)
+	if err != nil || retry.Source != "remote" || len(retry.Plugins) != 1 || retry.Warning != "" || requests.Load() != 2 {
+		t.Fatalf("retry did not fetch the independent catalog: %+v err=%v requests=%d", retry, err, requests.Load())
+	}
+	// A downloaded cache is an exact repository snapshot, not merged with app data.
+	restarted := NewService(cache)
+	restarted.baseURL = server.URL + "/"
+	healthy.Store(false)
+	cached, err := restarted.Get(context.Background(), false)
+	if err != nil || cached.Source != "cache" || len(cached.Plugins) != 1 || requests.Load() != 2 {
+		t.Fatalf("downloaded cache required a network connection: %+v err=%v requests=%d", cached, err, requests.Load())
 	}
 }

@@ -3,12 +3,12 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { usePluginsStore } from '@/stores/plugins'
 import { message } from '@/utils'
-import type { Plugin } from '@/types/plugin'
+import type { PluginCatalogItem } from '@/types/plugin'
 
 const { t } = useI18n()
 const store = usePluginsStore()
 const keywords = ref('')
-const enabledConflicts = (candidate: Plugin) =>
+const enabledConflicts = (candidate: PluginCatalogItem) =>
   store.plugins
     .filter(
       (installed) =>
@@ -30,6 +30,9 @@ const repositoryURL = computed(() =>
     ? `https://github.com/${store.catalog.repository}`
     : 'https://github.com/Ghostdehole/WEBUI.for.SingBox-Plugins',
 )
+const warnings = computed(() =>
+  [...new Set([store.catalog.warning, store.catalogError])].filter(Boolean),
+)
 const refresh = async (remote = true) => {
   try {
     await store.loadCatalog(remote)
@@ -50,7 +53,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="plugin-hub">
+  <div class="plugin-hub" :aria-busy="store.catalogLoading">
     <div class="plugin-hub-toolbar">
       <Input
         v-model="keywords"
@@ -66,8 +69,18 @@ onMounted(() => {
       >
     </div>
     <p class="plugin-hub-note">{{ t('plugins.hubHint') }}</p>
-    <p v-if="store.catalog.warning" role="status" class="plugin-hub-note">
-      {{ store.catalog.warning }}
+    <p v-if="store.catalog.source !== 'empty'" class="plugin-hub-note">
+      {{ t(store.catalog.source === 'cache' ? 'plugins.catalogCached' : 'plugins.catalogRemote') }}
+    </p>
+    <p v-for="warning in warnings" :key="warning" role="alert" class="plugin-hub-note">
+      {{ warning }}
+    </p>
+    <p
+      v-if="store.catalogLoading && !store.catalog.plugins.length"
+      role="status"
+      class="plugin-hub-note"
+    >
+      {{ t('plugins.catalogLoading') }}
     </p>
     <div class="plugin-hub-grid">
       <Card v-for="plugin in filtered" :key="plugin.id" :title="plugin.name">
@@ -103,7 +116,25 @@ onMounted(() => {
         </div>
       </Card>
     </div>
-    <Empty v-if="!filtered.length && !store.catalogLoading" />
+    <div v-if="!store.catalog.plugins.length && !store.catalogLoading" class="plugin-hub-empty">
+      <p role="status">
+        {{
+          t(
+            store.catalog.source === 'empty'
+              ? 'plugins.catalogUnavailable'
+              : 'plugins.catalogEmpty',
+          )
+        }}
+      </p>
+      <Button @click="refresh(true)">{{ t('plugins.retry') }}</Button>
+    </div>
+    <p
+      v-else-if="store.catalog.plugins.length && !filtered.length"
+      role="status"
+      class="plugin-hub-note"
+    >
+      {{ t('plugins.catalogNoResults') }}
+    </p>
   </div>
 </template>
 
@@ -136,6 +167,14 @@ onMounted(() => {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+.plugin-hub-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 24px 12px;
+  text-align: center;
 }
 .plugin-hub-description {
   margin: 8px 0 12px;

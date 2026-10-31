@@ -16,8 +16,16 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
     runs-on: ${{ matrix.os }}
+    env:
+      WEBUI_PLUGIN_REPO: ${{ github.workspace }}/.plugin-tests
     steps:
       - uses: actions/checkout@v6
+      - name: Check out independent plugins for integration tests only
+        uses: actions/checkout@v6
+        with:
+          repository: Ghostdehole/WEBUI.for.SingBox-Plugins
+          path: .plugin-tests
+          persist-credentials: false
       - uses: pnpm/action-setup@v6
         with:
           version: latest
@@ -33,7 +41,7 @@ jobs:
       - run: pnpm --dir frontend test
       - run: pnpm --dir frontend build
       - run: go run ./tests ./... -count=1 -timeout=180s
-      - run: go run ./cmd/plugin-check ./plugin-catalog
+      - run: go run ./cmd/plugin-check ./.plugin-tests
       - if: runner.os == 'Linux'
         run: go run ./tests -race -short ./... -count=1 -timeout=180s
       - if: runner.os == 'Linux'

@@ -132,62 +132,68 @@ func ValidatePlugin(plugin Plugin) error {
 }
 
 func validatePlugin(plugin Plugin) (*goja.Program, error) {
-	if !pluginID.MatchString(plugin.ID) {
-		return nil, fmt.Errorf("%w: id must contain 1-128 letters, digits, '.', '_' or '-' and start with a letter or digit", ErrInvalid)
-	}
-	if strings.TrimSpace(plugin.Name) == "" || len(plugin.Name) > 256 {
-		return nil, fmt.Errorf("%w: name must contain 1-256 bytes", ErrInvalid)
-	}
-	if len(plugin.Description) > 16<<10 {
-		return nil, fmt.Errorf("%w: description exceeds 16 KiB", ErrInvalid)
-	}
-	if strings.TrimSpace(plugin.Version) == "" || len(plugin.Version) > 128 {
-		return nil, fmt.Errorf("%w: version must contain 1-128 bytes", ErrInvalid)
-	}
-	if len(plugin.Triggers) == 0 || len(plugin.Triggers) > 3 {
-		return nil, fmt.Errorf("%w: select 1-3 triggers", ErrInvalid)
-	}
-	seen := make(map[string]bool)
-	for _, trigger := range plugin.Triggers {
-		if trigger != OnSubscribe && trigger != OnGenerate && trigger != OnManual {
-			return nil, fmt.Errorf("%w: unsupported trigger %q", ErrInvalid, trigger)
-		}
-		if seen[trigger] {
-			return nil, fmt.Errorf("%w: duplicate trigger %q", ErrInvalid, trigger)
-		}
-		seen[trigger] = true
-	}
-	if plugin.ManualTarget != "" && plugin.ManualTarget != ManualSubscription && plugin.ManualTarget != ManualDiagnostic {
-		return nil, fmt.Errorf("%w: unsupported manual_target", ErrInvalid)
-	}
-	if plugin.ManualTarget == ManualDiagnostic && (len(plugin.Triggers) != 1 || plugin.Triggers[0] != OnManual) {
-		return nil, fmt.Errorf("%w: diagnostic plugins must use only the manual trigger", ErrInvalid)
-	}
-	if len(plugin.Conflicts) > MaxPlugins {
-		return nil, fmt.Errorf("%w: at most %d conflicts are allowed", ErrInvalid, MaxPlugins)
-	}
-	seenConflicts := map[string]bool{}
-	for _, id := range plugin.Conflicts {
-		if !pluginID.MatchString(id) || id == plugin.ID || seenConflicts[id] {
-			return nil, fmt.Errorf("%w: conflicts must contain unique other plugin ids", ErrInvalid)
-		}
-		seenConflicts[id] = true
+	if err := ValidateMetadata(plugin); err != nil {
+		return nil, err
 	}
 	if strings.TrimSpace(plugin.Source) == "" || len(plugin.Source) > MaxSourceBytes {
 		return nil, fmt.Errorf("%w: source must contain 1-%d bytes", ErrInvalid, MaxSourceBytes)
-	}
-	configuration, err := json.Marshal(plugin.Configuration)
-	if err != nil || len(configuration) > MaxConfigurationBytes {
-		return nil, fmt.Errorf("%w: configuration must be JSON data of at most %d bytes", ErrInvalid, MaxConfigurationBytes)
-	}
-	if err := validateSettings(plugin); err != nil {
-		return nil, err
 	}
 	program, err := goja.Compile(plugin.ID+".js", plugin.Source, false)
 	if err != nil {
 		return nil, fmt.Errorf("%w: plugin %q syntax: %v", ErrInvalid, plugin.ID, err)
 	}
 	return program, nil
+}
+
+// ValidateMetadata checks catalog and settings data without requiring, compiling
+// or executing JavaScript. Source validation belongs to explicit installation.
+func ValidateMetadata(plugin Plugin) error {
+	if !pluginID.MatchString(plugin.ID) {
+		return fmt.Errorf("%w: id must contain 1-128 letters, digits, '.', '_' or '-' and start with a letter or digit", ErrInvalid)
+	}
+	if strings.TrimSpace(plugin.Name) == "" || len(plugin.Name) > 256 {
+		return fmt.Errorf("%w: name must contain 1-256 bytes", ErrInvalid)
+	}
+	if len(plugin.Description) > 16<<10 {
+		return fmt.Errorf("%w: description exceeds 16 KiB", ErrInvalid)
+	}
+	if strings.TrimSpace(plugin.Version) == "" || len(plugin.Version) > 128 {
+		return fmt.Errorf("%w: version must contain 1-128 bytes", ErrInvalid)
+	}
+	if len(plugin.Triggers) == 0 || len(plugin.Triggers) > 3 {
+		return fmt.Errorf("%w: select 1-3 triggers", ErrInvalid)
+	}
+	seen := make(map[string]bool)
+	for _, trigger := range plugin.Triggers {
+		if trigger != OnSubscribe && trigger != OnGenerate && trigger != OnManual {
+			return fmt.Errorf("%w: unsupported trigger %q", ErrInvalid, trigger)
+		}
+		if seen[trigger] {
+			return fmt.Errorf("%w: duplicate trigger %q", ErrInvalid, trigger)
+		}
+		seen[trigger] = true
+	}
+	if plugin.ManualTarget != "" && plugin.ManualTarget != ManualSubscription && plugin.ManualTarget != ManualDiagnostic {
+		return fmt.Errorf("%w: unsupported manual_target", ErrInvalid)
+	}
+	if plugin.ManualTarget == ManualDiagnostic && (len(plugin.Triggers) != 1 || plugin.Triggers[0] != OnManual) {
+		return fmt.Errorf("%w: diagnostic plugins must use only the manual trigger", ErrInvalid)
+	}
+	if len(plugin.Conflicts) > MaxPlugins {
+		return fmt.Errorf("%w: at most %d conflicts are allowed", ErrInvalid, MaxPlugins)
+	}
+	seenConflicts := map[string]bool{}
+	for _, id := range plugin.Conflicts {
+		if !pluginID.MatchString(id) || id == plugin.ID || seenConflicts[id] {
+			return fmt.Errorf("%w: conflicts must contain unique other plugin ids", ErrInvalid)
+		}
+		seenConflicts[id] = true
+	}
+	configuration, err := json.Marshal(plugin.Configuration)
+	if err != nil || len(configuration) > MaxConfigurationBytes {
+		return fmt.Errorf("%w: configuration must be JSON data of at most %d bytes", ErrInvalid, MaxConfigurationBytes)
+	}
+	return validateSettings(plugin)
 }
 
 func validateSettings(plugin Plugin) error {

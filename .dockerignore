@@ -6,3 +6,4 @@ data/
 *.exe
 webui.for.singbox.server
 .git
+.plugin-tests

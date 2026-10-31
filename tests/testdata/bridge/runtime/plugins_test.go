@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -382,11 +384,43 @@ function onRun(proxies, subscription) { Plugins.Log(subscription.name); proxies[
 	}
 }
 
-func TestBundledSubscriptionPluginsKeepNodeIDsAcrossRefreshes(t *testing.T) {
-	available, err := plugincatalog.Bundled()
-	if err != nil {
-		t.Fatal(err)
+// Actual plugin sources live only in the independent repository. Main's normal
+// tests above use tiny synthetic hooks; CI supplies this explicit external path
+// to additionally exercise the maintained naming/deduplication implementations.
+func externalSubscriptionPlugins(t *testing.T) []pluginservice.Plugin {
+	t.Helper()
+	directory := os.Getenv("WEBUI_PLUGIN_REPO")
+	if directory == "" {
+		t.Skip("set WEBUI_PLUGIN_REPO to an independent plugin repository checkout")
 	}
+	root, err := os.OpenRoot(directory)
+	if err != nil {
+		t.Fatalf("open WEBUI_PLUGIN_REPO: %v", err)
+	}
+	defer root.Close()
+	available, err := plugincatalog.Read(func(name string) ([]byte, error) {
+		info, err := root.Lstat(name)
+		if err != nil {
+			return nil, err
+		}
+		if !info.Mode().IsRegular() || info.Size() > pluginservice.MaxSourceBytes {
+			return nil, fmt.Errorf("external fixture %q must be a regular file of at most %d bytes", name, pluginservice.MaxSourceBytes)
+		}
+		file, err := root.Open(name)
+		if err != nil {
+			return nil, err
+		}
+		defer file.Close()
+		return io.ReadAll(io.LimitReader(file, pluginservice.MaxSourceBytes+1))
+	})
+	if err != nil {
+		t.Fatalf("invalid WEBUI_PLUGIN_REPO catalog: %v", err)
+	}
+	return available
+}
+
+func TestExternalSubscriptionPluginsKeepNodeIDsAcrossRefreshes(t *testing.T) {
+	available := externalSubscriptionPlugins(t)
 	const body = `[{"type":"shadowsocks","tag":"HK","server":"127.0.0.1","server_port":1,"method":"aes-128-gcm","password":"p"},{"type":"shadowsocks","tag":"HK","server":"127.0.0.1","server_port":2,"method":"aes-128-gcm","password":"p"},{"type":"shadowsocks","tag":"HK duplicate","server":"127.0.0.1","server_port":1,"method":"aes-128-gcm","password":"p"}]`
 	groups := make(map[string][]pluginservice.Plugin)
 	var dedupe pluginservice.Plugin
@@ -394,6 +428,9 @@ func TestBundledSubscriptionPluginsKeepNodeIDsAcrossRefreshes(t *testing.T) {
 		if plugin.ID == "plugin-duplicate-proxies-removal" {
 			dedupe = plugin
 		}
+	}
+	if dedupe.ID == "" {
+		t.Fatal("external catalog is missing the deduplication plugin")
 	}
 	for _, plugin := range available {
 		for _, trigger := range plugin.Triggers {
@@ -427,32 +464,29 @@ func TestBundledSubscriptionPluginsKeepNodeIDsAcrossRefreshes(t *testing.T) {
 				t.Helper()
 				response, err := service.UpdateSubscription(context.Background(), connect.NewRequest(&appv1.UpdateSubscriptionRequest{Id: "selected"}))
 				if err != nil || !response.Msg.Results[0].GetOk() {
-					t.Fatalf("bundled refresh failed: %v %v", response, err)
+					t.Fatalf("external plugin refresh failed: %v %v", response, err)
 				}
 				items, _ := loadSubscriptions()
 				return items[0].Proxies
 			}
 			first, second := refresh(), refresh()
 			if !reflect.DeepEqual(first, second) {
-				t.Fatalf("bundled transformation replaced selected node identities: first=%v second=%v", first, second)
+				t.Fatalf("external transformation replaced selected node identities: first=%v second=%v", first, second)
 			}
 			if (strings.Contains(name, "dedupe") || name == "plugin-duplicate-proxies-removal") && len(second) != 2 {
 				t.Fatalf("GUI identity prevented duplicate removal: %v", second)
 			}
 			if strings.Contains(string(readPluginFixture(t, subscriptionContentPath("selected"))), "__id_in_gui") {
-				t.Fatal("bundled plugin persisted internal node identity")
+				t.Fatal("external plugin persisted internal node identity")
 			}
 		})
 	}
 }
 
-func TestBundledFirstManualRenamePreservesSelectedNodeID(t *testing.T) {
+func TestExternalFirstManualRenamePreservesSelectedNodeID(t *testing.T) {
+	available := externalSubscriptionPlugins(t)
 	withTempBasePath(t)
 	writePluginFixture(t, []subscription{{ID: "selected", Name: "Selected", Type: "Manual", Proxies: []proxyRef{{ID: "ID_selected", Tag: "HK node", Type: "direct"}}}}, "selected", `[{"type":"direct","tag":"HK node"}]`)
-	available, err := plugincatalog.Bundled()
-	if err != nil {
-		t.Fatal(err)
-	}
 	engine, err := pluginservice.NewService(runtimePaths.Load())
 	if err != nil {
 		t.Fatal(err)
@@ -464,6 +498,9 @@ func TestBundledFirstManualRenamePreservesSelectedNodeID(t *testing.T) {
 			}
 		}
 	}
+	if len(engine.List().Plugins) != 1 {
+		t.Fatal("external catalog is missing the manual naming plugin")
+	}
 	service := newTestRuntimeService(nil)
 	service.SetPlugins(engine)
 	if _, err := service.RunPluginOnSubscription(context.Background(), "plugin-beautiful-node-name", "selected"); err != nil {
@@ -471,6 +508,6 @@ func TestBundledFirstManualRenamePreservesSelectedNodeID(t *testing.T) {
 	}
 	items, _ := loadSubscriptions()
 	if len(items[0].Proxies) != 1 || items[0].Proxies[0].Tag == "HK node" || items[0].Proxies[0].ID != "ID_selected" {
-		t.Fatalf("first bundled manual rename invalidated selection: %v", items[0].Proxies)
+		t.Fatalf("first external manual rename invalidated selection: %v", items[0].Proxies)
 	}
 }

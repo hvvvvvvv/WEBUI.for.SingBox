@@ -27,9 +27,14 @@ export interface PluginSnapshot {
   plugins: Plugin[]
   revision: number
 }
+export type PluginCatalogItem = Omit<Plugin, 'source' | 'disabled' | 'configuration'> & {
+  configuration: Record<string, unknown> | null
+  path: string
+  sha256: string
+}
 export interface PluginCatalog {
-  plugins: Plugin[]
-  source: 'bundled' | 'cache' | 'remote'
+  plugins: PluginCatalogItem[]
+  source: 'empty' | 'cache' | 'remote'
   repository: string
   warning?: string
 }

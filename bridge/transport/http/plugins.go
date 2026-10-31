@@ -168,21 +168,13 @@ func (s *Server) registerPluginRoutes(mux *http.ServeMux) {
 					pluginError(w, plugins.ErrNotFound)
 					return
 				}
-				available, fetchErr := catalog.Get(r.Context(), false)
+				candidate, fetchErr := catalog.Download(r.Context(), request.ID)
 				if fetchErr != nil {
 					pluginError(w, fetchErr)
 					return
 				}
-				var candidate *plugins.Plugin
-				for _, item := range available.Plugins {
-					if item.ID == request.ID {
-						copy := item
-						candidate = &copy
-						break
-					}
-				}
-				if candidate == nil {
-					pluginError(w, fmt.Errorf("plugin is absent from the current catalog"))
+				if err := r.Context().Err(); err != nil {
+					pluginError(w, err)
 					return
 				}
 				if previous != nil {
@@ -190,7 +182,7 @@ func (s *Server) registerPluginRoutes(mux *http.ServeMux) {
 					candidate.Configuration = previous.Configuration
 					candidate.Triggers = append([]string(nil), previous.Triggers...)
 				}
-				snapshot, err = s.options.Plugins.Save(*candidate, revision)
+				snapshot, err = s.options.Plugins.Save(candidate, revision)
 			}
 			if err != nil {
 				pluginError(w, err)

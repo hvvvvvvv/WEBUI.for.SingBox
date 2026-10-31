@@ -2,6 +2,8 @@ package plugincatalog
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -9,18 +11,17 @@ import (
 	"guiforcores/bridge/storage"
 )
 
-func bundledCount(t *testing.T) int {
+// Integration tests consume a separate checkout; plugin sources are never
+// stored in the application repository or linked into its executable.
+func externalPlugin(t *testing.T, id string) plugins.Plugin {
 	t.Helper()
-	items, err := Bundled()
-	if err != nil {
-		t.Fatal(err)
+	directory := os.Getenv("WEBUI_PLUGIN_REPO")
+	if directory == "" {
+		t.Skip("set WEBUI_PLUGIN_REPO to an independent plugin repository checkout")
 	}
-	return len(items)
-}
-
-func bundledPlugin(t *testing.T, id string) plugins.Plugin {
-	t.Helper()
-	items, err := Bundled()
+	items, err := Read(func(name string) ([]byte, error) {
+		return os.ReadFile(filepath.Join(directory, filepath.FromSlash(name)))
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -29,7 +30,7 @@ func bundledPlugin(t *testing.T, id string) plugins.Plugin {
 			return plugin
 		}
 	}
-	t.Fatalf("bundled plugin %q not found", id)
+	t.Fatalf("external plugin %q not found", id)
 	return plugins.Plugin{}
 }
 
@@ -71,10 +72,10 @@ func assertReferencesExist(t *testing.T, proxies []map[string]any) {
 	}
 }
 
-func TestBundledRenamersPreserveDuplicateReferencesAndExistingSuffixes(t *testing.T) {
+func TestExternalRenamersPreserveDuplicateReferencesAndExistingSuffixes(t *testing.T) {
 	for _, id := range []string{"plugin-index-the-proxy-name", "plugin-modify-proxy-name", "plugin-beautiful-node-name"} {
 		t.Run(id, func(t *testing.T) {
-			plugin := bundledPlugin(t, id)
+			plugin := externalPlugin(t, id)
 			plugin.Configuration["EnableSubscriptionName"] = false
 			plugin.Configuration["EnableNationalEmoji"] = false
 			plugin.Configuration["EnableAddEmoji"] = false
@@ -118,8 +119,8 @@ func TestBundledRenamersPreserveDuplicateReferencesAndExistingSuffixes(t *testin
 	}
 }
 
-func TestBundledModifyNameRegionKeywordAndIndexOptions(t *testing.T) {
-	plugin := bundledPlugin(t, "plugin-modify-proxy-name")
+func TestExternalModifyNameRegionKeywordAndIndexOptions(t *testing.T) {
+	plugin := externalPlugin(t, "plugin-modify-proxy-name")
 	plugin.Configuration["EnableRemoveKeywords"] = true
 	plugin.Configuration["RemoveKeywords"] = `^ISP\s+`
 	plugin.Configuration["EnableIndexProxyName"] = "1"
@@ -142,8 +143,8 @@ func TestBundledModifyNameRegionKeywordAndIndexOptions(t *testing.T) {
 	}
 }
 
-func TestBundledBeautifyIsIdempotentIncludingManualCachedRun(t *testing.T) {
-	plugin := bundledPlugin(t, "plugin-beautiful-node-name")
+func TestExternalBeautifyIsIdempotentIncludingManualCachedRun(t *testing.T) {
+	plugin := externalPlugin(t, "plugin-beautiful-node-name")
 	plugin.Configuration["EnableUnifyRegionName"] = "统一为中文"
 	service := installedPlugin(t, plugin)
 	input := []map[string]any{
@@ -170,8 +171,8 @@ func TestBundledBeautifyIsIdempotentIncludingManualCachedRun(t *testing.T) {
 	assertReferencesExist(t, manual)
 }
 
-func TestBundledDedupePreservesCredentialsTLSAndRemapsReferences(t *testing.T) {
-	service := installedPlugin(t, bundledPlugin(t, "plugin-duplicate-proxies-removal"))
+func TestExternalDedupePreservesCredentialsTLSAndRemapsReferences(t *testing.T) {
+	service := installedPlugin(t, externalPlugin(t, "plugin-duplicate-proxies-removal"))
 	input := []map[string]any{
 		{"type": "trojan", "tag": "first", "server": "same.test", "server_port": 443, "password": "secret", "tls": map[string]any{"enabled": true, "server_name": "same.test"}},
 		{"password": "secret", "type": "trojan", "tag": "duplicate", "tls": map[string]any{"server_name": "same.test", "enabled": true}, "server": "same.test", "server_port": 443},
@@ -204,8 +205,8 @@ func TestBundledDedupePreservesCredentialsTLSAndRemapsReferences(t *testing.T) {
 	}
 }
 
-func TestBundledVisualSettingsChangeNamesAndPreserveNotices(t *testing.T) {
-	p := bundledPlugin(t, "plugin-beautiful-node-name")
+func TestExternalVisualSettingsChangeNamesAndPreserveNotices(t *testing.T) {
+	p := externalPlugin(t, "plugin-beautiful-node-name")
 	p.Configuration = map[string]any{"EnableSubscriptionName": false, "EnableNationalEmoji": false, "EnableCityName": true}
 	s := installedPlugin(t, p)
 	input := []map[string]any{{"type": "direct", "tag": "JP 东京 IEPL 2x"}, {"type": "direct", "tag": "剩余流量: 200 GB"}}
@@ -227,7 +228,7 @@ func TestBundledVisualSettingsChangeNamesAndPreserveNotices(t *testing.T) {
 		t.Fatalf("disabling options failed: %#v %v", result, err)
 	}
 
-	name := bundledPlugin(t, "plugin-modify-proxy-name")
+	name := externalPlugin(t, "plugin-modify-proxy-name")
 	name.Configuration = map[string]any{"EnableAddEmoji": false, "EnableIndexProxyName": "0"}
 	s = installedPlugin(t, name)
 	result, err = s.ApplySubscription(context.Background(), []map[string]any{{"type": "direct", "tag": "same"}, {"type": "direct", "tag": "same"}}, nil)

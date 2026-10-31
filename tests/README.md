@@ -27,4 +27,6 @@ frontend/node_modules/.bin/oxfmt tests/frontend tests/vitest.config.mts
 
 真实 sing-box 测试通过 `SING_BOX_114_PATH`（1.14.0，配置生成、订阅解析）和 `SINGBOX_NATIVE_TEST_BINARY`（1.14.2，原生 API 与生命周期）指定核心可执行文件，未提供时会明确跳过。路径应为绝对路径。HTTP 长流测试需要约 61 秒，`-short` 会跳过。
 
+实际插件源码只在独立的 `Ghostdehole/WEBUI.for.SingBox-Plugins` 仓库维护。设置 `WEBUI_PLUGIN_REPO` 为该仓库本地检出的绝对路径，可以运行 `TestExternal*` 的命名、去重和订阅节点 ID 集成测试；未设置时明确跳过，指定无效目录则失败。默认插件引擎测试使用最小合成脚本，目录下载测试使用本地 HTTP 服务，不访问公网。主程序 CI 将独立仓库检出到临时 `.plugin-tests/` 后设置此变量；该目录不提交、不嵌入程序，也不进入 Docker 构建上下文。
+
 保留标准很严格：测试必须覆盖实际的数据损坏、并发时序、认证边界、进程或流生命周期、失败回滚，或用独立协议向量/真实核心检验兼容性。默认值、简单 getter、机械字段搬运、源码文本检查、仅验证 mock 自身行为的包装测试，以及已经被更强行为测试覆盖的重复用例均删除。不以测试数量或覆盖率作为保留理由。

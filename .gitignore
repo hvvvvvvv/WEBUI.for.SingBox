@@ -1,3 +1,4 @@
 build/bin
 build/check
 frontend/dist
+/.plugin-tests/

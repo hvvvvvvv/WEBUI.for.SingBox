@@ -16,7 +16,7 @@
 | 左右标签布局 | 已删除 | 恢复主内容与编辑面板布局，可切换编辑标签；窄屏退回弹窗，保留未保存内容 |
 | 独立插件页 | 已删除 | 恢复网格/列表、中心、更新、添加、源码、触发器、启停、排序与手动运行 |
 | 设置 → 插件 | 已删除 | 恢复按元数据生成的编号表单、逐项重置、全部重置；支持多行 TextArea，参数由后端统一保存 |
-| 插件订阅处理与配置生成 | 未保留独立插件管理 | 1.3.0 随附 4 个订阅处理和 8 个配置生成插件；生成器默认关闭或空规则，按安装顺序运行 |
+| 插件订阅处理与配置生成 | 未保留独立插件管理 | 独立仓库提供 4 个订阅处理和 8 个配置生成插件，由用户选择安装；主程序只管理执行，生成器默认关闭或空规则 |
 | 插件网络诊断与测速 | 未保留 | 4 个手动诊断插件，无需订阅；使用受限后端请求和下载采样，不切换全局节点 |
 | 请求代理 | 已删除 | 后端统一选择直连、服务环境代理、运行核心代理或自定义代理；测试由服务器发起 |
 | User-Agent / GitHub Token | 已保留在高级设置 | 移入网络请求组，继续后端保存 |
@@ -31,11 +31,15 @@
 
 原版 `SettingsView/components/PluginSettings.vue` 和 `PluginsView/components/PluginConfigItem.vue` 使用插件元数据生成 Switch、Radio、Input 等控件。本分支保持这套表单逻辑，1.3.0 增加 TextArea，便于编辑 hosts 和规则 JSON，并提供后端类型校验、串行保存和 revision 冲突提示。参数保存失败会保留草稿；不以成功提示掩盖失败。
 
-GUI 原版的插件运行环境包含 Wails、前端 Store、窗口和文件等 API。本分支通过 Goja 执行后端 JS，独立仓库维护适配源码；浏览器关闭后，订阅定时任务仍能触发。手动订阅处理选择现有缓存，不隐式下载订阅或重启核心；声明 `manual_target: "diagnostic"` 的插件直接运行 `onRun()`，不选择订阅、不改缓存，显示报告和日志。接口和兼容边界见 [插件说明](plugins.md)。
+原版的插件中心将目录与源码分开获取。[`PluginHub.vue` 在空列表时调用目录更新，用户点击添加才调用 `addPlugin`](https://github.com/GUI-for-Cores/GUI.for.SingBox/blob/f0de129e3c7ee0278eff12f13bbfa435fcc8e57d/frontend/src/views/PluginsView/components/PluginHub.vue#L58-L92)；[`updatePluginHub` 只读取和保存 JSON 元数据](https://github.com/GUI-for-Cores/GUI.for.SingBox/blob/f0de129e3c7ee0278eff12f13bbfa435fcc8e57d/frontend/src/stores/plugins.ts#L662-L687)。[`addPlugin` 先加入元数据，再调用 `_doUpdatePlugin`，最后保存插件列表](https://github.com/GUI-for-Cores/GUI.for.SingBox/blob/f0de129e3c7ee0278eff12f13bbfa435fcc8e57d/frontend/src/stores/plugins.ts#L444-L454)；具体的 [HTTP 源码下载在 `_doUpdatePlugin`](https://github.com/GUI-for-Cores/GUI.for.SingBox/blob/f0de129e3c7ee0278eff12f13bbfa435fcc8e57d/frontend/src/stores/plugins.ts#L548-L607)。原版还会注册观察器、触发 `OnInstall`，并在添加时忽略下载异常，这些桌面生命周期和错误处理并未照搬。
 
-GUI 的索引/重命名操作还需适应 WebUI 的订阅 ID 引用。当前内置插件保留节点身份并改写内部出站引用，避免重新更新订阅后配置中已选节点丢失。自定义脚本如果主动丢弃内部身份字段并创建全新节点，首次改名可能被视为新节点。
+WebUI 保留“先浏览、再选择安装”的交互：打开中心时先读有效目录缓存，没有缓存才获取独立仓库的 `index.json`；「检查更新」也只刷新元数据，不下载 JS、不安装插件。用户点击某个插件的安装或更新后，才下载该项源码，经 SHA256 和语法校验后保存，失败保留原安装。列表获取失败时保留有效缓存，无缓存则显示空目录和明确警告。目录缓存只能离线浏览，新安装或更新仍需联网；已安装源码独立保存，可离线执行。
 
-三种命名策略通过 `conflicts` 互斥。旧安装若同时启用了防代理重名、更好的代理名称显示和美化节点名称中的多个，请在更新插件前先禁用多余策略。主程序先升到 1.3.0，再更新插件；更新保留参数和启停状态，遇到冲突明确报错，不静默选择策略。
+GUI 原版的插件运行环境包含 Wails、前端 Store、窗口和文件等 API。本分支通过 Goja 执行后端 JS，[独立插件仓库](https://github.com/Ghostdehole/WEBUI.for.SingBox-Plugins) 是插件中心唯一发行来源；主程序不附带插件源码，只提供下载、管理和执行接口。浏览器关闭后，已安装订阅插件仍能由定时任务触发。手动订阅处理选择现有缓存，不隐式下载订阅或重启核心；声明 `manual_target: "diagnostic"` 的插件直接运行 `onRun()`，不选择订阅、不改缓存，显示报告和日志。接口和兼容边界见 [插件说明](plugins.md)。
+
+GUI 的索引/重命名操作还需适应 WebUI 的订阅 ID 引用。独立仓库的命名插件保留节点身份并改写内部出站引用，避免重新更新订阅后配置中已选节点丢失；地区表为 142 个地区、907 个关键词。自定义脚本如果主动丢弃内部身份字段并创建全新节点，首次改名可能被视为新节点。
+
+三种命名策略通过 `conflicts` 互斥。旧安装若同时启用了防代理重名、更好的代理名称显示和美化节点名称中的多个，请在更新插件前先禁用多余策略。主程序先升到 1.3.1 或更新版本，再更新插件；更新保留参数和启停状态，遇到冲突明确报错，不静默选择策略。1.3.1 忽略旧版含源码的目录缓存，重新获取元数据列表；主程序升级不合并随附条目，也不改变已安装源码。
 
 路由器透明代理、独立代理端口、出站链、配置覆盖、规则集引用、Hosts DNS、AdGuardHome 对接及核心 URLTest 均只生成配置。默认参数不会启用这些改动，需先填写设备实际接口、端口、标签并预览。透明代理脚本不写系统防火墙、不替 dnsmasq；启动核心后，sing-box 才按配置执行自动路由和重定向。AdGuardHome/FRP 等独立进程应由 procd/systemd 管理，不移植桌面下载器、PID 文件和进程守护循环。
 

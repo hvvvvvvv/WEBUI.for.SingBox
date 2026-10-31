@@ -39,7 +39,6 @@ const refresh = async () => {
 }
 onActivated(() => {
   void refresh()
-  if (!store.catalog.plugins.length) void store.loadCatalog().catch(showError)
 })
 const openHub = () => {
   modal.setProps({
@@ -68,7 +67,13 @@ const openEditor = (id = '', mode: 'source' | 'metadata' | 'configuration' = 'me
 const checkUpdates = async () => {
   try {
     await store.loadCatalog(true)
-    message.success('plugins.updateSuccess')
+    if (store.catalog.warning) {
+      message.warn(store.catalog.warning)
+    } else if (store.catalog.source === 'empty') {
+      message.warn('plugins.catalogUnavailable')
+    } else {
+      message.success('plugins.updateSuccess')
+    }
   } catch (value) {
     showError(value)
   }

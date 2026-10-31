@@ -43,10 +43,13 @@ func TestCatalogRefreshUsesBackendRequestProxyAndUserAgent(t *testing.T) {
 		return network.Options{Mode: network.ModeCustom, ProxyURL: proxy.URL, UserAgent: "router-test-agent", GitHubToken: "must-not-reach-catalog"}
 	})
 	result, err := s.Get(context.Background(), true)
-	if err != nil || result.Source != "remote" || len(result.Plugins) != 1 || count.Load() != 2 {
+	if err != nil || result.Source != "remote" || len(result.Plugins) != 1 || count.Load() != 1 {
 		t.Fatalf("catalog did not use the configured proxy: %+v requests=%d err=%v", result, count.Load(), err)
 	}
 	if policies.Load() != 1 || connections.Load() != 1 {
 		t.Fatalf("refresh did not reuse its policy/connection: policies=%d connections=%d", policies.Load(), connections.Load())
+	}
+	if _, err := s.Download(context.Background(), result.Plugins[0].ID); err != nil || count.Load() != 2 || policies.Load() != 2 {
+		t.Fatalf("selected download did not use request settings: requests=%d policies=%d err=%v", count.Load(), policies.Load(), err)
 	}
 }

@@ -2,7 +2,13 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
 import { PluginApiError, requestPlugins } from '@/api/plugins'
-import type { Plugin, PluginCatalog, PluginRunResult, PluginSnapshot } from '@/types/plugin'
+import type {
+  Plugin,
+  PluginCatalog,
+  PluginCatalogItem,
+  PluginRunResult,
+  PluginSnapshot,
+} from '@/types/plugin'
 
 export { PluginApiError }
 
@@ -11,8 +17,9 @@ export const usePluginsStore = defineStore('plugins', () => {
   const revision = ref(0)
   const loading = ref(false)
   const busy = ref(false)
-  const catalog = ref<PluginCatalog>({ plugins: [], source: 'bundled', repository: '' })
+  const catalog = ref<PluginCatalog>({ plugins: [], source: 'empty', repository: '' })
   const catalogLoading = ref(false)
+  const catalogError = ref('')
   let sequence = 0
   let appliedSequence = 0
   let catalogSequence = 0
@@ -85,6 +92,13 @@ export const usePluginsStore = defineStore('plugins', () => {
       if (requestID < appliedCatalogSequence) return
       appliedCatalogSequence = requestID
       catalog.value = result
+      catalogError.value = ''
+    } catch (error) {
+      if (requestID >= appliedCatalogSequence) {
+        appliedCatalogSequence = requestID
+        catalogError.value = error instanceof Error ? error.message : String(error)
+      }
+      throw error
     } finally {
       if (requestID === catalogSequence) catalogLoading.value = false
     }
@@ -95,7 +109,7 @@ export const usePluginsStore = defineStore('plugins', () => {
       ...(subscriptionID === undefined ? {} : { subscription_id: subscriptionID }),
     })
   const getPluginById = (id: string) => plugins.value.find((plugin) => plugin.id === id)
-  const availableUpdate = (plugin: Plugin) =>
+  const availableUpdate = (plugin: Pick<Plugin, 'id' | 'version'>): PluginCatalogItem | undefined =>
     catalog.value.plugins.find((item) => item.id === plugin.id && item.version !== plugin.version)
 
   return {
@@ -105,6 +119,7 @@ export const usePluginsStore = defineStore('plugins', () => {
     busy,
     catalog,
     catalogLoading,
+    catalogError,
     setupPlugins,
     savePlugin,
     deletePlugin,

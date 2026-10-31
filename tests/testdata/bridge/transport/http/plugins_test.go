@@ -2,6 +2,8 @@ package httptransport
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,6 +11,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"guiforcores/bridge/auth"
@@ -35,6 +38,13 @@ func pluginHTTPService(t *testing.T) *plugins.Service {
 
 func pluginHTTPHandler(t *testing.T, service *plugins.Service, catalog *plugincatalog.Service, runner SubscriptionPluginRunner) http.Handler {
 	t.Helper()
+	if catalog == nil {
+		cache := filepath.Join(t.TempDir(), "catalog.json")
+		if err := os.WriteFile(cache, []byte(pluginBody(t, pluginHTTPIndex(httpPlugin("test-catalog")))), 0600); err != nil {
+			t.Fatal(err)
+		}
+		catalog = plugincatalog.NewService(cache)
+	}
 	authService := auth.NewService(storage.NewPaths(t.TempDir()))
 	if err := authService.SetSecret("plugin-test-secret"); err != nil {
 		t.Fatal(err)
@@ -68,6 +78,51 @@ func pluginBody(t *testing.T, value any) string {
 
 func httpPlugin(id string) plugins.Plugin {
 	return plugins.Plugin{ID: id, Name: id, Version: "1", Triggers: []string{plugins.OnManual}, Source: `function onRun(p) { return p }`}
+}
+
+func pluginHTTPIndex(items ...plugins.Plugin) plugincatalog.Index {
+	index := plugincatalog.Index{APIVersion: plugincatalog.APIVersion}
+	for _, item := range items {
+		digest := sha256.Sum256([]byte(item.Source))
+		index.Plugins = append(index.Plugins, plugincatalog.Entry{ID: item.ID, Name: item.Name, Description: item.Description, Version: item.Version, Triggers: item.Triggers, ManualTarget: item.ManualTarget, Conflicts: item.Conflicts, Configuration: item.Configuration, ConfigurationSchema: item.ConfigurationSchema, Path: "plugins/" + item.ID + ".js", SHA256: hex.EncodeToString(digest[:])})
+	}
+	return index
+}
+
+type pluginHTTPTransport func(*http.Request) (*http.Response, error)
+
+func (transport pluginHTTPTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	return transport(request)
+}
+
+func pluginDownloadCatalog(t *testing.T, items ...plugins.Plugin) (*plugincatalog.Service, map[string]string, *atomic.Int32) {
+	t.Helper()
+	cache := filepath.Join(t.TempDir(), "catalog.json")
+	if err := os.WriteFile(cache, []byte(pluginBody(t, pluginHTTPIndex(items...))), 0600); err != nil {
+		t.Fatal(err)
+	}
+	sources := map[string]string{}
+	for _, item := range items {
+		sources["/plugins/"+item.ID+".js"] = item.Source
+	}
+	previous := http.DefaultTransport
+	calls := new(atomic.Int32)
+	http.DefaultTransport = pluginHTTPTransport(func(request *http.Request) (*http.Response, error) {
+		calls.Add(1)
+		if request.URL.Host != "raw.githubusercontent.com" {
+			t.Errorf("unexpected source host: %s", request.URL.Host)
+		}
+		path := strings.TrimPrefix(request.URL.Path, "/"+plugincatalog.Repository+"/main")
+		w := httptest.NewRecorder()
+		if source, ok := sources[path]; ok {
+			_, _ = w.WriteString(source)
+		} else {
+			http.NotFound(w, request)
+		}
+		return w.Result(), nil
+	})
+	t.Cleanup(func() { http.DefaultTransport = previous })
+	return plugincatalog.NewService(cache), sources, calls
 }
 
 func TestPluginHTTPAuthenticationAndMethods(t *testing.T) {
@@ -158,11 +213,8 @@ func TestPluginHTTPUpdatePreservesUserSettingsAndInstallDoesNotExecute(t *testin
 	candidate.Source = `function onRun(p){return p}; function onSubscribe(p){return p}`
 	newPlugin := httpPlugin("new-plugin")
 	newPlugin.Source = `throw new Error("install must compile without evaluating source"); function onRun(p){return p}`
-	cache := filepath.Join(t.TempDir(), "catalog.json")
-	if err := os.WriteFile(cache, []byte(pluginBody(t, []plugins.Plugin{candidate, newPlugin})), 0600); err != nil {
-		t.Fatal(err)
-	}
-	handler := pluginHTTPHandler(t, service, plugincatalog.NewService(cache), nil)
+	catalog, _, downloads := pluginDownloadCatalog(t, candidate, newPlugin)
+	handler := pluginHTTPHandler(t, service, catalog, nil)
 	request := func(op, id string, revision uint64) *httptest.ResponseRecorder {
 		return pluginHTTPRequest(t, handler, http.MethodPost, "/api/plugins/"+op, pluginBody(t, map[string]any{"id": id, "expected_revision": revision}), true)
 	}
@@ -171,6 +223,9 @@ func TestPluginHTTPUpdatePreservesUserSettingsAndInstallDoesNotExecute(t *testin
 	}
 	if response := request("update", "unknown", 1); response.Code != http.StatusNotFound {
 		t.Fatalf("updating uninstalled plugin accepted: %d %s", response.Code, response.Body.String())
+	}
+	if downloads.Load() != 0 {
+		t.Fatal("rejected update downloaded source")
 	}
 	if response := request("update", previous.ID, 1); response.Code != http.StatusOK {
 		t.Fatalf("update failed: %d %s", response.Code, response.Body.String())
@@ -184,6 +239,9 @@ func TestPluginHTTPUpdatePreservesUserSettingsAndInstallDoesNotExecute(t *testin
 	}
 	if response := request("install", newPlugin.ID, 2); response.Code != http.StatusOK {
 		t.Fatalf("install executed source or failed: %d %s", response.Code, response.Body.String())
+	}
+	if downloads.Load() != 2 {
+		t.Fatalf("install/update downloaded unselected scripts: %d", downloads.Load())
 	}
 	response := pluginHTTPRequest(t, handler, http.MethodPost, "/api/plugins/reorder", `{"ids":["new-plugin","catalog-plugin"],"expected_revision":3}`, true)
 	if response.Code != http.StatusOK || service.List().Plugins[0].ID != "new-plugin" {

@@ -14,7 +14,7 @@ vi.mock('@/api/plugins', () => ({
   },
 }))
 import { PluginApiError, usePluginsStore } from '@/stores/plugins'
-import type { Plugin } from '@/types/plugin'
+import type { Plugin, PluginCatalogItem } from '@/types/plugin'
 
 const plugin = (id = 'rename'): Plugin => ({
   id,
@@ -25,6 +25,16 @@ const plugin = (id = 'rename'): Plugin => ({
   source: 'function onSubscribe(p) { return p }',
   triggers: ['on::subscribe'],
   configuration: {},
+})
+const catalogItem = (id = 'rename'): PluginCatalogItem => ({
+  id,
+  name: id,
+  description: '',
+  version: 'v1.0.0',
+  triggers: ['on::subscribe'],
+  configuration: {},
+  path: `plugins/${id}.js`,
+  sha256: 'a'.repeat(64),
 })
 
 describe('global backend plugin store', () => {
@@ -75,14 +85,17 @@ describe('global backend plugin store', () => {
     const store = usePluginsStore()
     store.plugins = [plugin()]
     request.mockResolvedValueOnce({
-      plugins: [{ ...plugin(), version: 'v2.0.0', source: 'new source' }],
+      plugins: [{ ...catalogItem(), version: 'v2.0.0' }],
       source: 'remote',
       repository: 'Ghostdehole/WEBUI.for.SingBox-Plugins',
     })
     await store.loadCatalog(true)
     expect(request).toHaveBeenLastCalledWith('/catalog?refresh=1')
     expect(store.plugins[0]!.version).toBe('v1.0.0')
+    expect(store.plugins[0]!.source).toBe(plugin().source)
+    expect(request.mock.calls).toEqual([['/catalog?refresh=1']])
     expect(store.availableUpdate(store.plugins[0]!)?.version).toBe('v2.0.0')
+    expect(store.availableUpdate(store.plugins[0]!)).not.toHaveProperty('source')
   })
   it('keeps a committed revision when a later GET read the pre-mutation snapshot', async () => {
     const store = usePluginsStore()
@@ -104,15 +117,15 @@ describe('global backend plugin store', () => {
     request.mockReturnValueOnce(initial.promise)
     const pending = store.loadCatalog()
     const refreshed = {
-      plugins: [{ ...plugin(), version: 'v2.0.0', source: 'updated source' }],
+      plugins: [{ ...catalogItem(), version: 'v2.0.0' }],
       source: 'remote',
       repository: 'Ghostdehole/WEBUI.for.SingBox-Plugins',
     }
     request.mockResolvedValueOnce(refreshed)
     await store.loadCatalog(true)
     initial.resolve({
-      plugins: [plugin()],
-      source: 'bundled',
+      plugins: [catalogItem()],
+      source: 'cache',
       repository: refreshed.repository,
       warning: 'outdated warning',
     })
@@ -126,5 +139,60 @@ describe('global backend plugin store', () => {
     request.mockRejectedValue(new Error('offline'))
     await expect(store.reorderPlugins(['b', 'a'], 5, ['a', 'b'])).rejects.toThrow('offline')
     expect(store.plugins.map((item) => item.id)).toEqual(['a', 'b'])
+  })
+  it('starts empty and lets the first catalog request fetch the independent repository', async () => {
+    const store = usePluginsStore()
+    expect(store.catalog).toEqual({ plugins: [], source: 'empty', repository: '' })
+    const initial = Promise.withResolvers<unknown>()
+    request.mockReturnValueOnce(initial.promise)
+    const loading = store.loadCatalog()
+    expect(request).toHaveBeenCalledWith('/catalog')
+    expect(store.catalogLoading).toBe(true)
+    initial.resolve({ plugins: [catalogItem()], source: 'remote', repository: 'owner/plugins' })
+    await loading
+    expect(store.catalog.source).toBe('remote')
+    expect(store.catalog.plugins).toHaveLength(1)
+    expect(store.catalogLoading).toBe(false)
+  })
+  it('retains the cache and warning on transport failure and clears errors after a successful retry', async () => {
+    const store = usePluginsStore()
+    store.catalog = {
+      plugins: [catalogItem()],
+      source: 'cache',
+      repository: 'owner/plugins',
+      warning: 'cached warning',
+    }
+    request.mockRejectedValueOnce(new Error('network offline'))
+    await expect(store.loadCatalog(true)).rejects.toThrow('network offline')
+    expect(store.catalog.plugins).toHaveLength(1)
+    expect(store.catalog.source).toBe('cache')
+    expect(store.catalog.warning).toBe('cached warning')
+    expect(store.catalogError).toBe('network offline')
+    request.mockResolvedValueOnce({
+      plugins: [catalogItem()],
+      source: 'remote',
+      repository: 'owner/plugins',
+    })
+    await store.loadCatalog(true)
+    expect(store.catalogError).toBe('')
+    expect(store.catalog.warning).toBeUndefined()
+    expect(store.catalog.source).toBe('remote')
+  })
+  it('does not replace a newer success with an older catalog error', async () => {
+    const store = usePluginsStore()
+    const initial = Promise.withResolvers<unknown>()
+    request.mockReturnValueOnce(initial.promise)
+    const pending = store.loadCatalog()
+    const rejected = expect(pending).rejects.toThrow('old request failed')
+    request.mockResolvedValueOnce({
+      plugins: [catalogItem()],
+      source: 'remote',
+      repository: 'owner/plugins',
+    })
+    await store.loadCatalog(true)
+    initial.reject(new Error('old request failed'))
+    await rejected
+    expect(store.catalogError).toBe('')
+    expect(store.catalog.plugins).toHaveLength(1)
   })
 })

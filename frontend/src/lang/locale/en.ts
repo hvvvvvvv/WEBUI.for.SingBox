@@ -714,7 +714,8 @@ export default {
       'The plugin changed elsewhere. Your changes are preserved; load the latest version before editing again.',
     empty:
       'No plugins installed. Install from the plugin center or add your own JavaScript plugin.',
-    updateSuccess: 'Catalog checked. Use the plugin menu to install an available update.',
+    updateSuccess:
+      'Plugin list checked; no source downloaded or installed. Use the plugin menu to update a selected plugin.',
     newVersion: 'Update available',
     installed: 'Installed',
     install: 'Install',
@@ -723,7 +724,14 @@ export default {
     moveUp: 'Move up',
     moveDown: 'Move down',
     hubHint:
-      'This catalog contains JavaScript plugins adapted for the WebUI backend. You can view and edit their source after installation.',
+      'Opening the hub only fetches the plugin list. Source is downloaded and installed only when you click Install for a selected plugin. Check updates only refreshes the list.',
+    catalogLoading: 'Loading the plugin list from its repository…',
+    catalogUnavailable:
+      'The plugin catalog is unavailable. Check the router’s network connection, then retry.',
+    catalogEmpty: 'The repository catalog currently has no plugins.',
+    catalogNoResults: 'No plugins match your search.',
+    catalogCached: 'Showing the cached plugin list.',
+    catalogRemote: 'Plugin list loaded from the independent repository.',
     runtimeHint:
       'Plugins run on the router backend even when the browser is closed. Subscription and configuration hooks run in list order.',
     importSource: 'Import JS',
