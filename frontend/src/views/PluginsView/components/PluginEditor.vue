@@ -8,6 +8,7 @@ import { message } from '@/utils'
 import type { Plugin } from '@/types/plugin'
 import Button from '@/components/Button/index.vue'
 import ResourceConflictNotice from '@/components/ResourceConflictNotice/index.vue'
+import PluginConfigItem from './PluginConfigItem.vue'
 
 const props = withDefaults(
   defineProps<{ id?: string; mode?: 'source' | 'metadata' | 'configuration' }>(),
@@ -38,6 +39,9 @@ const draft = ref<Plugin>(
   ),
 )
 const configuration = ref(JSON.stringify(draft.value.configuration || {}, null, 2))
+const configurationMode = ref<'form' | 'json'>(
+  draft.value.configuration_schema?.length ? 'form' : 'json',
+)
 let baseRevision = store.revision
 const triggerOptions = [
   { label: 'plugin.on::subscribe', value: 'on::subscribe' },
@@ -45,21 +49,35 @@ const triggerOptions = [
   { label: 'plugin.on::manual', value: 'on::manual' },
 ]
 
+const readConfiguration = (): Record<string, unknown> => {
+  if (configurationMode.value === 'form') return deepClone(draft.value.configuration || {})
+  configuration.value = configurationEditor.value?.getContent() ?? configuration.value
+  let config: unknown
+  try {
+    config = JSON.parse(configuration.value || '{}')
+  } catch {
+    throw new Error(t('plugins.invalidConfiguration'))
+  }
+  if (!config || typeof config !== 'object' || Array.isArray(config))
+    throw new Error(t('plugins.invalidConfiguration'))
+  return config as Record<string, unknown>
+}
+const switchConfigurationMode = (mode: 'form' | 'json') => {
+  if (mode === configurationMode.value) return
+  try {
+    draft.value.configuration = readConfiguration()
+    configuration.value = JSON.stringify(draft.value.configuration, null, 2)
+    configurationMode.value = mode
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : String(error))
+  }
+}
 const save = async (asCopy = false) => {
   loading.value = true
   try {
     // CodeMirror emits debounced updates; read its current document before saving.
     draft.value.source = sourceEditor.value?.getContent() ?? draft.value.source
-    configuration.value = configurationEditor.value?.getContent() ?? configuration.value
-    let config: unknown
-    try {
-      config = JSON.parse(configuration.value || '{}')
-    } catch {
-      throw new Error(t('plugins.invalidConfiguration'))
-    }
-    if (!config || typeof config !== 'object' || Array.isArray(config))
-      throw new Error(t('plugins.invalidConfiguration'))
-    const plugin = { ...deepClone(draft.value), configuration: config as Record<string, unknown> }
+    const plugin = { ...deepClone(draft.value), configuration: readConfiguration() }
     if (asCopy) {
       plugin.id = sampleID()
       plugin.name += ' (Copy)'
@@ -88,6 +106,7 @@ const loadLatest = async () => {
     if (latest) {
       draft.value = deepClone(latest)
       configuration.value = JSON.stringify(latest.configuration || {}, null, 2)
+      configurationMode.value = latest.configuration_schema?.length ? 'form' : 'json'
     }
     baseRevision = store.revision
     conflict.value = null
@@ -120,7 +139,8 @@ const exportSource = () => {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 const modalSlots = {
-  cancel: () => h(Button, { disabled: loading.value, onClick: cancel }, () => t('common.cancel')),
+  cancel: () =>
+    h(Button, { disabled: loading.value, onClick: cancel }, () => t('common.cancel')),
   submit: () =>
     h(
       Button,
@@ -176,8 +196,31 @@ defineExpose({ modalSlots })
       </div>
     </template>
     <template v-if="mode !== 'source'">
-      <p class="plugin-section-title">{{ t('plugins.configuration') }} (JSON)</p>
+      <div class="plugin-source-toolbar">
+        <strong>{{ t('plugins.configuration') }}</strong>
+        <template v-if="draft.configuration_schema?.length">
+          <Button
+            :type="configurationMode === 'form' ? 'primary' : 'text'"
+            size="small"
+            @click="switchConfigurationMode('form')"
+            >{{ t('plugins.formConfiguration') }}</Button
+          >
+          <Button
+            :type="configurationMode === 'json' ? 'primary' : 'text'"
+            size="small"
+            @click="switchConfigurationMode('json')"
+            >{{ t('plugins.advancedConfiguration') }}</Button
+          >
+        </template>
+      </div>
+      <PluginConfigItem
+        v-if="configurationMode === 'form'"
+        v-model="draft.configuration"
+        :plugin="draft"
+        :disabled="loading || reloading"
+      />
       <CodeViewer
+        v-else
         ref="configurationEditor"
         v-model="configuration"
         lang="json"
@@ -188,7 +231,9 @@ defineExpose({ modalSlots })
     <template v-if="mode !== 'configuration'">
       <div class="plugin-source-toolbar">
         <strong>{{ t('plugins.source') }}</strong>
-        <Button size="small" @click="fileInput?.click()">{{ t('plugins.importSource') }}</Button>
+        <Button size="small" @click="fileInput?.click()">{{
+          t('plugins.importSource')
+        }}</Button>
         <Button size="small" @click="exportSource">{{ t('plugins.exportSource') }}</Button>
         <input
           ref="fileInput"

@@ -59,6 +59,13 @@ message GetCurrentCoreMemoryResponse {
   uint64 rss = 1;
 }
 
+message GetRuntimePathsRequest {}
+
+message GetRuntimePathsResponse {
+  string app_base_path = 1;
+  string core_base_path = 2;
+}
+
 message GetCoreBranchLocalVersionRequest {
   app.v1.KernelBranch branch = 1;
 }
@@ -122,6 +129,7 @@ service KernelRuntimeService {
   rpc GetCoreStatus(GetCoreStatusRequest) returns (GetCoreStatusResponse);
   rpc GetCurrentProfile(GetCurrentProfileRequest) returns (GetCurrentProfileResponse);
   rpc GetCurrentCoreMemory(GetCurrentCoreMemoryRequest) returns (GetCurrentCoreMemoryResponse);
+  rpc GetRuntimePaths(GetRuntimePathsRequest) returns (GetRuntimePathsResponse);
   rpc GetCoreBranchLocalVersion(GetCoreBranchLocalVersionRequest) returns (GetCoreBranchLocalVersionResponse);
   rpc GetCoreBranchRemoteVersion(GetCoreBranchRemoteVersionRequest) returns (GetCoreBranchRemoteVersionResponse);
   rpc DownloadCore(DownloadCoreRequest) returns (DownloadCoreResponse);

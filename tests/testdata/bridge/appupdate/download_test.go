@@ -11,9 +11,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"guiforcores/bridge/logging"
+	"guiforcores/bridge/network"
 	"guiforcores/bridge/platform"
 	"guiforcores/bridge/storage"
 	appv1 "guiforcores/gen/app/v1"
@@ -30,6 +32,11 @@ type updateEvents func(string, ...any)
 func (f updateEvents) Publish(name string, values ...any) { f(name, values...) }
 
 func TestAppDownloadRequiresVerifiedArchiveFromConfiguredRepository(t *testing.T) {
+	previousClient := newRequestClient
+	t.Cleanup(func() { newRequestClient = previousClient })
+	newRequestClient = func(_ network.Options, timeout time.Duration, _ bool) (*http.Client, error) {
+		return &http.Client{Transport: http.DefaultTransport, Timeout: timeout}, nil
+	}
 	const archive = "new release zip"
 	for _, mode := range []string{"success", "corrupted", "missing_digest", "canceled"} {
 		t.Run(mode, func(t *testing.T) {

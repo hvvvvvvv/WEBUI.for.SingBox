@@ -95,6 +95,7 @@ type Service struct {
 	restartExecutingID string
 	downloads          map[string]context.CancelFunc
 	nativeAPI          *nativeAPIInstance
+	requestProxyURL    string
 }
 
 var waitKernelAPIReadyFunc = waitKernelAPIReady
@@ -178,7 +179,7 @@ func (s *Service) setStarting(profileID string) error {
 	return nil
 }
 
-func (s *Service) completeStart(pid int, profileID string, profile *profilev1.Profile, secret string) bool {
+func (s *Service) completeStart(pid int, profileID string, profile *profilev1.Profile, secret string, proxyConfig ...map[string]any) bool {
 	s.stateEventMu.Lock()
 	defer s.stateEventMu.Unlock()
 
@@ -188,6 +189,9 @@ func (s *Service) completeStart(pid int, profileID string, profile *profilev1.Pr
 		return false
 	}
 	s.installNativeAPILocked(pid, secret)
+	if len(proxyConfig) > 0 {
+		s.requestProxyURL = requestProxyFromConfig(proxyConfig[0])
+	}
 	s.status = kernelv1.CoreStatus_CORE_STATUS_RUNNING
 	s.activeProfileID = profileID
 	s.currentProfile = cloneProfile(profile)
@@ -487,7 +491,11 @@ func (s *Service) launchPreparedCore(ctx context.Context, profile *profilev1.Pro
 		return -1, coreAPIUnavailableError(err)
 	}
 
-	if !s.completeStart(pid, profileID, profile, config.NativeAPISecret(generatedConfig)) {
+	var proxyConfig map[string]any
+	if usesManagedProxyConfig(runtimeCfg.Args, s.processes.ResolvePath(coreConfigRelativePath)) {
+		proxyConfig = generatedConfig
+	}
+	if !s.completeStart(pid, profileID, profile, config.NativeAPISecret(generatedConfig), proxyConfig) {
 		return -1, connect.NewError(connect.CodeUnavailable, fmt.Errorf("core process exited during startup"))
 	}
 

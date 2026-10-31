@@ -35,11 +35,15 @@ export const useAppConfigStore = defineStore('app-config', () => {
   const normalizeCoreConfig = (value?: Partial<CoreRuntimeConfig>): CoreRuntimeConfig => {
     const defaults = DefaultCoreConfig()
     return {
-      env: Object.entries(value?.env || {}).reduce((result, [key, item]) => {
-        result[key] = String(item)
-        return result
-      }, {} as Record<string, string>),
-      args: Array.isArray(value?.args) && value.args.length > 0 ? [...value.args] : [...defaults.args],
+      env: Object.entries(value?.env || {}).reduce(
+        (result, [key, item]) => {
+          result[key] = String(item)
+          return result
+        },
+        {} as Record<string, string>,
+      ),
+      args:
+        Array.isArray(value?.args) && value.args.length > 0 ? [...value.args] : [...defaults.args],
     }
   }
 
@@ -49,6 +53,9 @@ export const useAppConfigStore = defineStore('app-config', () => {
     autoRestartKernel: false,
     userAgent: '',
     githubApiToken: '',
+    requestProxyMode: 'environment',
+    customProxy: '',
+    githubDownloadMirror: '',
     rollingRelease: true,
     branch: Branch.Main,
     profile: '',
@@ -89,6 +96,9 @@ export const useAppConfigStore = defineStore('app-config', () => {
       autoRestartKernel: value.autoRestartKernel,
       userAgent: value.userAgent,
       githubApiToken: value.githubApiToken,
+      requestProxyMode: (value.requestProxyMode || 'environment') as AppConfig['requestProxyMode'],
+      customProxy: value.customProxy,
+      githubDownloadMirror: value.githubDownloadMirror,
       rollingRelease: value.rollingRelease,
       branch: protoBranchToBranch(value.branch),
       profile: value.profile,
@@ -106,6 +116,9 @@ export const useAppConfigStore = defineStore('app-config', () => {
       autoRestartKernel: normalized.autoRestartKernel,
       userAgent: normalized.userAgent,
       githubApiToken: normalized.githubApiToken,
+      requestProxyMode: normalized.requestProxyMode,
+      customProxy: normalized.customProxy,
+      githubDownloadMirror: normalized.githubDownloadMirror,
       rollingRelease: normalized.rollingRelease,
       branch: branchToProtoBranch(normalized.branch),
       profile: normalized.profile,
@@ -120,6 +133,9 @@ export const useAppConfigStore = defineStore('app-config', () => {
     autoRestartKernel: !!value.autoRestartKernel,
     userAgent: value.userAgent || '',
     githubApiToken: value.githubApiToken || '',
+    requestProxyMode: value.requestProxyMode || 'environment',
+    customProxy: value.customProxy || '',
+    githubDownloadMirror: value.githubDownloadMirror || '',
     rollingRelease: !!value.rollingRelease,
     branch: value.branch === Branch.Alpha ? Branch.Alpha : Branch.Main,
     profile: value.profile || '',
@@ -176,22 +192,27 @@ export const useAppConfigStore = defineStore('app-config', () => {
     }
   }
 
-  watch(config, (value) => {
-    if (immediateSaveInProgress) return
-    const normalized = normalizeConfig(value)
-    const current = stableStringify(normalized)
-    if (latestConfig !== current) {
-      saveAppConfig(deepClone(normalized)).then((saved) => {
-        latestConfig = stableStringify(saved)
-      })
-    } else {
-      saveAppConfig.cancel()
-    }
-  }, { deep: true })
+  watch(
+    config,
+    (value) => {
+      if (immediateSaveInProgress) return
+      const normalized = normalizeConfig(value)
+      const current = stableStringify(normalized)
+      if (latestConfig !== current) {
+        saveAppConfig(deepClone(normalized)).then((saved) => {
+          latestConfig = stableStringify(saved)
+        })
+      } else {
+        saveAppConfig.cancel()
+      }
+    },
+    { deep: true },
+  )
 
   return {
     config,
     setupAppConfig,
     saveNow,
+    testNetworkRequest: (url = '') => service.testNetworkRequest({ url }),
   }
 })

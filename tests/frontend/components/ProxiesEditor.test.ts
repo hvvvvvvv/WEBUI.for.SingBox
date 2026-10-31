@@ -41,7 +41,12 @@ describe('subscription source editor immediate save', () => {
   })
   const mount = async () => {
     const editor = ref<any>()
-    const sub = { id: 'manual', name: 'Manual', type: 'Manual', proxies: [] } as unknown as Subscription
+    const sub = {
+      id: 'manual',
+      name: 'Manual',
+      type: 'Manual',
+      proxies: [],
+    } as unknown as Subscription
     app = createApp({
       render: () =>
         h('div', [

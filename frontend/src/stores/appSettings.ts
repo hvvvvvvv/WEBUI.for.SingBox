@@ -1,11 +1,12 @@
 import { defineStore } from 'pinia'
-import { ref, watch } from 'vue'
+import { onScopeDispose, ref, watch } from 'vue'
 
 import {
   Colors,
   DefaultCardColumns,
   DefaultControllerSensitivity,
   DefaultFontFamily,
+  DefaultVisiblePages,
 } from '@/constant/app'
 import { DefaultConnections } from '@/constant/kernel'
 import { Theme, Lang, View, Color, ControllerCloseMode } from '@/enums/app'
@@ -51,6 +52,9 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       primaryColor: defaults.primaryColor,
       secondaryColor: defaults.secondaryColor,
       fontFamily: defaults.fontFamily,
+      pages: Array.isArray(raw.pages)
+        ? DefaultVisiblePages.filter((page) => raw.pages.includes(page))
+        : [...DefaultVisiblePages],
       profilesView: defaults.profilesView,
       subscribesView: defaults.subscribesView,
       rulesetsView: defaults.rulesetsView,
@@ -61,6 +65,14 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       debugOutline: defaults.debugOutline,
       debugNoAnimation: defaults.debugNoAnimation,
       debugNoRounded: defaults.debugNoRounded,
+      debugUsePointer:
+        typeof raw.debugUsePointer === 'boolean'
+          ? raw.debugUsePointer
+          : defaults.debugUsePointer,
+      debugModalSideBySide:
+        typeof raw.debugModalSideBySide === 'boolean'
+          ? raw.debugModalSideBySide
+          : defaults.debugModalSideBySide,
     } as any
     ;[
       'lang',
@@ -90,6 +102,10 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
 
     settings.kernel = { ...defaults.kernel }
     if (isRecord(raw.kernel)) {
+      settings.kernel.realMemoryUsage =
+        typeof raw.kernel.realMemoryUsage === 'boolean'
+          ? raw.kernel.realMemoryUsage
+          : defaults.kernel.realMemoryUsage
       ;[
         'autoClose',
         'unAvailable',
@@ -137,6 +153,7 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     primaryColor: '#000',
     secondaryColor: '#545454',
     fontFamily: DefaultFontFamily,
+    pages: [...DefaultVisiblePages],
     profilesView: View.Grid,
     subscribesView: View.Grid,
     rulesetsView: View.Grid,
@@ -144,6 +161,7 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     scheduledtasksView: View.Grid,
     connections: DefaultConnections(),
     kernel: {
+      realMemoryUsage: false,
       autoClose: true,
       unAvailable: true,
       cardMode: true,
@@ -155,6 +173,8 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     debugOutline: false,
     debugNoAnimation: false,
     debugNoRounded: false,
+    debugUsePointer: true,
+    debugModalSideBySide: false,
   })
 
   const saveAppSettings = debounce(async (settingsJson: string) => {
@@ -180,10 +200,11 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       document.documentElement.style.setProperty('--primary-color', primary)
       document.documentElement.style.setProperty('--secondary-color', secondary)
     },
-    feature(outline: boolean, noAnimation: boolean, noRounded: boolean) {
+    feature(outline: boolean, noAnimation: boolean, noRounded: boolean, usePointer: boolean) {
       document.body.setAttribute('feature-outline', String(outline))
       document.body.setAttribute('feature-no-animation', String(noAnimation))
       document.body.setAttribute('feature-no-rounded', String(noRounded))
+      document.body.setAttribute('feature-use-pointer', String(usePointer))
     },
     fontFamily(fontFamily: string) {
       document.body.style.fontFamily = fontFamily
@@ -199,6 +220,7 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       settings.debugOutline,
       settings.debugNoAnimation,
       settings.debugNoRounded,
+      settings.debugUsePointer,
     )
   }
 
@@ -241,10 +263,15 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
   /* Apply AppTheme */
   const themeMode = ref<Theme.Light | Theme.Dark>(Theme.Light)
   const mediaQueryList = window.matchMedia('(prefers-color-scheme: dark)')
-  mediaQueryList.addEventListener('change', ({ matches }) => {
+  const onThemeChange = ({ matches }: MediaQueryListEvent) => {
     if (app.value.theme === Theme.Auto) {
       themeMode.value = matches ? Theme.Dark : Theme.Light
     }
+  }
+  mediaQueryList.addEventListener('change', onThemeChange)
+  onScopeDispose(() => {
+    mediaQueryList.removeEventListener('change', onThemeChange)
+    saveAppSettings.cancel()
   })
   const setAppTheme = (theme: Theme.Dark | Theme.Light) => {
     if (document.startViewTransition) {

@@ -11,6 +11,15 @@ import {
 export const DefaultFontFamily =
   'system-ui, "Microsoft YaHei UI", "Source Han Sans CN", "Twemoji Mozilla", sans-serif'
 
+export const DefaultVisiblePages = [
+  'Overview',
+  'Profiles',
+  'Subscriptions',
+  'Rulesets',
+  'Plugins',
+  'ScheduledTasks',
+]
+
 export const Colors = {
   [Color.Default]: {
     primary: 'rgb(0, 89, 214)',

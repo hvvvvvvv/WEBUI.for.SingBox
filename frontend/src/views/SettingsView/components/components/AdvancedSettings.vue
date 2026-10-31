@@ -3,14 +3,13 @@ import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { apiCall } from '@/bridge/http'
-import { useAppConfigStore, useAppSettingsStore, useAppStore } from '@/stores'
-import { APP_TITLE, message } from '@/utils'
+import { useAppConfigStore, useAppSettingsStore } from '@/stores'
+import { message } from '@/utils'
 import { parseCoreLogDays } from '@/utils/coreLogDays'
 
 const { t } = useI18n()
 const appSettings = useAppSettingsStore()
 const appConfig = useAppConfigStore()
-const appStore = useAppStore()
 
 const authSecret = ref('')
 const authSecretConfirm = ref('')
@@ -43,14 +42,6 @@ const saveCoreLogDays = async (input: number | string) => {
   } finally {
     coreLogDaysSaving.value = false
   }
-}
-
-const handleClearApiToken = () => {
-  appConfig.config.githubApiToken = ''
-}
-
-const handleClearUserAgent = () => {
-  appConfig.config.userAgent = ''
 }
 
 const handleSetupAuth = async () => {
@@ -123,6 +114,17 @@ const handleClearAuth = async () => {
       <Switch v-model="appConfig.config.autoStartKernel" />
     </div>
     <div class="px-8 py-12 flex items-center justify-between gap-8">
+      <div>
+        <div class="text-16 font-bold">{{ $t('settings.realMemoryUsage') }}</div>
+        <div class="text-12">{{ $t('settings.realMemoryUsageHint') }}</div>
+      </div>
+      <Switch
+        v-model="appSettings.app.kernel.realMemoryUsage"
+        :aria-label="$t('settings.realMemoryUsage')"
+        class="shrink-0"
+      />
+    </div>
+    <div class="px-8 py-12 flex items-center justify-between gap-8">
       <div class="text-16 font-bold">
         {{ $t('settings.coreLogDays.name') }}
         <span class="font-normal text-12">({{ $t('settings.coreLogDays.tips') }})</span>
@@ -136,45 +138,6 @@ const handleClearAuth = async () => {
         @submit="saveCoreLogDays"
       >
         <template #editable="{ value }">{{ value }}</template>
-      </Input>
-    </div>
-    <div class="px-8 py-12 flex items-center justify-between">
-      <div class="text-16 font-bold">
-        {{ $t('settings.githubapi.name') }}
-        <span class="font-normal text-12">({{ $t('settings.githubapi.tips') }})</span>
-      </div>
-      <Input v-model.lazy="appConfig.config.githubApiToken" editable class="text-14">
-        <template #suffix>
-          <Button
-            v-tips="'settings.userAgent.reset'"
-            type="text"
-            size="small"
-            icon="reset"
-            @click="handleClearApiToken"
-          />
-        </template>
-      </Input>
-    </div>
-    <div class="px-8 py-12 flex items-center justify-between">
-      <div class="text-16 font-bold">
-        {{ $t('settings.userAgent.name') }}
-        <span class="font-normal text-12">({{ $t('settings.userAgent.tips') }})</span>
-      </div>
-      <Input
-        v-model.lazy="appConfig.config.userAgent"
-        :placeholder="APP_TITLE + '/' + appStore.currentVersion"
-        editable
-        class="text-14"
-      >
-        <template #suffix>
-          <Button
-            v-tips="'settings.userAgent.reset'"
-            type="text"
-            size="small"
-            icon="reset"
-            @click="handleClearUserAgent"
-          />
-        </template>
       </Input>
     </div>
   </Card>

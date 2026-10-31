@@ -25,6 +25,7 @@ export interface AppSettings {
   primaryColor: string
   secondaryColor: string
   fontFamily: string
+  pages: string[]
   profilesView: View
   subscribesView: View
   rulesetsView: View
@@ -35,6 +36,7 @@ export interface AppSettings {
     order: string[]
   }
   kernel: {
+    realMemoryUsage: boolean
     autoClose: boolean
     unAvailable: boolean
     cardMode: boolean
@@ -45,7 +47,9 @@ export interface AppSettings {
   }
   debugOutline: boolean
   debugNoAnimation: boolean
-  debugNoRounded: false
+  debugNoRounded: boolean
+  debugUsePointer: boolean
+  debugModalSideBySide: boolean
 }
 
 export interface CoreRuntimeConfig {
@@ -59,6 +63,9 @@ export interface AppConfig {
   autoRestartKernel: boolean
   userAgent: string
   githubApiToken: string
+  requestProxyMode: 'none' | 'environment' | 'core' | 'custom'
+  customProxy: string
+  githubDownloadMirror: string
   rollingRelease: boolean
   branch: Branch
   profile: string

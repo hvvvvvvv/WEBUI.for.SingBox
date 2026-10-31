@@ -2,7 +2,10 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
-import { useKernelApiStore } from '@/stores'
+import { createRpcClient } from '@/bridge'
+import { useAppSettingsStore, useKernelApiStore } from '@/stores'
+import { useCoreMemory } from '@/hooks/useCoreMemory'
+import { KernelRuntimeService } from '../../../../gen/kernel/v1/kernel_runtime_service_pb'
 import { formatBytes, handleChangeMode, message } from '@/utils'
 import { nativeModeOptions, sameKernelMode } from '@/utils/nativeKernelUi'
 
@@ -25,6 +28,15 @@ const statistics = ref({
 const { t } = useI18n()
 const [Modal, modalApi] = useModal({})
 const kernelApiStore = useKernelApiStore()
+const appSettings = useAppSettingsStore()
+const kernelService = createRpcClient(KernelRuntimeService)
+const { rss, unavailable: rssUnavailable } = useCoreMemory({
+  enabled: () => appSettings.app.kernel.realMemoryUsage,
+  running: () => kernelApiStore.running,
+  pid: () => kernelApiStore.pid,
+  load: async (signal) =>
+    (await kernelService.getCurrentCoreMemory({}, { signal, timeoutMs: 5_000 })).rss,
+})
 const modes = computed(() => nativeModeOptions(kernelApiStore.config.modeList))
 const changeMode = (mode: string) =>
   handleChangeMode(mode).catch((error: any) => message.error(error.message || error))
@@ -176,7 +188,8 @@ onUnmounted(unregisterStatusHandler)
       </Card>
       <Card :title="t('home.overview.totalTraffic')" class="flex-1">
         <div class="py-8 text-12">
-          ↑ {{ formatBytes(statistics.uploadTotal) }} ↓ {{ formatBytes(statistics.downloadTotal) }}
+          ↑ {{ formatBytes(statistics.uploadTotal) }} ↓
+          {{ formatBytes(statistics.downloadTotal) }}
         </div>
       </Card>
       <Card
@@ -188,9 +201,26 @@ onUnmounted(unregisterStatusHandler)
           {{ statistics.connections }}
         </div>
       </Card>
-      <Card :title="t('home.overview.memory')" class="flex-1">
+      <Card
+        :title="
+          t(
+            appSettings.app.kernel.realMemoryUsage
+              ? 'home.overview.memoryRSS'
+              : 'home.overview.memoryNative',
+          )
+        "
+        class="flex-1"
+        data-memory-card
+      >
         <div class="py-8 text-12">
-          {{ formatBytes(statistics.inuse) }}
+          <template v-if="!appSettings.app.kernel.realMemoryUsage">{{
+            formatBytes(statistics.inuse)
+          }}</template>
+          <template v-else-if="!kernelApiStore.running">—</template>
+          <template v-else-if="rss !== undefined">{{ formatBytes(rss) }}</template>
+          <template v-else>{{
+            t(rssUnavailable ? 'home.overview.memoryUnavailable' : 'common.loading')
+          }}</template>
         </div>
       </Card>
       <Card :title="t('home.overview.goroutines')" class="flex-1">

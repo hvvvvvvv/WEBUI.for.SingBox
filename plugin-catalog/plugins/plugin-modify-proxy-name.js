@@ -1,12 +1,12 @@
 // WEBUI.for.SingBox router script plugin. GPL-3.0-or-later.
 // Independently adapted for the backend plugin API; no desktop/Wails access.
-function renameNodes(proxies, transform) {
+function renameNodes(proxies, transform, ensureUnique) {
   const names = new Map(), used = new Set();
   const result = proxies.map(function (proxy, index) {
     const original = String(proxy.tag);
     const base = String(transform(original, index) || original).trim() || original;
     let tag = base, suffix = 2;
-    while (used.has(tag)) tag = base + " [" + suffix++ + "]";
+    while (ensureUnique !== false && used.has(tag)) tag = base + " [" + suffix++ + "]";
     used.add(tag);
     if (!names.has(original)) names.set(original, tag);
     return Object.assign({}, proxy, { tag: tag });
@@ -47,5 +47,5 @@ function onSubscribe(proxies) {
     if (configuration.EnableAddEmoji !== false) name = withFlag(name, region);
     if (String(configuration.EnableIndexProxyName) === "1") name += " " + (index + 1);
     return name;
-  });
+  }, String(configuration.EnableIndexProxyName ?? "0") !== "0");
 }

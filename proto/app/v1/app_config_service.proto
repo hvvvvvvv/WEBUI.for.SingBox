@@ -20,7 +20,14 @@ message SaveAppConfigResponse {
   AppConfig config = 1;
 }
 
+message TestNetworkRequestRequest { string url = 1; }
+message TestNetworkRequestResponse {
+  uint32 status_code = 1;
+  uint64 duration_ms = 2;
+}
+
 service AppConfigService {
   rpc GetAppConfig(GetAppConfigRequest) returns (GetAppConfigResponse);
   rpc SaveAppConfig(SaveAppConfigRequest) returns (SaveAppConfigResponse);
+  rpc TestNetworkRequest(TestNetworkRequestRequest) returns (TestNetworkRequestResponse);
 }

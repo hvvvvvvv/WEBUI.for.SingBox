@@ -8,6 +8,8 @@ import SplashView from '@/components/_common/SplashView.vue'
 import AboutView from '@/components/_common/AboutView.vue'
 import CommandView from '@/components/_common/CommandView.vue'
 import FullScreenLoading from '@/components/_common/FullScreenLoading.vue'
+import ModalPanel from '@/components/_common/ModalPanel.vue'
+import { useModalLayoutStore } from '@/stores/modalLayout'
 import { useBackendEvents } from '@/hooks/useBackendEvents'
 import LoginView from '@/views/LoginView.vue'
 import * as Stores from '@/stores'
@@ -21,6 +23,7 @@ const hasError = ref(false)
 
 const appStore = Stores.useAppStore()
 const appSettings = Stores.useAppSettingsStore()
+const modalLayout = useModalLayoutStore()
 appSettings.setupAppSettings()
 const appConfig = Stores.useAppConfigStore()
 const kernelApiStore = Stores.useKernelApiStore()
@@ -115,15 +118,18 @@ if (!appSettings.sessionInfo.requireLogin) {
       </SplashView>
       <template v-else>
         <TitleBar />
-        <div class="flex-1 overflow-y-auto flex flex-col p-8">
-          <NavigationBar />
-          <div class="flex flex-col overflow-y-auto mt-8 px-8 h-full">
-            <RouterView #="{ Component }">
-              <KeepAlive>
-                <component :is="Component" />
-              </KeepAlive>
-            </RouterView>
+        <div class="app-workspace" :class="{ 'is-split': modalLayout.splitActive }">
+          <div class="app-main flex-1 overflow-y-auto flex flex-col p-8">
+            <NavigationBar />
+            <div class="flex flex-col overflow-y-auto mt-8 px-8 h-full">
+              <RouterView #="{ Component }">
+                <KeepAlive>
+                  <component :is="Component" />
+                </KeepAlive>
+              </RouterView>
+            </div>
           </div>
+          <ModalPanel />
         </div>
       </template>
 
@@ -132,6 +138,7 @@ if (!appSettings.sessionInfo.requireLogin) {
         :cancel="false"
         :submit="false"
         mask-closable
+        :side-tab="false"
         min-width="50"
       >
         <AboutView />
@@ -174,6 +181,19 @@ if (!appSettings.sessionInfo.requireLogin) {
   background:
     linear-gradient(90deg, rgba(0, 89, 214, 0.16), transparent 24% 76%, rgba(5, 62, 142, 0.16)),
     var(--bg-color);
+}
+
+.app-workspace {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.app-main {
+  min-width: 0;
+}
+.app-workspace.is-split .app-main {
+  width: 50%;
+  flex: none;
 }
 
 .app-zoomed {

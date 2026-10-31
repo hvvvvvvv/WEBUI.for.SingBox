@@ -8,6 +8,8 @@
 
 路由器部署请先阅读 [OpenWrt / GL.iNet 部署说明](docs/routers.md)。本分支的修复、上游移植范围及验证记录见 [集成说明](docs/upstream-integration.md)。
 
+原版 GUI、直接上游和当前仓库的设置与操作对照见 [GUI 操作逻辑适配](docs/gui-parity.md)。
+
 ## 相比上游的主要改动
 
 - 将应用调整为由 Go HTTP 后端提供服务的 Web UI。

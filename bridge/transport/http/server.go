@@ -83,6 +83,9 @@ func NewServer(options Options) (*Server, error) {
 		cachePath = options.Platform.ResolvePath("data/.cache/plugin-hub.json")
 	}
 	server.pluginCatalog = plugincatalog.NewService(cachePath)
+	if options.Platform != nil {
+		server.pluginCatalog.SetNetworkOptions(options.Platform.NetworkOptions)
+	}
 	handler, err := server.buildHandler()
 	if err != nil {
 		lifecycleCancel()

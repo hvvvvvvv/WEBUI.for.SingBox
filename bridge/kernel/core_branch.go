@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"guiforcores/bridge/logging"
+	"guiforcores/bridge/network"
 	"guiforcores/bridge/platform"
 	"guiforcores/bridge/rpcutil"
 	appv1 "guiforcores/gen/app/v1"
@@ -265,12 +266,17 @@ func (s *Service) fetchCoreRelease(ctx context.Context, branch appv1.KernelBranc
 	if err != nil {
 		return githubRelease{}, err
 	}
-	if token := strings.TrimSpace(s.appConfig.Current().GitHubAPIToken); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
+	options := s.requestNetworkOptions()
+	if err := network.PrepareRequest(req, options, false); err != nil {
+		return githubRelease{}, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-
-	resp, err := (&http.Client{Timeout: 20 * time.Second}).Do(req)
+	client, err := newRequestClient(options, 20*time.Second, false)
+	if err != nil {
+		return githubRelease{}, err
+	}
+	defer client.CloseIdleConnections()
+	resp, err := client.Do(req)
 	if err != nil {
 		return githubRelease{}, err
 	}
@@ -301,9 +307,26 @@ func (s *Service) fetchCoreRelease(ctx context.Context, branch appv1.KernelBranc
 }
 
 func (s *Service) downloadCoreAsset(ctx context.Context, asset githubAsset, path string, progressEvent string) error {
-	return platform.DownloadReleaseAsset(ctx, asset.BrowserDownloadURL, asset.Digest, path, s.appConfig.Current().GitHubAPIToken, func(downloaded, total int64) {
+	options := s.requestNetworkOptions()
+	client, err := newRequestClient(options, 10*time.Minute, false)
+	if err != nil {
+		return err
+	}
+	defer client.CloseIdleConnections()
+	return platform.DownloadReleaseAssetWithClient(ctx, asset.BrowserDownloadURL, asset.Digest, path, options, client, func(downloaded, total int64) {
 		s.publish(progressEvent, downloaded, total)
 	})
+}
+
+var newRequestClient = network.NewClient
+
+func (s *Service) requestNetworkOptions() network.Options {
+	options := network.Options{}
+	if s.appConfig != nil {
+		options = s.appConfig.Current().NetworkOptions()
+	}
+	options.CoreProxy = s.CoreRequestProxy
+	return options
 }
 
 func (s *Service) installCoreArchive(ctx context.Context, archivePath string, cacheDir string, branch appv1.KernelBranch) error {

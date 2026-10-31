@@ -15,8 +15,10 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
+	"guiforcores/bridge/network"
 	appv1 "guiforcores/gen/app/v1"
 	kernelv1 "guiforcores/gen/kernel/v1"
 )
@@ -67,6 +69,11 @@ func coreDownloadArchive(t *testing.T, assetName string) []byte {
 }
 
 func TestCoreDownloadVerifiesArchiveBeforeReplacingExecutable(t *testing.T) {
+	previousClient := newRequestClient
+	t.Cleanup(func() { newRequestClient = previousClient })
+	newRequestClient = func(_ network.Options, timeout time.Duration, _ bool) (*http.Client, error) {
+		return &http.Client{Transport: http.DefaultTransport, Timeout: timeout}, nil
+	}
 	assetName := getKernelAssetFileName("1.14.2")
 	archive := coreDownloadArchive(t, assetName)
 	for _, mode := range []string{"success", "corrupted", "invalid_archive", "missing_digest", "canceled"} {

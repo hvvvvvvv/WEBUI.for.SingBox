@@ -1,10 +1,12 @@
 <script lang="ts" setup>
 import { ColorOptions, DefaultFontFamily, ThemeOptions } from '@/constant/app'
 import { Color } from '@/enums/app'
+import routes from '@/router/routes'
 import { useAppSettingsStore, useAppStore } from '@/stores'
 
 const appStore = useAppStore()
 const appSettings = useAppSettingsStore()
+const pages = routes.filter((route) => route.name !== 'Settings')
 
 const resetFontFamily = () => {
   appSettings.app.fontFamily = DefaultFontFamily
@@ -18,7 +20,7 @@ const onThemeClick = (e: MouseEvent) => {
 <template>
   <div class="px-8 py-12 text-18 font-bold">{{ $t('settings.personalization') }}</div>
 
-  <Card>
+  <Card class="personalization-settings">
     <div class="px-8 py-12 flex items-center justify-between">
       <div class="text-16 font-bold">{{ $t('settings.theme.name') }}</div>
       <Radio v-model="appSettings.app.theme" :options="ThemeOptions" @click="onThemeClick" />
@@ -61,5 +63,42 @@ const onThemeClick = (e: MouseEvent) => {
         </template>
       </Input>
     </div>
+    <div class="px-8 py-12 flex items-center justify-between">
+      <div>
+        <div class="text-16 font-bold">{{ $t('settings.pages.name') }}</div>
+        <div class="page-help">{{ $t('settings.pages.hint') }}</div>
+      </div>
+      <div class="page-choices">
+        <label v-for="page in pages" :key="page.path" class="page-choice cursor-pointer">
+          <input v-model="appSettings.app.pages" type="checkbox" :value="String(page.name)" />
+          <span>{{ $t(String(page.meta?.name)) }}</span>
+        </label>
+      </div>
+    </div>
   </Card>
 </template>
+
+<style scoped lang="less">
+.personalization-settings :deep(.px-8.py-12) {
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.page-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+.page-choice {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.page-choice input {
+  accent-color: var(--primary-color);
+}
+.page-help {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-top: 4px;
+}
+</style>

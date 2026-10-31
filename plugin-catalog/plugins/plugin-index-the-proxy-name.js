@@ -20,4 +20,6 @@ function renameNodes(proxies, transform) {
   });
 }
 
-function onSubscribe(proxies) { return renameNodes(proxies, function (name) { return name; }); }
+function onSubscribe(proxies) {
+  return renameNodes(proxies, function(name, index) { return name + "_" + (index + 1); });
+}

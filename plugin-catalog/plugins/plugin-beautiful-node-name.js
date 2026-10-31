@@ -38,22 +38,59 @@ function withFlag(name, region) {
   return region[1] + " " + name;
 }
 
+
+
+const cities = [
+  ['香港', /铜锣湾|銅鑼灣|九龙|九龍|新界|Kowloon/i],
+  ['台湾', /台北|臺北|台中|臺中|新北|彰化|Taipei/i],
+  ['日本', /东京|東京|大阪|名古屋|埼玉|Tokyo|Osaka|Nagoya/i],
+  ['新加坡', /滨海|濱海|NorthWest/i],
+  ['美国', /洛杉矶|洛杉磯|西雅图|西雅圖|纽约|紐約|硅谷|旧金山|舊金山|圣何塞|聖何塞|芝加哥|波士顿|Virginia|California|Seattle|Los Angeles|New York|San Jose/i],
+  ['英国', /伦敦|倫敦|London/i], ['德国', /法兰克福|法蘭克福|Frankfurt/i],
+  ['韩国', /首尔|首爾|釜山|Seoul/i], ['加拿大', /多伦多|多倫多|温哥华|溫哥華|蒙特利尔|Toronto|Vancouver|Waterloo/i],
+  ['澳大利亚', /墨尔本|墨爾本|悉尼|Sydney|Melbourne/i]
+];
 function beautify(proxies, subscription) {
-  const prefix = configuration.EnableSubscriptionName !== false && subscription.name
-    ? "[" + subscription.name + "] " : "";
-  return renameNodes(proxies, function (name) {
-    if (prefix && name.indexOf(prefix) === 0) name = name.slice(prefix.length);
-    name = name.replace(/\s+/g, " ").trim();
-    const region = regionFor(name);
-    if (region && configuration.EnableUnifyRegionName === "统一为中文") name = name.replace(region[0], region[2]);
-    if (region && configuration.EnableUnifyRegionName === "统一为英文") name = name.replace(region[0], region[3]);
-    if (configuration.EnableNationalEmoji !== false) name = withFlag(name, region);
-    return prefix + name;
+  subscription = subscription || {};
+  const subscriptionName = String(subscription.name || '');
+  const prefix = configuration.EnableSubscriptionName !== false && subscriptionName ? subscriptionName + ' | ' : '';
+  const reserved = configuration.ReservedKeywords ? new RegExp(String(configuration.ReservedKeywords), 'gi') : null;
+  const counts = new Map();
+  const sorted = proxies.slice().sort(function(a, b) {
+    const key = function(p) { return [p.server || '', p.server_port || '', p.type || '', p.tag].join('\u0000'); };
+    return key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0;
+  });
+  return renameNodes(sorted, function(name) {
+    [subscriptionName + ' | ', '[' + subscriptionName + '] '].forEach(function(oldPrefix) {
+      if (subscriptionName && name.indexOf(oldPrefix) === 0) name = name.slice(oldPrefix.length);
+    });
+    name = name.replace(/\s+/g, ' ').trim();
+    // Traffic / expiry notices are not regions (e.g. a traffic quantity in GB).
+    if (/^(剩余流量|已用流量|总流量|流量剩余|套餐到期|订阅到期|到期时间|有效期|官网|距离下次重置|remaining traffic|expires?|website)\s*[:：]?/i.test(name)) return prefix + name;
+    let region = regionFor(name);
+    if (!region) region = regions.find(function(r) { return name.indexOf(r[1]) >= 0; });
+    if (!region) {
+      const city = cities.find(function(c) { return c[1].test(name); });
+      if (city) region = regions.find(function(r) { return r[2] === city[0]; });
+    }
+    if (!region) return prefix + name;
+    const originalRegion = name.match(region[0]);
+    const cityRule = cities.find(function(c) { return c[0] === region[2]; });
+    const cityMatch = cityRule ? name.match(cityRule[1]) : null;
+    const city = configuration.EnableCityName !== false && cityMatch ? cityMatch[0] : '';
+    let rest = name.replace(region[0], ' ').split(region[1]).join(' ');
+    if (cityRule) rest = rest.replace(cityRule[1], ' ');
+    const extras = reserved ? Array.from(new Set(rest.match(reserved) || [])) : [];
+    const count = (counts.get(region[2]) || 0) + 1;
+    counts.set(region[2], count);
+    const mode = configuration.EnableUnifyRegionName;
+    const label = mode === '统一为英文' ? region[3] : mode === '不启用' && originalRegion ? originalRegion[0] : region[2];
+    return prefix + [configuration.EnableNationalEmoji !== false ? region[1] : '', label, String(count).padStart(2, '0'), city].filter(Boolean).join(' ') + (extras.length ? ' | ' + extras.join(' ') : '');
   });
 }
 function onSubscribe(proxies, subscription) { return beautify(proxies, subscription); }
 function onRun(proxies, subscription) {
   const result = beautify(proxies, subscription);
-  console.log("Updated names for " + result.length + " nodes.");
+  console.log('Updated names for ' + result.length + ' nodes.');
   return result;
 }

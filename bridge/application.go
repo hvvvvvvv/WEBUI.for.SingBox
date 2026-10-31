@@ -19,6 +19,7 @@ import (
 	"guiforcores/bridge/event"
 	"guiforcores/bridge/kernel"
 	"guiforcores/bridge/logging"
+	"guiforcores/bridge/network"
 	"guiforcores/bridge/platform"
 	"guiforcores/bridge/plugins"
 	"guiforcores/bridge/profile"
@@ -116,6 +117,11 @@ func New(options Options) (_ *Application, resultErr error) {
 	configService.SetPlugins(pluginService)
 	profileService := profile.NewService(paths, events, resourceState)
 	kernelService := kernel.NewService(platformService, configService, appConfig, profileService, events)
+	platformService.SetNetworkOptions(func() network.Options {
+		value := appConfig.NetworkOptions()
+		value.CoreProxy = kernelService.CoreRequestProxy
+		return value
+	})
 	coreLogs := logging.NewCoreWriter(paths.Resolve("data/logs/core"), int(appConfig.Current().CoreLogDays))
 	defer func() {
 		if resultErr != nil {
@@ -126,6 +132,7 @@ func New(options Options) (_ *Application, resultErr error) {
 	profileService.SetChangeHandler(kernelService)
 	appConfigService := config.NewAppService(appConfig)
 	appConfigService.SetChangeHandler(kernelService)
+	appConfigService.SetNetworkOptions(platformService.NetworkOptions)
 	runtimeService := appruntime.NewService(platformService, paths, appConfig, events, kernelService, resourceState)
 	runtimeService.SetPlugins(pluginService)
 	subscriptionService := subscription.NewService(runtimeService)

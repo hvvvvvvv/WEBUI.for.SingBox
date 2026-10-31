@@ -12,6 +12,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"guiforcores/bridge/network"
 )
 
 const releaseDownloadTimeout = 10 * time.Minute
@@ -20,6 +22,19 @@ const releaseDownloadTimeout = 10 * time.Minute
 // supplied by GitHub's release metadata. Failed/canceled downloads leave no
 // partial archive and preserve any previously verified destination.
 func DownloadReleaseAsset(ctx context.Context, url, digest, path, token string, progress func(int64, int64)) error {
+	return DownloadReleaseAssetWithOptions(ctx, url, digest, path, network.Options{GitHubToken: token}, progress)
+}
+
+func DownloadReleaseAssetWithOptions(ctx context.Context, url, digest, path string, options network.Options, progress func(int64, int64)) error {
+	client, err := network.NewClient(options, releaseDownloadTimeout, false)
+	if err != nil {
+		return err
+	}
+	defer client.CloseIdleConnections()
+	return downloadReleaseAsset(ctx, url, digest, path, options, client, progress)
+}
+
+func downloadReleaseAsset(ctx context.Context, url, digest, path string, options network.Options, client *http.Client, progress func(int64, int64)) error {
 	algorithm, encoded, ok := strings.Cut(strings.TrimSpace(digest), ":")
 	expected, err := hex.DecodeString(encoded)
 	if !ok || algorithm != "sha256" || err != nil || len(expected) != sha256.Size {
@@ -31,10 +46,10 @@ func DownloadReleaseAsset(ctx context.Context, url, digest, path, token string, 
 	if err != nil {
 		return err
 	}
-	if token = strings.TrimSpace(token); token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
+	if err := network.PrepareRequest(req, options, true); err != nil {
+		return err
 	}
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -91,4 +106,10 @@ func DownloadReleaseAsset(ctx context.Context, url, digest, path, token string, 
 		return err
 	}
 	return os.Rename(temporaryPath, path)
+}
+
+// DownloadReleaseAssetWithClient lets callers reuse their configured client and
+// request policy while retaining the same timeout and verification guarantees.
+func DownloadReleaseAssetWithClient(ctx context.Context, url, digest, path string, options network.Options, client *http.Client, progress func(int64, int64)) error {
+	return downloadReleaseAsset(ctx, url, digest, path, options, client, progress)
 }

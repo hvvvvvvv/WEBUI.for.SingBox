@@ -26,4 +26,7 @@ message AppConfig {
   CoreRuntimeConfig main = 8;
   CoreRuntimeConfig alpha = 9;
   int32 core_log_days = 10;
+  string request_proxy_mode = 11;
+  string custom_proxy = 12;
+  string github_download_mirror = 13;
 }

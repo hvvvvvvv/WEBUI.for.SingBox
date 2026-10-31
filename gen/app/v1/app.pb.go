@@ -123,19 +123,22 @@ func (x *CoreRuntimeConfig) GetArgs() []string {
 }
 
 type AppConfig struct {
-	state             protoimpl.MessageState `protogen:"open.v1"`
-	AutoStartKernel   bool                   `protobuf:"varint,1,opt,name=auto_start_kernel,json=autoStartKernel,proto3" json:"auto_start_kernel,omitempty"`
-	AutoRestartKernel bool                   `protobuf:"varint,2,opt,name=auto_restart_kernel,json=autoRestartKernel,proto3" json:"auto_restart_kernel,omitempty"`
-	UserAgent         string                 `protobuf:"bytes,3,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
-	GithubApiToken    string                 `protobuf:"bytes,4,opt,name=github_api_token,json=githubApiToken,proto3" json:"github_api_token,omitempty"`
-	RollingRelease    bool                   `protobuf:"varint,5,opt,name=rolling_release,json=rollingRelease,proto3" json:"rolling_release,omitempty"`
-	Branch            KernelBranch           `protobuf:"varint,6,opt,name=branch,proto3,enum=app.v1.KernelBranch" json:"branch,omitempty"`
-	Profile           string                 `protobuf:"bytes,7,opt,name=profile,proto3" json:"profile,omitempty"`
-	Main              *CoreRuntimeConfig     `protobuf:"bytes,8,opt,name=main,proto3" json:"main,omitempty"`
-	Alpha             *CoreRuntimeConfig     `protobuf:"bytes,9,opt,name=alpha,proto3" json:"alpha,omitempty"`
-	CoreLogDays       int32                  `protobuf:"varint,10,opt,name=core_log_days,json=coreLogDays,proto3" json:"core_log_days,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	state                protoimpl.MessageState `protogen:"open.v1"`
+	AutoStartKernel      bool                   `protobuf:"varint,1,opt,name=auto_start_kernel,json=autoStartKernel,proto3" json:"auto_start_kernel,omitempty"`
+	AutoRestartKernel    bool                   `protobuf:"varint,2,opt,name=auto_restart_kernel,json=autoRestartKernel,proto3" json:"auto_restart_kernel,omitempty"`
+	UserAgent            string                 `protobuf:"bytes,3,opt,name=user_agent,json=userAgent,proto3" json:"user_agent,omitempty"`
+	GithubApiToken       string                 `protobuf:"bytes,4,opt,name=github_api_token,json=githubApiToken,proto3" json:"github_api_token,omitempty"`
+	RollingRelease       bool                   `protobuf:"varint,5,opt,name=rolling_release,json=rollingRelease,proto3" json:"rolling_release,omitempty"`
+	Branch               KernelBranch           `protobuf:"varint,6,opt,name=branch,proto3,enum=app.v1.KernelBranch" json:"branch,omitempty"`
+	Profile              string                 `protobuf:"bytes,7,opt,name=profile,proto3" json:"profile,omitempty"`
+	Main                 *CoreRuntimeConfig     `protobuf:"bytes,8,opt,name=main,proto3" json:"main,omitempty"`
+	Alpha                *CoreRuntimeConfig     `protobuf:"bytes,9,opt,name=alpha,proto3" json:"alpha,omitempty"`
+	CoreLogDays          int32                  `protobuf:"varint,10,opt,name=core_log_days,json=coreLogDays,proto3" json:"core_log_days,omitempty"`
+	RequestProxyMode     string                 `protobuf:"bytes,11,opt,name=request_proxy_mode,json=requestProxyMode,proto3" json:"request_proxy_mode,omitempty"`
+	CustomProxy          string                 `protobuf:"bytes,12,opt,name=custom_proxy,json=customProxy,proto3" json:"custom_proxy,omitempty"`
+	GithubDownloadMirror string                 `protobuf:"bytes,13,opt,name=github_download_mirror,json=githubDownloadMirror,proto3" json:"github_download_mirror,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *AppConfig) Reset() {
@@ -238,6 +241,27 @@ func (x *AppConfig) GetCoreLogDays() int32 {
 	return 0
 }
 
+func (x *AppConfig) GetRequestProxyMode() string {
+	if x != nil {
+		return x.RequestProxyMode
+	}
+	return ""
+}
+
+func (x *AppConfig) GetCustomProxy() string {
+	if x != nil {
+		return x.CustomProxy
+	}
+	return ""
+}
+
+func (x *AppConfig) GetGithubDownloadMirror() string {
+	if x != nil {
+		return x.GithubDownloadMirror
+	}
+	return ""
+}
+
 var File_app_v1_app_proto protoreflect.FileDescriptor
 
 const file_app_v1_app_proto_rawDesc = "" +
@@ -248,7 +272,7 @@ const file_app_v1_app_proto_rawDesc = "" +
 	"\x04args\x18\x02 \x03(\tR\x04args\x1a6\n" +
 	"\bEnvEntry\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
-	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xa5\x03\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\"\xac\x04\n" +
 	"\tAppConfig\x12*\n" +
 	"\x11auto_start_kernel\x18\x01 \x01(\bR\x0fautoStartKernel\x12.\n" +
 	"\x13auto_restart_kernel\x18\x02 \x01(\bR\x11autoRestartKernel\x12\x1d\n" +
@@ -261,7 +285,10 @@ const file_app_v1_app_proto_rawDesc = "" +
 	"\x04main\x18\b \x01(\v2\x19.app.v1.CoreRuntimeConfigR\x04main\x12/\n" +
 	"\x05alpha\x18\t \x01(\v2\x19.app.v1.CoreRuntimeConfigR\x05alpha\x12\"\n" +
 	"\rcore_log_days\x18\n" +
-	" \x01(\x05R\vcoreLogDays*^\n" +
+	" \x01(\x05R\vcoreLogDays\x12,\n" +
+	"\x12request_proxy_mode\x18\v \x01(\tR\x10requestProxyMode\x12!\n" +
+	"\fcustom_proxy\x18\f \x01(\tR\vcustomProxy\x124\n" +
+	"\x16github_download_mirror\x18\r \x01(\tR\x14githubDownloadMirror*^\n" +
 	"\fKernelBranch\x12\x1d\n" +
 	"\x19KERNEL_BRANCH_UNSPECIFIED\x10\x00\x12\x16\n" +
 	"\x12KERNEL_BRANCH_MAIN\x10\x01\x12\x17\n" +

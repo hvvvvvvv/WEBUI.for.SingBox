@@ -69,6 +69,7 @@ func TestBundledRenamersPreserveDuplicateReferencesAndExistingSuffixes(t *testin
 			plugin.Configuration["EnableSubscriptionName"] = false
 			plugin.Configuration["EnableNationalEmoji"] = false
 			plugin.Configuration["EnableAddEmoji"] = false
+			plugin.Configuration["EnableIndexProxyName"] = "2"
 			service := installedPlugin(t, plugin)
 			input := []map[string]any{
 				{"type": "shadowsocks", "tag": "same", "server": "first.test", "password": "one"},
@@ -83,11 +84,21 @@ func TestBundledRenamersPreserveDuplicateReferencesAndExistingSuffixes(t *testin
 				t.Fatal(err)
 			}
 			assertReferencesExist(t, result)
-			if result[3]["default"] != result[2]["tag"] || result[4]["detour"] != result[2]["tag"] || result[3]["outbounds"].([]any)[0] != result[0]["tag"] {
+			byServer := map[string]map[string]any{}
+			var group map[string]any
+			for _, proxy := range result {
+				if proxy["type"] == "selector" {
+					group = proxy
+				}
+				if server, ok := proxy["server"].(string); ok {
+					byServer[server] = proxy
+				}
+			}
+			if group["default"] != byServer["suffix.test"]["tag"] || byServer["fourth.test"]["detour"] != byServer["suffix.test"]["tag"] || group["outbounds"].([]any)[0] != byServer["first.test"]["tag"] {
 				t.Fatal("renaming redirected an original reference to the wrong duplicate")
 			}
 			for index := 0; index < 3; index++ {
-				if result[index]["server"] != input[index]["server"] || result[index]["password"] != input[index]["password"] {
+				if byServer[input[index]["server"].(string)]["password"] != input[index]["password"] {
 					t.Fatal("renaming changed connection settings")
 				}
 			}
@@ -136,7 +147,7 @@ func TestBundledBeautifyIsIdempotentIncludingManualCachedRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if first[0]["tag"] != "[My subscription] 🇭🇰 香港 01" {
+	if first[0]["tag"] != "My subscription | 🇭🇰 香港 01" {
 		t.Fatalf("unexpected beautified name: %#v", first[0]["tag"])
 	}
 	second, err := service.ApplySubscription(context.Background(), first, metadata)
@@ -181,5 +192,37 @@ func TestBundledDedupePreservesCredentialsTLSAndRemapsReferences(t *testing.T) {
 	second, err := service.ApplySubscription(context.Background(), result, map[string]any{})
 	if err != nil || string(jsonBytes(t, second)) != string(jsonBytes(t, result)) {
 		t.Fatalf("dedupe is not idempotent: %#v %v", second, err)
+	}
+}
+
+func TestBundledVisualSettingsChangeNamesAndPreserveNotices(t *testing.T) {
+	p := bundledPlugin(t, "plugin-beautiful-node-name")
+	p.Configuration = map[string]any{"EnableSubscriptionName": false, "EnableNationalEmoji": false, "EnableCityName": true}
+	s := installedPlugin(t, p)
+	input := []map[string]any{{"type": "direct", "tag": "JP 东京 IEPL 2x"}, {"type": "direct", "tag": "剩余流量: 200 GB"}}
+	result, err := s.ApplySubscription(context.Background(), input, map[string]any{"name": "Airport"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result[0]["tag"] != "日本 01 东京 | IEPL 2x" || result[1]["tag"] != "剩余流量: 200 GB" {
+		t.Fatalf("visual defaults/city/keywords failed: %#v", result)
+	}
+	p.Configuration["EnableCityName"] = false
+	p.Configuration["ReservedKeywords"] = ""
+	p.Configuration["EnableUnifyRegionName"] = "统一为英文"
+	if _, err := s.Save(p, s.List().Revision); err != nil {
+		t.Fatal(err)
+	}
+	result, err = s.ApplySubscription(context.Background(), input, nil)
+	if err != nil || result[0]["tag"] != "Japan 01" {
+		t.Fatalf("disabling options failed: %#v %v", result, err)
+	}
+
+	name := bundledPlugin(t, "plugin-modify-proxy-name")
+	name.Configuration = map[string]any{"EnableAddEmoji": false, "EnableIndexProxyName": "0"}
+	s = installedPlugin(t, name)
+	result, err = s.ApplySubscription(context.Background(), []map[string]any{{"type": "direct", "tag": "same"}, {"type": "direct", "tag": "same"}}, nil)
+	if err != nil || result[0]["tag"] != "same" || result[1]["tag"] != "same" {
+		t.Fatalf("No index option still adds indices: %#v %v", result, err)
 	}
 }

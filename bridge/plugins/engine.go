@@ -157,9 +157,12 @@ func runHook(parent context.Context, current execution, trigger string, payload,
 	if err != nil {
 		return nil, err
 	}
-	configuration := current.plugin.Configuration
-	if configuration == nil {
-		configuration = map[string]any{}
+	configuration := map[string]any{}
+	for _, setting := range current.plugin.ConfigurationSchema {
+		configuration[setting.Key] = setting.Value
+	}
+	for key, value := range current.plugin.Configuration {
+		configuration[key] = value
 	}
 	configurationJSON, _ := json.Marshal(configuration)
 	settings, err := parse(goja.Undefined(), vm.ToValue(string(configurationJSON)))

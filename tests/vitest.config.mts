@@ -8,6 +8,7 @@ export default {
     dedupe: [
       'vue',
       'vue-i18n',
+      'vue-router',
       'pinia',
       '@bufbuild/protobuf',
       '@connectrpc/connect',

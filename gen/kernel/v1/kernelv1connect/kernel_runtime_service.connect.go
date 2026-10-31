@@ -54,6 +54,9 @@ const (
 	// KernelRuntimeServiceGetCurrentCoreMemoryProcedure is the fully-qualified name of the
 	// KernelRuntimeService's GetCurrentCoreMemory RPC.
 	KernelRuntimeServiceGetCurrentCoreMemoryProcedure = "/kernel.v1.KernelRuntimeService/GetCurrentCoreMemory"
+	// KernelRuntimeServiceGetRuntimePathsProcedure is the fully-qualified name of the
+	// KernelRuntimeService's GetRuntimePaths RPC.
+	KernelRuntimeServiceGetRuntimePathsProcedure = "/kernel.v1.KernelRuntimeService/GetRuntimePaths"
 	// KernelRuntimeServiceGetCoreBranchLocalVersionProcedure is the fully-qualified name of the
 	// KernelRuntimeService's GetCoreBranchLocalVersion RPC.
 	KernelRuntimeServiceGetCoreBranchLocalVersionProcedure = "/kernel.v1.KernelRuntimeService/GetCoreBranchLocalVersion"
@@ -83,6 +86,7 @@ type KernelRuntimeServiceClient interface {
 	GetCoreStatus(context.Context, *connect.Request[v1.GetCoreStatusRequest]) (*connect.Response[v1.GetCoreStatusResponse], error)
 	GetCurrentProfile(context.Context, *connect.Request[v1.GetCurrentProfileRequest]) (*connect.Response[v1.GetCurrentProfileResponse], error)
 	GetCurrentCoreMemory(context.Context, *connect.Request[v1.GetCurrentCoreMemoryRequest]) (*connect.Response[v1.GetCurrentCoreMemoryResponse], error)
+	GetRuntimePaths(context.Context, *connect.Request[v1.GetRuntimePathsRequest]) (*connect.Response[v1.GetRuntimePathsResponse], error)
 	GetCoreBranchLocalVersion(context.Context, *connect.Request[v1.GetCoreBranchLocalVersionRequest]) (*connect.Response[v1.GetCoreBranchLocalVersionResponse], error)
 	GetCoreBranchRemoteVersion(context.Context, *connect.Request[v1.GetCoreBranchRemoteVersionRequest]) (*connect.Response[v1.GetCoreBranchRemoteVersionResponse], error)
 	DownloadCore(context.Context, *connect.Request[v1.DownloadCoreRequest]) (*connect.Response[v1.DownloadCoreResponse], error)
@@ -144,6 +148,12 @@ func NewKernelRuntimeServiceClient(httpClient connect.HTTPClient, baseURL string
 			connect.WithSchema(kernelRuntimeServiceMethods.ByName("GetCurrentCoreMemory")),
 			connect.WithClientOptions(opts...),
 		),
+		getRuntimePaths: connect.NewClient[v1.GetRuntimePathsRequest, v1.GetRuntimePathsResponse](
+			httpClient,
+			baseURL+KernelRuntimeServiceGetRuntimePathsProcedure,
+			connect.WithSchema(kernelRuntimeServiceMethods.ByName("GetRuntimePaths")),
+			connect.WithClientOptions(opts...),
+		),
 		getCoreBranchLocalVersion: connect.NewClient[v1.GetCoreBranchLocalVersionRequest, v1.GetCoreBranchLocalVersionResponse](
 			httpClient,
 			baseURL+KernelRuntimeServiceGetCoreBranchLocalVersionProcedure,
@@ -192,6 +202,7 @@ type kernelRuntimeServiceClient struct {
 	getCoreStatus              *connect.Client[v1.GetCoreStatusRequest, v1.GetCoreStatusResponse]
 	getCurrentProfile          *connect.Client[v1.GetCurrentProfileRequest, v1.GetCurrentProfileResponse]
 	getCurrentCoreMemory       *connect.Client[v1.GetCurrentCoreMemoryRequest, v1.GetCurrentCoreMemoryResponse]
+	getRuntimePaths            *connect.Client[v1.GetRuntimePathsRequest, v1.GetRuntimePathsResponse]
 	getCoreBranchLocalVersion  *connect.Client[v1.GetCoreBranchLocalVersionRequest, v1.GetCoreBranchLocalVersionResponse]
 	getCoreBranchRemoteVersion *connect.Client[v1.GetCoreBranchRemoteVersionRequest, v1.GetCoreBranchRemoteVersionResponse]
 	downloadCore               *connect.Client[v1.DownloadCoreRequest, v1.DownloadCoreResponse]
@@ -235,6 +246,11 @@ func (c *kernelRuntimeServiceClient) GetCurrentCoreMemory(ctx context.Context, r
 	return c.getCurrentCoreMemory.CallUnary(ctx, req)
 }
 
+// GetRuntimePaths calls kernel.v1.KernelRuntimeService.GetRuntimePaths.
+func (c *kernelRuntimeServiceClient) GetRuntimePaths(ctx context.Context, req *connect.Request[v1.GetRuntimePathsRequest]) (*connect.Response[v1.GetRuntimePathsResponse], error) {
+	return c.getRuntimePaths.CallUnary(ctx, req)
+}
+
 // GetCoreBranchLocalVersion calls kernel.v1.KernelRuntimeService.GetCoreBranchLocalVersion.
 func (c *kernelRuntimeServiceClient) GetCoreBranchLocalVersion(ctx context.Context, req *connect.Request[v1.GetCoreBranchLocalVersionRequest]) (*connect.Response[v1.GetCoreBranchLocalVersionResponse], error) {
 	return c.getCoreBranchLocalVersion.CallUnary(ctx, req)
@@ -274,6 +290,7 @@ type KernelRuntimeServiceHandler interface {
 	GetCoreStatus(context.Context, *connect.Request[v1.GetCoreStatusRequest]) (*connect.Response[v1.GetCoreStatusResponse], error)
 	GetCurrentProfile(context.Context, *connect.Request[v1.GetCurrentProfileRequest]) (*connect.Response[v1.GetCurrentProfileResponse], error)
 	GetCurrentCoreMemory(context.Context, *connect.Request[v1.GetCurrentCoreMemoryRequest]) (*connect.Response[v1.GetCurrentCoreMemoryResponse], error)
+	GetRuntimePaths(context.Context, *connect.Request[v1.GetRuntimePathsRequest]) (*connect.Response[v1.GetRuntimePathsResponse], error)
 	GetCoreBranchLocalVersion(context.Context, *connect.Request[v1.GetCoreBranchLocalVersionRequest]) (*connect.Response[v1.GetCoreBranchLocalVersionResponse], error)
 	GetCoreBranchRemoteVersion(context.Context, *connect.Request[v1.GetCoreBranchRemoteVersionRequest]) (*connect.Response[v1.GetCoreBranchRemoteVersionResponse], error)
 	DownloadCore(context.Context, *connect.Request[v1.DownloadCoreRequest]) (*connect.Response[v1.DownloadCoreResponse], error)
@@ -331,6 +348,12 @@ func NewKernelRuntimeServiceHandler(svc KernelRuntimeServiceHandler, opts ...con
 		connect.WithSchema(kernelRuntimeServiceMethods.ByName("GetCurrentCoreMemory")),
 		connect.WithHandlerOptions(opts...),
 	)
+	kernelRuntimeServiceGetRuntimePathsHandler := connect.NewUnaryHandler(
+		KernelRuntimeServiceGetRuntimePathsProcedure,
+		svc.GetRuntimePaths,
+		connect.WithSchema(kernelRuntimeServiceMethods.ByName("GetRuntimePaths")),
+		connect.WithHandlerOptions(opts...),
+	)
 	kernelRuntimeServiceGetCoreBranchLocalVersionHandler := connect.NewUnaryHandler(
 		KernelRuntimeServiceGetCoreBranchLocalVersionProcedure,
 		svc.GetCoreBranchLocalVersion,
@@ -383,6 +406,8 @@ func NewKernelRuntimeServiceHandler(svc KernelRuntimeServiceHandler, opts ...con
 			kernelRuntimeServiceGetCurrentProfileHandler.ServeHTTP(w, r)
 		case KernelRuntimeServiceGetCurrentCoreMemoryProcedure:
 			kernelRuntimeServiceGetCurrentCoreMemoryHandler.ServeHTTP(w, r)
+		case KernelRuntimeServiceGetRuntimePathsProcedure:
+			kernelRuntimeServiceGetRuntimePathsHandler.ServeHTTP(w, r)
 		case KernelRuntimeServiceGetCoreBranchLocalVersionProcedure:
 			kernelRuntimeServiceGetCoreBranchLocalVersionHandler.ServeHTTP(w, r)
 		case KernelRuntimeServiceGetCoreBranchRemoteVersionProcedure:
@@ -430,6 +455,10 @@ func (UnimplementedKernelRuntimeServiceHandler) GetCurrentProfile(context.Contex
 
 func (UnimplementedKernelRuntimeServiceHandler) GetCurrentCoreMemory(context.Context, *connect.Request[v1.GetCurrentCoreMemoryRequest]) (*connect.Response[v1.GetCurrentCoreMemoryResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kernel.v1.KernelRuntimeService.GetCurrentCoreMemory is not implemented"))
+}
+
+func (UnimplementedKernelRuntimeServiceHandler) GetRuntimePaths(context.Context, *connect.Request[v1.GetRuntimePathsRequest]) (*connect.Response[v1.GetRuntimePathsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("kernel.v1.KernelRuntimeService.GetRuntimePaths is not implemented"))
 }
 
 func (UnimplementedKernelRuntimeServiceHandler) GetCoreBranchLocalVersion(context.Context, *connect.Request[v1.GetCoreBranchLocalVersionRequest]) (*connect.Response[v1.GetCoreBranchLocalVersionResponse], error) {

@@ -4,7 +4,11 @@ import { nextTick } from 'vue'
 import { create } from '@bufbuild/protobuf'
 import { AppConfigSchema } from '@gen/app/v1/app_pb'
 
-const rpc = vi.hoisted(() => ({ getAppConfig: vi.fn(), saveAppConfig: vi.fn() }))
+const rpc = vi.hoisted(() => ({
+  getAppConfig: vi.fn(),
+  saveAppConfig: vi.fn(),
+  testNetworkRequest: vi.fn(),
+}))
 vi.mock('@/bridge', () => ({ createRpcClient: () => rpc }))
 vi.mock('@/utils', () => ({
   deepClone: (value: unknown) => JSON.parse(JSON.stringify(value)),
@@ -25,7 +29,9 @@ describe('core log retention persistence', () => {
     await store.setupAppConfig()
     store.config.coreLogDays = 7
     rpc.saveAppConfig.mockRejectedValue(new Error('save failed'))
-    rpc.getAppConfig.mockResolvedValue({ config: create(AppConfigSchema, { coreLogDays: 3 }) })
+    rpc.getAppConfig.mockResolvedValue({
+      config: create(AppConfigSchema, { coreLogDays: 3 }),
+    })
     await expect(store.saveNow()).rejects.toThrow('save failed')
     await nextTick()
     expect(store.config.coreLogDays).toBe(3)
@@ -42,5 +48,41 @@ describe('core log retention persistence', () => {
     await nextTick()
     expect(store.config.coreLogDays).toBe(0)
     expect(rpc.saveAppConfig).toHaveBeenCalledTimes(1)
+  })
+
+  it('round-trips backend network fields and probes through RPC', async () => {
+    const settings = {
+      requestProxyMode: 'custom',
+      customProxy: 'socks5://127.0.0.1:1080',
+      githubDownloadMirror: 'https://mirror.invalid/{url}',
+      userAgent: 'router/test',
+      githubApiToken: 'api-token',
+    }
+    rpc.getAppConfig.mockResolvedValue({
+      config: create(AppConfigSchema, settings),
+    })
+    rpc.saveAppConfig.mockImplementation(async ({ config }) => ({ config }))
+    rpc.testNetworkRequest.mockResolvedValue({
+      statusCode: 204,
+      durationMs: 12n,
+    })
+    const store = useAppConfigStore()
+    await store.setupAppConfig()
+    expect(store.config).toMatchObject(settings)
+    store.config.requestProxyMode = 'none'
+    await store.saveNow()
+    expect(rpc.saveAppConfig).toHaveBeenCalledWith({
+      config: expect.objectContaining({
+        ...settings,
+        requestProxyMode: 'none',
+      }),
+    })
+    await expect(store.testNetworkRequest('https://probe.invalid/')).resolves.toEqual({
+      statusCode: 204,
+      durationMs: 12n,
+    })
+    expect(rpc.testNetworkRequest).toHaveBeenCalledWith({
+      url: 'https://probe.invalid/',
+    })
   })
 })

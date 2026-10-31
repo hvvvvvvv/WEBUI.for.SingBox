@@ -3,7 +3,6 @@ package runtime
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -22,6 +21,7 @@ import (
 
 	"guiforcores/bridge/config"
 	"guiforcores/bridge/logging"
+	"guiforcores/bridge/network"
 	"guiforcores/bridge/platform"
 	"guiforcores/bridge/rpcutil"
 	"guiforcores/bridge/storage"
@@ -94,6 +94,10 @@ type Service = appRuntimeService
 
 var runtimePaths atomic.Pointer[storage.Paths]
 
+type runtimeRequestOptions struct{ provider func() network.Options }
+
+var requestOptions atomic.Pointer[runtimeRequestOptions]
+
 var ruleSetHubHTTPRequest = httpRequest
 var (
 	errHTTPResponseTooLarge = errors.New("HTTP response body exceeds the allowed size")
@@ -125,6 +129,15 @@ func asConnectError(err error) error {
 
 func NewService(platformService *platform.Service, paths *storage.Paths, configStore AppConfigReader, events EventPublisher, kernelController KernelController, coordinators ...*syncstate.Coordinator) *Service {
 	setRuntimePaths(paths)
+	requestOptions.Store(&runtimeRequestOptions{provider: func() network.Options {
+		if platformService != nil {
+			return platformService.NetworkOptions()
+		}
+		if configStore != nil {
+			return configStore.Current().NetworkOptions()
+		}
+		return network.Options{}
+	}})
 	state := syncstate.NewCoordinator()
 	if len(coordinators) > 0 && coordinators[0] != nil {
 		state = coordinators[0]
@@ -982,23 +995,24 @@ func httpRequestWithLimit(method string, rawURL string, headers map[string]strin
 		method = http.MethodGet
 	}
 	timeout := platform.GetTimeout(timeoutSeconds)
-	transport := &http.Transport{
-		Proxy: platform.GetProxy(""),
-		TLSClientConfig: &tls.Config{
-			InsecureSkipVerify: insecure,
-		},
+	options := network.Options{}
+	if current := requestOptions.Load(); current != nil {
+		options = current.provider()
 	}
-	defer transport.CloseIdleConnections()
-	client := &http.Client{
-		Timeout:   timeout,
-		Transport: transport,
+	client, err := network.NewClient(options, timeout, insecure)
+	if err != nil {
+		return nil, "", err
 	}
+	defer client.CloseIdleConnections()
 	req, err := http.NewRequest(method, rawURL, strings.NewReader(body))
 	if err != nil {
 		return nil, "", err
 	}
 	for key, value := range headers {
 		req.Header.Set(key, value)
+	}
+	if err := network.PrepareRequest(req, options, true); err != nil {
+		return nil, "", err
 	}
 	resp, err := client.Do(req)
 	if err != nil {

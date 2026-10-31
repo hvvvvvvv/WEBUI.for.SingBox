@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"guiforcores/bridge/network"
 	"guiforcores/bridge/plugins"
 	"guiforcores/bridge/storage"
 	plugindata "guiforcores/plugin-catalog"
@@ -28,14 +29,15 @@ var scriptPath = regexp.MustCompile(`^plugins/[a-z0-9][a-z0-9._-]{0,100}[.]js$`)
 var digestPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 type Entry struct {
-	ID            string         `json:"id"`
-	Name          string         `json:"name"`
-	Description   string         `json:"description"`
-	Version       string         `json:"version"`
-	Triggers      []string       `json:"triggers"`
-	Configuration map[string]any `json:"configuration"`
-	Path          string         `json:"path"`
-	SHA256        string         `json:"sha256"`
+	ID                  string            `json:"id"`
+	Name                string            `json:"name"`
+	Description         string            `json:"description"`
+	Version             string            `json:"version"`
+	Triggers            []string          `json:"triggers"`
+	Configuration       map[string]any    `json:"configuration"`
+	ConfigurationSchema []plugins.Setting `json:"configuration_schema,omitempty"`
+	Path                string            `json:"path"`
+	SHA256              string            `json:"sha256"`
 }
 
 type Index struct {
@@ -51,14 +53,18 @@ type Result struct {
 }
 
 type Service struct {
-	gate        chan struct{}
-	cachePath   string
-	baseURL     string
-	client      *http.Client
-	items       []plugins.Plugin
-	lastAttempt time.Time
-	warning     string
+	gate           chan struct{}
+	cachePath      string
+	baseURL        string
+	client         *http.Client
+	items          []plugins.Plugin
+	lastAttempt    time.Time
+	warning        string
+	networkOptions func() network.Options
 }
+
+// SetNetworkOptions is configured before the HTTP server starts.
+func (s *Service) SetNetworkOptions(provider func() network.Options) { s.networkOptions = provider }
 
 func NewService(cachePath string) *Service {
 	return &Service{
@@ -109,7 +115,7 @@ func Read(read func(string) ([]byte, error)) ([]plugins.Plugin, error) {
 		if hex.EncodeToString(digest[:]) != entry.SHA256 {
 			return nil, fmt.Errorf("checksum mismatch for %s", entry.Path)
 		}
-		item := plugins.Plugin{ID: entry.ID, Name: entry.Name, Description: entry.Description, Version: entry.Version, Triggers: entry.Triggers, Configuration: entry.Configuration, Source: string(source)}
+		item := plugins.Plugin{ID: entry.ID, Name: entry.Name, Description: entry.Description, Version: entry.Version, Triggers: entry.Triggers, Configuration: entry.Configuration, ConfigurationSchema: entry.ConfigurationSchema, Source: string(source)}
 		if err := plugins.ValidatePlugin(item); err != nil {
 			return nil, fmt.Errorf("%s: %w", entry.ID, err)
 		}
@@ -202,12 +208,29 @@ func validateItems(items []plugins.Plugin) error {
 }
 
 func (s *Service) download(ctx context.Context, path string) ([]byte, error) {
+	client := s.client
+	options := network.Options{UserAgent: "WEBUI.for.SingBox-Plugin-Hub"}
+	if s.networkOptions != nil {
+		options = s.networkOptions()
+		if options.UserAgent == "" {
+			options.UserAgent = "WEBUI.for.SingBox-Plugin-Hub"
+		}
+		var err error
+		client, err = network.NewClient(options, 15*time.Second, false)
+		if err != nil {
+			return nil, fmt.Errorf("plugin request policy is unavailable: %w", err)
+		}
+		defer client.CloseIdleConnections()
+		client.CheckRedirect = func(_ *http.Request, _ []*http.Request) error { return fmt.Errorf("catalog redirects are not allowed") }
+	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, s.baseURL+path, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("User-Agent", "WEBUI.for.SingBox-Plugin-Hub")
-	response, err := s.client.Do(req)
+	if err := network.PrepareRequest(req, options, false); err != nil {
+		return nil, err
+	}
+	response, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("plugin source could not be reached")
 	}

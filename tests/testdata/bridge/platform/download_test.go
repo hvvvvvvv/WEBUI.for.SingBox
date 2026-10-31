@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"guiforcores/bridge/network"
 )
 
 type releaseDownloadTransport func(*http.Request) (*http.Response, error)
@@ -55,7 +57,7 @@ func TestReleaseDownloadVerifiesBeforePublishingAndCleansFailures(t *testing.T) 
 				expected = "sha256:invalid"
 			}
 			var progress int64
-			err := DownloadReleaseAsset(ctx, "https://example.invalid/release.zip", expected, path, "test-token", func(downloaded, _ int64) {
+			err := DownloadReleaseAssetWithClient(ctx, "https://api.github.com/repos/test/repo/releases/assets/1", expected, path, network.Options{GitHubToken: "test-token"}, http.DefaultClient, func(downloaded, _ int64) {
 				progress = downloaded
 				if mode == "canceled" {
 					cancel()

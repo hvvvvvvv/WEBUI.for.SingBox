@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"guiforcores/bridge/logging"
+	"guiforcores/bridge/network"
 	"guiforcores/bridge/rpcutil"
 	"guiforcores/bridge/storage"
 	appv1 "guiforcores/gen/app/v1"
@@ -23,16 +24,19 @@ import (
 const appConfigPath = "data/config.yaml"
 
 type AppConfig struct {
-	CoreLogDays       CoreLogRetention  `yaml:"coreLogDays"`
-	AutoStartKernel   bool              `yaml:"autoStartKernel"`
-	AutoRestartKernel bool              `yaml:"autoRestartKernel"`
-	UserAgent         string            `yaml:"userAgent"`
-	GitHubAPIToken    string            `yaml:"githubApiToken"`
-	RollingRelease    bool              `yaml:"rollingRelease"`
-	Branch            string            `yaml:"branch"`
-	Profile           string            `yaml:"profile"`
-	Main              CoreRuntimeConfig `yaml:"main"`
-	Alpha             CoreRuntimeConfig `yaml:"alpha"`
+	CoreLogDays          CoreLogRetention  `yaml:"coreLogDays"`
+	AutoStartKernel      bool              `yaml:"autoStartKernel"`
+	AutoRestartKernel    bool              `yaml:"autoRestartKernel"`
+	UserAgent            string            `yaml:"userAgent"`
+	GitHubAPIToken       string            `yaml:"githubApiToken"`
+	RequestProxyMode     string            `yaml:"requestProxyMode"`
+	CustomProxy          string            `yaml:"customProxy"`
+	GitHubDownloadMirror string            `yaml:"githubDownloadMirror"`
+	RollingRelease       bool              `yaml:"rollingRelease"`
+	Branch               string            `yaml:"branch"`
+	Profile              string            `yaml:"profile"`
+	Main                 CoreRuntimeConfig `yaml:"main"`
+	Alpha                CoreRuntimeConfig `yaml:"alpha"`
 }
 
 type CoreRuntimeConfig struct {
@@ -47,9 +51,10 @@ type Store struct {
 }
 
 type AppService struct {
-	saveMu        sync.Mutex
-	store         *Store
-	changeHandler AppConfigChangeHandler
+	saveMu         sync.Mutex
+	store          *Store
+	changeHandler  AppConfigChangeHandler
+	networkOptions func() network.Options
 }
 
 type AppConfigChangeHandler interface {
@@ -98,6 +103,11 @@ func defaultAppConfig() AppConfig {
 }
 
 func normalizeAppConfig(cfg AppConfig) AppConfig {
+	if cfg.RequestProxyMode == "" {
+		cfg.RequestProxyMode = network.ModeEnvironment
+	}
+	cfg.CustomProxy = strings.TrimSpace(cfg.CustomProxy)
+	cfg.GitHubDownloadMirror = strings.TrimSpace(cfg.GitHubDownloadMirror)
 	cfg.Branch = strings.TrimSpace(cfg.Branch)
 	if cfg.Branch != "alpha" {
 		cfg.Branch = "main"
@@ -164,6 +174,9 @@ func (s *Store) Save(cfg AppConfig) error {
 		return rpcutil.InvalidArgumentError{Message: "coreLogDays must be a non-negative integer"}
 	}
 	cfg = normalizeAppConfig(cfg)
+	if err := network.Validate(cfg.NetworkOptions()); err != nil {
+		return rpcutil.InvalidArgumentError{Message: err.Error()}
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if err := s.write(cfg); err != nil {
@@ -261,16 +274,19 @@ func cloneStringMap(input map[string]string) map[string]string {
 func appConfigToProto(cfg AppConfig) *appv1.AppConfig {
 	cfg = normalizeAppConfig(cfg)
 	return &appv1.AppConfig{
-		CoreLogDays:       int32(cfg.CoreLogDays),
-		AutoStartKernel:   cfg.AutoStartKernel,
-		AutoRestartKernel: cfg.AutoRestartKernel,
-		UserAgent:         cfg.UserAgent,
-		GithubApiToken:    cfg.GitHubAPIToken,
-		RollingRelease:    cfg.RollingRelease,
-		Branch:            branchToProto(cfg.Branch),
-		Profile:           cfg.Profile,
-		Main:              coreRuntimeToProto(cfg.Main),
-		Alpha:             coreRuntimeToProto(cfg.Alpha),
+		CoreLogDays:          int32(cfg.CoreLogDays),
+		AutoStartKernel:      cfg.AutoStartKernel,
+		AutoRestartKernel:    cfg.AutoRestartKernel,
+		UserAgent:            cfg.UserAgent,
+		GithubApiToken:       cfg.GitHubAPIToken,
+		RequestProxyMode:     cfg.RequestProxyMode,
+		CustomProxy:          cfg.CustomProxy,
+		GithubDownloadMirror: cfg.GitHubDownloadMirror,
+		RollingRelease:       cfg.RollingRelease,
+		Branch:               branchToProto(cfg.Branch),
+		Profile:              cfg.Profile,
+		Main:                 coreRuntimeToProto(cfg.Main),
+		Alpha:                coreRuntimeToProto(cfg.Alpha),
 	}
 }
 
@@ -280,16 +296,19 @@ func appConfigFromProto(config *appv1.AppConfig) AppConfig {
 		return defaults
 	}
 	return normalizeAppConfig(AppConfig{
-		CoreLogDays:       CoreLogRetention(config.GetCoreLogDays()),
-		AutoStartKernel:   config.GetAutoStartKernel(),
-		AutoRestartKernel: config.GetAutoRestartKernel(),
-		UserAgent:         config.GetUserAgent(),
-		GitHubAPIToken:    config.GetGithubApiToken(),
-		RollingRelease:    config.GetRollingRelease(),
-		Branch:            branchFromProto(config.GetBranch()),
-		Profile:           config.GetProfile(),
-		Main:              coreRuntimeFromProto(config.GetMain(), defaults.Main),
-		Alpha:             coreRuntimeFromProto(config.GetAlpha(), defaults.Alpha),
+		CoreLogDays:          CoreLogRetention(config.GetCoreLogDays()),
+		AutoStartKernel:      config.GetAutoStartKernel(),
+		AutoRestartKernel:    config.GetAutoRestartKernel(),
+		UserAgent:            config.GetUserAgent(),
+		GitHubAPIToken:       config.GetGithubApiToken(),
+		RequestProxyMode:     config.GetRequestProxyMode(),
+		CustomProxy:          config.GetCustomProxy(),
+		GitHubDownloadMirror: config.GetGithubDownloadMirror(),
+		RollingRelease:       config.GetRollingRelease(),
+		Branch:               branchFromProto(config.GetBranch()),
+		Profile:              config.GetProfile(),
+		Main:                 coreRuntimeFromProto(config.GetMain(), defaults.Main),
+		Alpha:                coreRuntimeFromProto(config.GetAlpha(), defaults.Alpha),
 	})
 }
 
@@ -375,6 +394,12 @@ func appConfigChangedFields(previous, current AppConfig) []string {
 	}
 	if previous.GitHubAPIToken != current.GitHubAPIToken {
 		fields = append(fields, "github_api_token")
+	}
+	if previous.RequestProxyMode != current.RequestProxyMode || previous.CustomProxy != current.CustomProxy {
+		fields = append(fields, "request_proxy")
+	}
+	if previous.GitHubDownloadMirror != current.GitHubDownloadMirror {
+		fields = append(fields, "github_download_mirror")
 	}
 	if previous.RollingRelease != current.RollingRelease {
 		fields = append(fields, "rolling_release")

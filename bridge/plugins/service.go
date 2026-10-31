@@ -41,14 +41,25 @@ var (
 )
 
 type Plugin struct {
-	ID            string         `json:"id"`
-	Name          string         `json:"name"`
-	Description   string         `json:"description"`
-	Version       string         `json:"version"`
-	Triggers      []string       `json:"triggers"`
-	Disabled      bool           `json:"disabled"`
-	Source        string         `json:"source"`
-	Configuration map[string]any `json:"configuration,omitempty"`
+	ID                  string         `json:"id"`
+	Name                string         `json:"name"`
+	Description         string         `json:"description"`
+	Version             string         `json:"version"`
+	Triggers            []string       `json:"triggers"`
+	Disabled            bool           `json:"disabled"`
+	Source              string         `json:"source"`
+	Configuration       map[string]any `json:"configuration,omitempty"`
+	ConfigurationSchema []Setting      `json:"configuration_schema,omitempty"`
+}
+
+// Setting describes an allowlisted form control, never a component or script to load.
+type Setting struct {
+	Key         string   `json:"key"`
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Component   string   `json:"component"`
+	Value       any      `json:"value"`
+	Options     []string `json:"options,omitempty"`
 }
 
 type Snapshot struct {
@@ -147,11 +158,67 @@ func validatePlugin(plugin Plugin) (*goja.Program, error) {
 	if err != nil || len(configuration) > MaxConfigurationBytes {
 		return nil, fmt.Errorf("%w: configuration must be JSON data of at most %d bytes", ErrInvalid, MaxConfigurationBytes)
 	}
+	if err := validateSettings(plugin); err != nil {
+		return nil, err
+	}
 	program, err := goja.Compile(plugin.ID+".js", plugin.Source, false)
 	if err != nil {
 		return nil, fmt.Errorf("%w: plugin %q syntax: %v", ErrInvalid, plugin.ID, err)
 	}
 	return program, nil
+}
+
+func validateSettings(plugin Plugin) error {
+	invalid := func() error { return fmt.Errorf("%w: invalid configuration schema or setting value", ErrInvalid) }
+	raw, err := json.Marshal(plugin.ConfigurationSchema)
+	if err != nil || len(raw) > MaxConfigurationBytes || len(plugin.ConfigurationSchema) > 64 {
+		return invalid()
+	}
+	seen := map[string]bool{}
+	for _, setting := range plugin.ConfigurationSchema {
+		if !pluginID.MatchString(setting.Key) || seen[setting.Key] || strings.TrimSpace(setting.Title) == "" || len(setting.Title) > 256 || len(setting.Description) > 4096 || len(setting.Options) > 64 {
+			return invalid()
+		}
+		seen[setting.Key] = true
+		validate := func(value any) bool {
+			switch setting.Component {
+			case "Switch":
+				_, ok := value.(bool)
+				return ok
+			case "Input":
+				text, ok := value.(string)
+				return ok && len(text) <= 16384
+			case "Radio":
+				text, ok := value.(string)
+				if !ok || len(setting.Options) == 0 {
+					return false
+				}
+				for _, option := range setting.Options {
+					parts := strings.SplitN(option, ",", 2)
+					candidate := parts[0]
+					if len(parts) == 2 {
+						candidate = parts[1]
+					}
+					if candidate == text {
+						return true
+					}
+				}
+			}
+			return false
+		}
+		for _, option := range setting.Options {
+			if len(option) == 0 || len(option) > 512 {
+				return invalid()
+			}
+		}
+		if !validate(setting.Value) {
+			return invalid()
+		}
+		if value, exists := plugin.Configuration[setting.Key]; exists && !validate(value) {
+			return invalid()
+		}
+	}
+	return nil
 }
 
 func (s *Service) List() Snapshot {
@@ -276,6 +343,14 @@ func cloneSnapshot(snapshot Snapshot) Snapshot {
 	result := Snapshot{Revision: snapshot.Revision, Plugins: make([]Plugin, len(snapshot.Plugins))}
 	for index, plugin := range snapshot.Plugins {
 		plugin.Triggers = append([]string{}, plugin.Triggers...)
+		if plugin.ConfigurationSchema != nil {
+			plugin.ConfigurationSchema = append([]Setting{}, plugin.ConfigurationSchema...)
+			for i := range plugin.ConfigurationSchema {
+				setting := &plugin.ConfigurationSchema[i]
+				setting.Options = append([]string(nil), setting.Options...)
+				setting.Value = cloneValue(setting.Value)
+			}
+		}
 		if plugin.Configuration != nil {
 			plugin.Configuration = cloneValue(plugin.Configuration).(map[string]any)
 		}

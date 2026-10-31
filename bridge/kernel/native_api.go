@@ -42,6 +42,7 @@ func (s *Service) NativeAPIContext(parent context.Context) (context.Context, str
 
 // Must be called while s.mu is held.
 func (s *Service) revokeNativeAPILocked() {
+	s.requestProxyURL = ""
 	if s.nativeAPI != nil {
 		s.nativeAPI.cancel()
 		s.nativeAPI = nil

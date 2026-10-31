@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"guiforcores/bridge/event"
+	"guiforcores/bridge/network"
 	"guiforcores/bridge/storage"
 )
 
@@ -28,6 +29,7 @@ type Service struct {
 	guardMu          sync.Mutex
 	guards           map[*guardProcess]struct{}
 	guardsClosing    bool
+	networkOptions   func() network.Options
 }
 
 type managedProcess struct {
@@ -62,6 +64,17 @@ func (s *Service) ResolvePath(path string) string {
 
 func (s *Service) BaseDir() string {
 	return s.paths.BaseDir()
+}
+
+// Configure once during application construction; the provider reads current
+// persisted settings for every request rather than caching a browser snapshot.
+func (s *Service) SetNetworkOptions(provider func() network.Options) { s.networkOptions = provider }
+
+func (s *Service) NetworkOptions() network.Options {
+	if s.networkOptions != nil {
+		return s.networkOptions()
+	}
+	return network.Options{}
 }
 
 func (s *Service) publish(eventName string, data ...any) {

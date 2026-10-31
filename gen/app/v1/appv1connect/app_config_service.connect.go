@@ -39,12 +39,16 @@ const (
 	// AppConfigServiceSaveAppConfigProcedure is the fully-qualified name of the AppConfigService's
 	// SaveAppConfig RPC.
 	AppConfigServiceSaveAppConfigProcedure = "/app.v1.AppConfigService/SaveAppConfig"
+	// AppConfigServiceTestNetworkRequestProcedure is the fully-qualified name of the AppConfigService's
+	// TestNetworkRequest RPC.
+	AppConfigServiceTestNetworkRequestProcedure = "/app.v1.AppConfigService/TestNetworkRequest"
 )
 
 // AppConfigServiceClient is a client for the app.v1.AppConfigService service.
 type AppConfigServiceClient interface {
 	GetAppConfig(context.Context, *connect.Request[v1.GetAppConfigRequest]) (*connect.Response[v1.GetAppConfigResponse], error)
 	SaveAppConfig(context.Context, *connect.Request[v1.SaveAppConfigRequest]) (*connect.Response[v1.SaveAppConfigResponse], error)
+	TestNetworkRequest(context.Context, *connect.Request[v1.TestNetworkRequestRequest]) (*connect.Response[v1.TestNetworkRequestResponse], error)
 }
 
 // NewAppConfigServiceClient constructs a client for the app.v1.AppConfigService service. By
@@ -70,13 +74,20 @@ func NewAppConfigServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			connect.WithSchema(appConfigServiceMethods.ByName("SaveAppConfig")),
 			connect.WithClientOptions(opts...),
 		),
+		testNetworkRequest: connect.NewClient[v1.TestNetworkRequestRequest, v1.TestNetworkRequestResponse](
+			httpClient,
+			baseURL+AppConfigServiceTestNetworkRequestProcedure,
+			connect.WithSchema(appConfigServiceMethods.ByName("TestNetworkRequest")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // appConfigServiceClient implements AppConfigServiceClient.
 type appConfigServiceClient struct {
-	getAppConfig  *connect.Client[v1.GetAppConfigRequest, v1.GetAppConfigResponse]
-	saveAppConfig *connect.Client[v1.SaveAppConfigRequest, v1.SaveAppConfigResponse]
+	getAppConfig       *connect.Client[v1.GetAppConfigRequest, v1.GetAppConfigResponse]
+	saveAppConfig      *connect.Client[v1.SaveAppConfigRequest, v1.SaveAppConfigResponse]
+	testNetworkRequest *connect.Client[v1.TestNetworkRequestRequest, v1.TestNetworkRequestResponse]
 }
 
 // GetAppConfig calls app.v1.AppConfigService.GetAppConfig.
@@ -89,10 +100,16 @@ func (c *appConfigServiceClient) SaveAppConfig(ctx context.Context, req *connect
 	return c.saveAppConfig.CallUnary(ctx, req)
 }
 
+// TestNetworkRequest calls app.v1.AppConfigService.TestNetworkRequest.
+func (c *appConfigServiceClient) TestNetworkRequest(ctx context.Context, req *connect.Request[v1.TestNetworkRequestRequest]) (*connect.Response[v1.TestNetworkRequestResponse], error) {
+	return c.testNetworkRequest.CallUnary(ctx, req)
+}
+
 // AppConfigServiceHandler is an implementation of the app.v1.AppConfigService service.
 type AppConfigServiceHandler interface {
 	GetAppConfig(context.Context, *connect.Request[v1.GetAppConfigRequest]) (*connect.Response[v1.GetAppConfigResponse], error)
 	SaveAppConfig(context.Context, *connect.Request[v1.SaveAppConfigRequest]) (*connect.Response[v1.SaveAppConfigResponse], error)
+	TestNetworkRequest(context.Context, *connect.Request[v1.TestNetworkRequestRequest]) (*connect.Response[v1.TestNetworkRequestResponse], error)
 }
 
 // NewAppConfigServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -114,12 +131,20 @@ func NewAppConfigServiceHandler(svc AppConfigServiceHandler, opts ...connect.Han
 		connect.WithSchema(appConfigServiceMethods.ByName("SaveAppConfig")),
 		connect.WithHandlerOptions(opts...),
 	)
+	appConfigServiceTestNetworkRequestHandler := connect.NewUnaryHandler(
+		AppConfigServiceTestNetworkRequestProcedure,
+		svc.TestNetworkRequest,
+		connect.WithSchema(appConfigServiceMethods.ByName("TestNetworkRequest")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/app.v1.AppConfigService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case AppConfigServiceGetAppConfigProcedure:
 			appConfigServiceGetAppConfigHandler.ServeHTTP(w, r)
 		case AppConfigServiceSaveAppConfigProcedure:
 			appConfigServiceSaveAppConfigHandler.ServeHTTP(w, r)
+		case AppConfigServiceTestNetworkRequestProcedure:
+			appConfigServiceTestNetworkRequestHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -135,4 +160,8 @@ func (UnimplementedAppConfigServiceHandler) GetAppConfig(context.Context, *conne
 
 func (UnimplementedAppConfigServiceHandler) SaveAppConfig(context.Context, *connect.Request[v1.SaveAppConfigRequest]) (*connect.Response[v1.SaveAppConfigResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.AppConfigService.SaveAppConfig is not implemented"))
+}
+
+func (UnimplementedAppConfigServiceHandler) TestNetworkRequest(context.Context, *connect.Request[v1.TestNetworkRequestRequest]) (*connect.Response[v1.TestNetworkRequestResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("app.v1.AppConfigService.TestNetworkRequest is not implemented"))
 }

@@ -27,7 +27,13 @@ vi.mock('@/stores/plugins', () => ({
   }),
 }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
-vi.mock('@/utils', () => ({ message: { error: mocks.message } }))
+vi.mock('@/utils', async () => ({
+  ...(await import('@/utils/others')),
+  message: { error: mocks.message },
+}))
+vi.mock('@/lang', () => ({ default: { global: { t: (key: string) => key } } }))
+vi.mock('@/bridge', () => ({ ClipboardGetText: vi.fn() }))
+vi.mock('@/directives/tips', () => ({ default: {} }))
 import { PluginApiError } from '@/stores/plugins'
 import PluginEditor from '@/views/PluginsView/components/PluginEditor.vue'
 
@@ -66,6 +72,7 @@ describe('plugin source editor persistence and conflicts', () => {
     })
     app.provide('submit', mocks.submit)
     app.provide('cancel', vi.fn())
+    app.directive('tips', {})
     app.component('Icon', { render: () => null })
     for (const name of ['Input', 'Select', 'Switch']) {
       app.component(name, { render: () => null })
@@ -114,7 +121,9 @@ describe('plugin source editor persistence and conflicts', () => {
     save()
     await vi.waitFor(() => expect(host.textContent).toContain('plugins.draftPreserved'))
     expect(host.querySelector('textarea')!.value).toContain('slice(1)')
-    expect(host.querySelector('footer [role=button]')!.getAttribute('aria-disabled')).toBe('true')
+    expect(host.querySelector('footer [role=button]')!.getAttribute('aria-disabled')).toBe(
+      'true',
+    )
     expect(mocks.submit).not.toHaveBeenCalled()
     expect(mocks.save).toHaveBeenCalledOnce()
   })
@@ -125,6 +134,71 @@ describe('plugin source editor persistence and conflicts', () => {
     await vi.waitFor(() =>
       expect(mocks.message).toHaveBeenCalledWith('plugins.invalidConfiguration'),
     )
+    expect(mocks.save).not.toHaveBeenCalled()
+  })
+  it('edits schema controls and keeps the same draft when switching to advanced JSON and back', async () => {
+    mocks.get.mockReturnValue({
+      ...initial,
+      configuration_schema: [
+        {
+          key: 'enabled',
+          title: 'Enabled',
+          description: '',
+          component: 'Switch',
+          value: false,
+        },
+      ],
+    })
+    await mount('configuration')
+    expect(host.querySelector('textarea')).toBeNull()
+    host.querySelector<HTMLElement>('[role=switch]')!.click()
+    await nextTick()
+    const button = (label: string) =>
+      [...host.querySelectorAll<HTMLElement>('[role=button]')].find(
+        (item) => item.textContent?.trim() === label,
+      )!
+    button('plugins.advancedConfiguration').click()
+    await nextTick()
+    expect(JSON.parse(host.querySelector('textarea')!.value)).toEqual({
+      enabled: true,
+    })
+    host.querySelector('textarea')!.value = '{"enabled":false,"custom":"kept"}'
+    button('plugins.formConfiguration').click()
+    await nextTick()
+    expect(host.querySelector('[role=switch]')!.getAttribute('aria-checked')).toBe('false')
+    save()
+    await vi.waitFor(() => expect(mocks.save).toHaveBeenCalledOnce())
+    expect(mocks.save.mock.calls[0]![0].configuration).toEqual({
+      enabled: false,
+      custom: 'kept',
+    })
+    expect(mocks.save.mock.calls[0]![0].configuration_schema).toHaveLength(1)
+  })
+  it('preserves invalid advanced JSON when a user tries to switch back to the form', async () => {
+    mocks.get.mockReturnValue({
+      ...initial,
+      configuration_schema: [
+        {
+          key: 'enabled',
+          title: 'Enabled',
+          description: '',
+          component: 'Switch',
+          value: false,
+        },
+      ],
+    })
+    await mount('configuration')
+    const button = (label: string) =>
+      [...host.querySelectorAll<HTMLElement>('[role=button]')].find(
+        (item) => item.textContent?.trim() === label,
+      )!
+    button('plugins.advancedConfiguration').click()
+    await nextTick()
+    host.querySelector('textarea')!.value = '[broken'
+    button('plugins.formConfiguration').click()
+    await nextTick()
+    expect(host.querySelector('textarea')!.value).toBe('[broken')
+    expect(mocks.message).toHaveBeenCalledWith('plugins.invalidConfiguration')
     expect(mocks.save).not.toHaveBeenCalled()
   })
 })

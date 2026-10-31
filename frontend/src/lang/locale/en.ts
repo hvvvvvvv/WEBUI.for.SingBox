@@ -504,6 +504,9 @@ export default {
       totalTraffic: 'Total Traffic',
       connections: 'Connections',
       memory: 'Memory',
+      memoryNative: 'Memory (core-reported)',
+      memoryRSS: 'Memory (RSS)',
+      memoryUnavailable: 'RSS unavailable',
       goroutines: 'Goroutines',
       transmit: 'Transmit',
       receive: 'Receive',
@@ -699,6 +702,16 @@ export default {
     checkForUpdates: 'Check updates',
     source: 'Source',
     configuration: 'Configuration',
+    advancedConfiguration: 'Advanced JSON',
+    formConfiguration: 'Form settings',
+    resetSetting: 'Reset setting',
+    resetSettings: 'Reset plugin settings',
+    savingSettings: 'Saving…',
+    settingsSaved: 'Settings saved',
+    settingsSaveFailed: 'Save failed. Your changes are preserved.',
+    settingsEmpty: 'Installed plugins have no form settings',
+    settingsConflict:
+      'The plugin changed elsewhere. Your changes are preserved; load the latest version before editing again.',
     empty:
       'No plugins installed. Install from the plugin center or add your own JavaScript plugin.',
     updateSuccess: 'Catalog checked. Use the plugin menu to install an available update.',
@@ -795,6 +808,10 @@ export default {
       secondary: 'Secondary',
     },
     fontFamily: 'Font-Family',
+    pages: {
+      name: 'Page visibility',
+      hint: 'Settings always remains visible. These preferences are saved in this browser only.',
+    },
     resetFont: 'Reset Font-Family',
     appFolder: {
       name: 'App Folder',
@@ -807,7 +824,31 @@ export default {
       en: 'English',
     },
     needRestart: 'Restart Required',
+    network: 'Network requests',
+    requestProxy: {
+      name: 'Request proxy',
+      none: 'No proxy',
+      environment: 'Service environment proxy',
+      core: 'Core proxy',
+      custom: 'Custom proxy',
+      test: 'Test request',
+      testSuccess: 'Backend request succeeded: HTTP {status}, {duration} ms',
+      environmentHint:
+        'Environment proxy uses variables from the router or service running WebUI, not the computer running this browser.',
+      coreHint:
+        'Core proxy requires a running core with an accessible HTTP/mixed inbound. Missing endpoints cause an error without silently connecting directly.',
+      saveHint:
+        'After saving, this applies to backend subscriptions, rules, version checks, downloads, and plugin catalog requests.',
+      testURL: 'Test URL',
+    },
+    githubDownloadAcceleration: {
+      name: 'GitHub download mirror',
+      mirror: 'Mirror URL template',
+      tips: "Leave empty to disable. Only GitHub release files and archives use the mirror. Use a trusted HTTPS URL with a {'{url}'} placeholder; GitHub API tokens are never sent to the mirror.",
+    },
     autoStartKernel: 'Start core on launch',
+    realMemoryUsage: 'Show core process RSS',
+    realMemoryUsageHint: 'Sample every 30 seconds while Overview is active. Stored only in this browser.',
     coreLogDays: {
       name: 'Core log retention days',
       tips: '0 to disable',
@@ -821,6 +862,11 @@ export default {
     debugOutline: 'Show component outlines',
     debugNoAnimation: 'Disable animations',
     debugNoRounded: 'Disable rounded corners',
+    debugUsePointer: 'Use pointer cursor',
+    debugModalSideBySide: 'Use side-by-side tabs',
+    modalSideBySideHint:
+      'Open editors in a right-hand tab panel on wide screens; use regular dialogs on narrow screens.',
+    modalTabs: 'Editors',
     kernel: {
       name: 'sing-box',
       version: 'Switch version',
@@ -841,6 +887,8 @@ export default {
         name: 'Runtime Configuration',
         env: 'Environment Variables',
         args: 'Runtime Arguments',
+        preview: 'Preview with server paths',
+        previewUnavailable: 'Server paths are unavailable. You can still edit, but an accurate preview cannot be shown.',
       },
     },
     userAgent: {

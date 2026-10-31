@@ -17,6 +17,7 @@ import (
 
 	"guiforcores/bridge/config"
 	"guiforcores/bridge/logging"
+	"guiforcores/bridge/network"
 	"guiforcores/bridge/platform"
 	appv1 "guiforcores/gen/app/v1"
 
@@ -31,6 +32,7 @@ const (
 
 // Repository is injected by release builds so a fork updates from its own assets.
 var Repository = "Ghostdehole/WEBUI.for.SingBox"
+var newRequestClient = network.NewClient
 
 type AppConfigReader interface {
 	Current() config.AppConfig
@@ -302,14 +304,17 @@ func (s *Service) fetchLatestAsset(ctx context.Context) (githubRelease, githubAs
 	if err != nil {
 		return githubRelease{}, githubAsset{}, err
 	}
-	if s.appConfig != nil {
-		if token := strings.TrimSpace(s.appConfig.Current().GitHubAPIToken); token != "" {
-			req.Header.Set("Authorization", "Bearer "+token)
-		}
+	options := s.requestNetworkOptions()
+	if err := network.PrepareRequest(req, options, false); err != nil {
+		return githubRelease{}, githubAsset{}, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-
-	resp, err := (&http.Client{Timeout: 20 * time.Second}).Do(req)
+	client, err := newRequestClient(options, 20*time.Second, false)
+	if err != nil {
+		return githubRelease{}, githubAsset{}, err
+	}
+	defer client.CloseIdleConnections()
+	resp, err := client.Do(req)
 	if err != nil {
 		return githubRelease{}, githubAsset{}, err
 	}
@@ -334,13 +339,25 @@ func (s *Service) fetchLatestAsset(ctx context.Context) (githubRelease, githubAs
 }
 
 func (s *Service) downloadAsset(ctx context.Context, asset githubAsset, path string, progressEvent string) error {
-	token := ""
-	if s.appConfig != nil {
-		token = s.appConfig.Current().GitHubAPIToken
+	options := s.requestNetworkOptions()
+	client, err := newRequestClient(options, 10*time.Minute, false)
+	if err != nil {
+		return err
 	}
-	return platform.DownloadReleaseAsset(ctx, asset.BrowserDownloadURL, asset.Digest, path, token, func(downloaded, total int64) {
+	defer client.CloseIdleConnections()
+	return platform.DownloadReleaseAssetWithClient(ctx, asset.BrowserDownloadURL, asset.Digest, path, options, client, func(downloaded, total int64) {
 		s.publish(progressEvent, downloaded, total)
 	})
+}
+
+func (s *Service) requestNetworkOptions() network.Options {
+	if s.platform != nil {
+		return s.platform.NetworkOptions()
+	}
+	if s.appConfig != nil {
+		return s.appConfig.Current().NetworkOptions()
+	}
+	return network.Options{}
 }
 
 func (s *Service) publish(eventName string, data ...any) {
