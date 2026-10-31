@@ -68,8 +68,6 @@ const MIXIN_PRIORITY: Record<string, number> = { mixin: 1, gui: 2 }
 const MIXIN_FORMAT: Record<string, number> = { json: 1, yaml: 2 }
 
 const protoFieldNames: Record<string, string> = {
-  router_plugins: 'routerPlugins',
-  manifest_json: 'manifestJson',
   action_options: 'actionOptions',
   auto_detect_interface: 'autoDetectInterface',
   auto_route: 'autoRoute',
@@ -253,7 +251,6 @@ const normalizeLoadedProfile = (raw: any): IProfile => {
     dns: Defaults.DefaultDns(),
     mixin: Defaults.DefaultMixin(),
     script: Defaults.DefaultScript(),
-    router_plugins: [],
   }
 
   const profile: any = {
@@ -267,7 +264,6 @@ const normalizeLoadedProfile = (raw: any): IProfile => {
     dns: normalizeDns(raw?.dns, template.dns),
     mixin: normalizeMixin(raw?.mixin, template.mixin),
     script: normalizeScript(raw?.script, template.script),
-    router_plugins: Array.isArray(raw?.router_plugins) ? raw.router_plugins : [],
   }
 
   profile.log.level = normalizeLogLevel(profile.log.level)

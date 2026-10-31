@@ -3275,67 +3275,6 @@ func (x *Script) GetCode() string {
 	return ""
 }
 
-// A pinned, declarative router plugin. Updating a catalog never changes a profile.
-type RouterPlugin struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Enabled       bool                   `protobuf:"varint,2,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	ManifestJson  string                 `protobuf:"bytes,3,opt,name=manifest_json,json=manifestJson,proto3" json:"manifest_json,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *RouterPlugin) Reset() {
-	*x = RouterPlugin{}
-	mi := &file_profile_v1_profile_proto_msgTypes[22]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *RouterPlugin) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*RouterPlugin) ProtoMessage() {}
-
-func (x *RouterPlugin) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[22]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use RouterPlugin.ProtoReflect.Descriptor instead.
-func (*RouterPlugin) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{22}
-}
-
-func (x *RouterPlugin) GetId() string {
-	if x != nil {
-		return x.Id
-	}
-	return ""
-}
-
-func (x *RouterPlugin) GetEnabled() bool {
-	if x != nil {
-		return x.Enabled
-	}
-	return false
-}
-
-func (x *RouterPlugin) GetManifestJson() string {
-	if x != nil {
-		return x.ManifestJson
-	}
-	return ""
-}
-
 type Profile struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -3348,14 +3287,13 @@ type Profile struct {
 	Dns           *Dns                   `protobuf:"bytes,8,opt,name=dns,proto3" json:"dns,omitempty"`
 	Mixin         *Mixin                 `protobuf:"bytes,9,opt,name=mixin,proto3" json:"mixin,omitempty"`
 	Script        *Script                `protobuf:"bytes,10,opt,name=script,proto3" json:"script,omitempty"`
-	RouterPlugins []*RouterPlugin        `protobuf:"bytes,11,rep,name=router_plugins,json=routerPlugins,proto3" json:"router_plugins,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Profile) Reset() {
 	*x = Profile{}
-	mi := &file_profile_v1_profile_proto_msgTypes[23]
+	mi := &file_profile_v1_profile_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3367,7 +3305,7 @@ func (x *Profile) String() string {
 func (*Profile) ProtoMessage() {}
 
 func (x *Profile) ProtoReflect() protoreflect.Message {
-	mi := &file_profile_v1_profile_proto_msgTypes[23]
+	mi := &file_profile_v1_profile_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3380,7 +3318,7 @@ func (x *Profile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Profile.ProtoReflect.Descriptor instead.
 func (*Profile) Descriptor() ([]byte, []int) {
-	return file_profile_v1_profile_proto_rawDescGZIP(), []int{23}
+	return file_profile_v1_profile_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *Profile) GetId() string {
@@ -3449,13 +3387,6 @@ func (x *Profile) GetMixin() *Mixin {
 func (x *Profile) GetScript() *Script {
 	if x != nil {
 		return x.Script
-	}
-	return nil
-}
-
-func (x *Profile) GetRouterPlugins() []*RouterPlugin {
-	if x != nil {
-		return x.RouterPlugins
 	}
 	return nil
 }
@@ -3726,11 +3657,7 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\x06format\x18\x02 \x01(\x0e2\x17.profile.v1.MixinFormatR\x06format\x12\x16\n" +
 	"\x06config\x18\x03 \x01(\tR\x06config\"\x1c\n" +
 	"\x06Script\x12\x12\n" +
-	"\x04code\x18\x01 \x01(\tR\x04code\"]\n" +
-	"\fRouterPlugin\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x18\n" +
-	"\aenabled\x18\x02 \x01(\bR\aenabled\x12#\n" +
-	"\rmanifest_json\x18\x03 \x01(\tR\fmanifestJson\"\xd5\x03\n" +
+	"\x04code\x18\x01 \x01(\tR\x04code\"\x94\x03\n" +
 	"\aProfile\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12!\n" +
@@ -3742,8 +3669,7 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\x03dns\x18\b \x01(\v2\x0f.profile.v1.DnsR\x03dns\x12'\n" +
 	"\x05mixin\x18\t \x01(\v2\x11.profile.v1.MixinR\x05mixin\x12*\n" +
 	"\x06script\x18\n" +
-	" \x01(\v2\x12.profile.v1.ScriptR\x06script\x12?\n" +
-	"\x0erouter_plugins\x18\v \x03(\v2\x18.profile.v1.RouterPluginR\rrouterPlugins*\xb6\x01\n" +
+	" \x01(\v2\x12.profile.v1.ScriptR\x06script*\xb6\x01\n" +
 	"\bLogLevel\x12\x19\n" +
 	"\x15LOG_LEVEL_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fLOG_LEVEL_TRACE\x10\x01\x12\x13\n" +
@@ -3876,7 +3802,7 @@ func file_profile_v1_profile_proto_rawDescGZIP() []byte {
 }
 
 var file_profile_v1_profile_proto_enumTypes = make([]protoimpl.EnumInfo, 14)
-var file_profile_v1_profile_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
+var file_profile_v1_profile_proto_msgTypes = make([]protoimpl.MessageInfo, 24)
 var file_profile_v1_profile_proto_goTypes = []any{
 	(LogLevel)(0),                      // 0: profile.v1.LogLevel
 	(InboundType)(0),                   // 1: profile.v1.InboundType
@@ -3914,9 +3840,8 @@ var file_profile_v1_profile_proto_goTypes = []any{
 	(*Dns)(nil),                        // 33: profile.v1.Dns
 	(*Mixin)(nil),                      // 34: profile.v1.Mixin
 	(*Script)(nil),                     // 35: profile.v1.Script
-	(*RouterPlugin)(nil),               // 36: profile.v1.RouterPlugin
-	(*Profile)(nil),                    // 37: profile.v1.Profile
-	nil,                                // 38: profile.v1.DnsServer.PredefinedEntry
+	(*Profile)(nil),                    // 36: profile.v1.Profile
+	nil,                                // 37: profile.v1.DnsServer.PredefinedEntry
 }
 var file_profile_v1_profile_proto_depIdxs = []int32{
 	0,  // 0: profile.v1.Log.level:type_name -> profile.v1.LogLevel
@@ -3941,7 +3866,7 @@ var file_profile_v1_profile_proto_depIdxs = []int32{
 	18, // 19: profile.v1.Route.rule_set:type_name -> profile.v1.RuleSet
 	27, // 20: profile.v1.Route.default_domain_resolver:type_name -> profile.v1.RouteDefaultDomainResolver
 	9,  // 21: profile.v1.DnsServer.type:type_name -> profile.v1.DnsServerType
-	38, // 22: profile.v1.DnsServer.predefined:type_name -> profile.v1.DnsServer.PredefinedEntry
+	37, // 22: profile.v1.DnsServer.predefined:type_name -> profile.v1.DnsServer.PredefinedEntry
 	11, // 23: profile.v1.DnsRule.action:type_name -> profile.v1.DnsRuleAction
 	30, // 24: profile.v1.DnsRule.action_options:type_name -> profile.v1.DnsActionOptions
 	29, // 25: profile.v1.Dns.servers:type_name -> profile.v1.DnsServer
@@ -3958,12 +3883,11 @@ var file_profile_v1_profile_proto_depIdxs = []int32{
 	33, // 36: profile.v1.Profile.dns:type_name -> profile.v1.Dns
 	34, // 37: profile.v1.Profile.mixin:type_name -> profile.v1.Mixin
 	35, // 38: profile.v1.Profile.script:type_name -> profile.v1.Script
-	36, // 39: profile.v1.Profile.router_plugins:type_name -> profile.v1.RouterPlugin
-	40, // [40:40] is the sub-list for method output_type
-	40, // [40:40] is the sub-list for method input_type
-	40, // [40:40] is the sub-list for extension type_name
-	40, // [40:40] is the sub-list for extension extendee
-	0,  // [0:40] is the sub-list for field type_name
+	39, // [39:39] is the sub-list for method output_type
+	39, // [39:39] is the sub-list for method input_type
+	39, // [39:39] is the sub-list for extension type_name
+	39, // [39:39] is the sub-list for extension extendee
+	0,  // [0:39] is the sub-list for field type_name
 }
 
 func init() { file_profile_v1_profile_proto_init() }
@@ -3980,7 +3904,7 @@ func file_profile_v1_profile_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_profile_v1_profile_proto_rawDesc), len(file_profile_v1_profile_proto_rawDesc)),
 			NumEnums:      14,
-			NumMessages:   25,
+			NumMessages:   24,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

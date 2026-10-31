@@ -421,13 +421,6 @@ message Script {
   string code = 1;
 }
 
-// A pinned, declarative router plugin. Updating a catalog never changes a profile.
-message RouterPlugin {
-  string id = 1;
-  bool enabled = 2;
-  string manifest_json = 3;
-}
-
 message Profile {
   string id = 1;
   string name = 2;
@@ -439,5 +432,4 @@ message Profile {
   Dns dns = 8;
   Mixin mixin = 9;
   Script script = 10;
-  repeated RouterPlugin router_plugins = 11;
 }

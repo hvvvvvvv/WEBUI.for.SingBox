@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"guiforcores/bridge/logging"
-	"guiforcores/bridge/routerplugin"
 	"guiforcores/bridge/rpcutil"
 	"guiforcores/bridge/storage"
 	kernelv1 "guiforcores/gen/kernel/v1"
@@ -134,11 +133,6 @@ func (s *Service) Generate(
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	config, err = routerplugin.Apply(config, profile.GetRouterPlugins())
-	if err != nil {
-		return nil, invalidArgumentError{message: "router plugins: " + err.Error()}
 	}
 
 	if err := normalizeRuleSetHTTPClients(config); err != nil {

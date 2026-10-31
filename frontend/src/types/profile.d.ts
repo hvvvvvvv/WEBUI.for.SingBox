@@ -312,12 +312,6 @@ interface IScript {
   code: string
 }
 
-interface IRouterPlugin {
-  id: string
-  enabled: boolean
-  manifest_json: string
-}
-
 interface IProfile {
   id: string
   name: string
@@ -329,5 +323,4 @@ interface IProfile {
   dns: IDNS
   mixin: IMixin
   script: IScript
-  router_plugins?: IRouterPlugin[]
 }

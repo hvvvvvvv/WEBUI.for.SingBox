@@ -28,7 +28,6 @@ import (
 	"guiforcores/bridge/logging"
 	"guiforcores/bridge/platform"
 	"guiforcores/bridge/profile"
-	"guiforcores/bridge/routerplugin"
 	"guiforcores/bridge/ruleset"
 	"guiforcores/bridge/scheduler"
 	"guiforcores/bridge/subscription"
@@ -62,7 +61,6 @@ type Server struct {
 	requestSequence    atomic.Uint64
 	lifecycleContext   context.Context
 	lifecycleCancel    context.CancelFunc
-	routerCatalog      *routerplugin.CatalogService
 }
 
 type FlagResult = platform.Result
@@ -75,11 +73,6 @@ func NewServer(options Options) (*Server, error) {
 		lifecycleContext:   lifecycleContext,
 		lifecycleCancel:    lifecycleCancel,
 	}
-	cachePath := ""
-	if options.Platform != nil {
-		cachePath = options.Platform.ResolvePath("data/.cache/router-plugin-catalog.json")
-	}
-	server.routerCatalog = routerplugin.NewCatalogService(cachePath)
 	handler, err := server.buildHandler()
 	if err != nil {
 		lifecycleCancel()
@@ -255,7 +248,6 @@ func (s *Server) buildProtectedMux() *http.ServeMux {
 
 	mux.HandleFunc("/api/kernel/", s.handleKernelProxy)
 	s.registerAppRoutes(mux)
-	s.registerRouterRoutes(mux)
 	s.registerRPCRoutes(mux)
 	registerAPIRoutes(mux, s.options.Auth)
 

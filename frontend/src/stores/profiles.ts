@@ -142,7 +142,6 @@ export const useProfilesStore = defineStore('profiles', () => {
     dns: Defaults.DefaultDns(),
     mixin: Defaults.DefaultMixin(),
     script: Defaults.DefaultScript(),
-    router_plugins: [],
   })
 
   return {

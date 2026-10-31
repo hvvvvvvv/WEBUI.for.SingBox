@@ -11,7 +11,6 @@ import (
 
 	"guiforcores/bridge/event"
 	"guiforcores/bridge/logging"
-	"guiforcores/bridge/routerplugin"
 	"guiforcores/bridge/rpcutil"
 	"guiforcores/bridge/storage"
 	"guiforcores/bridge/syncstate"
@@ -151,9 +150,6 @@ func (s *profileService) CreateProfile(
 	if profile == nil || profile.GetId() == "" {
 		return nil, asConnectError(invalidArgumentError{message: "profile.id is required"})
 	}
-	if err := routerplugin.Validate(profile.GetRouterPlugins()); err != nil {
-		return nil, asConnectError(invalidArgumentError{message: "router plugins: " + err.Error()})
-	}
 
 	s.mu.Lock()
 
@@ -196,9 +192,6 @@ func (s *profileService) UpdateProfile(
 	}()
 	if profile == nil || profile.GetId() == "" {
 		return nil, asConnectError(invalidArgumentError{message: "profile.id is required"})
-	}
-	if err := routerplugin.Validate(profile.GetRouterPlugins()); err != nil {
-		return nil, asConnectError(invalidArgumentError{message: "router plugins: " + err.Error()})
 	}
 
 	s.mu.Lock()
