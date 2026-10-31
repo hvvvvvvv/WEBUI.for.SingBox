@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"os/signal"
 	"syscall"
+	"time"
 )
 
 func SetCmdWindowHidden(cmd *exec.Cmd) {
@@ -49,8 +50,23 @@ func IsProcessAlive(p *os.Process) (bool, error) {
 }
 
 func processExitedDuringIdentityRead(p *os.Process) bool {
-	alive, err := IsProcessAlive(p)
-	return err == nil && !alive
+	// Linux can remove /proc/PID/exe before the process becomes a zombie, and
+	// signal 0 still succeeds for zombies until their parent reaps them. Allow
+	// that short teardown window, but never treat a metadata error alone as exit.
+	deadline := time.Now().Add(100 * time.Millisecond)
+	for {
+		alive, err := IsProcessAlive(p)
+		if err == nil && !alive {
+			return true
+		}
+		if processIsZombie(p.Pid) {
+			return true
+		}
+		if !time.Now().Before(deadline) {
+			return false
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
 }
 
 func IsPrivileged() (bool, error) {

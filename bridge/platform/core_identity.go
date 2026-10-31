@@ -63,14 +63,8 @@ func identityAlive(identity ProcessIdentity) (bool, error) {
 	if err != nil || !alive {
 		return alive, err
 	}
-	if proc, err := process.NewProcess(int32(identity.PID)); err == nil {
-		if states, err := proc.Status(); err == nil {
-			for _, state := range states {
-				if state == "Z" || state == "zombie" {
-					return false, nil
-				}
-			}
-		}
+	if processIsZombie(identity.PID) {
+		return false, nil
 	}
 	current, err := IdentifyProcess(identity.PID)
 	if err != nil {
@@ -88,6 +82,23 @@ func identityAlive(identity ProcessIdentity) (bool, error) {
 		return false, fmt.Errorf("process %d identity changed; refusing to signal it", identity.PID)
 	}
 	return true, nil
+}
+
+func processIsZombie(pid int) bool {
+	proc, err := process.NewProcess(int32(pid))
+	if err != nil {
+		return false
+	}
+	states, err := proc.Status()
+	if err != nil {
+		return false
+	}
+	for _, state := range states {
+		if state == "Z" || state == process.Zombie {
+			return true
+		}
+	}
+	return false
 }
 
 func samePath(a, b string) bool {
