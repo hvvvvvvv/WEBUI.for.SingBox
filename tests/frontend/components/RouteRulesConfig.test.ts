@@ -209,7 +209,6 @@ describe('official route rule controls and lossless compound editing', () => {
     expect(host.querySelector<HTMLDetailsElement>('details')!.open).toBe(true)
     expect(host.textContent).toContain('kernel.route.rules.rawOverrideHint')
     await selectType('network')
-    expect(host.textContent).toContain('kernel.route.rules.combinedMatchHint')
     save()
     expect(rules[0]).toEqual(expected)
     expect(errors).not.toHaveBeenCalled()

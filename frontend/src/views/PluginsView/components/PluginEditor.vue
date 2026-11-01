@@ -268,7 +268,6 @@ defineExpose({ modalSlots })
           @change="importSource"
         />
       </div>
-      <p class="plugin-help">{{ t('plugins.sourceHelp') }}</p>
       <CodeViewer
         ref="sourceEditor"
         v-model="draft.source"
@@ -323,11 +322,6 @@ defineExpose({ modalSlots })
 .plugin-source-editor {
   height: 48vh;
   min-height: 220px;
-}
-.plugin-help {
-  opacity: 0.7;
-  font-size: 12px;
-  margin-bottom: 8px;
 }
 @media (max-width: 600px) {
   .plugin-source-toolbar strong {

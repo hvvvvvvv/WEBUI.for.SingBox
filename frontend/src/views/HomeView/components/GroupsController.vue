@@ -305,7 +305,6 @@ const handleResetMoreSettings = () => {
       </Button>
     </template>
 
-    <p class="px-12 pb-8 text-12 opacity-70">{{ t('home.controller.nativeTestSettings') }}</p>
 
     <div class="form-item">
       {{ t('home.controller.closeMode.name') }}

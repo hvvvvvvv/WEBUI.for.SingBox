@@ -178,11 +178,8 @@ onMounted(() => {
         {{ t('plugins.catalogNoResults') }}
       </p>
     </div>
-    <div class="plugin-hub-footer">
-      <span>{{ t('plugins.hubHint') }}</span>
-      <span v-if="store.catalog.source !== 'empty'">{{
-        t(store.catalog.source === 'cache' ? 'plugins.catalogCached' : 'plugins.catalogRemote')
-      }}</span>
+    <div v-if="store.catalog.source === 'cache'" class="plugin-hub-footer" role="status">
+      {{ t('plugins.catalogCached') }}
     </div>
   </div>
 </template>

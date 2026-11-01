@@ -132,6 +132,40 @@ try {
   // Keep Plugins visible without changing the other fresh-install choices.
   const pluginsToggle = page.locator('.gui-checkbox-button').filter({ hasText: /^\s*插件\s*$/ })
   if (!await pluginsToggle.evaluate(el => el.classList.contains('active'))) await pluginsToggle.click()
+  // Measure the same empty-state components after real navigation. A plugin
+  // wrapper that grows to 100% instead of the shared 90% shifts both elements.
+  const temporarilyVisible = []
+  for (const name of ['规则集', '计划任务']) {
+    const toggle = page.locator('.gui-checkbox-button').filter({ hasText: new RegExp(`^\\s*${name}\\s*$`) })
+    if (!await toggle.evaluate(el => el.classList.contains('active'))) {
+      await toggle.click()
+      temporarilyVisible.push(name)
+    }
+  }
+  const emptyStates = []
+  for (const [name, route] of [['订阅', '/subscriptions'], ['规则集', '/rulesets'], ['计划任务', '/scheduledtasks'], ['插件', '/plugins']]) {
+    await navigate(name, route)
+    const empty = page.locator('.grid-list-empty .gui-empty').filter({ visible: true })
+    await empty.waitFor()
+    await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+    emptyStates.push({
+      name,
+      icon: await empty.locator(':scope > :first-child').boundingBox(),
+      description: await empty.locator(':scope > :last-child').boundingBox(),
+    })
+    await capture(`01-empty-${route.slice(1)}-dark`)
+  }
+  await fs.writeFile(path.join(output, 'empty-state-geometry.json'), JSON.stringify(emptyStates, null, 2))
+  for (const state of emptyStates) {
+    for (const part of ['icon', 'description']) {
+      assert.ok(state[part], `${state.name} ${part} must be visible`)
+      assert.ok(Math.abs(state[part].y - emptyStates[0][part].y) <= 1, `${state.name} ${part} must align with subscriptions`)
+    }
+  }
+  await navigate('设置', '/settings')
+  for (const name of temporarilyVisible) {
+    await page.locator('.gui-checkbox-button').filter({ hasText: new RegExp(`^\\s*${name}\\s*$`) }).click()
+  }
   await navigate('插件', '/plugins')
   await page.getByText('插件列表为空', { exact: false }).waitFor()
   await capture('01-plugins-empty-dark')

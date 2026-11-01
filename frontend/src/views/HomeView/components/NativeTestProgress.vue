@@ -45,12 +45,6 @@ defineEmits<{ cancel: []; dismiss: [] }>()
       :value="progress.completed"
       :aria-label="$t('home.overview.delayTest')"
     />
-    <div
-      v-if="progress.status === 'running' || progress.status === 'canceled'"
-      class="text-12 opacity-70"
-    >
-      {{ $t('home.controller.nativeTestCancelHint') }}
-    </div>
   </div>
 </template>
 

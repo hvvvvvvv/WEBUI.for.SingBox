@@ -401,7 +401,6 @@ const renderRule = (rule: IRule) =>
       </Card>
       <template v-if="additionalFields.length">
         <Divider>{{ t('kernel.route.rules.additionalMatches') }}</Divider>
-        <p class="text-12 opacity-60 mb-8">{{ t('kernel.route.rules.combinedMatchHint') }}</p>
         <div v-for="field in additionalFields" :key="field" class="additional-rule-match">
           <MatchFieldEditor
             :ref="matchEditorRef(field)"

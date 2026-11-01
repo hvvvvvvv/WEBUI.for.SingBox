@@ -6,7 +6,6 @@ import type { IconName } from '@/components/Icon/icons'
 export interface ActionPickerItem {
   value: string
   label: string
-  description: string
   icon: IconName
 }
 
@@ -40,9 +39,6 @@ const handleSelect = (value: string) => {
 
       <div class="min-w-0">
         <div class="line-clamp-1 font-bold text-18">{{ $t(currentAction.label) }}</div>
-        <div class="action-picker-description text-12 mt-2">
-          {{ $t(currentAction.description) }}
-        </div>
       </div>
 
       <div class="action-picker-controls flex items-center gap-2">
@@ -72,9 +68,6 @@ const handleSelect = (value: string) => {
                 </div>
                 <div class="min-w-0 text-left">
                   <div class="font-bold text-14 line-clamp-1">{{ $t(item.label) }}</div>
-                  <div class="action-picker-description text-12 mt-2">
-                    {{ $t(item.description) }}
-                  </div>
                 </div>
                 <Icon
                   v-if="item.value === model"
@@ -111,11 +104,6 @@ const handleSelect = (value: string) => {
   width: 44px;
   height: 44px;
   background: color-mix(in srgb, var(--primary-color) 14%, transparent);
-}
-
-.action-picker-description {
-  color: var(--card-color);
-  opacity: 0.72;
 }
 
 .action-picker-grid {

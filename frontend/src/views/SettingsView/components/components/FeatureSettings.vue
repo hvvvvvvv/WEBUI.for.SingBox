@@ -27,10 +27,7 @@ const appSettings = useAppSettingsStore()
       />
     </div>
     <div class="px-8 py-12 flex items-center justify-between">
-      <div>
-        <div class="text-16 font-bold">{{ $t('settings.debugModalSideBySide') }}</div>
-        <div class="feature-hint">{{ $t('settings.modalSideBySideHint') }}</div>
-      </div>
+      <div class="text-16 font-bold">{{ $t('settings.debugModalSideBySide') }}</div>
       <Switch
         v-model="appSettings.app.debugModalSideBySide"
         :aria-label="$t('settings.debugModalSideBySide')"
@@ -46,10 +43,5 @@ const appSettings = useAppSettingsStore()
 .feature-settings :deep(.gui-switch) {
   flex-shrink: 0;
   min-width: 50px;
-}
-.feature-hint {
-  font-size: 12px;
-  opacity: 0.7;
-  margin-top: 4px;
 }
 </style>

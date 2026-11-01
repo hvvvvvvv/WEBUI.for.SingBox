@@ -164,8 +164,8 @@ onUnmounted(() => {
           :disabled="busy"
           class="w-full"
         />
-        <p class="text-12 my-8">
-          {{ t(key + (proxy.dynamicPort && proxy.port === 0 ? 'dynamicPortHint' : 'portHint')) }}
+        <p v-if="proxy.dynamicPort && proxy.port === 0" class="text-12 my-8">
+          {{ t(key + 'dynamicPortHint') }}
         </p>
         <Switch
           :model-value="runtimeAllowsLAN(proxy.listen)"
@@ -190,7 +190,6 @@ onUnmounted(() => {
           <p v-else class="text-12">
             {{ t(key + (version ? 'stackManaged' : 'stackUnavailable')) }}
           </p>
-          <p class="text-12 my-8">{{ t(key + 'stackHint') }}</p>
         </Card>
         <Card :title="t('kernel.inbounds.tun.interface_name')" :subtitle="tunnel.tag">
           <Input

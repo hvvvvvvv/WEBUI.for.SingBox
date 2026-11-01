@@ -78,8 +78,6 @@ export default {
   },
   kernel: {
     defaultMode: 'Default mode',
-    defaultModeHint:
-      'Used when the core starts without a cached mode. With cache enabled, the last selected mode takes precedence. Use the home mode buttons to switch immediately.',
     rule: 'Rule',
     global: 'Global',
     direct: 'Direct',
@@ -94,8 +92,6 @@ export default {
       disabled: 'Disabled',
       level: 'Level',
       output: 'Output',
-      outputHint:
-        'Leave empty for core console output, or enter stdout, stderr or a server file path. The level controls this output; home native logs have their own filter. Disabling logging also disables native logs.',
       timestamp: 'Timestamp',
       trace: 'trace',
       debug: 'debug',
@@ -108,8 +104,6 @@ export default {
     cache_file: {
       enabled: 'Enabled',
       path: 'Path to the cache file',
-      managedPath:
-        'Managed as cache.db in the core working directory so the app can inspect and clear it. Custom paths in older profiles are not applied.',
       cache_id: 'Identifier in the cache file',
       store_fakeip: 'Store Fake-IP',
       store_dns: 'Persist DNS Cache',
@@ -146,10 +140,6 @@ export default {
         dns_mode_disabled: 'Disabled',
         dns_mode_native: 'Native',
         dns_mode_hijack: 'Hijack',
-        dns_mode_disabled_desc:
-          'Disable automatic TUN DNS configuration. Existing hijack-dns route rules remain active.',
-        dns_mode_native_desc: 'Configure the native interface DNS only.',
-        dns_mode_hijack_desc: 'Configure the native interface DNS and additional DNS hijacking.',
         dns_mode_invalid: 'TUN DNS mode must be disabled, native, or hijack',
         stack: 'Stack',
         system: 'System',
@@ -271,22 +261,10 @@ export default {
         ruleSetRequired:
           'Select a rule set to avoid saving an empty selection as a route for all traffic.',
         additionalMatches: 'Additional match conditions',
-        combinedMatchHint:
-          'These conditions still apply to the same rule. Delete a condition to remove it.',
         advancedOptions: 'Advanced options',
         executeAction: 'Execute Action',
         changeAction: 'Change Action',
         rawOverrideHint: 'Fields in Raw JSON override matching structured match and action fields',
-        actionDescription: {
-          route: 'Send the connection through a selected outbound.',
-          bypass: 'Bypass normal routing with optional connection settings.',
-          'route-options': 'Adjust routing and network options for the connection.',
-          reject: 'Reject matching connections.',
-          'hijack-dns': 'Pass DNS requests to the DNS module.',
-          sniff: 'Detect the application protocol used by the connection.',
-          resolve: 'Resolve the target domain and update the connection target.',
-          inline: 'Provide the final action through Raw JSON.',
-        },
         groups: {
           source: 'Source Address',
           destination: 'Destination Address',
@@ -427,17 +405,6 @@ export default {
         matchConditions: 'Match Conditions',
         executeAction: 'Execute Action',
         changeAction: 'Change Action',
-        actionDescription: {
-          route: 'Send matching DNS queries to the selected DNS server.',
-          evaluate:
-            'Query the selected DNS server, save its response, and continue evaluating subsequent rules.',
-          respond:
-            'Stop rule evaluation and return a response saved by an earlier Evaluate action without making a new query.',
-          'route-options': 'Adjust DNS query options without selecting a server.',
-          reject: 'Reject matching DNS requests.',
-          predefined: 'Return predefined DNS records and response code.',
-          inline: 'Provide the final action through Raw JSON.',
-        },
         groups: {
           source: 'Source Address',
           domain: 'Query Domain',
@@ -532,13 +499,10 @@ export default {
           'Applying restarts the core and briefly interrupts connections. Only the running copy changes; a normal start or restart restores the saved profile. If startup fails, correct the settings and start again.',
         apply: 'Apply and restart',
         applied: 'Applied to the running instance',
-        portHint: '0 disables this inbound. Each inbound is configured separately.',
         dynamicPortHint: 'This existing inbound uses an automatically assigned port. Enter a fixed port to change it; use its home switch to disable it.',
         systemRoute: 'Use system routing',
         autoInterface: 'Detect outbound interface automatically',
         listen: 'Listen address',
-        stackHint:
-          'The mixed TUN stack uses system TCP and gVisor UDP. A Mixed proxy inbound serves HTTP/SOCKS on one port.',
         stackManaged:
           'This core version no longer uses the legacy TUN stack setting; the core manages it automatically.',
         stackUnavailable: 'The core version is unavailable. TUN stack editing is disabled.',
@@ -566,10 +530,6 @@ export default {
       testCounts: '{completed} / {total} · Success: {success} · Failure: {failure}',
       testUnconfirmed: 'No new result: {count}',
       stopWaiting: 'Stop waiting',
-      nativeTestCancelHint:
-        'Stopping the wait does not cancel tests already submitted to the core.',
-      nativeTestSettings:
-        'Native tests use the core’s test URL and concurrency. Configure URLTest groups in the profile; per-request URL, timeout and concurrency overrides are unavailable.',
       testStatus: {
         running: 'Testing…',
         completed: 'Completed',
@@ -781,27 +741,20 @@ export default {
     repository: 'Independent plugin repository',
     moveUp: 'Move up',
     moveDown: 'Move down',
-    hubHint:
-      'Opening the hub only fetches the plugin list. Source is downloaded and installed only when you click Install for a selected plugin. Check updates only refreshes the list.',
     catalogLoading: 'Loading the plugin list from its repository…',
     catalogUnavailable:
       'The plugin catalog is unavailable. Check the router’s network connection, then retry.',
     catalogEmpty: 'The repository catalog currently has no plugins.',
     catalogNoResults: 'No plugins match your search.',
     catalogCached: 'Showing the cached plugin list.',
-    catalogRemote: 'Plugin list loaded from the independent repository.',
     groups: {
       subscriptions: 'Subscriptions',
       configuration: 'Configuration',
       diagnostics: 'Diagnostics',
       others: 'Others',
     },
-    runtimeHint:
-      'Plugins run on the router backend even when the browser is closed. Subscription and configuration hooks run in list order.',
     importSource: 'Import JS',
     exportSource: 'Export JS',
-    sourceHelp:
-      'Supports onSubscribe(proxies, subscription), onGenerate(config), and onRun(proxies, subscription); diagnostics use onRun() without arguments. Read settings through the global configuration object. Saved source runs on the backend.',
     invalidConfiguration: 'Configuration must be a valid JSON object.',
     sourceTooLarge: 'JavaScript source cannot exceed 256 KiB.',
     draftPreserved:
@@ -903,7 +856,6 @@ export default {
     },
     pages: {
       name: 'Page visibility',
-      hint: 'Settings always remains visible. These preferences are saved in this browser only.',
     },
     resetFont: 'Reset Font-Family',
     appFolder: {
@@ -926,23 +878,15 @@ export default {
       custom: 'Custom proxy',
       test: 'Test request',
       testSuccess: 'Backend request succeeded: HTTP {status}, {duration} ms',
-      environmentHint:
-        'Environment proxy uses variables from the router or service running WebUI, not the computer running this browser.',
-      coreHint:
-        'Core proxy requires a running core with an accessible HTTP/mixed inbound. Missing endpoints cause an error without silently connecting directly.',
-      saveHint:
-        'After saving, this applies to backend subscriptions, rules, version checks, downloads, and plugin catalog requests.',
       testURL: 'Test URL',
     },
     githubDownloadAcceleration: {
       name: 'GitHub download mirror',
       mirror: 'Mirror URL template',
-      tips: "Leave empty to disable. Only GitHub release files and archives use the mirror. Use a trusted HTTPS URL with a {'{url}'} placeholder; GitHub API tokens are never sent to the mirror.",
+      tips: 'Accelerate GitHub downloads',
     },
     autoStartKernel: 'Start core on launch',
     realMemoryUsage: 'Show core process RSS',
-    realMemoryUsageHint:
-      'Sample every 30 seconds while Overview is active. Stored only in this browser.',
     coreLogDays: {
       name: 'Core log retention days',
       tips: '0 to disable',
@@ -958,8 +902,6 @@ export default {
     debugNoRounded: 'Disable rounded corners',
     debugUsePointer: 'Use pointer cursor',
     debugModalSideBySide: 'Use side-by-side tabs',
-    modalSideBySideHint:
-      'Open editors in a right-hand tab panel on wide screens; use regular dialogs on narrow screens.',
     modalTabs: 'Editors',
     kernel: {
       name: 'sing-box',

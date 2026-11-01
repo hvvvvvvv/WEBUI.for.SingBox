@@ -78,8 +78,6 @@ export default {
   },
   kernel: {
     defaultMode: '默认工作模式',
-    defaultModeHint:
-      '用于没有已缓存模式时的核心启动。启用缓存后，上次选择的工作模式优先；立即切换请使用首页模式按钮。',
     rule: '规则',
     global: '全局',
     direct: '直连',
@@ -94,8 +92,6 @@ export default {
       disabled: '禁用日志',
       level: '日志级别',
       output: '日志保存路径',
-      outputHint:
-        '留空输出到核心控制台；也可填写 stdout、stderr 或服务端文件路径。级别控制此输出，首页原生日志可独立筛选；禁用日志会同时关闭原生日志。',
       timestamp: '日志时间戳',
       trace: '跟踪',
       debug: '调试',
@@ -108,8 +104,6 @@ export default {
     cache_file: {
       enabled: '启用缓存',
       path: '缓存文件路径',
-      managedPath:
-        '由主程序统一管理为核心工作目录下的 cache.db，以支持缓存查看和清理；旧配置中的自定义路径不会应用。',
       cache_id: '缓存文件中的标识符',
       store_fakeip: '持久化FakeIP',
       store_dns: '持久化 DNS 缓存',
@@ -144,9 +138,6 @@ export default {
         dns_mode_disabled: '关闭',
         dns_mode_native: '原生',
         dns_mode_hijack: '劫持',
-        dns_mode_disabled_desc: '关闭 TUN 自动 DNS 配置。已有的 hijack-dns 路由规则仍然生效。',
-        dns_mode_native_desc: '仅配置原生接口 DNS。',
-        dns_mode_hijack_desc: '配置原生接口 DNS，并启用附加 DNS 劫持。',
         dns_mode_invalid: 'TUN DNS 模式必须为 disabled、native 或 hijack',
         stack: 'TUN模式堆栈',
         system: 'System',
@@ -267,21 +258,10 @@ export default {
         matchAll: '未设置匹配条件，此规则匹配所有流量。',
         ruleSetRequired: '请选择规则集，避免将空规则集保存为匹配所有流量的路由。',
         additionalMatches: '其他匹配条件',
-        combinedMatchHint: '以下条件仍参与同一条规则的匹配；只有删除条件才会将其移除。',
         advancedOptions: '高级选项',
         executeAction: '执行动作',
         changeAction: '更换动作',
         rawOverrideHint: '原始 JSON（raw）中的同名字段会覆盖结构化匹配和动作字段',
-        actionDescription: {
-          route: '将连接发送到指定出站。',
-          bypass: '绕过常规路由并应用可选连接参数。',
-          'route-options': '调整连接的路由与网络参数。',
-          reject: '拒绝匹配到的连接。',
-          'hijack-dns': '将 DNS 请求交给 DNS 模块处理。',
-          sniff: '识别连接使用的应用层协议。',
-          resolve: '解析目标域名并更新连接目标。',
-          inline: '通过原始 JSON（raw）提供最终动作。',
-        },
         groups: {
           source: '源地址匹配',
           destination: '目的地址匹配',
@@ -421,15 +401,6 @@ export default {
         matchConditions: '匹配条件',
         executeAction: '执行动作',
         changeAction: '更换动作',
-        actionDescription: {
-          route: '将匹配的 DNS 查询发送到指定服务器。',
-          evaluate: '向指定 DNS 服务器发起查询并保存响应，然后继续匹配后续规则。',
-          respond: '终止规则评估并返回前序 evaluate 动作保存的响应，不发起新的 DNS 查询。',
-          'route-options': '调整 DNS 查询选项，但不指定服务器。',
-          reject: '拒绝匹配的 DNS 请求。',
-          predefined: '返回预定义的 DNS 记录和响应码。',
-          inline: '通过原始 JSON（raw）提供最终动作。',
-        },
         groups: {
           source: '源地址匹配',
           domain: '查询域名',
@@ -523,13 +494,10 @@ export default {
           '应用会重启核心并短暂中断连接；仅修改当前运行副本。正常启动或重启将恢复已保存的配置。若新核心启动失败，请修正配置后重新启动。',
         apply: '应用并重启',
         applied: '已应用到当前运行实例',
-        portHint: '0 表示禁用此入站；每个入站独立设置。',
         dynamicPortHint: '此现有入站使用自动分配端口。可填写固定端口，停用请使用首页对应入站开关。',
         systemRoute: '使用系统路由',
         autoInterface: '自动探测出站网卡',
         listen: '监听地址',
-        stackHint:
-          'TUN 的 mixed 栈使用系统 TCP 和 gVisor UDP；Mixed 代理入站则是在一个端口提供 HTTP/SOCKS 服务。',
         stackManaged: '此核心版本已不再使用旧版 TUN 栈选项，由核心自动处理。',
         stackUnavailable: '无法确认核心版本，暂不可修改 TUN 栈。',
         interfacesUnavailable: '无法读取服务端网卡，保留当前值；可刷新后重试。',
@@ -552,9 +520,6 @@ export default {
       testCounts: '{completed} / {total} · 成功：{success} · 失败：{failure}',
       testUnconfirmed: '未收到新结果：{count}',
       stopWaiting: '停止等待',
-      nativeTestCancelHint: '停止等待不会取消已提交给核心的测试。',
-      nativeTestSettings:
-        '原生测速使用核心的测试地址和并发。可在配置中设置 URLTest 组；原生接口不支持按次覆盖地址、超时或并发。',
       testStatus: {
         running: '测试中…',
         completed: '已完成',
@@ -764,25 +729,19 @@ export default {
     repository: '独立插件仓库',
     moveUp: '上移',
     moveDown: '下移',
-    hubHint:
-      '打开中心仅获取插件列表，不下载或安装源码；点击“安装”后才下载所选插件。“检查更新”只更新列表。',
     catalogLoading: '正在从独立仓库获取插件列表…',
     catalogUnavailable: '尚未获取到插件目录，请检查路由器网络连接后重试。',
     catalogEmpty: '仓库目录中暂无插件。',
     catalogNoResults: '没有匹配搜索条件的插件。',
     catalogCached: '当前显示已缓存的插件列表。',
-    catalogRemote: '插件列表已从独立仓库获取。',
     groups: {
       subscriptions: '订阅处理',
       configuration: '配置生成',
       diagnostics: '网络诊断',
       others: '其他',
     },
-    runtimeHint: '插件在路由器后端执行，浏览器关闭后仍生效；订阅和配置按列表顺序处理。',
     importSource: '导入 JS',
     exportSource: '导出 JS',
-    sourceHelp:
-      '支持 onSubscribe(proxies, subscription)、onGenerate(config)、onRun(proxies, subscription)；诊断使用无参数的 onRun()。参数通过全局 configuration 对象读取；源码保存后由后端执行。',
     invalidConfiguration: '操作配置必须是有效的 JSON 对象。',
     sourceTooLarge: 'JavaScript 源码不能超过 256 KiB。',
     draftPreserved: '你的未保存草稿仍保留在编辑器中。可导出源码，或另存为新插件。',
@@ -880,7 +839,6 @@ export default {
     },
     pages: {
       name: '页面可见性',
-      hint: '设置页面始终显示。这些偏好仅保存在当前浏览器。',
     },
     resetFont: '重置字体',
     appFolder: {
@@ -903,20 +861,15 @@ export default {
       custom: '自定义代理',
       test: '测试请求',
       testSuccess: '后端请求成功：HTTP {status}，{duration} ms',
-      environmentHint: '环境代理读取运行 WebUI 的路由器/服务进程环境变量，不是当前浏览器电脑。',
-      coreHint:
-        '核心代理需要已运行的核心及可访问的 HTTP/mixed 入站；无可用端点时会报错，不会静默直连。',
-      saveHint: '保存后用于后端订阅、规则、版本检查、下载和插件目录请求。',
       testURL: '测试地址',
     },
     githubDownloadAcceleration: {
       name: 'GitHub 下载镜像',
       mirror: '镜像地址模板',
-      tips: "留空关闭。仅代理 GitHub 发布文件/归档下载，使用你信任的 HTTPS 地址和 {'{url}'} 占位符；GitHub API 令牌不会发送到镜像。",
+      tips: '用于加速 GitHub 资源',
     },
     autoStartKernel: '程序启动时开启核心',
     realMemoryUsage: '显示核心进程 RSS 内存',
-    realMemoryUsageHint: '仅在概览页激活时每 30 秒采样。此偏好仅保存在当前浏览器。',
     coreLogDays: {
       name: '核心日志保留天数',
       tips: '0表示关闭',
@@ -932,7 +885,6 @@ export default {
     debugNoRounded: '禁用圆角',
     debugUsePointer: '使用指针光标',
     debugModalSideBySide: '使用左右标签布局',
-    modalSideBySideHint: '宽屏时在右侧标签面板打开编辑窗口；窄屏时自动使用普通弹窗。',
     modalTabs: '编辑窗口',
     kernel: {
       name: 'sing-box',

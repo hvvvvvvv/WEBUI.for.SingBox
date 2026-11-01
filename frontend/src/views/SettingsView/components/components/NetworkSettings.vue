@@ -104,12 +104,6 @@ const test = async () => {
           />
         </div>
       </div>
-      <p v-if="draft.requestProxyMode === 'environment'" class="network-hint">
-        {{ t('settings.requestProxy.environmentHint') }}
-      </p>
-      <p v-if="draft.requestProxyMode === 'core'" class="network-hint">
-        {{ t('settings.requestProxy.coreHint') }}
-      </p>
       <div v-if="draft.requestProxyMode === 'custom'" class="network-field">
         <span>{{ t('settings.requestProxy.custom') }}</span>
         <Input
@@ -151,7 +145,6 @@ const test = async () => {
       <p class="network-hint">
         {{ t('settings.githubDownloadAcceleration.tips', { url: '{url}' }) }}
       </p>
-      <p class="network-hint">{{ t('settings.requestProxy.saveHint') }}</p>
       <div class="network-field">
         <span>{{ t('settings.requestProxy.testURL') }}</span>
         <Input

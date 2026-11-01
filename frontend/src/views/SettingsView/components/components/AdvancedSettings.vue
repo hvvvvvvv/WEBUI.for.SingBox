@@ -65,10 +65,7 @@ const saveCoreLogDays = async (input: number | string) => {
       <Switch v-model="appConfig.config.autoStartKernel" />
     </div>
     <div class="px-8 py-12 flex items-center justify-between gap-8">
-      <div>
-        <div class="text-16 font-bold">{{ $t('settings.realMemoryUsage') }}</div>
-        <div class="text-12">{{ $t('settings.realMemoryUsageHint') }}</div>
-      </div>
+      <div class="text-16 font-bold">{{ $t('settings.realMemoryUsage') }}</div>
       <Switch
         v-model="appSettings.app.kernel.realMemoryUsage"
         :aria-label="$t('settings.realMemoryUsage')"

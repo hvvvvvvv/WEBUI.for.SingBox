@@ -195,9 +195,6 @@ defineExpose({ handleAdd })
           {{ t('kernel.inbounds.tun.dns_mode') }}
           <Radio v-model="inbound.tun.dns_mode" :options="TunDnsModeOptions" />
         </div>
-        <div class="text-12 opacity-70 mb-8">
-          {{ t(`kernel.inbounds.tun.dns_mode_${inbound.tun.dns_mode}_desc`) }}
-        </div>
         <div class="form-item">
           {{ t('kernel.inbounds.tun.auto_route') }}
           <Switch v-model="inbound.tun.auto_route" />

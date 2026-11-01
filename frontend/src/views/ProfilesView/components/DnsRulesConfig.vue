@@ -61,43 +61,36 @@ const actionItems: ActionPickerItem[] = [
   {
     value: RuleAction.Route,
     label: 'kernel.route.rules.action.route',
-    description: 'kernel.dns.rules.actionDescription.route',
     icon: 'forward',
   },
   {
     value: RuleAction.Evaluate,
     label: 'kernel.dns.rules.actionName.evaluate',
-    description: 'kernel.dns.rules.actionDescription.evaluate',
     icon: 'preview',
   },
   {
     value: RuleAction.Respond,
     label: 'kernel.dns.rules.actionName.respond',
-    description: 'kernel.dns.rules.actionDescription.respond',
     icon: 'backward',
   },
   {
     value: RuleAction.RouteOptions,
     label: 'kernel.route.rules.action.route-options',
-    description: 'kernel.dns.rules.actionDescription.route-options',
     icon: 'settings3',
   },
   {
     value: RuleAction.Reject,
     label: 'kernel.route.rules.action.reject',
-    description: 'kernel.dns.rules.actionDescription.reject',
     icon: 'forbidden',
   },
   {
     value: RuleAction.Predefined,
     label: 'kernel.route.rules.action.predefined',
-    description: 'kernel.dns.rules.actionDescription.predefined',
     icon: 'file',
   },
   {
     value: RuleAction.Inline,
     label: 'kernel.route.rules.action.inline',
-    description: 'kernel.dns.rules.actionDescription.inline',
     icon: 'code',
   },
 ]

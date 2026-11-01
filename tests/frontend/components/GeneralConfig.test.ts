@@ -76,7 +76,6 @@ describe('general configuration', () => {
       await nextTick()
       expect(model.experimental.default_mode).toBe('global')
       expect(host.textContent).toContain('cache.db')
-      expect(host.textContent).toContain('kernel.cache_file.managedPath')
       expect(
         Array.from(host.querySelectorAll('input')).some(
           (input) => input.value === '/old/custom.db',

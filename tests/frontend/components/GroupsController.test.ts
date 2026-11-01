@@ -196,6 +196,5 @@ describe('group controls and latency progress', () => {
     const modal = host.querySelector('[data-modal]')!
     expect(modal.textContent).toContain('home.controller.closeMode.name')
     expect(modal.textContent).toContain('home.controller.cardColumns')
-    expect(modal.textContent).toContain('home.controller.nativeTestSettings')
   })
 })

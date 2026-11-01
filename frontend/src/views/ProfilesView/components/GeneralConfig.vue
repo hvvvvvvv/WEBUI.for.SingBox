@@ -18,7 +18,6 @@ const [showMore, toggleMore] = useBool(false)
       {{ t('kernel.defaultMode') }}
       <Radio v-model="model.experimental.default_mode" :options="ModeOptions" />
     </div>
-    <p class="text-12 mb-12">{{ t('kernel.defaultModeHint') }}</p>
     <div class="form-item">
       {{ t('kernel.log.disabled') }}
       <Switch v-model="model.log.disabled" />
@@ -32,7 +31,6 @@ const [showMore, toggleMore] = useBool(false)
         {{ t('kernel.log.output') }}
         <Input v-model="model.log.output" editable />
       </div>
-      <p class="text-12 mb-12">{{ t('kernel.log.outputHint') }}</p>
       <div class="form-item">
         {{ t('kernel.log.timestamp') }}
         <Switch v-model="model.log.timestamp" />
@@ -51,7 +49,6 @@ const [showMore, toggleMore] = useBool(false)
           {{ t('kernel.cache_file.path') }}
           <span>cache.db</span>
         </div>
-        <p class="text-12 mb-12">{{ t('kernel.cache_file.managedPath') }}</p>
         <div class="form-item">
           {{ t('kernel.cache_file.cache_id') }}
           <Input v-model="model.experimental.cache_file.cache_id" editable />

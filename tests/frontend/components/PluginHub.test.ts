@@ -153,7 +153,6 @@ describe('independent plugin repository catalog', () => {
     first.resolve(remote())
     await settle()
     expect(host.textContent).toContain(plugin.name)
-    expect(host.textContent).toContain('plugins.catalogRemote')
     expect(host.textContent).not.toContain('plugins.catalogLoading')
     expect(host.querySelector('[role=alert]')).toBeNull()
     expect(mocks.request.mock.calls).toEqual([['/catalog']])

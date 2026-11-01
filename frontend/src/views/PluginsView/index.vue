@@ -291,7 +291,6 @@ const sortEnd = () => {
         </div>
       </Card>
     </div>
-    <p v-if="store.plugins.length" class="plugins-note">{{ t('plugins.runtimeHint') }}</p>
     <Modal />
   </div>
 </template>
@@ -312,9 +311,7 @@ const sortEnd = () => {
   min-height: 0;
 }
 .plugins-empty {
-  flex: 1;
-  display: grid;
-  place-items: center;
+  flex: 0 0 90%;
 }
 .plugins-note {
   font-size: 12px;
