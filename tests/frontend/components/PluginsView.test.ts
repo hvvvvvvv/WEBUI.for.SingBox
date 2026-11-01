@@ -220,6 +220,38 @@ describe('installed plugins page requests catalog only on user action', () => {
     expect(store.plugins).toEqual([])
   })
 
+  it('keeps the same empty state visible while a reactivation refresh is pending or fails', async () => {
+    mocks.request.mockReset().mockResolvedValueOnce({ plugins: [], revision: 1 })
+    await mount()
+    const empty = host.querySelector('.plugins-empty')!
+    expect(empty).not.toBeNull()
+    active.value = false
+    await settle()
+    let reject!: (reason: Error) => void
+    mocks.request.mockReturnValueOnce(
+      new Promise((_, fail) => {
+        reject = fail
+      }),
+    )
+    active.value = true
+    await settle()
+    expect(store.loading).toBe(true)
+    expect(host.querySelector('.plugins-empty')).toBe(empty)
+    expect(empty.textContent).toContain('The plugin list is empty.')
+    reject(new Error('Router is temporarily unreachable'))
+    await settle()
+    expect(store.loading).toBe(false)
+    expect(host.querySelector('.plugins-empty')).toBe(empty)
+    expect(host.querySelector('[role="alert"]')?.textContent).toContain(
+      'Router is temporarily unreachable',
+    )
+    mocks.request.mockResolvedValueOnce({ plugins: [installed], revision: 2 })
+    button('plugins.retry').click()
+    await settle()
+    expect(host.querySelector('.plugins-empty')).toBeNull()
+    expect(host.textContent).toContain(installed.name)
+  })
+
   it('opens the plugin center from the empty state and fetches only catalog metadata', async () => {
     mocks.request.mockReset().mockResolvedValueOnce({ plugins: [], revision: 1 })
     await mount()
@@ -230,6 +262,28 @@ describe('installed plugins page requests catalog only on user action', () => {
     expect(mocks.request.mock.calls).toEqual([[], ['/catalog']])
     expect(store.plugins).toEqual([])
     expect(host.querySelector('.plugins-header')).toBeNull()
+  })
+
+  it('ignores an older refresh error after a newer activation succeeds', async () => {
+    mocks.request.mockReset().mockResolvedValueOnce({ plugins: [], revision: 1 })
+    await mount()
+    active.value = false
+    await settle()
+    let reject!: (reason: Error) => void
+    mocks.request.mockReturnValueOnce(new Promise((_, fail) => { reject = fail }))
+    active.value = true
+    await settle()
+    active.value = false
+    await settle()
+    mocks.request.mockResolvedValueOnce({ plugins: [], revision: 2 })
+    active.value = true
+    await settle()
+    const empty = host.querySelector('.plugins-empty')!
+    reject(new Error('Stale request failed'))
+    await settle()
+    expect(host.querySelector('[role="alert"]')).toBeNull()
+    expect(host.querySelector('.plugins-empty')).toBe(empty)
+    expect(store.revision).toBe(2)
   })
 
   it('fetches catalog metadata only after opening the plugin hub', async () => {

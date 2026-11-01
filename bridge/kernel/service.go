@@ -524,7 +524,7 @@ func (s *Service) launchPreparedCore(ctx context.Context, profile *profilev1.Pro
 		}
 	})
 
-	readyErr := waitKernelAPIReadyFunc(ctx, config.CoreAPIController, config.NativeAPISecret(generatedConfig), pid, 15*time.Second)
+	readyErr := waitKernelAPIReadyFunc(ctx, config.CoreAPIController, config.NativeAPISecret(generatedConfig), pid, coreStartupTimeout)
 	if readyErr == nil {
 		readyErr = ctx.Err()
 	}

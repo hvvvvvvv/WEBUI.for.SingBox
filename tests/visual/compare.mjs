@@ -111,6 +111,75 @@ const editCard = async text => {
   // before Edit, so clicking the first button would silently test copying.
   await actions.nth(count - 2).click()
 }
+const dropdownGeometry = []
+const checkNetworkSettings = async (label, exercise = false) => {
+  const network = page.locator('.network-settings')
+  await network.scrollIntoViewIfNeeded()
+  const modes = network.getByRole('radiogroup', { name: '请求代理', exact: true })
+  assert.equal(await modes.getByRole('radio').count(), 4, 'request proxy must use the upstream segmented control')
+  assert.equal(await network.getByRole('combobox').count(), 0, 'request proxy must not be a dropdown')
+  assert.equal(await network.locator('input').count(), 0, 'network text fields must start in click-to-edit mode')
+  assert.equal(await network.getByRole('switch', { name: 'GitHub 下载加速', exact: true }).count(), 1)
+  const bounds = await modes.boundingBox()
+  assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= page.viewportSize().width + 1, 'network controls must fit the viewport')
+  await capture(label)
+  if (!exercise) return
+  const savedMode = await modes.locator('[aria-checked="true"]').innerText()
+  const changeMode = async name => {
+    const saved = page.waitForResponse(response => response.url().endsWith('/SaveAppConfig'))
+    await modes.getByRole('radio', { name, exact: true }).click()
+    assert.equal((await saved).status(), 200)
+    await modes.locator('[disabled]').first().waitFor({ state: 'detached' })
+  }
+  await changeMode('不使用代理')
+  assert.equal(await network.getByRole('button', { name: '测试', exact: true }).count(), 0)
+  await changeMode(savedMode)
+  assert.equal(await network.getByRole('button', { name: '测试', exact: true }).count(), 1)
+  const agentName = '用户代理(User-Agent)'
+  await network.getByRole('button', { name: agentName, exact: true }).click()
+  const field = network.getByRole('textbox', { name: agentName, exact: true })
+  const original = await field.inputValue()
+  const saveAgent = async value => {
+    await field.fill(value)
+    const saved = page.waitForResponse(response => response.url().endsWith('/SaveAppConfig'))
+    await field.press('Enter')
+    assert.equal((await saved).status(), 200)
+    await field.waitFor({ state: 'detached' })
+  }
+  await saveAgent('cloud-ui-regression')
+  await network.getByRole('button', { name: agentName, exact: true }).click()
+  await saveAgent(original)
+  assert.equal(await network.getByRole('alert').count(), 0)
+}
+const checkDropdown = async (trigger, label) => {
+  await trigger.scrollIntoViewIfNeeded()
+  await trigger.click()
+  const menu = page.locator('.gui-dropdown-overlay').filter({ visible: true }).last()
+  await menu.waitFor()
+  await menu.evaluate(async element => {
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    await Promise.allSettled(element.getAnimations({ subtree: true }).map(animation => animation.finished))
+  })
+  const anchor = await trigger.boundingBox()
+  const popup = await menu.boundingBox()
+  assert.ok(anchor && popup, `${label}: trigger and menu must be visible`)
+  const viewport = page.viewportSize()
+  const container = await trigger.evaluate(element => {
+    const pane = element.closest('.shared-rule-action')
+    if (!pane) return null
+    const rect = pane.getBoundingClientRect()
+    return { containerType: getComputedStyle(pane).containerType, x: rect.x, y: rect.y, width: rect.width, height: rect.height }
+  })
+  dropdownGeometry.push({ label, viewport, anchor, popup, container })
+  const edgeGap = Math.min(Math.abs(popup.y - anchor.y - anchor.height), Math.abs(popup.y + popup.height - anchor.y))
+  assert.ok(edgeGap <= 2, `${label}: popup must touch its trigger, actual gap ${edgeGap}`)
+  assert.ok(popup.x >= 0 && popup.x + popup.width <= viewport.width + 1, `${label}: menu must fit horizontally`)
+  assert.ok(popup.y >= 0 && popup.y + popup.height <= viewport.height + 1, `${label}: menu must fit vertically`)
+  assert.ok(popup.x <= anchor.x + anchor.width && popup.x + popup.width >= anchor.x, `${label}: popup must overlap its trigger horizontally`)
+  await capture(`dropdown-${label}`)
+  await trigger.press('Escape')
+  await menu.waitFor({ state: 'hidden' })
+}
 try {
   // Both upstreams intentionally default to English. Change language through
   // the real setting, rather than assuming the browser locale overrides it.
@@ -164,6 +233,44 @@ try {
       assert.ok(Math.abs(state[part].y - emptyStates[0][part].y) <= 1, `${state.name} ${part} must align with subscriptions`)
     }
   }
+  if (process.env.VISUAL_TARGET === 'webui') {
+    // Delay a real backend response, instead of replacing installed-plugin data.
+    // The cached empty-state DOM must remain present on every animation frame.
+    const emptyElement = await page.locator('.plugins-empty').elementHandle()
+    let release
+    let heldResponse
+    await page.route('**/api/plugins', async route => {
+      const response = await route.fetch()
+      await heldResponse
+      await route.fulfill({ response })
+    })
+    try {
+      for (const [name, route] of [['订阅', '/subscriptions'], ['规则集', '/rulesets'], ['计划任务', '/scheduledtasks']]) {
+        await navigate(name, route)
+        heldResponse = new Promise(resolve => { release = resolve })
+        const requestEntered = page.waitForRequest(request => new URL(request.url()).pathname === '/api/plugins')
+        await navigate('插件', '/plugins')
+        await requestEntered
+        const frames = await emptyElement.evaluate(async element => {
+          const frames = []
+          for (let index = 0; index < 12; index++) {
+            await new Promise(resolve => requestAnimationFrame(resolve))
+            frames.push(element.isConnected && element.getBoundingClientRect().height > 0 && getComputedStyle(element).display !== 'none')
+          }
+          return frames
+        })
+        assert.ok(frames.every(Boolean), `plugin empty state disappeared during refresh after ${name}`)
+        const completed = page.waitForResponse(response => new URL(response.url()).pathname === '/api/plugins')
+        release()
+        await completed
+      }
+      await capture('01b-plugins-reactivation-dark')
+    } finally {
+      release?.()
+      await page.unroute('**/api/plugins')
+      await emptyElement.dispose()
+    }
+  }
   await navigate('设置', '/settings')
   for (const name of temporarilyVisible) {
     await page.locator('.gui-checkbox-button').filter({ hasText: new RegExp(`^\\s*${name}\\s*$`) }).click()
@@ -175,6 +282,12 @@ try {
   await navigate('设置', '/settings')
   await page.getByText('页面可见性', { exact: true }).waitFor()
   await capture('02-settings-dark')
+  if (process.env.VISUAL_TARGET === 'webui') {
+    await checkNetworkSettings('02c-network-desktop-dark', true)
+    await page.setViewportSize({ width: 390, height: 844 })
+    await checkNetworkSettings('02d-network-mobile-dark')
+    await page.setViewportSize({ width: 1440, height: 1000 })
+  }
   await tab('插件').click()
   await page.getByText('配置插件', { exact: true }).waitFor()
   await capture('02b-plugin-settings-empty-dark')
@@ -196,6 +309,7 @@ try {
   await nextStep('出站设置', 4)
   await nextStep('路由设置', 5)
   await dialog().getByText('远程规则集使用的默认 HTTP 客户端', { exact: false }).waitFor()
+  if (process.env.VISUAL_TARGET === 'webui') await checkDropdown(dialog().getByRole('combobox').first(), 'route-dialog-desktop-dark')
   await capture('06-route-general-dark')
   await tab('规则集').click()
   await dialog().getByText('Category-Ads', { exact: true }).waitFor()
@@ -211,11 +325,27 @@ try {
   await page.setViewportSize({ width: 390, height: 844 })
   await capture('10-rule-editor-mobile-dark')
   await closeDialog()
-  await closeDialog()
   await page.setViewportSize({ width: 1440, height: 1000 })
+  if (process.env.VISUAL_TARGET === 'webui') {
+    await nextStep('DNS设置', 6)
+    await tab('规则').click()
+    await editCard('GeoLocation-!CN')
+    await dialog().locator('.shared-rule-action').waitFor()
+    const actionPicker = dialog().getByRole('button', { name: '更换动作', exact: true })
+    const dnsServer = dialog().locator('.shared-rule-action').getByRole('combobox').first()
+    await checkDropdown(actionPicker, 'dns-action-desktop-dark')
+    await checkDropdown(dnsServer, 'dns-server-desktop-dark')
+    await page.setViewportSize({ width: 390, height: 844 })
+    await checkDropdown(actionPicker, 'dns-action-mobile-dark')
+    await checkDropdown(dnsServer, 'dns-server-mobile-dark')
+    await closeDialog()
+    await page.setViewportSize({ width: 1440, height: 1000 })
+  }
+  await closeDialog()
   await navigate('设置', '/settings')
   await chooseTheme('浅色', 'light')
   await capture('11-settings-light')
+  if (process.env.VISUAL_TARGET === 'webui') await checkNetworkSettings('11b-network-desktop-light')
   await navigate('插件', '/plugins')
   await page.getByText('插件列表为空', { exact: false }).waitFor()
   await capture('12-plugins-empty-light')
@@ -255,5 +385,6 @@ try {
   await fs.writeFile(path.join(output, 'result.json'), JSON.stringify({ target: process.env.VISUAL_TARGET, errors, completed: false, failure: String(error) }, null, 2))
   throw error
 } finally {
+  await fs.writeFile(path.join(output, 'dropdown-geometry.json'), JSON.stringify({ browser: browser.version(), measurements: dropdownGeometry }, null, 2))
   await browser.close()
 }

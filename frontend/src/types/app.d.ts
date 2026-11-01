@@ -66,6 +66,7 @@ export interface AppConfig {
   requestProxyMode: 'none' | 'environment' | 'core' | 'custom'
   customProxy: string
   githubDownloadMirror: string
+  githubDownloadAccelerationDisabled: boolean
   rollingRelease: boolean
   branch: Branch
   profile: string

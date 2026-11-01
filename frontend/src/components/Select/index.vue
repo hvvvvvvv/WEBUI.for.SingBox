@@ -203,7 +203,7 @@ const handleClear = () => {
 </script>
 
 <template>
-  <Dropdown :trigger="['click']" coordinate="viewport">
+  <Dropdown :trigger="['click']">
     <template #default="{ open, toggle, close, opened }">
       <div
         ref="triggerRef"

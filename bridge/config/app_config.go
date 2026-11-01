@@ -24,19 +24,20 @@ import (
 const appConfigPath = "data/config.yaml"
 
 type AppConfig struct {
-	CoreLogDays          CoreLogRetention  `yaml:"coreLogDays"`
-	AutoStartKernel      bool              `yaml:"autoStartKernel"`
-	AutoRestartKernel    bool              `yaml:"autoRestartKernel"`
-	UserAgent            string            `yaml:"userAgent"`
-	GitHubAPIToken       string            `yaml:"githubApiToken"`
-	RequestProxyMode     string            `yaml:"requestProxyMode"`
-	CustomProxy          string            `yaml:"customProxy"`
-	GitHubDownloadMirror string            `yaml:"githubDownloadMirror"`
-	RollingRelease       bool              `yaml:"rollingRelease"`
-	Branch               string            `yaml:"branch"`
-	Profile              string            `yaml:"profile"`
-	Main                 CoreRuntimeConfig `yaml:"main"`
-	Alpha                CoreRuntimeConfig `yaml:"alpha"`
+	CoreLogDays                        CoreLogRetention  `yaml:"coreLogDays"`
+	AutoStartKernel                    bool              `yaml:"autoStartKernel"`
+	AutoRestartKernel                  bool              `yaml:"autoRestartKernel"`
+	UserAgent                          string            `yaml:"userAgent"`
+	GitHubAPIToken                     string            `yaml:"githubApiToken"`
+	RequestProxyMode                   string            `yaml:"requestProxyMode"`
+	CustomProxy                        string            `yaml:"customProxy"`
+	GitHubDownloadMirror               string            `yaml:"githubDownloadMirror"`
+	GitHubDownloadAccelerationDisabled bool              `yaml:"githubDownloadAccelerationDisabled"`
+	RollingRelease                     bool              `yaml:"rollingRelease"`
+	Branch                             string            `yaml:"branch"`
+	Profile                            string            `yaml:"profile"`
+	Main                               CoreRuntimeConfig `yaml:"main"`
+	Alpha                              CoreRuntimeConfig `yaml:"alpha"`
 }
 
 type CoreRuntimeConfig struct {
@@ -95,10 +96,11 @@ func defaultCoreRuntimeConfig() CoreRuntimeConfig {
 
 func defaultAppConfig() AppConfig {
 	return AppConfig{
-		RollingRelease: true,
-		Branch:         "main",
-		Main:           defaultCoreRuntimeConfig(),
-		Alpha:          defaultCoreRuntimeConfig(),
+		GitHubDownloadAccelerationDisabled: true,
+		RollingRelease:                     true,
+		Branch:                             "main",
+		Main:                               defaultCoreRuntimeConfig(),
+		Alpha:                              defaultCoreRuntimeConfig(),
 	}
 }
 
@@ -145,6 +147,18 @@ func (s *Store) load() (AppConfig, error) {
 			}
 			if err := yaml.Unmarshal(data, &cfg); err != nil {
 				return cfg, err
+			}
+			var saved struct {
+				MirrorDisabled *bool `yaml:"githubDownloadAccelerationDisabled"`
+			}
+			if err := node.Decode(&saved); err != nil {
+				return cfg, err
+			}
+			// Older versions enabled mirrors by storing a nonempty URL. Preserve
+			// that behavior, while keeping explicit switch state independent of
+			// the URL (including an enabled switch awaiting its first URL).
+			if saved.MirrorDisabled == nil {
+				cfg.GitHubDownloadAccelerationDisabled = strings.TrimSpace(cfg.GitHubDownloadMirror) == ""
 			}
 		}
 		cfg = normalizeAppConfig(cfg)
@@ -274,19 +288,20 @@ func cloneStringMap(input map[string]string) map[string]string {
 func appConfigToProto(cfg AppConfig) *appv1.AppConfig {
 	cfg = normalizeAppConfig(cfg)
 	return &appv1.AppConfig{
-		CoreLogDays:          int32(cfg.CoreLogDays),
-		AutoStartKernel:      cfg.AutoStartKernel,
-		AutoRestartKernel:    cfg.AutoRestartKernel,
-		UserAgent:            cfg.UserAgent,
-		GithubApiToken:       cfg.GitHubAPIToken,
-		RequestProxyMode:     cfg.RequestProxyMode,
-		CustomProxy:          cfg.CustomProxy,
-		GithubDownloadMirror: cfg.GitHubDownloadMirror,
-		RollingRelease:       cfg.RollingRelease,
-		Branch:               branchToProto(cfg.Branch),
-		Profile:              cfg.Profile,
-		Main:                 coreRuntimeToProto(cfg.Main),
-		Alpha:                coreRuntimeToProto(cfg.Alpha),
+		CoreLogDays:                        int32(cfg.CoreLogDays),
+		AutoStartKernel:                    cfg.AutoStartKernel,
+		AutoRestartKernel:                  cfg.AutoRestartKernel,
+		UserAgent:                          cfg.UserAgent,
+		GithubApiToken:                     cfg.GitHubAPIToken,
+		RequestProxyMode:                   cfg.RequestProxyMode,
+		CustomProxy:                        cfg.CustomProxy,
+		GithubDownloadMirror:               cfg.GitHubDownloadMirror,
+		GithubDownloadAccelerationDisabled: cfg.GitHubDownloadAccelerationDisabled,
+		RollingRelease:                     cfg.RollingRelease,
+		Branch:                             branchToProto(cfg.Branch),
+		Profile:                            cfg.Profile,
+		Main:                               coreRuntimeToProto(cfg.Main),
+		Alpha:                              coreRuntimeToProto(cfg.Alpha),
 	}
 }
 
@@ -296,19 +311,20 @@ func appConfigFromProto(config *appv1.AppConfig) AppConfig {
 		return defaults
 	}
 	return normalizeAppConfig(AppConfig{
-		CoreLogDays:          CoreLogRetention(config.GetCoreLogDays()),
-		AutoStartKernel:      config.GetAutoStartKernel(),
-		AutoRestartKernel:    config.GetAutoRestartKernel(),
-		UserAgent:            config.GetUserAgent(),
-		GitHubAPIToken:       config.GetGithubApiToken(),
-		RequestProxyMode:     config.GetRequestProxyMode(),
-		CustomProxy:          config.GetCustomProxy(),
-		GitHubDownloadMirror: config.GetGithubDownloadMirror(),
-		RollingRelease:       config.GetRollingRelease(),
-		Branch:               branchFromProto(config.GetBranch()),
-		Profile:              config.GetProfile(),
-		Main:                 coreRuntimeFromProto(config.GetMain(), defaults.Main),
-		Alpha:                coreRuntimeFromProto(config.GetAlpha(), defaults.Alpha),
+		CoreLogDays:                        CoreLogRetention(config.GetCoreLogDays()),
+		AutoStartKernel:                    config.GetAutoStartKernel(),
+		AutoRestartKernel:                  config.GetAutoRestartKernel(),
+		UserAgent:                          config.GetUserAgent(),
+		GitHubAPIToken:                     config.GetGithubApiToken(),
+		RequestProxyMode:                   config.GetRequestProxyMode(),
+		CustomProxy:                        config.GetCustomProxy(),
+		GitHubDownloadMirror:               config.GetGithubDownloadMirror(),
+		GitHubDownloadAccelerationDisabled: config.GetGithubDownloadAccelerationDisabled(),
+		RollingRelease:                     config.GetRollingRelease(),
+		Branch:                             branchFromProto(config.GetBranch()),
+		Profile:                            config.GetProfile(),
+		Main:                               coreRuntimeFromProto(config.GetMain(), defaults.Main),
+		Alpha:                              coreRuntimeFromProto(config.GetAlpha(), defaults.Alpha),
 	})
 }
 
@@ -400,6 +416,9 @@ func appConfigChangedFields(previous, current AppConfig) []string {
 	}
 	if previous.GitHubDownloadMirror != current.GitHubDownloadMirror {
 		fields = append(fields, "github_download_mirror")
+	}
+	if previous.GitHubDownloadAccelerationDisabled != current.GitHubDownloadAccelerationDisabled {
+		fields = append(fields, "github_download_acceleration_disabled")
 	}
 	if previous.RollingRelease != current.RollingRelease {
 		fields = append(fields, "rolling_release")

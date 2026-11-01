@@ -55,6 +55,7 @@ describe('core log retention persistence', () => {
       requestProxyMode: 'custom',
       customProxy: 'socks5://127.0.0.1:1080',
       githubDownloadMirror: 'https://mirror.invalid/{url}',
+      githubDownloadAccelerationDisabled: true,
       userAgent: 'router/test',
       githubApiToken: 'api-token',
     }

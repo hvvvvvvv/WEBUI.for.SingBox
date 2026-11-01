@@ -42,7 +42,7 @@ const handleSelect = (value: string) => {
       </div>
 
       <div class="action-picker-controls flex items-center gap-2">
-        <Dropdown :trigger="['click']" coordinate="viewport">
+        <Dropdown :trigger="['click']">
           <Button type="text" size="small">
             {{ $t(changeLabel) }}
             <Icon icon="arrowDown" :size="14" class="ml-4" />

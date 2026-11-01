@@ -165,9 +165,15 @@ defineExpose({
     <Icon v-if="disabled" icon="forbidden" class="shrink-0" />
     <div
       v-if="editable && !showEdit"
+      role="button"
+      :tabindex="disabled ? -1 : 0"
+      :aria-label="$attrs['aria-label'] as string | undefined"
+      :aria-disabled="disabled || undefined"
       class="w-full overflow-hidden whitespace-nowrap text-ellipsis"
       :class="{ 'italic pr-4': !modelValue }"
       @click="showInput"
+      @keydown.enter.prevent="showInput"
+      @keydown.space.prevent="showInput"
     >
       <slot name="editable" v-bind="{ value: modelValue }">
         {{ modelValue || t(placeholder || 'common.none') }}

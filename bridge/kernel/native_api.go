@@ -23,6 +23,12 @@ type nativeAPIInstance struct {
 	cancel context.CancelFunc
 }
 
+// The API is only ready after the core finishes initializing remote rule sets.
+// A cold cache can require several downloads on a slow router connection. Keep
+// that work bounded without treating sing-box's 10-second warning as a failure.
+// StopCore, shutdown, and request cancellation still interrupt this wait.
+const coreStartupTimeout = 3 * time.Minute
+
 // NativeAPIContext obtains the credential and cancellation scope of exactly one
 // running instance. Callers must invoke cancel when their HTTP request finishes.
 // A stale request is canceled before another core can use the same listen port.
@@ -60,12 +66,16 @@ func waitKernelAPIReady(ctx context.Context, controller, secret string, pid int,
 }
 
 func waitKernelAPIReadyWithClient(ctx context.Context, controller, secret string, pid int, timeout time.Duration, httpClient connect.HTTPClient) error {
+	parent := ctx
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	client := daemonconnect.NewStartedServiceClient(httpClient, "http://"+controller, connect.WithGRPCWeb())
 	var lastErr error
 	for {
 		if err := ctx.Err(); err != nil {
+			if parent.Err() == nil {
+				return fmt.Errorf("core initialization exceeded %s; check core logs and initial rule-set downloads: %w (last API error: %v)", timeout, err, lastErr)
+			}
 			return fmt.Errorf("waiting for native kernel API: %w (last error: %v)", err, lastErr)
 		}
 		if alive, err := platform.IsPIDAlive(pid); err == nil && !alive {

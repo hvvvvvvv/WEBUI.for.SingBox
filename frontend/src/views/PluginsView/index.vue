@@ -29,12 +29,16 @@ const showError = (value: unknown) => {
         : String(value)
   message.error(detail)
 }
+let refreshSequence = 0
 const refresh = async () => {
+  const requestID = ++refreshSequence
   error.value = ''
   try {
     await store.setupPlugins()
   } catch (value) {
-    error.value = value instanceof Error ? value.message : String(value)
+    if (requestID === refreshSequence) {
+      error.value = value instanceof Error ? value.message : String(value)
+    }
   }
 }
 onActivated(() => {
@@ -171,7 +175,7 @@ const sortEnd = () => {
     <p v-if="store.catalog.warning" role="status" class="plugins-note">
       {{ store.catalog.warning }}
     </p>
-    <div v-if="!store.plugins.length && !store.loading" class="grid-list-empty plugins-empty">
+    <div v-if="!store.plugins.length" class="grid-list-empty plugins-empty">
       <Empty>
         <template #description>
           <I18nT

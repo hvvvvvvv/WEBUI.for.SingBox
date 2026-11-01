@@ -29,4 +29,5 @@ message AppConfig {
   string request_proxy_mode = 11;
   string custom_proxy = 12;
   string github_download_mirror = 13;
+  bool github_download_acceleration_disabled = 14;
 }

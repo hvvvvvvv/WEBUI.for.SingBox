@@ -269,6 +269,30 @@ func TestGitHubTokenAndMirrorTrustBoundaries(t *testing.T) {
 	}
 }
 
+func TestDisabledGitHubMirrorLeavesDownloadsAtOrigin(t *testing.T) {
+	options := Options{GitHubToken: "private-token", GitHubMirror: "https://mirror.invalid/{url}", GitHubMirrorDisabled: true}
+	for _, target := range []string{
+		"https://github.com/example/project/releases/download/v1/asset.tar.gz",
+		"https://github.com/example/project/archive/refs/heads/main.zip",
+		"https://api.github.com/repos/example/project/releases/latest",
+	} {
+		request, _ := http.NewRequest(http.MethodGet, target, nil)
+		if err := PrepareRequest(request, options, true); err != nil {
+			t.Fatal(err)
+		}
+		if request.URL.String() != target {
+			t.Fatalf("disabled mirror rewrote %q as %q", target, request.URL)
+		}
+		wantToken := ""
+		if request.URL.Host == "api.github.com" {
+			wantToken = "Bearer private-token"
+		}
+		if request.Header.Get("Authorization") != wantToken {
+			t.Fatal("mirror switch changed the API credential boundary")
+		}
+	}
+}
+
 func TestProxyErrorsDoNotRevealCredentialsAndKeepCancellation(t *testing.T) {
 	listener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {

@@ -18,6 +18,7 @@ func (cfg AppConfig) NetworkOptions() network.Options {
 	return network.Options{
 		Mode: cfg.RequestProxyMode, ProxyURL: cfg.CustomProxy,
 		UserAgent: cfg.UserAgent, GitHubToken: cfg.GitHubAPIToken, GitHubMirror: cfg.GitHubDownloadMirror,
+		GitHubMirrorDisabled: cfg.GitHubDownloadAccelerationDisabled,
 	}
 }
 

@@ -3,11 +3,14 @@ package kernel
 import (
 	"archive/zip"
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -61,6 +64,27 @@ func TestNativeAPIReadinessUsesAuthenticatedGRPCWeb(t *testing.T) {
 				t.Fatalf("ready API: err=%v, modeCalls=%d", err, modeCalls)
 			}
 		})
+	}
+}
+
+func TestNativeAPIReadinessHasBoundedInitializationWait(t *testing.T) {
+	release := make(chan struct{})
+	origin := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = io.Copy(io.Discard, r.Body)
+		select {
+		case <-r.Context().Done():
+		case <-release:
+		}
+	}))
+	defer origin.Close()
+	defer close(release)
+	started := time.Now()
+	err := waitKernelAPIReadyWithClient(context.Background(), strings.TrimPrefix(origin.URL, "http://"), "secret", os.Getpid(), 100*time.Millisecond, origin.Client())
+	if !errors.Is(err, context.DeadlineExceeded) || !strings.Contains(err.Error(), "initial rule-set downloads") {
+		t.Fatalf("initialization deadline was lost or unexplained: %v", err)
+	}
+	if time.Since(started) > 2*time.Second {
+		t.Fatal("stalled API request outlived the initialization deadline")
 	}
 }
 

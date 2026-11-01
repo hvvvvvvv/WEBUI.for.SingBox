@@ -22,12 +22,13 @@ const (
 )
 
 type Options struct {
-	Mode         string
-	ProxyURL     string
-	UserAgent    string
-	GitHubToken  string
-	GitHubMirror string
-	CoreProxy    func() (string, error)
+	Mode                 string
+	ProxyURL             string
+	UserAgent            string
+	GitHubToken          string
+	GitHubMirror         string
+	GitHubMirrorDisabled bool
+	CoreProxy            func() (string, error)
 }
 
 func Validate(options Options) error {
@@ -190,7 +191,7 @@ func PrepareRequest(request *http.Request, options Options, allowMirror bool) er
 		request.Header.Set("User-Agent", options.UserAgent)
 	}
 	mirrored := false
-	if allowMirror && options.GitHubMirror != "" && request.URL.Scheme == "https" && request.URL.Host == "github.com" && (strings.Contains(request.URL.Path, "/releases/download/") || strings.Contains(request.URL.Path, "/archive/")) {
+	if allowMirror && !options.GitHubMirrorDisabled && options.GitHubMirror != "" && request.URL.Scheme == "https" && request.URL.Host == "github.com" && (strings.Contains(request.URL.Path, "/releases/download/") || strings.Contains(request.URL.Path, "/archive/")) {
 		original := request.URL.String()
 		if query := strings.IndexByte(options.GitHubMirror, '?'); query >= 0 && strings.Index(options.GitHubMirror, "{url}") > query {
 			original = url.QueryEscape(original)

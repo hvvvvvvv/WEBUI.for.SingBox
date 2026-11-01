@@ -81,8 +81,33 @@ GUI 切换 Stable/Alpha 时通常立即重启。WebUI 保留自动重启设置�
 
 配置中的远程规则集由 sing-box 自己下载，使用路由的默认 HTTP 客户端或单项下载出站，不受上述 WebUI 请求代理直接控制。新配置的六项远程规则集每 24 小时更新，单项留空继承「节点选择」默认 HTTP 客户端；旧配置及显式下载出站不自动改写。更新失败保留有效缓存，返回错误后等待下个更新周期重试；响应一直挂起时，当前核查的核心下载链路没有自身的响应总超时，不能把 HTTP 504 等同于客户端超时。首次下载无缓存时失败或挂起会阻碍核心启动。
 
+核心就绪等待上限为 3 分钟，停止操作仍可立即取消。sing-box 的 10 秒初始化警告本身不会退出；旧 WebUI 的 15 秒等待上限会提前结束仍在下载的核心。延长等待不解决不可达的下载源，需要离线规则或有效的本地初始文件。
+
 “环境代理”读取路由器服务的 HTTP_PROXY/HTTPS_PROXY/NO_PROXY 等环境，而不是访问页面的电脑；可在 procd/systemd 服务环境中设置。“核心代理”仅使用当前实际运行实例的 HTTP/mixed 入站及其认证；仅有 TUN 时没有可用 HTTP 代理，会明确报错，不静默直连。自定义启动参数加载额外配置文件时，也不会猜测实际代理端点。
 
-镜像模板使用 `https://example.com/{url}`，默认不配置第三方地址。镜像只替换公开 GitHub release/archive 下载，不替换 GitHub API、插件原始源码地址或用户订阅；这些请求仍遵从所选请求代理。API 令牌不会交给镜像。
+镜像模板使用 `https://example.com/{url}`，默认不配置第三方地址。镜像只替换公开 GitHub release/archive 下载，不替换 GitHub API、插件原始源码地址或用户订阅；这些请求仍遵从所选请求代理。API 令牌不会交给镜像。关闭下载加速保留填写的镜像地址，后续可以重新开启。
+
+### 首次启动不依赖规则下载
+
+以下两种方式都需先准备有效的 `.srs` 文件，再启动核心。六项默认规则在 [MetaCubeX 规则仓库](https://github.com/MetaCubeX/meta-rules-dat/tree/sing/geo) 中的路径如下；同名的 geosite/geoip 文件须分别保存，不能覆盖。
+
+| 规则标签 | 仓库中的路径 | 建议本地文件名 |
+| --- | --- | --- |
+| Category-Ads | `geo/geosite/category-ads-all.srs` | `geosite-category-ads-all.srs` |
+| GeoIP-Private | `geo/geoip/private.srs` | `geoip-private.srs` |
+| GeoSite-Private | `geo/geosite/private.srs` | `geosite-private.srs` |
+| GeoIP-CN | `geo/geoip/cn.srs` | `geoip-cn.srs` |
+| GeoSite-CN | `geo/geosite/cn.srs` | `geosite-cn.srs` |
+| GeoLocation-!CN | `geo/geosite/geolocation-!cn.srs` | `geosite-geolocation-not-cn.srs` |
+
+**本地离线方式**：每一项改为 `{"type":"local","tag":"原标签","format":"binary","path":"/opt/webui-for-singbox/data/rule-set/bootstrap/对应文件名"}`。删除该项的 URL、HTTP 客户端、更新间隔等远程字段。更新由用户或独立维护任务完成；下载并校验成功后再替换，失败保留旧文件。
+
+**在线更新方式**：保留 `type: "remote"`、URL 和 `update_interval: "24h"`，增加指向上述本地文件的 `initial_path`，并启用 `experimental.cache_file.enabled`。sing-box 1.14.4 会先读取有效缓存或初始文件，再在后台更新。改 URL 可能使旧缓存失效，所以仅更换镜像并不能保证无网启动；`initial_path` 也不是损坏缓存的无条件恢复机制。
+
+对于不经过代理节点的下载，1.14 核心配置使用 `http_client: {"engine":"go"}`，可按需增加 `domain_resolver` 和 `connect_timeout`。不要同时填写已弃用的 `download_detour`，也不要把空的 `direct` 出站作为现代 HTTP 客户端的 `detour`。建连超时不是整个下载的总超时。第三方镜像的可用性和内容应单独验证，不能保证其长期稳定。
+
+在 WebUI 的结构化配置中，进入「混入与脚本 → 混入」，使用 JSON 格式和「混入」优先级，设置完整的 `route.rule_set` 数组。数组会整体替换，已有自定义规则集也必须包含在内。不要仅修改生成后的 `data/sing-box/config.json`：下次生成会覆盖。结构化本地规则的 `path` 是规则集管理器的记录 ID，不能直接填入上述绝对文件路径；绝对路径通过混入设置。
+
+配置与字段语义见 [sing-box 规则集文档](https://sing-box.sagernet.org/configuration/rule-set/) 和 [HTTP 客户端文档](https://sing-box.sagernet.org/configuration/shared/http-client/)。
 
 当前界面内置简体中文和英文；原版额外语言下载及目录操作尚未移植。已通过 OpenWrt ARM64 虚拟机及隔离 DNS/TUN 验证，未测试 GL-MT3600BE 实机。静态跨架构构建和模拟测试不能替代厂商固件上的 TUN、转发、DNS 与防火墙验证；已完成的运行见 [集成与验证记录](upstream-integration.md)，部署要求见 [路由器说明](routers.md)。

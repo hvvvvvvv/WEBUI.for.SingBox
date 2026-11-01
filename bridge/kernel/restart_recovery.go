@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"time"
 
 	"connectrpc.com/connect"
 	"guiforcores/bridge/platform"
@@ -128,7 +127,7 @@ func (s *Service) restorePreviousCore(controlCtx context.Context, generation uin
 	}
 	// A lost HTTP/RPC client must not leave a router offline. Explicit StopCore
 	// and application shutdown still cancel this independent, bounded recovery.
-	ctx, cancel := context.WithTimeout(controlCtx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(controlCtx, coreStartupTimeout)
 	defer cancel()
 	if err := s.setStarting(previous.profile.GetId(), generation); err != nil {
 		return restartRecoveryError(cause, "previous core restore canceled", err)

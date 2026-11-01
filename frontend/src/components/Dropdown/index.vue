@@ -1,22 +1,28 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref, watch, nextTick, useTemplateRef } from 'vue'
+import {
+  onActivated,
+  onDeactivated,
+  onMounted,
+  onUnmounted,
+  ref,
+  watch,
+  nextTick,
+  useTemplateRef,
+} from 'vue'
 
-import { debounce, getZoomLevel } from '@/utils'
+import { debounce } from '@/utils'
 
 type TriggerType = 'click' | 'hover'
-type CoordinateType = 'zoomed' | 'viewport'
 
 interface Props {
   trigger?: TriggerType[]
   placement?: 'bottom' | 'top'
-  coordinate?: CoordinateType
   delay?: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
   trigger: () => ['hover'],
   placement: 'bottom',
-  coordinate: 'zoomed',
   delay: 0,
 })
 
@@ -29,7 +35,18 @@ const transformOrigin = ref(props.placement === 'top' ? 'bottom' : 'top')
 const updatePosition = () => {
   if (!domRef.value || !overlayRef.value || !show.value) return
 
-  const zoom = props.coordinate === 'zoomed' ? getZoomLevel() : 1
+  // Main pages and side panels are zoomed; dialogs teleported to body are not.
+  // Use this overlay's actual ancestors instead of the application-wide zoom.
+  let zoom = 1
+  for (
+    let element: HTMLElement | null = overlayRef.value;
+    element;
+    element = element.parentElement
+  ) {
+    const value = getComputedStyle(element).zoom
+    const scale = parseFloat(value) / (value?.endsWith('%') ? 100 : 1)
+    if (Number.isFinite(scale) && scale > 0) zoom *= scale
+  }
   const rawRect = domRef.value.getBoundingClientRect()
   const triggerRect = {
     top: rawRect.top / zoom,
@@ -103,6 +120,7 @@ const updatePosition = () => {
 watch(show, async (isVisible) => {
   if (isVisible) {
     await nextTick()
+    if (!show.value || !domRef.value?.isConnected) return
     updatePosition()
     window.addEventListener('scroll', updatePosition, true)
     window.addEventListener('resize', updatePosition)
@@ -156,19 +174,24 @@ const onKeydown = (event: KeyboardEvent) => {
   domRef.value?.querySelector<HTMLElement>('[role="combobox"], button, [tabindex="0"]')?.focus()
 }
 
-onMounted(() => {
+const attachClickListener = () => {
   if (hasTrigger('click')) {
     document.addEventListener('click', onDomClick)
   }
-})
+}
 
-onUnmounted(() => {
-  if (hasTrigger('click')) {
-    document.removeEventListener('click', onDomClick)
-  }
+const cleanup = () => {
+  debounceOpen.cancel()
+  close()
+  document.removeEventListener('click', onDomClick)
   window.removeEventListener('scroll', updatePosition, true)
   window.removeEventListener('resize', updatePosition)
-})
+}
+
+onMounted(attachClickListener)
+onActivated(attachClickListener)
+onDeactivated(cleanup)
+onUnmounted(cleanup)
 </script>
 
 <template>
