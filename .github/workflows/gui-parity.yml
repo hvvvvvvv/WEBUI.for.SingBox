@@ -1,0 +1,68 @@
+name: Cloud GUI comparison
+
+on:
+  push:
+    branches: [main, codex/router-plugins, review/gui-parity]
+    paths: ['frontend/**', 'tests/visual/**', '.github/workflows/gui-parity.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  comparison:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        target: [official, webui]
+    steps:
+      - uses: actions/checkout@v6
+      - if: matrix.target == 'official'
+        uses: actions/checkout@v6
+        with:
+          repository: GUI-for-Cores/GUI.for.SingBox
+          # Official v1.28.1, matching the reference screenshots.
+          ref: 99a6f21971d7cbca4720317e37abf31f8ce99f07
+          path: reference
+          persist-credentials: false
+      - uses: pnpm/action-setup@v6
+        with:
+          version: latest
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '24'
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: ${{ matrix.target == 'official' && 'reference/go.mod' || 'go.mod' }}
+      - name: Install isolated browser and desktop dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends fonts-noto-cjk xvfb dbus-x11 libgtk-3-dev libwebkit2gtk-4.1-dev
+          npm install --prefix "$RUNNER_TEMP/visual-tools" --no-save playwright@1.56.1
+          "$RUNNER_TEMP/visual-tools/node_modules/.bin/playwright" install --with-deps chromium
+      - if: matrix.target == 'official'
+        name: Build official UI and the matching Wails development runtime
+        run: |
+          pnpm --dir reference/frontend install --frozen-lockfile
+          pnpm --dir reference/frontend build
+          cd reference
+          go install github.com/wailsapp/wails/v2/cmd/wails@v2.17.0
+      - if: matrix.target == 'webui'
+        name: Build WebUI with its real backend
+        run: |
+          pnpm --dir frontend install --frozen-lockfile
+          pnpm --dir frontend build
+          make backend OUTPUT_DIR=build/visual
+      - name: Exercise real applications with disposable data
+        env:
+          VISUAL_TARGET: ${{ matrix.target }}
+          PLAYWRIGHT_MODULE: ${{ runner.temp }}/visual-tools/node_modules/playwright/index.mjs
+        run: bash tests/visual/cloud-comparison.sh
+      - if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: gui-${{ matrix.target }}-comparison
+          path: build/visual-results/
+          retention-days: 7
