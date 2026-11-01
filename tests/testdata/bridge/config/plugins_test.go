@@ -75,8 +75,11 @@ func TestConfigPluginOrderAndManagedAPIProtection(t *testing.T) {
 	if err != nil || json.Unmarshal(data, &config) != nil {
 		t.Fatalf("generated file unreadable: %v", err)
 	}
-	if len(NativeAPISecret(config)) != 64 || config["log"].(map[string]any)["disabled"] != false || config["log"].(map[string]any)["output"] != "" || config["experimental"].(map[string]any)["cache_file"].(map[string]any)["path"] != coreGeneratedCacheFilePath {
+	if len(NativeAPISecret(config)) != 64 || config["experimental"].(map[string]any)["cache_file"].(map[string]any)["path"] != coreGeneratedCacheFilePath {
 		t.Fatalf("plugin bypassed finalization: %s", data)
+	}
+	if config["log"].(map[string]any)["disabled"] != true || config["log"].(map[string]any)["output"] != "/tmp/plugin.log" || config["log"].(map[string]any)["level"] != "debug" {
+		t.Fatalf("plugin log settings were overwritten: %s", data)
 	}
 }
 

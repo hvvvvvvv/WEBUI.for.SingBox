@@ -27,7 +27,7 @@ const handleTlsRecordFragment = (enabled: boolean) => {
   </div>
   <div class="form-item action-field">
     {{ $t('kernel.route.rules.fields.network_strategy') }}
-    <OptionGroup
+    <Select
       v-model="model.network_strategy"
       :options="NetworkStrategyOptions"
       :aria-label="$t('kernel.route.rules.fields.network_strategy')"
@@ -36,7 +36,7 @@ const handleTlsRecordFragment = (enabled: boolean) => {
   </div>
   <div class="form-item action-field action-field-wide">
     {{ $t('kernel.route.rules.fields.network_type') }}
-    <OptionGroup
+    <Select
       v-model="model.network_type"
       :options="NetworkTypeOptions"
       :aria-label="$t('kernel.route.rules.fields.network_type')"
@@ -45,7 +45,7 @@ const handleTlsRecordFragment = (enabled: boolean) => {
   </div>
   <div class="form-item action-field action-field-wide">
     {{ $t('kernel.route.rules.fields.fallback_network_type') }}
-    <OptionGroup
+    <Select
       v-model="model.fallback_network_type"
       :options="NetworkTypeOptions"
       :aria-label="$t('kernel.route.rules.fields.fallback_network_type')"
@@ -56,31 +56,25 @@ const handleTlsRecordFragment = (enabled: boolean) => {
     {{ $t('kernel.route.rules.fields.fallback_delay') }}
     <Input v-model="model.fallback_delay" placeholder="300ms" />
   </div>
-  <div class="action-toggle-group">
-    <ActionToggleField
-      v-model="model.udp_disable_domain_unmapping"
-      :label="$t('kernel.route.rules.fields.udp_disable_domain_unmapping')"
-    />
-    <ActionToggleField
-      v-model="model.udp_connect"
-      :label="$t('kernel.route.rules.fields.udp_connect')"
-    />
+  <div class="form-item">
+    {{ $t('kernel.route.rules.fields.udp_disable_domain_unmapping') }}
+    <Switch v-model="model.udp_disable_domain_unmapping" />
+  </div>
+  <div class="form-item">
+    {{ $t('kernel.route.rules.fields.udp_connect') }}
+    <Switch v-model="model.udp_connect" />
   </div>
   <div class="form-item action-field">
     {{ $t('kernel.route.rules.fields.udp_timeout') }}
     <Input v-model="model.udp_timeout" placeholder="30s" />
   </div>
-  <div class="action-toggle-group">
-    <ActionToggleField
-      v-model="model.tls_fragment"
-      :label="$t('kernel.route.rules.fields.tls_fragment')"
-      @change="handleTlsFragment"
-    />
-    <ActionToggleField
-      v-model="model.tls_record_fragment"
-      :label="$t('kernel.route.rules.fields.tls_record_fragment')"
-      @change="handleTlsRecordFragment"
-    />
+  <div class="form-item">
+    {{ $t('kernel.route.rules.fields.tls_fragment') }}
+    <Switch v-model="model.tls_fragment" @change="handleTlsFragment" />
+  </div>
+  <div class="form-item">
+    {{ $t('kernel.route.rules.fields.tls_record_fragment') }}
+    <Switch v-model="model.tls_record_fragment" @change="handleTlsRecordFragment" />
   </div>
   <div v-if="model.tls_fragment" class="form-item action-field">
     {{ $t('kernel.route.rules.fields.tls_fragment_fallback_delay') }}

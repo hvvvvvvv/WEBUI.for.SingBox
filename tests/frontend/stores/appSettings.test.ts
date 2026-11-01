@@ -8,7 +8,7 @@ vi.mock('@/utils', async () => {
   const { debounce, deepClone } = await import('@/utils/others')
   return { debounce, deepClone }
 })
-import { DefaultVisiblePages } from '@/constant/app'
+import { AvailablePages, DefaultVisiblePages } from '@/constant/app'
 import { Theme } from '@/enums/app'
 import { useAppSettingsStore } from '@/stores/appSettings'
 
@@ -32,7 +32,56 @@ describe('browser UI preferences', () => {
     delete (document as Partial<Document>).startViewTransition
   })
 
-  it('migrates existing settings without hiding navigation or changing theme and font', () => {
+  it('uses the four official default pages for a new browser', () => {
+    const store = useAppSettingsStore()
+    store.setupAppSettings()
+    expect(store.app.pages).toEqual(['Overview', 'Profiles', 'Subscriptions', 'Plugins'])
+    for (const key of [
+      'debugOutline',
+      'debugNoAnimation',
+      'debugNoRounded',
+      'debugUsePointer',
+      'debugModalSideBySide',
+    ] as const) {
+      expect(store.app[key]).toBe(false)
+    }
+  })
+
+  it('preserves all five feature flags explicitly enabled in saved preferences', () => {
+    const keys = [
+      'debugOutline',
+      'debugNoAnimation',
+      'debugNoRounded',
+      'debugUsePointer',
+      'debugModalSideBySide',
+    ] as const
+    localStorage.setItem(
+      'appSettings',
+      JSON.stringify(Object.fromEntries(keys.map((key) => [key, true]))),
+    )
+    const store = useAppSettingsStore()
+    store.setupAppSettings()
+    for (const key of keys) expect(store.app[key]).toBe(true)
+    expect(document.body.getAttribute('feature-use-pointer')).toBe('true')
+  })
+
+  it('preserves all six explicitly selected pages across normalization and reload', async () => {
+    localStorage.setItem('appSettings', JSON.stringify({ pages: AvailablePages }))
+    const store = useAppSettingsStore()
+    store.setupAppSettings()
+    expect(store.app.pages).toEqual(AvailablePages)
+    store.app.fontFamily = 'Changed font'
+    await nextTick()
+    await vi.advanceTimersByTimeAsync(600)
+    disposePinia(pinia)
+    pinia = createPinia()
+    setActivePinia(pinia)
+    const reloaded = useAppSettingsStore()
+    reloaded.setupAppSettings()
+    expect(reloaded.app.pages).toEqual(AvailablePages)
+  })
+
+  it('migrates settings with no saved pages to the official defaults without changing theme and font', () => {
     localStorage.setItem(
       'appSettings',
       JSON.stringify({
@@ -49,7 +98,7 @@ describe('browser UI preferences', () => {
     expect(store.app.theme).toBe('dark')
     expect(store.app.fontFamily).toBe('Custom Font')
     expect(store.app.primaryColor).toBe('#123456')
-    expect(store.app.debugUsePointer).toBe(true)
+    expect(store.app.debugUsePointer).toBe(false)
     expect(store.app.debugModalSideBySide).toBe(false)
     expect(store.app.kernel.realMemoryUsage).toBe(false)
   })
@@ -148,6 +197,9 @@ describe('browser UI preferences', () => {
       'appSettings',
       JSON.stringify({
         pages: ['Plugins', 'Plugins', 'Settings', 'missing', null],
+        debugOutline: 'true',
+        debugNoAnimation: 1,
+        debugNoRounded: [],
         debugUsePointer: 'false',
         debugModalSideBySide: {},
         kernel: { realMemoryUsage: 'true' },
@@ -156,7 +208,10 @@ describe('browser UI preferences', () => {
     const store = useAppSettingsStore()
     store.setupAppSettings()
     expect(store.app.pages).toEqual(['Plugins'])
-    expect(store.app.debugUsePointer).toBe(true)
+    expect(store.app.debugOutline).toBe(false)
+    expect(store.app.debugNoAnimation).toBe(false)
+    expect(store.app.debugNoRounded).toBe(false)
+    expect(store.app.debugUsePointer).toBe(false)
     expect(store.app.debugModalSideBySide).toBe(false)
     expect(store.app.kernel.realMemoryUsage).toBe(false)
   })

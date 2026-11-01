@@ -204,17 +204,12 @@ func normalizeGenerateOptions(options *kernelv1.GenerateConfigOptions) generateO
 }
 
 func FinalizeGeneratedConfig(config map[string]any) {
+	// Native control/readiness no longer depends on console logs. Honor the
+	// selected logging settings; only the cache location belongs to the app.
 	logConfig := ensureChildMap(config, "log")
-	logConfig["disabled"] = false
-	logConfig["output"] = ""
-
-	level, _ := logConfig["level"].(string)
-	switch level {
-	case logLevelTrace, logLevelDebug, logLevelInfo:
-	default:
+	if level, exists := logConfig["level"]; !exists || level == "" {
 		logConfig["level"] = logLevelInfo
 	}
-
 	experimental := ensureChildMap(config, "experimental")
 	cacheFile := ensureChildMap(experimental, "cache_file")
 	cacheFile["path"] = coreGeneratedCacheFilePath

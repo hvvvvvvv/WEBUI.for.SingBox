@@ -14,7 +14,9 @@ export const GetServiceStartTime = async () => {
       signal: controller.signal,
     })
     if (!response.ok) {
-      throw new Error(`Service start time request failed: ${response.status} ${response.statusText}`)
+      throw new Error(
+        `Service start time request failed: ${response.status} ${response.statusText}`,
+      )
     }
     const data = (await response.json()) as { started_at?: unknown }
     if (
@@ -30,8 +32,8 @@ export const GetServiceStartTime = async () => {
   }
 }
 
-export const GetInterfaces = async () => {
-  const { interfaces } = await appSystemService.getInterfaces({})
+export const GetInterfaces = async (options?: { signal?: AbortSignal; timeoutMs?: number }) => {
+  const { interfaces } = await appSystemService.getInterfaces({}, options)
   return interfaces
 }
 

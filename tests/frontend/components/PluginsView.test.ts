@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { createApp, defineComponent, h, KeepAlive, nextTick, ref, type App } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
+import { createI18n } from 'vue-i18n'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Plugin, PluginCatalog } from '@/types/plugin'
 
@@ -14,7 +15,10 @@ vi.mock('@/api/plugins', () => ({
   requestPlugins: mocks.request,
   PluginApiError: class extends Error {},
 }))
-vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
+vi.mock('vue-i18n', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('vue-i18n')>()),
+  useI18n: () => ({ t: (key: string) => key }),
+}))
 vi.mock('@/stores/appSettings', () => ({
   useAppSettingsStore: () => ({ app: { pluginsView: 'grid' } }),
 }))
@@ -58,6 +62,7 @@ vi.mock('@/components/Modal', async () => {
 })
 import { usePluginsStore } from '@/stores/plugins'
 import PluginsView from '@/views/PluginsView/index.vue'
+import en from '@/lang/locale/en'
 
 const installed: Plugin = {
   id: 'installed',
@@ -120,6 +125,7 @@ describe('installed plugins page requests catalog only on user action', () => {
       render: () => h(KeepAlive, null, { default: () => (active.value ? h(PluginsView) : null) }),
     })
     app.use(pinia)
+    app.use(createI18n({ legacy: false, locale: 'en', messages: { en } }))
     app.component(
       'Button',
       defineComponent({
@@ -186,6 +192,7 @@ describe('installed plugins page requests catalog only on user action', () => {
     expect(mocks.request.mock.calls).toEqual([[]])
     expect(store.catalog.source).toBe('empty')
     expect(host.textContent).toContain(installed.name)
+    expect(host.querySelector('.plugins-header')).not.toBeNull()
     active.value = false
     await settle()
     mocks.request.mockResolvedValueOnce({ plugins: [installed], revision: 1 })
@@ -193,6 +200,36 @@ describe('installed plugins page requests catalog only on user action', () => {
     await settle()
     expect(mocks.request.mock.calls).toEqual([[], []])
     expect(store.catalog.source).toBe('empty')
+  })
+
+  it('shows inline add and plugin center links without a toolbar or automatic installation', async () => {
+    mocks.request.mockReset().mockResolvedValueOnce({ plugins: [], revision: 1 })
+    await mount()
+    expect(host.querySelector('.plugins-header')).toBeNull()
+    const empty = host.querySelector('.plugins-empty')!
+    expect(empty.textContent).toContain('The plugin list is empty.')
+    expect([...empty.querySelectorAll('button')].map((item) => item.textContent?.trim())).toEqual([
+      'common.add',
+      'plugins.hub',
+    ])
+    expect(mocks.request.mock.calls).toEqual([[]])
+    button('common.add').click()
+    await settle()
+    expect(host.querySelector('[role=dialog]')).not.toBeNull()
+    expect(mocks.request.mock.calls).toEqual([[]])
+    expect(store.plugins).toEqual([])
+  })
+
+  it('opens the plugin center from the empty state and fetches only catalog metadata', async () => {
+    mocks.request.mockReset().mockResolvedValueOnce({ plugins: [], revision: 1 })
+    await mount()
+    mocks.request.mockResolvedValueOnce(catalog())
+    button('plugins.hub').click()
+    await settle()
+    expect(host.querySelector('[role=dialog]')).not.toBeNull()
+    expect(mocks.request.mock.calls).toEqual([[], ['/catalog']])
+    expect(store.plugins).toEqual([])
+    expect(host.querySelector('.plugins-header')).toBeNull()
   })
 
   it('fetches catalog metadata only after opening the plugin hub', async () => {

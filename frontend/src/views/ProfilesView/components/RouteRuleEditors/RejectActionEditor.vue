@@ -12,18 +12,15 @@ const handleMethodChange = (method: string | number | boolean | (string | number
 <template>
   <div class="form-item action-field action-field-wide">
     {{ $t('kernel.route.rules.action.rejectMethod') }}
-    <OptionGroup
+    <Radio
       v-model="model.method"
       :options="RuleActionRejectOptions"
       :aria-label="$t('kernel.route.rules.action.rejectMethod')"
       @change="handleMethodChange"
     />
   </div>
-  <div class="action-toggle-group">
-    <ActionToggleField
-      v-model="model.no_drop"
-      :label="$t('kernel.route.rules.fields.no_drop')"
-      :disabled="model.method === RuleActionReject.Drop"
-    />
+  <div class="form-item">
+    {{ $t('kernel.route.rules.fields.no_drop') }}
+    <Switch v-model="model.no_drop" :disabled="model.method === RuleActionReject.Drop" />
   </div>
 </template>

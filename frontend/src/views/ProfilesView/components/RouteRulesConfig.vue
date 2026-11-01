@@ -3,30 +3,23 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { DraggableOptions } from '@/constant/app'
-import {
-  ModeOptions,
-  RouteRuleIPVersionOptions,
-  RouteRuleNetworkOptions,
-  RouteRulePreferredByOptions,
-  RouteRuleProtocolOptions,
-} from '@/constant/kernel'
 import { DefaultActionOptions, DefaultRouteRule } from '@/constant/profile'
 import { RuleAction, RuleType } from '@/enums/kernel'
 import { useBool } from '@/hooks'
 import { deepClone, message, renderRouteRulePreview, sampleID } from '@/utils'
-import type { ActionPickerItem } from '@/components/ActionPicker/index.vue'
-
-import BypassActionEditor from './RouteRuleEditors/BypassActionEditor.vue'
-import DestinationMatchGroup from './RouteRuleEditors/DestinationMatchGroup.vue'
-import InlineMatchGroup from './RouteRuleEditors/InlineMatchGroup.vue'
-import ProcessMatchGroup from './RouteRuleEditors/ProcessMatchGroup.vue'
+import MatchFieldEditor from './RouteRuleEditors/MatchFieldEditor.vue'
+import {
+  clearRouteMatch,
+  hasRouteMatch,
+  routeMatchFields,
+  routeMatchLabel,
+  type RouteMatchField,
+} from './RouteRuleEditors/matchFields'
 import RejectActionEditor from './RouteRuleEditors/RejectActionEditor.vue'
 import ResolveActionEditor from './RouteRuleEditors/ResolveActionEditor.vue'
-import RouteActionEditor from './RouteRuleEditors/RouteActionEditor.vue'
 import RouteOptionsEditor from './RouteRuleEditors/RouteOptionsEditor.vue'
-import RuleSetMatchGroup from './RouteRuleEditors/RuleSetMatchGroup.vue'
+import RuleSetCardPicker from './RuleSetCardPicker.vue'
 import SniffActionEditor from './RouteRuleEditors/SniffActionEditor.vue'
-import SourceMatchGroup from './RouteRuleEditors/SourceMatchGroup.vue'
 
 interface Props {
   inboundOptions: { label: string; value: string; disabled?: boolean }[]
@@ -35,133 +28,100 @@ interface Props {
   ruleSet: IRuleSet[]
 }
 
-type GroupKey = 'source' | 'destination' | 'process' | 'rule_set' | 'inline'
-
-const DefaultInlineRaw = '{\n  \n}'
-
 const props = defineProps<Props>()
 const model = defineModel<IRule[]>({ required: true })
 const fields = ref<IRule>(DefaultRouteRule())
-const activeGroups = ref<Set<GroupKey>>(new Set())
-const inlineEditor = ref<InstanceType<typeof InlineMatchGroup>>()
+const selectedType = ref<RouteMatchField | 'combined'>('rule_set')
+const matchFields = ref<RouteMatchField[]>([])
+const matchEditors = new Map<RouteMatchField, { getContent(): string }>()
 let ruleIndex = -1
-
 const { t } = useI18n()
 const [showEditModal] = useBool(false)
 
-const groupOptions: { key: GroupKey; label: string }[] = [
-  { key: 'rule_set', label: 'kernel.route.rules.groups.rule_set' },
-  { key: 'destination', label: 'kernel.route.rules.groups.destination' },
-  { key: 'source', label: 'kernel.route.rules.groups.source' },
-  { key: 'process', label: 'kernel.route.rules.groups.process' },
-  { key: 'inline', label: 'kernel.route.rules.groups.inline' },
+const typeOptions = [
+  ...routeMatchFields.map((field) => ({ label: routeMatchLabel(field), value: field })),
+  { label: 'kernel.route.rules.combinedMatch', value: 'combined' },
 ]
-
-const actionsWithOptions = new Set<RuleAction>([
+const actionOptions = [
   RuleAction.Route,
   RuleAction.Bypass,
   RuleAction.RouteOptions,
   RuleAction.Reject,
+  RuleAction.HijackDNS,
   RuleAction.Sniff,
   RuleAction.Resolve,
-])
-
-const actionItems: ActionPickerItem[] = [
-  {
-    value: RuleAction.Route,
-    label: 'kernel.route.rules.action.route',
-    description: 'kernel.route.rules.actionDescription.route',
-    icon: 'forward',
-  },
-  {
-    value: RuleAction.Bypass,
-    label: 'kernel.route.rules.action.bypass',
-    description: 'kernel.route.rules.actionDescription.bypass',
-    icon: 'arrowRight',
-  },
-  {
-    value: RuleAction.RouteOptions,
-    label: 'kernel.route.rules.action.route-options',
-    description: 'kernel.route.rules.actionDescription.route-options',
-    icon: 'settings3',
-  },
-  {
-    value: RuleAction.Reject,
-    label: 'kernel.route.rules.action.reject',
-    description: 'kernel.route.rules.actionDescription.reject',
-    icon: 'forbidden',
-  },
-  {
-    value: RuleAction.HijackDNS,
-    label: 'kernel.route.rules.action.hijack-dns',
-    description: 'kernel.route.rules.actionDescription.hijack-dns',
-    icon: 'inbound',
-  },
-  {
-    value: RuleAction.Sniff,
-    label: 'kernel.route.rules.action.sniff',
-    description: 'kernel.route.rules.actionDescription.sniff',
-    icon: 'preview',
-  },
-  {
-    value: RuleAction.Resolve,
-    label: 'kernel.route.rules.action.resolve',
-    description: 'kernel.route.rules.actionDescription.resolve',
-    icon: 'link',
-  },
-  {
-    value: RuleAction.Inline,
-    label: 'kernel.route.rules.action.inline',
-    description: 'kernel.route.rules.actionDescription.inline',
-    icon: 'code',
-  },
-]
-
-const availableGroupOptions = computed(() =>
-  groupOptions
-    .filter((group) => !activeGroups.value.has(group.key))
-    .map((group) => ({ ...group, label: t(group.label) })),
+  RuleAction.Inline,
+].map((value) => ({ label: `kernel.route.rules.action.${value}`, value }))
+const additionalFields = computed(() =>
+  matchFields.value.filter(
+    (field): field is Exclude<RouteMatchField, 'rule_set'> =>
+      field !== selectedType.value && field !== 'rule_set',
+  ),
 )
-
-const hasActionOptions = computed(() => actionsWithOptions.has(fields.value.action as RuleAction))
-
-const inferActiveGroups = (rule: IRule) => {
-  const groups = new Set<GroupKey>()
-  if (
-    rule.source_ip_cidr.length ||
-    rule.source_ip_is_private ||
-    rule.source_port.length ||
-    rule.source_port_range.length
-  ) {
-    groups.add('source')
-  }
-  if (
-    rule.domain.length ||
-    rule.domain_suffix.length ||
-    rule.domain_keyword.length ||
-    rule.domain_regex.length ||
-    rule.ip_cidr.length ||
-    rule.ip_is_private ||
-    rule.port.length ||
-    rule.port_range.length
-  ) {
-    groups.add('destination')
-  }
-  if (rule.process_name.length || rule.process_path.length || rule.process_path_regex.length) {
-    groups.add('process')
-  }
-  if (rule.rule_set.length) groups.add('rule_set')
-  if (rule.raw.trim()) groups.add('inline')
-  activeGroups.value = groups
+const showRuleSets = computed(
+  () => selectedType.value === 'rule_set' || matchFields.value.includes('rule_set'),
+)
+const showInlineHint = computed(
+  () => selectedType.value === 'raw' || matchFields.value.includes('raw'),
+)
+const hasAdvancedOptions = computed(() => {
+  const defaults = DefaultActionOptions()
+  const keys = [
+    'override_address',
+    'override_port',
+    'network_strategy',
+    'network_type',
+    'fallback_network_type',
+    'fallback_delay',
+    'udp_disable_domain_unmapping',
+    'udp_connect',
+    'udp_timeout',
+    'tls_fragment',
+    'tls_fragment_fallback_delay',
+    'tls_record_fragment',
+    'tls_spoof',
+    'tls_spoof_method',
+  ] as const
+  return keys.some(
+    (key) => JSON.stringify(fields.value.action_options[key]) !== JSON.stringify(defaults[key]),
+  )
+})
+const setMatchEditor = (field: RouteMatchField, editor: unknown) => {
+  if (editor) matchEditors.set(field, editor as { getContent(): string })
+  else matchEditors.delete(field)
 }
-
+const matchEditorRef = (field: RouteMatchField) => (editor: unknown) =>
+  setMatchEditor(field, editor)
+const readInline = () => {
+  const editor = matchEditors.get('raw')
+  if (editor) fields.value.raw = editor.getContent()
+}
+const configureEditor = () => {
+  matchEditors.clear()
+  matchFields.value = routeMatchFields.filter((field) => hasRouteMatch(fields.value, field))
+  selectedType.value = matchFields.value.length === 1 ? matchFields.value[0]! : 'combined'
+}
+const changeType = (type: string | string[]) => {
+  if (Array.isArray(type)) return
+  readInline()
+  // Changing the editing entry never silently removes another effective match.
+  matchFields.value = routeMatchFields.filter((field) => hasRouteMatch(fields.value, field))
+  selectedType.value = type as RouteMatchField | 'combined'
+  if (type !== 'combined' && !matchFields.value.includes(type as RouteMatchField))
+    matchFields.value.push(type as RouteMatchField)
+}
+const removeMatch = (field: RouteMatchField) => {
+  matchEditors.delete(field)
+  clearRouteMatch(fields.value, field)
+  matchFields.value = matchFields.value.filter((entry) => entry !== field)
+}
 const handleAdd = () => {
   ruleIndex = -1
   fields.value = DefaultRouteRule()
-  activeGroups.value = new Set()
+  configureEditor()
+  selectedType.value = 'rule_set'
   showEditModal.value = true
 }
-
 defineExpose({ handleAdd })
 
 const handleAddInsertionPoint = () => {
@@ -181,7 +141,7 @@ const parseRawObject = (raw: string): Record<string, unknown> | null => {
 }
 
 const validateRule = () => {
-  const hasInlineGroup = activeGroups.value.has('inline')
+  const hasInlineGroup = !!fields.value.raw.trim() || showInlineHint.value
   const raw = hasInlineGroup ? parseRawObject(fields.value.raw) : {}
   if (hasInlineGroup && raw === null) return 'kernel.route.rules.inlineInvalidPayload'
   if (fields.value.action === RuleAction.Inline) {
@@ -196,6 +156,13 @@ const validateRule = () => {
     typeof raw?.outbound === 'string' ? raw.outbound : fields.value.action_options.outbound
   if (effectiveAction === RuleAction.Route && !effectiveOutbound) {
     return 'kernel.route.rules.routeOutboundRequired'
+  }
+  if (
+    effectiveAction === RuleAction.Route &&
+    selectedType.value === 'rule_set' &&
+    !routeMatchFields.some((field) => hasRouteMatch(fields.value, field))
+  ) {
+    return 'kernel.route.rules.ruleSetRequired'
   }
   if (fields.value.action_options.tls_fragment && fields.value.action_options.tls_record_fragment) {
     return 'kernel.route.rules.tlsFragmentConflict'
@@ -215,15 +182,13 @@ const validateRule = () => {
 }
 
 const handleAddEnd = () => {
-  if (activeGroups.value.has('inline') && inlineEditor.value) {
-    fields.value.raw = inlineEditor.value.getContent()
-  }
+  readInline()
   const validationError = validateRule()
   if (validationError) {
     message.error(validationError)
     return false
   }
-  if (!activeGroups.value.has('inline')) fields.value.raw = ''
+
   if (ruleIndex !== -1) {
     model.value[ruleIndex] = fields.value
   } else {
@@ -237,7 +202,7 @@ const handleAddEnd = () => {
 const handleEdit = (index: number) => {
   ruleIndex = index
   fields.value = deepClone(model.value[index]!)
-  inferActiveGroups(fields.value)
+  configureEditor()
   showEditModal.value = true
 }
 
@@ -245,7 +210,7 @@ const handleCopy = (index: number) => {
   ruleIndex = -1
   fields.value = deepClone(model.value[index]!)
   fields.value.id = sampleID()
-  inferActiveGroups(fields.value)
+  configureEditor()
   showEditModal.value = true
 }
 
@@ -255,49 +220,6 @@ const missingRuleSets = (rule: IRule) =>
   rule.rule_set.some((id) => props.ruleSet.every((item) => item.id !== id))
 const clearMissingRuleSets = (rule: IRule) => {
   rule.rule_set = rule.rule_set.filter((id) => props.ruleSet.some((item) => item.id === id))
-}
-
-const addGroup = (key: GroupKey) => {
-  if (key === 'inline' && !fields.value.raw.trim()) fields.value.raw = DefaultInlineRaw
-  activeGroups.value = new Set([...activeGroups.value, key])
-}
-
-const removeGroup = (key: GroupKey) => {
-  const next = new Set(activeGroups.value)
-  next.delete(key)
-  activeGroups.value = next
-  if (key === 'source') {
-    fields.value.source_ip_cidr = []
-    fields.value.source_ip_is_private = false
-    fields.value.source_port = []
-    fields.value.source_port_range = []
-  } else if (key === 'destination') {
-    fields.value.domain = []
-    fields.value.domain_suffix = []
-    fields.value.domain_keyword = []
-    fields.value.domain_regex = []
-    fields.value.ip_cidr = []
-    fields.value.ip_is_private = false
-    fields.value.port = []
-    fields.value.port_range = []
-  } else if (key === 'process') {
-    fields.value.process_name = []
-    fields.value.process_path = []
-    fields.value.process_path_regex = []
-  } else if (key === 'rule_set') {
-    fields.value.rule_set = []
-  } else {
-    fields.value.raw = ''
-  }
-}
-
-const handleActionChange = () => {
-  fields.value.action_options = DefaultActionOptions()
-}
-
-const handleActionSelect = (action: string) => {
-  fields.value.action = action as IRule['action']
-  handleActionChange()
 }
 
 const isInsertionPointMissing = computed(() =>
@@ -415,201 +337,105 @@ const renderRule = (rule: IRule) =>
     max-width="80"
     max-height="80"
   >
-    <RuleBuilder
-      match-title="kernel.route.rules.matchConditions"
-      action-title="kernel.route.rules.executeAction"
-    >
-      <template #action>
-        <ActionPicker
-          :model-value="fields.action"
-          :items="actionItems"
-          change-label="kernel.route.rules.changeAction"
-          @update:model-value="handleActionSelect"
+    <div class="route-rule-editor">
+      <div class="form-item" data-rule-type>
+        {{ t('kernel.route.rules.type') }}
+        <Select
+          :model-value="selectedType"
+          :options="typeOptions"
+          @update:model-value="changeType"
         />
-
-        <div v-if="hasActionOptions" class="action-editor-grid">
-          <RouteActionEditor
-            v-if="fields.action === RuleAction.Route"
-            v-model="fields.action_options"
-            :outbound-options="outboundOptions"
+      </div>
+      <div class="form-item" data-rule-action>
+        {{ t('kernel.route.rules.action.name') }}
+        <Radio v-model="fields.action" :options="actionOptions" class="rule-action-options ml-8" />
+      </div>
+      <MatchFieldEditor
+        v-if="selectedType !== 'rule_set' && selectedType !== 'combined'"
+        :ref="matchEditorRef(selectedType)"
+        :key="selectedType"
+        v-model="fields"
+        :field="selectedType"
+        :inbound-options="inboundOptions"
+      />
+      <p v-if="selectedType === 'combined' && !matchFields.length" class="text-12 opacity-60 my-8">
+        {{ t('kernel.route.rules.matchAll') }}
+      </p>
+      <div class="form-item" data-rule-invert>
+        {{ t('kernel.route.rules.invert') }}
+        <Switch v-model="fields.invert" />
+      </div>
+      <Card
+        v-if="fields.action !== RuleAction.Inline && fields.action !== RuleAction.HijackDNS"
+        class="mt-4 mb-16 rule-action-parameters"
+      >
+        <template v-if="fields.action === RuleAction.Route || fields.action === RuleAction.Bypass">
+          <div class="form-item" data-rule-outbound>
+            {{ t('kernel.route.rules.outbound') }}
+            <Select v-model="fields.action_options.outbound" :options="outboundOptions" clearable />
+          </div>
+          <details :open="hasAdvancedOptions" class="rule-advanced-options">
+            <summary class="cursor-pointer py-8 text-12">
+              {{ t('kernel.route.rules.advancedOptions') }}
+            </summary>
+            <RouteOptionsEditor v-model="fields.action_options" />
+          </details>
+        </template>
+        <RouteOptionsEditor
+          v-else-if="fields.action === RuleAction.RouteOptions"
+          v-model="fields.action_options"
+        />
+        <RejectActionEditor
+          v-else-if="fields.action === RuleAction.Reject"
+          v-model="fields.action_options"
+        />
+        <SniffActionEditor
+          v-else-if="fields.action === RuleAction.Sniff"
+          v-model="fields.action_options"
+        />
+        <ResolveActionEditor
+          v-else-if="fields.action === RuleAction.Resolve"
+          v-model="fields.action_options"
+          :server-options="serverOptions"
+        />
+      </Card>
+      <template v-if="additionalFields.length">
+        <Divider>{{ t('kernel.route.rules.additionalMatches') }}</Divider>
+        <p class="text-12 opacity-60 mb-8">{{ t('kernel.route.rules.combinedMatchHint') }}</p>
+        <div v-for="field in additionalFields" :key="field" class="additional-rule-match">
+          <MatchFieldEditor
+            :ref="matchEditorRef(field)"
+            v-model="fields"
+            :field="field"
+            :inbound-options="inboundOptions"
           />
-          <BypassActionEditor
-            v-else-if="fields.action === RuleAction.Bypass"
-            v-model="fields.action_options"
-            :outbound-options="outboundOptions"
-          />
-          <RouteOptionsEditor
-            v-else-if="fields.action === RuleAction.RouteOptions"
-            v-model="fields.action_options"
-          />
-          <RejectActionEditor
-            v-else-if="fields.action === RuleAction.Reject"
-            v-model="fields.action_options"
-          />
-          <SniffActionEditor
-            v-else-if="fields.action === RuleAction.Sniff"
-            v-model="fields.action_options"
-          />
-          <ResolveActionEditor
-            v-else-if="fields.action === RuleAction.Resolve"
-            v-model="fields.action_options"
-            :server-options="serverOptions"
+          <Button
+            type="text"
+            size="small"
+            icon="delete"
+            :aria-label="`${t('common.delete')} ${t(routeMatchLabel(field))}`"
+            @click="removeMatch(field)"
           />
         </div>
       </template>
-
-      <template #match>
-        <div class="form-item">
-          {{ t('kernel.rules.type.clash_mode') }}
-          <OptionGroup
-            v-model="fields.clash_mode"
-            :options="ModeOptions"
-            :aria-label="t('kernel.rules.type.clash_mode')"
-            clearable
+      <p v-if="showInlineHint" class="text-12 opacity-60 my-8">
+        {{ t('kernel.route.rules.rawOverrideHint') }}
+      </p>
+      <template v-if="showRuleSets">
+        <Divider>
+          {{ t('kernel.route.tab.rule_set') }}
+          <Button
+            v-if="selectedType !== 'rule_set'"
+            type="text"
+            size="small"
+            icon="delete"
+            :aria-label="t('common.delete')"
+            @click="removeMatch('rule_set')"
           />
-        </div>
-        <div class="form-item">
-          {{ t('kernel.rules.type.inbound') }}
-          <Select v-model="fields.inbound" :options="inboundOptions" multiple clearable />
-        </div>
-        <div class="form-item">
-          {{ t('kernel.route.rules.fields.ip_version') }}
-          <OptionGroup
-            v-model="fields.ip_version"
-            :options="RouteRuleIPVersionOptions"
-            :empty-value="0"
-            :aria-label="t('kernel.route.rules.fields.ip_version')"
-            clearable
-          />
-        </div>
-        <div class="form-item">
-          {{ t('kernel.rules.type.network') }}
-          <OptionGroup
-            v-model="fields.network"
-            :options="RouteRuleNetworkOptions"
-            :aria-label="t('kernel.rules.type.network')"
-            multiple
-          />
-        </div>
-        <div class="form-item">
-          {{ t('kernel.rules.type.protocol') }}
-          <Select
-            v-model="fields.protocol"
-            :options="RouteRuleProtocolOptions"
-            multiple
-            clearable
-          />
-        </div>
-        <div class="form-item">
-          {{ t('kernel.route.rules.fields.preferred_by') }}
-          <OptionGroup
-            v-model="fields.preferred_by"
-            :options="RouteRulePreferredByOptions"
-            :aria-label="t('kernel.route.rules.fields.preferred_by')"
-            multiple
-          />
-        </div>
-        <div class="form-item">
-          {{ t('kernel.route.rules.invert') }}
-          <Switch v-model="fields.invert" />
-        </div>
-
-        <MatchGroupAdder
-          v-if="availableGroupOptions.length"
-          :options="availableGroupOptions"
-          @add="addGroup"
-        />
-
-        <Card
-          v-if="activeGroups.has('rule_set')"
-          :title="t('kernel.route.rules.groups.rule_set')"
-          class="mb-8"
-        >
-          <template #extra>
-            <Button
-              icon="close"
-              :icon-size="16"
-              type="text"
-              size="small"
-              @click="removeGroup('rule_set')"
-            />
-          </template>
-          <RuleSetMatchGroup v-model="fields" :rule-sets="ruleSet" />
-        </Card>
-        <Card
-          v-if="activeGroups.has('destination')"
-          :title="t('kernel.route.rules.groups.destination')"
-          class="mb-8"
-        >
-          <template #extra>
-            <Button
-              icon="close"
-              :icon-size="16"
-              type="text"
-              size="small"
-              @click="removeGroup('destination')"
-            />
-          </template>
-          <DestinationMatchGroup v-model="fields" />
-        </Card>
-        <Card
-          v-if="activeGroups.has('source')"
-          :title="t('kernel.route.rules.groups.source')"
-          class="mb-8"
-        >
-          <template #extra>
-            <Button
-              icon="close"
-              :icon-size="16"
-              type="text"
-              size="small"
-              @click="removeGroup('source')"
-            />
-          </template>
-          <SourceMatchGroup v-model="fields" />
-        </Card>
-        <Card
-          v-if="activeGroups.has('process')"
-          :title="t('kernel.route.rules.groups.process')"
-          class="mb-8"
-        >
-          <template #extra>
-            <Button
-              icon="close"
-              :icon-size="16"
-              type="text"
-              size="small"
-              @click="removeGroup('process')"
-            />
-          </template>
-          <ProcessMatchGroup v-model="fields" />
-        </Card>
-        <Card
-          v-if="activeGroups.has('inline')"
-          :title="t('kernel.route.rules.groups.inline')"
-          class="mb-8"
-        >
-          <template #title-suffix>
-            <Icon
-              v-tips.fast="'kernel.route.rules.rawOverrideHint'"
-              icon="messageWarn"
-              :size="14"
-              class="ml-4 shrink-0"
-            />
-          </template>
-          <template #extra>
-            <Button
-              icon="close"
-              :icon-size="16"
-              type="text"
-              size="small"
-              @click="removeGroup('inline')"
-            />
-          </template>
-          <InlineMatchGroup ref="inlineEditor" v-model="fields" />
-        </Card>
+        </Divider>
+        <RuleSetCardPicker v-model="fields.rule_set" :rule-sets="ruleSet" />
       </template>
-    </RuleBuilder>
+    </div>
   </Modal>
 </template>
 
@@ -620,7 +446,55 @@ const renderRule = (rule: IRule) =>
   white-space: normal;
 }
 
+.route-rule-editor {
+  min-width: 0;
+}
+.route-rule-editor :deep(.form-item) {
+  min-width: 0;
+  gap: 8px 16px;
+  overflow-wrap: anywhere;
+}
+.rule-action-options {
+  max-width: 100%;
+  overflow-x: auto;
+}
+.route-rule-editor [data-rule-action] {
+  flex-wrap: wrap;
+}
+.rule-action-options :deep(.gui-radio-button) {
+  flex-shrink: 0;
+}
+.additional-rule-match {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.additional-rule-match > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+.additional-rule-match > :last-child {
+  flex-shrink: 0;
+  margin-top: 8px;
+}
+
 @media (max-width: 700px) {
+  .route-rule-editor :deep(.form-item) {
+    flex-wrap: wrap;
+  }
+  .route-rule-editor :deep(.gui-radio) {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .rule-action-options {
+    margin-left: 0;
+  }
+  .route-rule-editor :deep(.form-item > .gui-dropdown),
+  .route-rule-editor :deep(.form-item > .gui-input),
+  .route-rule-editor :deep(.form-item > .gui-input-list) {
+    min-width: 0;
+    width: 100%;
+  }
   .rule-row {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr);

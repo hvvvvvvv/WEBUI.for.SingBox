@@ -1022,6 +1022,7 @@ func (x *CacheFileExperimental) GetStoreDns() bool {
 type Experimental struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	CacheFile     *CacheFileExperimental `protobuf:"bytes,2,opt,name=cache_file,json=cacheFile,proto3" json:"cache_file,omitempty"`
+	DefaultMode   string                 `protobuf:"bytes,3,opt,name=default_mode,json=defaultMode,proto3" json:"default_mode,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1061,6 +1062,13 @@ func (x *Experimental) GetCacheFile() *CacheFileExperimental {
 		return x.CacheFile
 	}
 	return nil
+}
+
+func (x *Experimental) GetDefaultMode() string {
+	if x != nil {
+		return x.DefaultMode
+	}
+	return ""
 }
 
 type ProxyRef struct {
@@ -2356,8 +2364,11 @@ type Route struct {
 	DefaultInterface      string                      `protobuf:"bytes,5,opt,name=default_interface,json=defaultInterface,proto3" json:"default_interface,omitempty"`
 	FindProcess           bool                        `protobuf:"varint,6,opt,name=find_process,json=findProcess,proto3" json:"find_process,omitempty"`
 	DefaultDomainResolver *RouteDefaultDomainResolver `protobuf:"bytes,7,opt,name=default_domain_resolver,json=defaultDomainResolver,proto3" json:"default_domain_resolver,omitempty"`
-	unknownFields         protoimpl.UnknownFields
-	sizeCache             protoimpl.SizeCache
+	// Outbound ID used to build the default shared HTTP client for remote rule sets.
+	// Empty preserves legacy profiles' automatic client selection.
+	DefaultHttpClient string `protobuf:"bytes,8,opt,name=default_http_client,json=defaultHttpClient,proto3" json:"default_http_client,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *Route) Reset() {
@@ -2437,6 +2448,13 @@ func (x *Route) GetDefaultDomainResolver() *RouteDefaultDomainResolver {
 		return x.DefaultDomainResolver
 	}
 	return nil
+}
+
+func (x *Route) GetDefaultHttpClient() string {
+	if x != nil {
+		return x.DefaultHttpClient
+	}
+	return ""
 }
 
 type DnsServer struct {
@@ -3407,10 +3425,11 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\x04path\x18\x02 \x01(\tR\x04path\x12\x19\n" +
 	"\bcache_id\x18\x03 \x01(\tR\acacheId\x12!\n" +
 	"\fstore_fakeip\x18\x04 \x01(\bR\vstoreFakeip\x12\x1b\n" +
-	"\tstore_dns\x18\a \x01(\bR\bstoreDns\"V\n" +
+	"\tstore_dns\x18\a \x01(\bR\bstoreDns\"y\n" +
 	"\fExperimental\x12@\n" +
 	"\n" +
-	"cache_file\x18\x02 \x01(\v2!.profile.v1.CacheFileExperimentalR\tcacheFileJ\x04\b\x01\x10\x02\"@\n" +
+	"cache_file\x18\x02 \x01(\v2!.profile.v1.CacheFileExperimentalR\tcacheFile\x12!\n" +
+	"\fdefault_mode\x18\x03 \x01(\tR\vdefaultModeJ\x04\b\x01\x10\x02\"@\n" +
 	"\bProxyRef\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04type\x18\x02 \x01(\tR\x04type\x12\x10\n" +
@@ -3548,7 +3567,7 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\fpreferred_by\x18\" \x03(\tR\vpreferredByJ\x04\b\x02\x10\x03J\x04\b\x04\x10\x05J\x04\b\a\x10\vR\x04typeR\apayloadR\boutboundR\asnifferR\bstrategyR\x06server\"Y\n" +
 	"\x1aRouteDefaultDomainResolver\x12\x16\n" +
 	"\x06server\x18\x01 \x01(\tR\x06server\x12#\n" +
-	"\rclient_subnet\x18\x02 \x01(\tR\fclientSubnet\"\xde\x02\n" +
+	"\rclient_subnet\x18\x02 \x01(\tR\fclientSubnet\"\x8e\x03\n" +
 	"\x05Route\x12+\n" +
 	"\x05rules\x18\x01 \x03(\v2\x15.profile.v1.RouteRuleR\x05rules\x12.\n" +
 	"\brule_set\x18\x02 \x03(\v2\x13.profile.v1.RuleSetR\aruleSet\x12\x14\n" +
@@ -3556,7 +3575,8 @@ const file_profile_v1_profile_proto_rawDesc = "" +
 	"\x15auto_detect_interface\x18\x04 \x01(\bR\x13autoDetectInterface\x12+\n" +
 	"\x11default_interface\x18\x05 \x01(\tR\x10defaultInterface\x12!\n" +
 	"\ffind_process\x18\x06 \x01(\bR\vfindProcess\x12^\n" +
-	"\x17default_domain_resolver\x18\a \x01(\v2&.profile.v1.RouteDefaultDomainResolverR\x15defaultDomainResolver\"\xef\x03\n" +
+	"\x17default_domain_resolver\x18\a \x01(\v2&.profile.v1.RouteDefaultDomainResolverR\x15defaultDomainResolver\x12.\n" +
+	"\x13default_http_client\x18\b \x01(\tR\x11defaultHttpClient\"\xef\x03\n" +
 	"\tDnsServer\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x10\n" +
 	"\x03tag\x18\x02 \x01(\tR\x03tag\x12-\n" +

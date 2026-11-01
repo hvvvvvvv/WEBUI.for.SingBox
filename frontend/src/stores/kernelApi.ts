@@ -22,6 +22,10 @@ import { createRpcClient, EventsOn } from '@/bridge'
 import { useProfilesStore, useLogsStore, useAppConfigStore } from '@/stores'
 import { iProfileToProto, protoProfileToIProfile } from '@/utils'
 import { deepClone } from '@/utils/others'
+import {
+  applyRuntimeCoreSettings,
+  type RuntimeCoreSettingsDraft,
+} from '@/utils/runtimeCoreSettings'
 import { KernelRuntimeService } from '../../gen/kernel/v1/kernel_runtime_service_pb'
 import { CoreStatus } from '../../gen/kernel/v1/kernel_pb'
 
@@ -138,6 +142,37 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
       if (!inbound) throw 'home.overview.needInbound'
 
       inbound.enable = enable
+      await restartCore(true)
+      syncRuntimeInbounds()
+    })
+
+  const loadRuntimeSettings = async (options?: { signal?: AbortSignal }) => {
+    const generation = getNativeApiGeneration()
+    if (!running.value) throw new Error('home.overview.runtimeSettings.notRunning')
+    const { profile } = await kernelService.getCurrentProfile({}, { ...options, timeoutMs: 10_000 })
+    if (!profile || generation !== getNativeApiGeneration() || !running.value)
+      throw new Error('home.overview.runtimeSettings.changed')
+    // Compare the server snapshot, not UI defaults that can create fresh IDs
+    // when an older profile omits optional sections.
+    return {
+      profile: protoProfileToIProfile(profile),
+      generation,
+      signature: JSON.stringify(profile),
+    }
+  }
+
+  const updateRuntimeSettings = (
+    draft: RuntimeCoreSettingsDraft,
+    snapshot: { profile: IProfile; generation: number; signature: string },
+    options: { platform: string; stackEditable: boolean },
+  ) =>
+    serializeProfileMutation(async () => {
+      if (snapshot.generation !== getNativeApiGeneration())
+        throw new Error('home.overview.runtimeSettings.changed')
+      const latest = await loadRuntimeSettings()
+      if (latest.signature !== snapshot.signature)
+        throw new Error('home.overview.runtimeSettings.changed')
+      runtimeProfile = applyRuntimeCoreSettings(latest.profile, draft, options)
       await restartCore(true)
       syncRuntimeInbounds()
     })
@@ -389,6 +424,8 @@ export const useKernelApiStore = defineStore('kernelApi', () => {
     runtimeInbounds,
     refreshConfig,
     updateRuntimeInboundEnable,
+    loadRuntimeSettings,
+    updateRuntimeSettings,
     refreshProviderProxies,
 
     onLogs,

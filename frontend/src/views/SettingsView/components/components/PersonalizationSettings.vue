@@ -1,12 +1,25 @@
 <script lang="ts" setup>
+import { ref } from 'vue'
 import { ColorOptions, DefaultFontFamily, ThemeOptions } from '@/constant/app'
+import CheckBox from '@/components/CheckBox/index.vue'
 import { Color } from '@/enums/app'
 import routes from '@/router/routes'
 import { useAppSettingsStore, useAppStore } from '@/stores'
+import { useBackgroundStore } from '@/stores/background'
 
 const appStore = useAppStore()
 const appSettings = useAppSettingsStore()
-const pages = routes.filter((route) => route.name !== 'Settings')
+const background = useBackgroundStore()
+const backgroundInput = ref<HTMLInputElement>()
+const uploadBackground = async (event: Event) => {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (file) await background.upload(file)
+}
+const pages = routes
+  .filter((route) => route.name !== 'Settings')
+  .map((route) => ({ label: String(route.meta?.name), value: String(route.name) }))
 
 const resetFontFamily = () => {
   appSettings.app.fontFamily = DefaultFontFamily
@@ -65,15 +78,40 @@ const onThemeClick = (e: MouseEvent) => {
     </div>
     <div class="px-8 py-12 flex items-center justify-between">
       <div>
-        <div class="text-16 font-bold">{{ $t('settings.pages.name') }}</div>
-        <div class="page-help">{{ $t('settings.pages.hint') }}</div>
+        <div class="text-16 font-bold">{{ $t('settings.background.name') }}</div>
+        <div class="text-12 opacity-60 mt-4">{{ $t('settings.background.browserOnly') }}</div>
       </div>
-      <div class="page-choices">
-        <label v-for="page in pages" :key="page.path" class="page-choice cursor-pointer">
-          <input v-model="appSettings.app.pages" type="checkbox" :value="String(page.name)" />
-          <span>{{ $t(String(page.meta?.name)) }}</span>
-        </label>
+      <div class="flex items-center gap-8">
+        <input
+          ref="backgroundInput"
+          type="file"
+          accept="image/png,image/jpeg,image/webp"
+          hidden
+          :disabled="background.busy"
+          @change="uploadBackground"
+        />
+        <Button :loading="background.busy" @click="backgroundInput?.click()">
+          {{ $t('settings.background.upload') }}
+        </Button>
+        <Button
+          type="text"
+          :disabled="background.busy || !background.url"
+          @click="background.remove"
+        >
+          {{ $t('settings.background.remove') }}
+        </Button>
       </div>
+      <div v-if="background.error" class="background-error text-12" role="alert">
+        {{ $t(background.error) }}
+      </div>
+    </div>
+    <div class="px-8 py-12 flex items-center justify-between">
+      <div class="text-16 font-bold">{{ $t('settings.pages.name') }}</div>
+      <CheckBox
+        v-model="appSettings.app.pages"
+        :options="pages"
+        :aria-label="$t('settings.pages.name')"
+      />
     </div>
   </Card>
 </template>
@@ -83,22 +121,8 @@ const onThemeClick = (e: MouseEvent) => {
   gap: 12px;
   flex-wrap: wrap;
 }
-.page-choices {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 16px;
-}
-.page-choice {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.page-choice input {
-  accent-color: var(--primary-color);
-}
-.page-help {
-  font-size: 12px;
-  opacity: 0.7;
-  margin-top: 4px;
+.background-error {
+  width: 100%;
+  overflow-wrap: anywhere;
 }
 </style>

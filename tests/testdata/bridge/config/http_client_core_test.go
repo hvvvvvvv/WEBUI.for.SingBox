@@ -24,31 +24,32 @@ import (
 	profilev1 "guiforcores/gen/profile/v1"
 )
 
-// SING_BOX_114_PATH enables actual rule-set downloads against the fixed 1.14.0
+// SING_BOX_114_PATH enables actual rule-set downloads against a 1.14.x
 // core. Ordinary unit tests neither download nor require an external binary.
 func TestRuleSetHTTPClientsWithSingBox114(t *testing.T) {
 	corePath := os.Getenv("SING_BOX_114_PATH")
 	if corePath == "" {
-		t.Skip("set SING_BOX_114_PATH to a sing-box 1.14.0 binary to run core checks")
+		t.Skip("set SING_BOX_114_PATH to a sing-box 1.14.x binary to run core checks")
 	}
 	version, err := runHTTPClientCoreCommand(corePath, "version")
-	if err != nil || strings.SplitN(string(version), "\n", 2)[0] != "sing-box version 1.14.0" {
-		t.Fatalf("expected sing-box 1.14.0, got %s (error=%v)", version, err)
+	if err != nil || !strings.HasPrefix(strings.SplitN(string(version), "\n", 2)[0], "sing-box version 1.14.") {
+		t.Fatalf("expected sing-box 1.14.x, got %s (error=%v)", version, err)
 	}
 
 	tests := []struct {
-		name       string
-		detour     string
-		final      string
-		firstProxy bool
-		noOutbound bool
-		unnamed    bool
-		directOpts bool
-		shared     bool
-		sharedBare bool
-		inline     bool
-		script     bool
-		wantProxy  bool
+		name           string
+		detour         string
+		final          string
+		firstProxy     bool
+		noOutbound     bool
+		unnamed        bool
+		directOpts     bool
+		shared         bool
+		sharedBare     bool
+		inline         bool
+		script         bool
+		profileDefault bool
+		wantProxy      bool
 	}{
 		{name: "explicit-direct", detour: "direct", final: "proxy"},
 		{name: "explicit-configured-direct", detour: "direct", directOpts: true, final: "proxy"},
@@ -64,6 +65,8 @@ func TestRuleSetHTTPClientsWithSingBox114(t *testing.T) {
 		{name: "existing-unnamed-shared-client", sharedBare: true, final: "direct", wantProxy: true},
 		{name: "inline-client-precedes-legacy", detour: "direct", inline: true, wantProxy: true},
 		{name: "mixin-and-script-final", script: true, wantProxy: true},
+		{name: "profile-default-client", profileDefault: true, final: "direct", wantProxy: true},
+		{name: "profile-default-client-with-explicit-direct", profileDefault: true, final: "direct", detour: "direct"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -126,7 +129,7 @@ func TestRuleSetHTTPClientsWithSingBox114(t *testing.T) {
 			if tc.sharedBare {
 				config["http_clients"] = []any{map[string]any{"detour": "proxy"}}
 			}
-			if tc.script {
+			if tc.script || tc.profileDefault {
 				// The mixin creates the remote rule set and the script changes its
 				// default outbound. Normalization must run after both operations.
 				route["final"] = "direct"
@@ -135,10 +138,17 @@ func TestRuleSetHTTPClientsWithSingBox114(t *testing.T) {
 					t.Fatal(err)
 				}
 				service := NewService(storage.NewPaths(t.TempDir()), "test")
-				config, err = service.Generate(&profilev1.Profile{
-					Mixin:  &profilev1.Mixin{Priority: profilev1.MixinPriority_MIXIN_PRIORITY_MIXIN, Config: string(mixin)},
-					Script: &profilev1.Script{Code: `function onGenerate(config) { config.route.final = "proxy"; return config; }`},
-				}, &kernelv1.GenerateConfigOptions{EnableMixinProcessing: true, EnableScriptProcessing: true})
+				profile := &profilev1.Profile{
+					Mixin: &profilev1.Mixin{Priority: profilev1.MixinPriority_MIXIN_PRIORITY_MIXIN, Config: string(mixin)},
+				}
+				if tc.script {
+					profile.Script = &profilev1.Script{Code: `function onGenerate(config) { config.route.final = "proxy"; return config; }`}
+				} else {
+					profile.Outbounds = []*profilev1.Outbound{{Id: "selected-id", Tag: "selector", Type: profilev1.OutboundType_OUTBOUND_TYPE_SELECTOR,
+						Outbounds: []*profilev1.ProxyRef{{Id: "direct", Type: "Built-in"}}}}
+					profile.Route = &profilev1.Route{DefaultHttpClient: "selected-id"}
+				}
+				config, err = service.Generate(profile, &kernelv1.GenerateConfigOptions{EnableMixinProcessing: true, EnableScriptProcessing: true})
 				if err != nil {
 					t.Fatal(err)
 				}

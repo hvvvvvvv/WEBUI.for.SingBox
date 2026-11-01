@@ -97,7 +97,11 @@ describe('plugin graphical settings and automatic persistence', () => {
   })
   const mount = async (render: () => ReturnType<typeof h> = () => h(PluginSettings)) => {
     app = createApp({ render })
-    app.component('Icon', { render: () => null })
+    app.config.globalProperties.$t = (key: string) => key
+    app.component('Icon', {
+      props: ['icon'],
+      setup: (props) => () => h('span', { 'data-icon': props.icon }),
+    })
     app.component('CodeViewer', { render: () => null })
     app.component('Button', Button)
     app.directive('tips', {})
@@ -109,6 +113,30 @@ describe('plugin graphical settings and automatic persistence', () => {
     [...within.querySelectorAll<HTMLElement>('[role=button]')].find(
       (item) => item.textContent?.trim() === text,
     )!
+
+  it.each(['no plugins', 'no schema', 'empty schema'] as const)(
+    'shows the official empty card when there are %s',
+    async (condition) => {
+      mocks.state.plugins =
+        condition === 'no plugins'
+          ? []
+          : [
+              {
+                ...plugin(),
+                configuration_schema: condition === 'no schema' ? undefined : [],
+              },
+            ]
+      await mount()
+      expect(host.textContent).toContain('plugins.configuration')
+      const empty = host.querySelector('.gui-card .gui-empty')!
+      expect(empty).not.toBeNull()
+      expect(empty.textContent).toBe('common.empty')
+      expect(empty.querySelector('[data-icon=empty]')).not.toBeNull()
+      expect(host.textContent).not.toContain('plugins.settingsEmpty')
+      expect(host.querySelector('[data-plugin-id]')).toBeNull()
+      expect(mocks.save).not.toHaveBeenCalled()
+    },
+  )
 
   it('renders numbered controls with defaults and supports overrides and both reset actions', async () => {
     const config = ref<Record<string, unknown>>({ custom: 'preserved' })

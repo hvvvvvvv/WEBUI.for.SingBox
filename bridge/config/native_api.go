@@ -3,6 +3,7 @@ package config
 import (
 	"net"
 	"strconv"
+	"strings"
 )
 
 // CoreAPIController is fixed for production and may be replaced before starting
@@ -26,7 +27,25 @@ func EnforceNativeAPIConfig(root map[string]any) error {
 		return err
 	}
 	experimental := ensureChildMap(root, "experimental")
+	// Mode selection is shared with the native API. Keep this one setting
+	// without allowing mixins/scripts to reopen a Clash controller or dashboard.
+	var defaultMode string
+	if legacy, ok := experimental["clash_api"].(map[string]any); ok {
+		if value, exists := legacy["default_mode"]; exists {
+			text, ok := value.(string)
+			if !ok {
+				return invalidArgumentError{message: "default mode must be global, rule or direct"}
+			}
+			defaultMode = strings.ToLower(strings.TrimSpace(text))
+			if defaultMode != "" && defaultMode != "global" && defaultMode != "rule" && defaultMode != "direct" {
+				return invalidArgumentError{message: "default mode must be global, rule or direct"}
+			}
+		}
+	}
 	delete(experimental, "clash_api")
+	if defaultMode != "" {
+		experimental["clash_api"] = map[string]any{"default_mode": defaultMode}
+	}
 	var services []any
 	if value, exists := root["services"]; exists && value != nil {
 		var ok bool

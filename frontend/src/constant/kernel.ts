@@ -15,6 +15,9 @@ import {
   DnsServer,
 } from '@/enums/kernel'
 
+// Production listener owned by bridge/config/native_api.go, not a user setting.
+export const ManagedNativeAPIListener = { listen: '127.0.0.1', port: 20123 } as const
+
 export const ModeOptions = [
   {
     label: 'kernel.global',

@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { onScopeDispose, ref, watch } from 'vue'
 
 import {
+  AvailablePages,
   Colors,
   DefaultCardColumns,
   DefaultControllerSensitivity,
@@ -53,7 +54,7 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       secondaryColor: defaults.secondaryColor,
       fontFamily: defaults.fontFamily,
       pages: Array.isArray(raw.pages)
-        ? DefaultVisiblePages.filter((page) => raw.pages.includes(page))
+        ? AvailablePages.filter((page) => raw.pages.includes(page))
         : [...DefaultVisiblePages],
       profilesView: defaults.profilesView,
       subscribesView: defaults.subscribesView,
@@ -62,9 +63,14 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       scheduledtasksView: defaults.scheduledtasksView,
       connections: { ...defaults.connections },
       kernel: { ...defaults.kernel },
-      debugOutline: defaults.debugOutline,
-      debugNoAnimation: defaults.debugNoAnimation,
-      debugNoRounded: defaults.debugNoRounded,
+      debugOutline:
+        typeof raw.debugOutline === 'boolean' ? raw.debugOutline : defaults.debugOutline,
+      debugNoAnimation:
+        typeof raw.debugNoAnimation === 'boolean'
+          ? raw.debugNoAnimation
+          : defaults.debugNoAnimation,
+      debugNoRounded:
+        typeof raw.debugNoRounded === 'boolean' ? raw.debugNoRounded : defaults.debugNoRounded,
       debugUsePointer:
         typeof raw.debugUsePointer === 'boolean' ? raw.debugUsePointer : defaults.debugUsePointer,
       debugModalSideBySide:
@@ -84,9 +90,6 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
       'rulesetsView',
       'pluginsView',
       'scheduledtasksView',
-      'debugOutline',
-      'debugNoAnimation',
-      'debugNoRounded',
     ].forEach((key) => {
       if (key in raw) {
         settings[key] = raw[key]
@@ -171,7 +174,7 @@ export const useAppSettingsStore = defineStore('app-settings', () => {
     debugOutline: false,
     debugNoAnimation: false,
     debugNoRounded: false,
-    debugUsePointer: true,
+    debugUsePointer: false,
     debugModalSideBySide: false,
   })
 

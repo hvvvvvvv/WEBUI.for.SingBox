@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 import { useI18n } from 'vue-i18n'
 
-import { LogLevelOptions } from '@/constant/kernel'
+import { LogLevelOptions, ModeOptions } from '@/constant/kernel'
 import { useBool } from '@/hooks'
 
 const model = defineModel<{ log: IProfile['log']; experimental: IProfile['experimental'] }>({
@@ -15,6 +15,11 @@ const [showMore, toggleMore] = useBool(false)
 <template>
   <div>
     <div class="form-item">
+      {{ t('kernel.defaultMode') }}
+      <Radio v-model="model.experimental.default_mode" :options="ModeOptions" />
+    </div>
+    <p class="text-12 mb-12">{{ t('kernel.defaultModeHint') }}</p>
+    <div class="form-item">
       {{ t('kernel.log.disabled') }}
       <Switch v-model="model.log.disabled" />
     </div>
@@ -27,6 +32,7 @@ const [showMore, toggleMore] = useBool(false)
         {{ t('kernel.log.output') }}
         <Input v-model="model.log.output" editable />
       </div>
+      <p class="text-12 mb-12">{{ t('kernel.log.outputHint') }}</p>
       <div class="form-item">
         {{ t('kernel.log.timestamp') }}
         <Switch v-model="model.log.timestamp" />
@@ -43,8 +49,9 @@ const [showMore, toggleMore] = useBool(false)
       <template v-if="model.experimental.cache_file.enabled">
         <div class="form-item">
           {{ t('kernel.cache_file.path') }}
-          <Input v-model="model.experimental.cache_file.path" editable />
+          <span>cache.db</span>
         </div>
+        <p class="text-12 mb-12">{{ t('kernel.cache_file.managedPath') }}</p>
         <div class="form-item">
           {{ t('kernel.cache_file.cache_id') }}
           <Input v-model="model.experimental.cache_file.cache_id" editable />

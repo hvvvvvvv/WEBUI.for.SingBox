@@ -33,6 +33,27 @@ type ruleSetHTTPClients struct {
 	final        string
 }
 
+// The GUI stores an outbound ID for its default HTTP client. generateRoute
+// resolves that ID to a tag; give it a shared client in the separate HTTP-client
+// namespace before mixins and scripts, just like the other generated options.
+func generateProfileHTTPClients(config, route map[string]any) error {
+	tag, _ := route["default_http_client"].(string)
+	if tag == "" {
+		return nil
+	}
+	clients, err := newRuleSetHTTPClients(config, route)
+	if err != nil {
+		return err
+	}
+	client, err := clients.forOutbound(tag, "route.default_http_client")
+	if err != nil {
+		return err
+	}
+	client["tag"] = tag
+	config["http_clients"] = []any{client}
+	return nil
+}
+
 // normalizeRuleSetHTTPClients runs after mixin/script processing. The profile
 // field download_detour remains an outbound ID; the temporary generated tag is
 // consumed here, so no legacy rule-set download fields escape Service.Generate.

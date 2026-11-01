@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onActivated, ref } from 'vue'
-import { useI18n } from 'vue-i18n'
+import { useI18n, I18nT } from 'vue-i18n'
 
 import { DraggableOptions, ViewOptions } from '@/constant/app'
 import { View } from '@/enums/app'
@@ -157,7 +157,7 @@ const sortEnd = () => {
 
 <template>
   <div class="plugins-page">
-    <div class="grid-list-header plugins-header">
+    <div v-if="store.plugins.length" class="grid-list-header plugins-header">
       <Radio v-model="settings.app.pluginsView" :options="ViewOptions" class="mr-auto" />
       <Button type="link" @click="openHub">{{ t('plugins.hub') }}</Button>
       <Button type="link" :loading="store.catalogLoading" @click="checkUpdates">{{
@@ -171,14 +171,24 @@ const sortEnd = () => {
     <p v-if="store.catalog.warning" role="status" class="plugins-note">
       {{ store.catalog.warning }}
     </p>
-    <div v-if="!store.plugins.length && !store.loading" class="plugins-empty">
-      <Empty
-        ><template #description>
-          <p>{{ t('plugins.empty') }}</p>
-          <Button type="link" @click="openHub">{{ t('plugins.hub') }}</Button>
-          <Button type="link" @click="openEditor()">{{ t('common.add') }}</Button>
-        </template></Empty
-      >
+    <div v-if="!store.plugins.length && !store.loading" class="grid-list-empty plugins-empty">
+      <Empty>
+        <template #description>
+          <I18nT
+            keypath="plugins.empty"
+            tag="div"
+            scope="global"
+            class="flex items-center justify-center flex-wrap mt-12"
+          >
+            <template #action>
+              <Button type="link" @click="openEditor()">{{ t('common.add') }}</Button>
+            </template>
+            <template #import>
+              <Button type="link" @click="openHub">{{ t('plugins.hub') }}</Button>
+            </template>
+          </I18nT>
+        </template>
+      </Empty>
     </div>
     <div
       v-else
@@ -281,7 +291,7 @@ const sortEnd = () => {
         </div>
       </Card>
     </div>
-    <p class="plugins-note">{{ t('plugins.runtimeHint') }}</p>
+    <p v-if="store.plugins.length" class="plugins-note">{{ t('plugins.runtimeHint') }}</p>
     <Modal />
   </div>
 </template>

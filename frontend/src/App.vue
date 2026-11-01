@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onUnmounted, ref, watch } from 'vue'
 
-import { loadAuthToken, initWebSocket } from '@/bridge'
+import { BrowserOpenURL, loadAuthToken, initWebSocket } from '@/bridge'
 import NavigationBar from '@/components/_common/NavigationBar.vue'
 import TitleBar from '@/components/_common/TitleBar.vue'
 import SplashView from '@/components/_common/SplashView.vue'
@@ -10,10 +10,12 @@ import CommandView from '@/components/_common/CommandView.vue'
 import FullScreenLoading from '@/components/_common/FullScreenLoading.vue'
 import ModalPanel from '@/components/_common/ModalPanel.vue'
 import { useModalLayoutStore } from '@/stores/modalLayout'
+import { useBackgroundStore } from '@/stores/background'
 import { useBackendEvents } from '@/hooks/useBackendEvents'
 import LoginView from '@/views/LoginView.vue'
 import * as Stores from '@/stores'
 import { sleep, message } from '@/utils'
+import { PROJECT_URL } from '@/utils/env'
 
 const appInitialized = ref(false)
 
@@ -25,6 +27,17 @@ const appStore = Stores.useAppStore()
 const appSettings = Stores.useAppSettingsStore()
 const modalLayout = useModalLayoutStore()
 appSettings.setupAppSettings()
+const background = useBackgroundStore()
+void background.setup()
+watch(
+  () => background.url,
+  (url) => document.body.toggleAttribute('data-custom-background', !!url),
+  { immediate: true },
+)
+onUnmounted(() => {
+  background.dispose()
+  document.body.removeAttribute('data-custom-background')
+})
 const appConfig = Stores.useAppConfigStore()
 const kernelApiStore = Stores.useKernelApiStore()
 const subscribesStore = Stores.useSubscribesStore()
@@ -105,6 +118,12 @@ if (!appSettings.sessionInfo.requireLogin) {
 </script>
 
 <template>
+  <div
+    v-if="background.url"
+    class="app-background-image"
+    :style="{ backgroundImage: `url(${JSON.stringify(background.url)})` }"
+    aria-hidden="true"
+  />
   <FullScreenLoading v-if="appStore.isAppReloading" message="about.waitingForServiceRestart" />
   <LoginView v-if="appSettings.sessionInfo.requireLogin" @authenticated="handleAuthenticated" />
   <div v-else class="app-shell">
@@ -136,12 +155,19 @@ if (!appSettings.sessionInfo.requireLogin) {
 
       <Modal
         v-model:open="appStore.showAbout"
-        :cancel="false"
+        title="router.about"
+        cancel-text="common.close"
         :submit="false"
         mask-closable
         :side-tab="false"
-        min-width="50"
+        :toolbar="{ maximize: false, minimize: false }"
+        min-width="60"
       >
+        <template #toolbar>
+          <Button type="link" icon="github" size="small" @click="BrowserOpenURL(PROJECT_URL)">
+            GitHub
+          </Button>
+        </template>
         <AboutView />
       </Modal>
 
@@ -176,6 +202,20 @@ if (!appSettings.sessionInfo.requireLogin) {
 </template>
 
 <style scoped>
+.app-background-image {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-position: center;
+  background-size: cover;
+}
+.app-background-image::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--bg-color);
+}
 .app-shell {
   height: 100vh;
   overflow: hidden;

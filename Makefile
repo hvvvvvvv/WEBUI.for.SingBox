@@ -2,6 +2,7 @@ OUTPUT_DIR ?= build/bin
 APP_VERSION ?= 1.28.1
 APP_REPOSITORY ?= Ghostdehole/WEBUI.for.SingBox
 VERSION ?= $(APP_VERSION)
+export APP_VERSION VERSION
 BUF ?= buf
 
 ifeq ($(OS),Windows_NT)

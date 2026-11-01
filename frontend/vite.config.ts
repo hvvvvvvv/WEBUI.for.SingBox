@@ -5,6 +5,13 @@ import { fileURLToPath, URL } from 'node:url'
 import vue from '@vitejs/plugin-vue'
 import { defineConfig, type Plugin } from 'vite'
 
+const makefile = readFileSync(fileURLToPath(new URL('../Makefile', import.meta.url)), 'utf8')
+const appVersion =
+  process.env.VERSION ||
+  process.env.APP_VERSION ||
+  makefile.match(/^APP_VERSION\s*\?=\s*(\S+)/m)?.[1]
+if (!appVersion) throw new Error('APP_VERSION must be set in Makefile or the build environment')
+
 const escapeInlineScript = (code: string) =>
   code.replace(/<\/script/gi, '<\\/script').replace(/<!--/g, '<\\!--')
 
@@ -33,7 +40,10 @@ const singleHtmlPlugin = (): Plugin => {
       for (const [fileName, asset] of Object.entries(bundle)) {
         if (asset.type !== 'asset' || !fileName.endsWith('.css')) continue
         html = html.replace(
-          new RegExp(`<link[^>]+href=["']\\.?/?${fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["'][^>]*>`, 'g'),
+          new RegExp(
+            `<link[^>]+href=["']\\.?/?${fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["'][^>]*>`,
+            'g',
+          ),
           () => `<style>${escapeInlineStyle(asset.source)}</style>`,
         )
         delete bundle[fileName]
@@ -42,8 +52,12 @@ const singleHtmlPlugin = (): Plugin => {
       for (const [fileName, chunk] of Object.entries(bundle)) {
         if (chunk.type !== 'chunk' || !fileName.endsWith('.js')) continue
         html = html.replace(
-          new RegExp(`<script([^>]*)src=["']\\.?/?${fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']([^>]*)></script>`, 'g'),
-          (_match, before, after) => `<script${before}${after}>${escapeInlineScript(chunk.code)}</script>`,
+          new RegExp(
+            `<script([^>]*)src=["']\\.?/?${fileName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']([^>]*)></script>`,
+            'g',
+          ),
+          (_match, before, after) =>
+            `<script${before}${after}>${escapeInlineScript(chunk.code)}</script>`,
         )
         delete bundle[fileName]
       }
@@ -80,6 +94,7 @@ const singleHtmlPlugin = (): Plugin => {
 // https://vitejs.dev/config/
 export default defineConfig({
   base: './',
+  define: { 'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion) },
   plugins: [vue(), singleHtmlPlugin()],
   resolve: {
     extensions: ['.ts', '.js'],

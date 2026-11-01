@@ -34,12 +34,9 @@ body[feature-no-rounded='true'] {
 }
 
 body {
-  --app-background: linear-gradient(
-      90deg,
-      rgba(0, 89, 214, 0.16),
-      transparent 24% 76%,
-      rgba(5, 62, 142, 0.16)
-    ),
+  isolation: isolate;
+  --app-background:
+    linear-gradient(90deg, rgba(0, 89, 214, 0.16), transparent 24% 76%, rgba(5, 62, 142, 0.16)),
     var(--bg-color);
   margin: 0;
   color: var(--color);
@@ -53,6 +50,11 @@ body {
   height: 100vh;
   display: flex;
   flex-direction: column;
+}
+
+// The theme's existing translucent surfaces sit above the local image and mask.
+body[data-custom-background] {
+  --app-background: transparent;
 }
 
 .grid-list-grid {

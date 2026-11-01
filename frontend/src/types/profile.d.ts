@@ -7,6 +7,7 @@ interface ILog {
 }
 
 interface IExperimental {
+  default_mode: 'global' | 'rule' | 'direct'
   cache_file: {
     enabled: boolean
     path: string
@@ -192,6 +193,7 @@ interface IRoute {
   auto_detect_interface: boolean
   default_interface: string
   find_process: boolean
+  default_http_client: string
   default_domain_resolver: {
     server: string
     client_subnet: string

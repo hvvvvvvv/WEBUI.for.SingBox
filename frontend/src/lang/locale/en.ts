@@ -77,6 +77,9 @@ export default {
     },
   },
   kernel: {
+    defaultMode: 'Default mode',
+    defaultModeHint:
+      'Used when the core starts without a cached mode. With cache enabled, the last selected mode takes precedence. Use the home mode buttons to switch immediately.',
     rule: 'Rule',
     global: 'Global',
     direct: 'Direct',
@@ -91,6 +94,8 @@ export default {
       disabled: 'Disabled',
       level: 'Level',
       output: 'Output',
+      outputHint:
+        'Leave empty for core console output, or enter stdout, stderr or a server file path. The level controls this output; home native logs have their own filter. Disabling logging also disables native logs.',
       timestamp: 'Timestamp',
       trace: 'trace',
       debug: 'debug',
@@ -103,6 +108,8 @@ export default {
     cache_file: {
       enabled: 'Enabled',
       path: 'Path to the cache file',
+      managedPath:
+        'Managed as cache.db in the core working directory so the app can inspect and clear it. Custom paths in older profiles are not applied.',
       cache_id: 'Identifier in the cache file',
       store_fakeip: 'Store Fake-IP',
       store_dns: 'Persist DNS Cache',
@@ -193,6 +200,7 @@ export default {
       find_process: 'Find Process',
       auto_detect_interface: 'Auto Detect Interface',
       default_interface: 'Default Interface',
+      default_http_client: 'Default Http Client',
       final: 'Final Outbound Tag',
       default_domain_resolver: {
         server: 'Default Domain Resolver',
@@ -212,10 +220,8 @@ export default {
           source: 'Source',
         },
         url: 'URL',
-        download_detour: 'Download Outbound',
+        download_detour: 'HTTP client for downloading rule sets',
         default_http_client: 'Use the default HTTP client',
-        download_outbound_hint:
-          'Leave empty to use the default HTTP client. The default client created by the app follows the default outbound.',
         update_interval: 'Update Interval',
         path: 'Path',
         notFound: 'The rule set has been lost.',
@@ -260,6 +266,14 @@ export default {
         disable_cache: 'Disable DNS Cache (disable_cache)',
         client_subnet: 'Client Subnet',
         matchConditions: 'Match Conditions',
+        combinedMatch: 'Combined matches',
+        matchAll: 'No match conditions are set. This rule matches all traffic.',
+        ruleSetRequired:
+          'Select a rule set to avoid saving an empty selection as a route for all traffic.',
+        additionalMatches: 'Additional match conditions',
+        combinedMatchHint:
+          'These conditions still apply to the same rule. Delete a condition to remove it.',
+        advancedOptions: 'Advanced options',
         executeAction: 'Execute Action',
         changeAction: 'Change Action',
         rawOverrideHint: 'Fields in Raw JSON override matching structured match and action fields',
@@ -513,6 +527,36 @@ export default {
       settings: 'Core Settings',
       settingsTips:
         'Takes effect temporarily. For persistent changes, please modify the `profile` settings.',
+      runtimeSettings: {
+        restartHint:
+          'Applying restarts the core and briefly interrupts connections. Only the running copy changes; a normal start or restart restores the saved profile. If startup fails, correct the settings and start again.',
+        apply: 'Apply and restart',
+        applied: 'Applied to the running instance',
+        portHint: '0 disables this inbound. Each inbound is configured separately.',
+        dynamicPortHint: 'This existing inbound uses an automatically assigned port. Enter a fixed port to change it; use its home switch to disable it.',
+        systemRoute: 'Use system routing',
+        autoInterface: 'Detect outbound interface automatically',
+        listen: 'Listen address',
+        stackHint:
+          'The mixed TUN stack uses system TCP and gVisor UDP. A Mixed proxy inbound serves HTTP/SOCKS on one port.',
+        stackManaged:
+          'This core version no longer uses the legacy TUN stack setting; the core manages it automatically.',
+        stackUnavailable: 'The core version is unavailable. TUN stack editing is disabled.',
+        interfacesUnavailable:
+          'Server interfaces are unavailable. The current value is retained; refresh to retry.',
+        invalidPort: 'The port must be an integer from 0 to 65535.',
+        invalidListen: 'Invalid listen address. Refresh and try again.',
+        invalidInterface: 'Invalid interface name or name too long for this system.',
+        invalidStack: 'The TUN stack must be system, gvisor or mixed.',
+        tunAsOutbound:
+          'The outbound interface cannot be an enabled TUN interface, which could cause a routing loop.',
+        portConflict:
+          'Inbound listen addresses and ports overlap. Use different ports or addresses.',
+        managedPort:
+          'This address and port are reserved for the managed native API (127.0.0.1:20123).',
+        changed: 'The running instance or profile changed. Refresh before applying.',
+        notRunning: 'The core is not running. Start it first.',
+      },
       updateGEO: 'Update GEO',
       needPort: 'Please add a Mixed/Http/Socks inbound first',
       needInbound: 'Inbound not found',
@@ -716,7 +760,7 @@ export default {
     hub: 'Plugin center',
     checkForUpdates: 'Check updates',
     source: 'Source',
-    configuration: 'Configuration',
+    configuration: 'Configure',
     advancedConfiguration: 'Advanced JSON',
     formConfiguration: 'Form settings',
     resetSetting: 'Reset setting',
@@ -727,8 +771,7 @@ export default {
     settingsEmpty: 'Installed plugins have no form settings',
     settingsConflict:
       'The plugin changed elsewhere. Your changes are preserved; load the latest version before editing again.',
-    empty:
-      'No plugins installed. Install from the plugin center or add your own JavaScript plugin.',
+    empty: 'The plugin list is empty. Please{action}or import from the{import}first.',
     updateSuccess:
       'Plugin list checked; no source downloaded or installed. Use the plugin menu to update a selected plugin.',
     newVersion: 'Update available',
@@ -843,6 +886,21 @@ export default {
       secondary: 'Secondary',
     },
     fontFamily: 'Font-Family',
+    background: {
+      name: 'Background image',
+      browserOnly: 'Saved only in this browser. Never uploaded.',
+      upload: 'Upload',
+      remove: 'Remove',
+      unsupportedType: 'Choose a PNG, JPEG or WebP image.',
+      tooLarge: 'The image must be no larger than 10 MiB.',
+      tooManyPixels: 'The image must not exceed 24 megapixels or 8192 pixels on either side.',
+      invalidImage: 'Unable to decode this image. Choose a valid PNG, JPEG or WebP file.',
+      loadFailed: 'Unable to read the background saved in this browser.',
+      saveFailed:
+        'Unable to save the image. The previous background is unchanged. Check browser storage permissions or available space.',
+      removeFailed:
+        'Unable to remove the image. The previous background is unchanged. Please retry.',
+    },
     pages: {
       name: 'Page visibility',
       hint: 'Settings always remains visible. These preferences are saved in this browser only.',

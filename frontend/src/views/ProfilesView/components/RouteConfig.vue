@@ -57,6 +57,15 @@ defineExpose({ handleAdd })
         <Select v-model="model.default_domain_resolver.server" :options="serverOptions" clearable />
       </div>
       <div class="form-item">
+        {{ t('kernel.route.default_http_client') }}
+        <Select
+          v-model="model.default_http_client"
+          :options="outboundOptions"
+          :aria-label="t('kernel.route.default_http_client')"
+          clearable
+        />
+      </div>
+      <div class="form-item">
         {{ t('kernel.route.final') }}
         <Select v-model="model.final" :options="outboundOptions" clearable />
       </div>

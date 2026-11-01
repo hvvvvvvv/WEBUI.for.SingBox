@@ -162,6 +162,7 @@ message CacheFileExperimental {
 message Experimental {
   reserved 1;
   CacheFileExperimental cache_file = 2;
+  string default_mode = 3;
 }
 
 message ProxyRef {
@@ -322,6 +323,9 @@ message Route {
   string default_interface = 5;
   bool find_process = 6;
   RouteDefaultDomainResolver default_domain_resolver = 7;
+  // Outbound ID used to build the default shared HTTP client for remote rule sets.
+  // Empty preserves legacy profiles' automatic client selection.
+  string default_http_client = 8;
 }
 
 message DnsServer {

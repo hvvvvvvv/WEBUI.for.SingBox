@@ -1,0 +1,506 @@
+{
+  "id": "fixture-1",
+  "name": "default-profile-fixture",
+  "log": {
+    "level": "LOG_LEVEL_INFO"
+  },
+  "experimental": {
+    "cacheFile": {
+      "enabled": true,
+      "path": "cache.db",
+      "cacheId": "fixture-2",
+      "storeFakeip": true
+    },
+    "defaultMode": "rule"
+  },
+  "inbounds": [
+    {
+      "id": "mixed-in",
+      "type": "INBOUND_TYPE_MIXED",
+      "tag": "mixed-in",
+      "mixed": {
+        "listen": {
+          "listen": "127.0.0.1",
+          "listenPort": 20122
+        }
+      }
+    },
+    {
+      "id": "tun-in",
+      "type": "INBOUND_TYPE_TUN",
+      "tag": "tun-in",
+      "enable": true,
+      "tun": {
+        "address": [
+          "172.18.0.1/30",
+          "fdfe:dcba:9876::1/126"
+        ],
+        "autoRoute": true,
+        "strictRoute": true,
+        "stack": "TUN_STACK_MIXED",
+        "dnsMode": "hijack"
+      }
+    }
+  ],
+  "outbounds": [
+    {
+      "id": "outbound-select",
+      "tag": "outbound.select",
+      "type": "OUTBOUND_TYPE_SELECTOR",
+      "outbounds": [
+        {
+          "id": "outbound-urltest",
+          "type": "Built-in",
+          "tag": "outbound.urltest"
+        },
+        {
+          "id": "fixture-subscription",
+          "type": "Subscription",
+          "tag": "fixture-subscription"
+        }
+      ],
+      "interval": "3m",
+      "tolerance": 150,
+      "interruptExistConnections": true
+    },
+    {
+      "id": "outbound-urltest",
+      "tag": "outbound.urltest",
+      "type": "OUTBOUND_TYPE_URLTEST",
+      "outbounds": [
+        {
+          "id": "fixture-subscription",
+          "type": "Subscription",
+          "tag": "fixture-subscription"
+        }
+      ],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "3m",
+      "tolerance": 150,
+      "interruptExistConnections": true
+    },
+    {
+      "id": "outbound-direct",
+      "tag": "outbound.direct",
+      "type": "OUTBOUND_TYPE_SELECTOR",
+      "outbounds": [
+        {
+          "id": "direct",
+          "type": "Built-in",
+          "tag": "direct"
+        },
+        {
+          "id": "block",
+          "type": "Built-in",
+          "tag": "block"
+        }
+      ],
+      "interval": "3m",
+      "tolerance": 150,
+      "interruptExistConnections": true
+    },
+    {
+      "id": "outbound-block",
+      "tag": "outbound.block",
+      "type": "OUTBOUND_TYPE_SELECTOR",
+      "outbounds": [
+        {
+          "id": "block",
+          "type": "Built-in",
+          "tag": "block"
+        },
+        {
+          "id": "direct",
+          "type": "Built-in",
+          "tag": "direct"
+        }
+      ],
+      "interval": "3m",
+      "tolerance": 150,
+      "interruptExistConnections": true
+    },
+    {
+      "id": "outbound-fallback",
+      "tag": "outbound.fallback",
+      "type": "OUTBOUND_TYPE_SELECTOR",
+      "outbounds": [
+        {
+          "id": "outbound-select",
+          "type": "Built-in",
+          "tag": "outbound.select"
+        },
+        {
+          "id": "outbound-direct",
+          "type": "Built-in",
+          "tag": "outbound.direct"
+        }
+      ],
+      "interval": "3m",
+      "tolerance": 150,
+      "interruptExistConnections": true
+    },
+    {
+      "id": "outbound-global",
+      "tag": "GLOBAL",
+      "type": "OUTBOUND_TYPE_SELECTOR",
+      "outbounds": [
+        {
+          "id": "outbound-select",
+          "type": "Built-in",
+          "tag": "outbound.select"
+        },
+        {
+          "id": "outbound-urltest",
+          "type": "Built-in",
+          "tag": "outbound.urltest"
+        },
+        {
+          "id": "outbound-direct",
+          "type": "Built-in",
+          "tag": "outbound.direct"
+        },
+        {
+          "id": "outbound-block",
+          "type": "Built-in",
+          "tag": "outbound.block"
+        },
+        {
+          "id": "outbound-fallback",
+          "type": "Built-in",
+          "tag": "outbound.fallback"
+        }
+      ],
+      "interval": "3m",
+      "tolerance": 150,
+      "interruptExistConnections": true
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "id": "fixture-3",
+        "enable": true,
+        "action": "RULE_ACTION_SNIFF",
+        "actionOptions": {
+          "method": "default"
+        }
+      },
+      {
+        "id": "fixture-4",
+        "enable": true,
+        "action": "RULE_ACTION_HIJACK_DNS",
+        "protocol": [
+          "dns"
+        ],
+        "actionOptions": {
+          "method": "default"
+        }
+      },
+      {
+        "id": "fixture-5",
+        "enable": true,
+        "action": "RULE_ACTION_ROUTE",
+        "clashMode": "direct",
+        "actionOptions": {
+          "outbound": "outbound-direct",
+          "method": "default"
+        }
+      },
+      {
+        "id": "fixture-6",
+        "enable": true,
+        "action": "RULE_ACTION_ROUTE",
+        "clashMode": "global",
+        "actionOptions": {
+          "outbound": "outbound-global",
+          "method": "default"
+        }
+      },
+      {
+        "id": "InsertionPoint",
+        "enable": true,
+        "action": "RULE_ACTION_ROUTE",
+        "actionOptions": {
+          "method": "default"
+        }
+      },
+      {
+        "id": "fixture-8",
+        "enable": true,
+        "action": "RULE_ACTION_ROUTE",
+        "network": [
+          "icmp"
+        ],
+        "actionOptions": {
+          "outbound": "outbound-direct",
+          "method": "default"
+        }
+      },
+      {
+        "id": "fixture-9",
+        "enable": true,
+        "action": "RULE_ACTION_ROUTE",
+        "protocol": [
+          "quic"
+        ],
+        "actionOptions": {
+          "outbound": "outbound-block",
+          "method": "default"
+        }
+      },
+      {
+        "id": "fixture-10",
+        "enable": true,
+        "action": "RULE_ACTION_ROUTE",
+        "ruleSet": [
+          "Category-Ads"
+        ],
+        "actionOptions": {
+          "outbound": "outbound-block",
+          "method": "default"
+        }
+      },
+      {
+        "id": "fixture-11",
+        "enable": true,
+        "action": "RULE_ACTION_ROUTE",
+        "ruleSet": [
+          "GeoSite-Private"
+        ],
+        "actionOptions": {
+          "outbound": "outbound-direct",
+          "method": "default"
+        }
+      },
+      {
+        "id": "fixture-12",
+        "enable": true,
+        "action": "RULE_ACTION_ROUTE",
+        "ruleSet": [
+          "GeoSite-CN"
+        ],
+        "actionOptions": {
+          "outbound": "outbound-direct",
+          "method": "default"
+        }
+      },
+      {
+        "id": "fixture-13",
+        "enable": true,
+        "action": "RULE_ACTION_ROUTE",
+        "ruleSet": [
+          "GeoIP-Private"
+        ],
+        "actionOptions": {
+          "outbound": "outbound-direct",
+          "method": "default"
+        }
+      },
+      {
+        "id": "fixture-14",
+        "enable": true,
+        "action": "RULE_ACTION_ROUTE",
+        "ruleSet": [
+          "GeoIP-CN"
+        ],
+        "actionOptions": {
+          "outbound": "outbound-direct",
+          "method": "default"
+        }
+      },
+      {
+        "id": "fixture-15",
+        "enable": true,
+        "action": "RULE_ACTION_ROUTE",
+        "ruleSet": [
+          "GeoLocation-!CN"
+        ],
+        "actionOptions": {
+          "outbound": "outbound-select",
+          "method": "default"
+        }
+      }
+    ],
+    "ruleSet": [
+      {
+        "id": "Category-Ads",
+        "type": "RULESET_TYPE_REMOTE",
+        "tag": "Category-Ads",
+        "url": "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geosite/category-ads-all.srs",
+        "updateInterval": "24h",
+        "format": "RULESET_FORMAT_BINARY"
+      },
+      {
+        "id": "GeoIP-Private",
+        "type": "RULESET_TYPE_REMOTE",
+        "tag": "GeoIP-Private",
+        "url": "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geoip/private.srs",
+        "updateInterval": "24h",
+        "format": "RULESET_FORMAT_BINARY"
+      },
+      {
+        "id": "GeoSite-Private",
+        "type": "RULESET_TYPE_REMOTE",
+        "tag": "GeoSite-Private",
+        "url": "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geosite/private.srs",
+        "updateInterval": "24h",
+        "format": "RULESET_FORMAT_BINARY"
+      },
+      {
+        "id": "GeoIP-CN",
+        "type": "RULESET_TYPE_REMOTE",
+        "tag": "GeoIP-CN",
+        "url": "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geoip/cn.srs",
+        "updateInterval": "24h",
+        "format": "RULESET_FORMAT_BINARY"
+      },
+      {
+        "id": "GeoSite-CN",
+        "type": "RULESET_TYPE_REMOTE",
+        "tag": "GeoSite-CN",
+        "url": "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geosite/cn.srs",
+        "updateInterval": "24h",
+        "format": "RULESET_FORMAT_BINARY"
+      },
+      {
+        "id": "GeoLocation-!CN",
+        "type": "RULESET_TYPE_REMOTE",
+        "tag": "GeoLocation-!CN",
+        "url": "https://testingcf.jsdelivr.net/gh/MetaCubeX/meta-rules-dat@sing/geo/geosite/geolocation-!cn.srs",
+        "updateInterval": "24h",
+        "format": "RULESET_FORMAT_BINARY"
+      }
+    ],
+    "final": "outbound-fallback",
+    "autoDetectInterface": true,
+    "defaultDomainResolver": {
+      "server": "Local-DNS"
+    },
+    "defaultHttpClient": "outbound-select"
+  },
+  "dns": {
+    "servers": [
+      {
+        "id": "Fake-IP",
+        "tag": "Fake-IP",
+        "type": "DNS_SERVER_TYPE_FAKEIP",
+        "inet4Range": "198.18.0.0/15",
+        "inet6Range": "fc00::/18"
+      },
+      {
+        "id": "Local-DNS",
+        "tag": "Local-DNS",
+        "type": "DNS_SERVER_TYPE_HTTPS",
+        "domainResolver": "Local-DNS-Resolver",
+        "server": "223.5.5.5",
+        "serverPort": "443",
+        "path": "/dns-query"
+      },
+      {
+        "id": "Local-DNS-Resolver",
+        "tag": "Local-DNS-Resolver",
+        "type": "DNS_SERVER_TYPE_UDP",
+        "server": "223.5.5.5",
+        "serverPort": "53"
+      },
+      {
+        "id": "Remote-DNS",
+        "tag": "Remote-DNS",
+        "type": "DNS_SERVER_TYPE_TLS",
+        "detour": "outbound-select",
+        "domainResolver": "Remote-DNS-Resolver",
+        "server": "8.8.8.8",
+        "serverPort": "853"
+      },
+      {
+        "id": "Remote-DNS-Resolver",
+        "tag": "Remote-DNS-Resolver",
+        "type": "DNS_SERVER_TYPE_UDP",
+        "detour": "outbound-select",
+        "server": "8.8.8.8",
+        "serverPort": "53"
+      }
+    ],
+    "rules": [
+      {
+        "id": "fixture-16",
+        "enable": true,
+        "action": "DNS_RULE_ACTION_ROUTE",
+        "clashMode": "direct",
+        "actionOptions": {
+          "server": "Local-DNS",
+          "method": "default",
+          "rcode": "NOERROR"
+        }
+      },
+      {
+        "id": "fixture-17",
+        "enable": true,
+        "action": "DNS_RULE_ACTION_ROUTE",
+        "clashMode": "global",
+        "actionOptions": {
+          "server": "Remote-DNS",
+          "method": "default",
+          "rcode": "NOERROR"
+        }
+      },
+      {
+        "id": "InsertionPoint",
+        "enable": true,
+        "action": "DNS_RULE_ACTION_ROUTE",
+        "actionOptions": {
+          "method": "default",
+          "rcode": "NOERROR"
+        }
+      },
+      {
+        "id": "fixture-19",
+        "enable": true,
+        "action": "DNS_RULE_ACTION_ROUTE",
+        "ruleSet": [
+          "GeoSite-CN"
+        ],
+        "actionOptions": {
+          "server": "Local-DNS",
+          "method": "default",
+          "rcode": "NOERROR"
+        }
+      },
+      {
+        "id": "fixture-20",
+        "action": "DNS_RULE_ACTION_ROUTE",
+        "actionOptions": {
+          "server": "Fake-IP",
+          "method": "default",
+          "rcode": "NOERROR"
+        },
+        "raw": "{\n  \"__is_fake_ip\": true,\n  \"type\": \"logical\",\n  \"mode\": \"and\",\n  \"rules\": [\n    {\n      \"domain_suffix\": [\n        \".lan\",\n        \".localdomain\",\n        \".example\",\n        \".invalid\",\n        \".localhost\",\n        \".test\",\n        \".local\",\n        \".home.arpa\",\n        \".msftconnecttest.com\",\n        \".msftncsi.com\"\n      ],\n      \"invert\": true\n    },\n    {\n      \"query_type\": [\n        \"A\",\n        \"AAAA\"\n      ]\n    }\n  ]\n}"
+      },
+      {
+        "id": "fixture-21",
+        "enable": true,
+        "action": "DNS_RULE_ACTION_ROUTE",
+        "ruleSet": [
+          "GeoLocation-!CN"
+        ],
+        "actionOptions": {
+          "server": "Remote-DNS",
+          "method": "default",
+          "rcode": "NOERROR"
+        }
+      }
+    ],
+    "final": "Remote-DNS",
+    "strategy": "STRATEGY_DEFAULT",
+    "optimistic": {
+      "timeout": "3d"
+    }
+  },
+  "mixin": {
+    "priority": "MIXIN_PRIORITY_MIXIN",
+    "format": "MIXIN_FORMAT_JSON"
+  },
+  "script": {
+    "code": "const onGenerate = async (config) => {\n  return config\n}"
+  }
+}

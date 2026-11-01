@@ -153,11 +153,24 @@ describe('rule editing preserves current drafts and official operation order', (
       expect(rule.rule_set).toEqual(['keep'])
       expect(rule.domain).toEqual(['example.org'])
       await edit()
-      expect(
-        [...host.querySelectorAll('.shared-rule-pane')].map((entry) =>
-          entry.classList.contains('shared-rule-match') ? 'match' : 'action',
-        ),
-      ).toEqual(['match', 'action'])
+      if (name === 'route') {
+        expect(host.querySelector('.shared-rule-pane')).toBeNull()
+        expect(
+          [
+            ...host.querySelectorAll('[data-rule-type], [data-rule-action], [data-rule-invert]'),
+          ].map((entry) => entry.textContent?.trim()),
+        ).toEqual([
+          'kernel.route.rules.type',
+          'kernel.route.rules.action.name',
+          'kernel.route.rules.invert',
+        ])
+      } else {
+        expect(
+          [...host.querySelectorAll('.shared-rule-pane')].map((entry) =>
+            entry.classList.contains('shared-rule-match') ? 'match' : 'action',
+          ),
+        ).toEqual(['match', 'action'])
+      }
       const area = host.querySelector('textarea')!
       area.value = '{bad JSON'
       host.querySelector<HTMLButtonElement>('[data-save]')!.click()

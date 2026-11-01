@@ -144,6 +144,9 @@ func (g *configGenerator) GenerateConfig(profile *configv1.Profile) (map[string]
 		return nil, err
 	}
 	config["route"] = route
+	if err := generateProfileHTTPClients(config, route); err != nil {
+		return nil, err
+	}
 
 	dns, err := g.generateDNS(profile.GetDns(), profile.GetRoute().GetRuleSet(), profile.GetInbounds(), profile.GetOutbounds())
 	if err != nil {
@@ -232,9 +235,13 @@ func generateExperimental(experimental *configv1.Experimental) map[string]any {
 		}
 	}
 
-	return map[string]any{
+	result := map[string]any{
 		"cache_file": cacheFile,
 	}
+	if mode := experimental.GetDefaultMode(); mode != "" {
+		result["clash_api"] = map[string]any{"default_mode": mode}
+	}
+	return result
 }
 
 func generateCoreAPISecret() (string, error) {
@@ -349,9 +356,9 @@ func (g *configGenerator) generateOutbounds(outbounds []*configv1.Outbound) ([]a
 	proxyReferences := make([]subscriptionOutboundReference, 0)
 	builtInTags := make([]string, 0)
 	builtInSeen := map[string]struct{}{}
-	appendProxy := func(group map[string]any, subscriptionID string, candidate map[string]any) {
+	appendProxy := func(group map[string]any, subscriptionID string, index int, candidate map[string]any) {
 		tag, _ := candidate["tag"].(string)
-		key := subscriptionOutboundKey{subscriptionID: subscriptionID, tag: tag}
+		key := subscriptionOutboundKey{subscriptionID: subscriptionID, tag: tag, index: index}
 		members := group["outbounds"].([]any)
 		proxyReferences = append(proxyReferences, subscriptionOutboundReference{group: group, index: len(members), key: key})
 		group["outbounds"] = append(members, tag)
@@ -430,33 +437,26 @@ func (g *configGenerator) generateOutbounds(outbounds []*configv1.Outbound) ([]a
 				}
 
 				if proxy.GetType() == "Subscription" {
-					for _, candidate := range proxies {
+					for index, candidate := range proxies {
 						tag, _ := candidate["tag"].(string)
 						if !match(tag) {
 							continue
 						}
-						appendProxy(item, subID, candidate)
+						appendProxy(item, subID, index, candidate)
 					}
 					continue
 				}
 
-				nodeTag, err := g.resolveSubscriptionProxyTag(subID, proxy.GetId(), path+".id")
+				index, err := g.resolveSubscriptionProxyIndex(subID, proxy.GetId(), proxies, path+".id")
 				if err != nil {
 					return nil, err
 				}
-				matched := false
-				for _, candidate := range proxies {
-					tag, _ := candidate["tag"].(string)
-					if tag != nodeTag || !match(tag) {
-						continue
-					}
-					appendProxy(item, subID, candidate)
-					matched = true
-					break
-				}
-				if !matched {
+				candidate := proxies[index]
+				tag, _ := candidate["tag"].(string)
+				if !match(tag) {
 					return nil, invalidArgumentError{message: fmt.Sprintf("%s references subscription node %q whose generated outbound is unavailable", path+".id", proxy.GetId())}
 				}
+				appendProxy(item, subID, index, candidate)
 			}
 		}
 
@@ -502,6 +502,13 @@ func (g *configGenerator) generateRoute(
 	}
 	if final != "" {
 		result["final"] = final
+	}
+	defaultHTTPClient, err := resolveOutboundTag(outbounds, route.GetDefaultHttpClient(), "route.default_http_client")
+	if err != nil {
+		return nil, err
+	}
+	if defaultHTTPClient != "" {
+		result["default_http_client"] = defaultHTTPClient
 	}
 	server, err := resolveDNSServerTag(dns.GetServers(), route.GetDefaultDomainResolver().GetServer(), "route.default_domain_resolver.server")
 	if err != nil {
@@ -1347,6 +1354,33 @@ func (g *configGenerator) resolveSubscriptionProxyTag(subscriptionID string, pro
 		}
 	}
 	return "", invalidArgumentError{message: fmt.Sprintf("%s references missing subscription node %q", path, proxyID)}
+}
+
+func (g *configGenerator) resolveSubscriptionProxyIndex(subscriptionID, proxyID string, entries []map[string]any, path string) (int, error) {
+	tag, err := g.resolveSubscriptionProxyTag(subscriptionID, proxyID, path)
+	if err != nil {
+		return 0, err
+	}
+	// Metadata and the node cache preserve subscription order. Resolve the same
+	// occurrence among equal tags instead of treating a display name as identity.
+	occurrence := 0
+	for _, proxy := range g.subscriptions[subscriptionID].Proxies {
+		if proxy.ID == proxyID {
+			break
+		}
+		if proxy.Tag == tag {
+			occurrence++
+		}
+	}
+	for index, candidate := range entries {
+		if candidate["tag"] == tag {
+			if occurrence == 0 {
+				return index, nil
+			}
+			occurrence--
+		}
+	}
+	return 0, invalidArgumentError{message: fmt.Sprintf("%s references subscription node %q whose generated outbound is unavailable", path, proxyID)}
 }
 
 func applyMixin(config map[string]any, mixin *configv1.Mixin) (map[string]any, error) {

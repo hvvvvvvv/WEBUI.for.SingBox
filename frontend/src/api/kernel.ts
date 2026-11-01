@@ -173,6 +173,7 @@ export const onConnections = (handler: (data: NativeConnectionSnapshot) => void)
 export const clearClosedConnections = () => connections.publish(connectionState.clearClosed())
 export const getGroupsSnapshot = () => groups.first()
 export const getOutboundsSnapshot = () => outbounds.first()
+export const getNativeVersion = () => unary((options) => nativeClient.getVersion({}, options))
 export const getClashModeStatus = () =>
   unary((options) => nativeClient.getClashModeStatus({}, options))
 export const setClashMode = async (mode: string): Promise<ClashModeStatus> => {

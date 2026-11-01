@@ -11,7 +11,7 @@ import {
 export const DefaultFontFamily =
   'system-ui, "Microsoft YaHei UI", "Source Han Sans CN", "Twemoji Mozilla", sans-serif'
 
-export const DefaultVisiblePages = [
+export const AvailablePages = [
   'Overview',
   'Profiles',
   'Subscriptions',
@@ -19,6 +19,8 @@ export const DefaultVisiblePages = [
   'Plugins',
   'ScheduledTasks',
 ]
+
+export const DefaultVisiblePages = ['Overview', 'Profiles', 'Subscriptions', 'Plugins']
 
 export const Colors = {
   [Color.Default]: {

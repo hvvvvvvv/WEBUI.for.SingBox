@@ -77,10 +77,12 @@ const protoFieldNames: Record<string, string> = {
   bridge_name: 'bridgeName',
   cache_file: 'cacheFile',
   cache_id: 'cacheId',
+  default_mode: 'defaultMode',
   clash_mode: 'clashMode',
   client_subnet: 'clientSubnet',
   disable_optimistic_cache: 'disableOptimisticCache',
   default_interface: 'defaultInterface',
+  default_http_client: 'defaultHttpClient',
   default_domain_resolver: 'defaultDomainResolver',
   disable_cache: 'disableCache',
   disable_expire: 'disableExpire',
@@ -274,6 +276,7 @@ const normalizeExperimental = (exp: any, fallback: IExperimental): IExperimental
   const cacheFileRaw = exp?.cache_file || exp?.cachefile || {}
 
   return {
+    default_mode: exp?.default_mode || fallback.default_mode,
     cache_file: {
       ...fallback.cache_file,
       ...cacheFileRaw,
@@ -423,18 +426,25 @@ const normalizeRoute = (route: any, fallback: IRoute): IRoute => {
     ...fallback,
     ...r,
     rule_set: Array.isArray(ruleSet)
-      ? ruleSet.map((item: any) => ({
-          ...item,
-          type: normalizeRulesetType(item?.type),
-          format: normalizeRulesetFormat(item?.format),
-          download_detour: item?.download_detour ?? item?.downloaddetour ?? '',
-          update_interval: item?.update_interval ?? item?.updateinterval ?? '',
-        }))
+      ? ruleSet.map((item: any) => {
+          const type = normalizeRulesetType(item?.type)
+          const interval = item?.update_interval ?? item?.updateinterval ?? ''
+          return {
+            ...item,
+            type,
+            format: normalizeRulesetFormat(item?.format),
+            download_detour: item?.download_detour ?? item?.downloaddetour ?? '',
+            // An omitted remote interval already means one day in sing-box.
+            update_interval: type === 'remote' && interval === '' ? '24h' : interval,
+          }
+        })
       : fallback.rule_set,
     rules: Array.isArray(r.rules) ? r.rules.map(normalizeRouteRule) : fallback.rules,
     auto_detect_interface:
       r.auto_detect_interface ?? r.autodetectinterface ?? fallback.auto_detect_interface,
     default_interface: r.default_interface ?? r.defaultinterface ?? fallback.default_interface,
+    // Do not apply the new-profile download policy to an existing profile.
+    default_http_client: r.default_http_client ?? r.defaulthttpclient ?? '',
     find_process: r.find_process ?? r.findprocess ?? fallback.find_process,
     default_domain_resolver: {
       ...fallback.default_domain_resolver,

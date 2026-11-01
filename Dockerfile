@@ -8,6 +8,7 @@ RUN npm install --global pnpm@latest
 COPY frontend/package.json frontend/pnpm-lock.yaml frontend/pnpm-workspace.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY frontend/ ./
+COPY Makefile /src/Makefile
 RUN pnpm build
 
 # Cross-compile the Go backend on the native builder platform for each target.

@@ -3,6 +3,8 @@ import { onActivated, onMounted, ref } from "vue";
 import { useI18n } from "vue-i18n";
 
 import Button from "@/components/Button/index.vue";
+import Card from "@/components/Card/index.vue";
+import Empty from "@/components/Empty/index.vue";
 import { PluginApiError, usePluginsStore } from "@/stores/plugins";
 import type { Plugin } from "@/types/plugin";
 import { deepClone } from "@/utils/others";
@@ -119,10 +121,12 @@ onActivated(activate);
     <div v-else-if="saving || saved" role="status" class="text-12 px-8">
       {{ t(saving ? "plugins.savingSettings" : "plugins.settingsSaved") }}
     </div>
-    <div v-if="!drafts.length && !refreshing" class="px-8 py-12">
-      <div class="text-18 font-bold mb-8">{{ t("plugins.configuration") }}</div>
-      <p>{{ t("plugins.settingsEmpty") }}</p>
-    </div>
+    <template v-if="!drafts.length && !refreshing">
+      <div class="px-8 py-12 text-18 font-bold">{{ t("plugins.configuration") }}</div>
+      <Card>
+        <div class="py-32"><Empty /></div>
+      </Card>
+    </template>
     <section v-for="draft in drafts" :key="draft.plugin.id" :data-plugin-id="draft.plugin.id">
       <PluginConfigItem
         :plugin="draft.plugin"

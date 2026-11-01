@@ -171,9 +171,6 @@ const handleUse = (ruleset: any) => {
           clearable
         />
       </div>
-      <div class="px-12 pb-4 text-12 opacity-70">
-        {{ t('kernel.route.rule_set.download_outbound_hint') }}
-      </div>
       <div class="form-item">
         {{ t('kernel.route.rule_set.update_interval') }}
         <Input v-model="fields.update_interval" editable />

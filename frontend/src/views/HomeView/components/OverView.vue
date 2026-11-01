@@ -83,6 +83,24 @@ const handleShowApiConnections = () => {
   modalApi.setContent(ConnectionsController).open()
 }
 
+const handleShowSettings = async () => {
+  try {
+    const { default: RuntimeCoreSettings } = await import('./RuntimeCoreSettings.vue')
+    modalApi.setProps({
+      title: 'home.overview.settings',
+      width: '90',
+      minWidth: '0',
+      submit: false,
+      cancelText: 'common.close',
+      maskClosable: true,
+      bodyScrollable: true,
+    })
+    modalApi.setContent(RuntimeCoreSettings).open()
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : String(error))
+  }
+}
+
 const onRuntimeInboundSwitchChange = async (inbound: IInbound, enable: boolean) => {
   try {
     await kernelApiStore.updateRuntimeInboundEnable(inbound.id, enable)
@@ -132,6 +150,15 @@ onUnmounted(unregisterStatusHandler)
       class="overview-toolbar flex items-center rounded-8 px-8 py-4"
       style="background-color: var(--card-bg)"
     >
+      <Button
+        v-tips="'home.overview.settings'"
+        :aria-label="t('home.overview.settings')"
+        :disabled="!kernelApiStore.running || kernelApiStore.restarting"
+        type="text"
+        size="small"
+        icon="settings"
+        @click="handleShowSettings"
+      />
       <div
         v-if="kernelApiStore.runtimeInbounds.length"
         class="h-20 px-6 rounded-4 text-12 font-bold text-nowrap inline-flex items-center gap-4 shrink-0"

@@ -9,6 +9,7 @@ import (
 type subscriptionOutboundKey struct {
 	subscriptionID string
 	tag            string
+	index          int
 }
 
 type subscriptionOutboundReference struct {
@@ -55,7 +56,10 @@ func assignSubscriptionOutboundTags(outbounds []any, builtIns []string, proxies 
 		if collisions[i].subscriptionID != collisions[j].subscriptionID {
 			return collisions[i].subscriptionID < collisions[j].subscriptionID
 		}
-		return collisions[i].tag < collisions[j].tag
+		if collisions[i].tag != collisions[j].tag {
+			return collisions[i].tag < collisions[j].tag
+		}
+		return collisions[i].index < collisions[j].index
 	})
 	for _, key := range collisions {
 		base := key.tag + " [" + key.subscriptionID + "]"
@@ -69,13 +73,24 @@ func assignSubscriptionOutboundTags(outbounds []any, builtIns []string, proxies 
 	for _, reference := range references {
 		reference.group["outbounds"].([]any)[reference.index] = names[reference.key]
 	}
+	// Subscription-internal references contain names, not GUI node IDs. When a
+	// name is ambiguous, keep the first included node in source order, independent
+	// of which profile group happened to request it first.
+	firstByTag := make(map[subscriptionOutboundKey]subscriptionOutboundKey, len(keys))
+	for _, key := range keys {
+		alias := subscriptionOutboundKey{subscriptionID: key.subscriptionID, tag: key.tag}
+		if first, exists := firstByTag[alias]; !exists || key.index < first.index {
+			firstByTag[alias] = key
+		}
+	}
 	for index, value := range proxies {
 		proxy := value.(map[string]any)
 		key := keys[index]
 		proxy["tag"] = names[key]
 		remap := func(tag string) string {
-			if name, exists := names[subscriptionOutboundKey{subscriptionID: key.subscriptionID, tag: tag}]; exists {
-				return name
+			alias := subscriptionOutboundKey{subscriptionID: key.subscriptionID, tag: tag}
+			if first, exists := firstByTag[alias]; exists {
+				return names[first]
 			}
 			return tag
 		}

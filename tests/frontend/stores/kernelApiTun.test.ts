@@ -60,6 +60,7 @@ vi.mock('@/utils/others', () => ({
 
 import { iProfileToProto, protoProfileToIProfile } from '@/utils/profileRpc'
 import { useKernelApiStore } from '@/stores/kernelApi'
+import { runtimeCoreSettingsDraft } from '@/utils/runtimeCoreSettings'
 
 const deferred = <T>() => {
   let resolve!: (value: T) => void
@@ -73,7 +74,10 @@ const deferred = <T>() => {
 
 const loadRunningProfile = async (profile: IProfile) => {
   mocks.rpc.getCurrentProfile.mockResolvedValue({
-    profile: create(ProfileSchema, iProfileToProto(profile)),
+    profile: fromBinary(
+      ProfileSchema,
+      toBinary(ProfileSchema, create(ProfileSchema, iProfileToProto(profile))),
+    ),
   })
   const store = useKernelApiStore()
   await store.initCoreState()
@@ -118,6 +122,69 @@ describe('home TUN shortcuts', () => {
       pid: 42,
       restartRequired: false,
       restarting: false,
+    })
+  })
+
+  it('restarts only the running profile copy for core settings and preserves unrelated fields through protobuf', async () => {
+    const profile = protoProfileToIProfile(undefined)
+    profile.inbounds[0]!.mixed!.users = ['user:password']
+    const store = await loadRunningProfile(profile)
+    const snapshot = await store.loadRuntimeSettings()
+    const draft = runtimeCoreSettingsDraft(snapshot.profile)
+    draft.proxies[0]!.port = 20880
+    draft.outboundInterface = 'eth0'
+    draft.outboundMode = 'interface'
+    await store.updateRuntimeSettings(draft, snapshot, { platform: 'linux', stackEditable: true })
+    expect(mocks.rpc.restartCore).toHaveBeenCalledOnce()
+    expect(mocks.rpc.restartCore.mock.calls[0]![0].profileId).toBeUndefined()
+    const sent = decodeRestartProfile(0)
+    expect(sent.inbounds[0]).toMatchObject({
+      enable: true,
+      mixed: { users: ['user:password'], listen: { listen_port: 20880 } },
+    })
+    expect(sent.inbounds[1]!.tun).toEqual(snapshot.profile.inbounds[1]!.tun)
+    expect(sent.inbounds[1]!.enable).toEqual(snapshot.profile.inbounds[1]!.enable)
+    expect(sent.route.rules).toEqual(snapshot.profile.route.rules)
+    expect(sent.route.default_interface).toBe('eth0')
+    expect(profile.inbounds[0]!.enable).toBe(false)
+  })
+
+  it.each(['profile', 'generation'])(
+    'refuses stale temporary settings after a %s change',
+    async (kind) => {
+      const profile = protoProfileToIProfile(undefined)
+      const store = await loadRunningProfile(profile)
+      const snapshot = await store.loadRuntimeSettings()
+      if (kind === 'generation') mocks.nativeGeneration++
+      else {
+        profile.inbounds[0]!.mixed!.listen.listen_port = 20889
+        mocks.rpc.getCurrentProfile.mockResolvedValue({
+          profile: create(ProfileSchema, iProfileToProto(profile)),
+        })
+      }
+      const draft = runtimeCoreSettingsDraft(snapshot.profile)
+      draft.proxies[0]!.port = 20880
+      await expect(
+        store.updateRuntimeSettings(draft, snapshot, { platform: 'linux', stackEditable: true }),
+      ).rejects.toThrow('changed')
+      expect(mocks.rpc.restartCore).not.toHaveBeenCalled()
+    },
+  )
+
+  it('restores failed temporary changes before another runtime restart', async () => {
+    const profile = protoProfileToIProfile(undefined)
+    const store = await loadRunningProfile(profile)
+    const snapshot = await store.loadRuntimeSettings()
+    const draft = runtimeCoreSettingsDraft(snapshot.profile)
+    draft.proxies[0]!.port = 20880
+    mocks.rpc.restartCore.mockRejectedValueOnce(new Error('preflight failed'))
+    await expect(
+      store.updateRuntimeSettings(draft, snapshot, { platform: 'linux', stackEditable: true }),
+    ).rejects.toBe('preflight failed')
+    await store.updateRuntimeInboundEnable(profile.inbounds[1]!.id, false)
+    expect(decodeRestartProfile(1).inbounds[0]).toMatchObject({
+      enable: snapshot.profile.inbounds[0]!.enable,
+      mixed: snapshot.profile.inbounds[0]!.mixed,
     })
   })
 

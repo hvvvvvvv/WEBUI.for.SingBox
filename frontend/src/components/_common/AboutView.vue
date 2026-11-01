@@ -2,9 +2,8 @@
 import { useI18n } from 'vue-i18n'
 
 import logo from '@/assets/logo'
-import { BrowserOpenURL } from '@/bridge'
 import { useAppStore } from '@/stores'
-import { APP_TITLE, PROJECT_URL } from '@/utils'
+import { APP_TITLE, APP_VERSION } from '@/utils/env'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -13,17 +12,17 @@ appStore.checkForUpdates()
 </script>
 
 <template>
-  <div class="flex flex-col items-center pt-36">
-    <img :src="logo" class="w-128" draggable="false" />
+  <div class="flex flex-col items-center py-12">
+    <img :src="logo" :alt="APP_TITLE" class="w-64" draggable="false" />
     <div class="py-8 font-bold">{{ APP_TITLE }}</div>
-    <div class="flex items-center pb-8 my-4">
+    <div class="flex items-center justify-center flex-wrap">
       <Button
         :loading="appStore.checkForUpdatesLoading"
-        type="link"
+        type="text"
         size="small"
         @click="appStore.checkForUpdates(true)"
       >
-        {{ t('about.currentVersion') }}: {{ appStore.currentVersion }}
+        Bridge: {{ appStore.currentVersion || '--' }} - UI: {{ APP_VERSION || '--' }}
       </Button>
       <Button
         v-if="appStore.updateReady"
@@ -41,12 +40,6 @@ appStore.checkForUpdates()
       >
         {{ t('about.new') }}: {{ appStore.remoteVersion }}
       </Button>
-    </div>
-    <div
-      class="text-12 underline flex items-center cursor-pointer"
-      @click="BrowserOpenURL(PROJECT_URL)"
-    >
-      <Icon icon="github" />GitHub
     </div>
   </div>
 </template>

@@ -27,22 +27,20 @@ const removeRewriteTTL = () => {
   </div>
   <div class="form-item action-field">
     {{ $t('kernel.strategy.name') }}
-    <OptionGroup
+    <Select
       v-model="model.strategy"
       :options="strategyOptions"
       :aria-label="$t('kernel.strategy.name')"
       clearable
     />
   </div>
-  <div class="action-toggle-group">
-    <ActionToggleField
-      v-model="model.disable_cache"
-      :label="$t('kernel.route.rules.disable_cache')"
-    />
-    <ActionToggleField
-      v-model="model.disable_optimistic_cache"
-      :label="$t('kernel.route.rules.fields.disable_optimistic_cache')"
-    />
+  <div class="form-item">
+    {{ $t('kernel.route.rules.disable_cache') }}
+    <Switch v-model="model.disable_cache" />
+  </div>
+  <div class="form-item">
+    {{ $t('kernel.route.rules.fields.disable_optimistic_cache') }}
+    <Switch v-model="model.disable_optimistic_cache" />
   </div>
   <div class="form-item action-field action-field-wide">
     {{ $t('kernel.route.rules.fields.rewrite_ttl') }}

@@ -14,6 +14,11 @@ const mocks = vi.hoisted(() => ({
   core: vi.fn(),
   sleep: vi.fn(),
   reload: vi.fn(),
+  readBackground: vi.fn(),
+}))
+vi.mock('@/utils/backgroundImage', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/utils/backgroundImage')>()),
+  readBackgroundImage: mocks.readBackground,
 }))
 vi.mock('@/stores', async () => ({
   useAppSettingsStore: (await import('@/stores/appSettings')).useAppSettingsStore,
@@ -56,6 +61,7 @@ vi.mock('@/components/_common/FullScreenLoading.vue', () => ({ default: { render
 vi.mock('@/components/_common/ModalPanel.vue', () => ({ default: { render: () => null } }))
 import RootApp from '@/App.vue'
 import { useAppSettingsStore } from '@/stores/appSettings'
+import { Theme } from '@/enums/app'
 
 describe('App and LoginView with real authentication bridge and Pinia session', () => {
   let app: App | undefined
@@ -197,6 +203,40 @@ describe('App and LoginView with real authentication bridge and Pinia session', 
     expect(host.querySelector('[data-testid=navigation]')).not.toBeNull()
     expect(mocks.core).toHaveBeenCalledTimes(1)
     expect(mocks.reload).not.toHaveBeenCalled()
+  })
+
+  it('keeps the local background under login and the authenticated app with the current theme', async () => {
+    const createURL = vi.fn().mockReturnValue('blob:login-background')
+    const revokeURL = vi.fn()
+    vi.stubGlobal(
+      'URL',
+      class extends URL {
+        static createObjectURL = createURL
+        static revokeObjectURL = revokeURL
+      },
+    )
+    const image = new Blob(['saved pixels'], { type: 'image/webp' })
+    mocks.readBackground.mockResolvedValueOnce(image)
+    await mount()
+    expect(host.querySelector('#login-password')).not.toBeNull()
+    expect(document.body.hasAttribute('data-custom-background')).toBe(true)
+    expect(
+      host.querySelector<HTMLElement>('.app-background-image')!.style.backgroundImage,
+    ).toContain('blob:login-background')
+    const settings = useAppSettingsStore()
+    settings.app.theme = Theme.Dark
+    await nextTick()
+    expect(document.body.getAttribute('theme-mode')).toBe('dark')
+    await login()
+    expect(host.querySelector('[data-testid=navigation]')).not.toBeNull()
+    expect(host.querySelector('.app-background-image')).not.toBeNull()
+    settings.app.theme = Theme.Light
+    await nextTick()
+    expect(document.body.getAttribute('theme-mode')).toBe('light')
+    expect(createURL).toHaveBeenCalledExactlyOnceWith(image)
+    unmount()
+    expect(revokeURL).toHaveBeenCalledExactlyOnceWith('blob:login-background')
+    expect(document.body.hasAttribute('data-custom-background')).toBe(false)
   })
 
   it('logs out through the real TitleBar and successfully initializes again after reload and login', async () => {
