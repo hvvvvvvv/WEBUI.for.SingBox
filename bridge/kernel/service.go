@@ -241,7 +241,11 @@ func (s *Service) beginStopping() (int, error) {
 		s.mu.Unlock()
 		return 0, nil
 	}
-	if s.status != kernelv1.CoreStatus_CORE_STATUS_RUNNING {
+	// Failed startup/termination keeps the registered PID until exit is
+	// confirmed. StopCore serializes retries with starts and other stops, so
+	// these states may safely retry the same runner's process cleanup.
+	retryCleanup := s.status == kernelv1.CoreStatus_CORE_STATUS_CRASHED || s.status == kernelv1.CoreStatus_CORE_STATUS_STOPPING
+	if s.corePID <= 0 || (s.status != kernelv1.CoreStatus_CORE_STATUS_RUNNING && !retryCleanup) {
 		s.mu.Unlock()
 		return -1, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("core is not running"))
 	}

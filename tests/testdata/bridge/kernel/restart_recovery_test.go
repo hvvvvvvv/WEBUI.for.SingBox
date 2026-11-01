@@ -210,7 +210,9 @@ func TestRestartFailureRestoresExactRunningSnapshot(t *testing.T) {
 			if restoredSecret != oldSecret || !service.restartRequired || service.corePID != 103 {
 				t.Fatal("restored instance lost its secret, PID, or pending restart state")
 			}
-			if oldNativeCtx.Err() == nil {
+			select {
+			case <-oldNativeCtx.Done():
+			case <-time.After(time.Second):
 				t.Fatal("old native requests remained valid across restored instances")
 			}
 			if restoredProxy, err := service.CoreRequestProxy(); err != nil || restoredProxy != oldProxy {
@@ -331,7 +333,47 @@ func TestRestartRecoveryFailureAndUnconfirmedExit(t *testing.T) {
 			} else if processes.launchCount() != 2 || service.corePID != 102 || !strings.Contains(err.Error(), "exit was not confirmed") {
 				t.Fatalf("replacement started before failed process exit was confirmed: %v", err)
 			}
+			if failure != "restore-launch" {
+				// Cleanup can fail transiently. Once the runner can confirm exit,
+				// an explicit stop must reclaim the retained PID without another
+				// launch, even though its status is STOPPING or CRASHED.
+				previousKills := len(processes.kills)
+				processes.onKill = nil
+				if _, err := service.StopCore(context.Background(), connect.NewRequest(&kernelv1.StopCoreRequest{})); err != nil {
+					t.Fatalf("cannot retry cleanup of retained PID: %v", err)
+				}
+				if len(processes.kills) != previousKills+1 || processes.kills[previousKills] != 102 {
+					t.Fatalf("retry did not clean up exactly the retained PID: %v", processes.kills)
+				}
+				if service.corePID > 0 || service.status != kernelv1.CoreStatus_CORE_STATUS_STOPPED || processes.launchCount() != 2 {
+					t.Fatalf("retry left a process or launched a replacement: status=%v pid=%d launches=%d", service.status, service.corePID, processes.launchCount())
+				}
+				if _, err := service.StopCore(context.Background(), connect.NewRequest(&kernelv1.StopCoreRequest{})); err != nil || len(processes.kills) != previousKills+1 {
+					t.Fatalf("repeated stop retried an already cleared PID: %v kills=%v", err, processes.kills)
+				}
+			}
 		})
+	}
+}
+
+func TestStopRejectsMissingPIDAfterFailedCleanup(t *testing.T) {
+	for _, status := range []kernelv1.CoreStatus{
+		kernelv1.CoreStatus_CORE_STATUS_CRASHED,
+		kernelv1.CoreStatus_CORE_STATUS_STOPPING,
+		kernelv1.CoreStatus_CORE_STATUS_RUNNING,
+	} {
+		for _, pid := range []int{-1, 0} {
+			t.Run(status.String()+"/"+strconv.Itoa(pid), func(t *testing.T) {
+				processes := &recoveryProcesses{}
+				service := NewService(processes, &fakeGenerator{}, fakeConfig{}, &fakeProfiles{}, fakeEvents{})
+				t.Cleanup(service.lifecycleCancel)
+				service.status, service.corePID = status, pid
+				_, err := service.StopCore(context.Background(), connect.NewRequest(&kernelv1.StopCoreRequest{}))
+				if connect.CodeOf(err) != connect.CodeFailedPrecondition || len(processes.kills) != 0 {
+					t.Fatalf("stop attempted cleanup without a registered PID: err=%v kills=%v", err, processes.kills)
+				}
+			})
+		}
 	}
 }
 
