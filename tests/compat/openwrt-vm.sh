@@ -9,7 +9,7 @@ qemu_pid=''
 cleanup() {
   local exit_status=$?
   if (( exit_status != 0 )); then
-    for log in environment.log auth.log router-rules.log plugins.log http-auth.log restart.log serial.log image-prepare.log; do
+    for log in environment.log auth.log router-rules.log general-settings.log remote-updates.log plugins.log http-auth.log restart.log serial.log image-prepare.log; do
       if [[ -f "$build/$log" ]]; then
         printf '\n::group::OpenWrt failure diagnostics: %s\n' "$log"
         tail -n 100 "$build/$log" || true
@@ -97,6 +97,7 @@ write $build/auth.test /opt/auth.test
 set_inode_field /opt/auth.test mode 0100755
 write $build/config.test /opt/config.test
 set_inode_field /opt/config.test mode 0100755
+write $PWD/tests/fixtures/router-default-profile.json /opt/router-default-profile.json
 write $build/plugin-goja /opt/plugin-goja
 set_inode_field /opt/plugin-goja mode 0100755
 write $scratch/sing-box /opt/sing-box
@@ -131,9 +132,16 @@ ssh "${ssh_opts[@]}" root@127.0.0.1 '/opt/auth.test -test.timeout=8m -test.v' > 
 # loopback listeners. The test checks domain sniffing and an offline cache
 # restart without TUN permissions or host routing changes. Bound the guest test
 # and its SSH transport separately; single-thread execution limits TCG noise.
-timeout 240s ssh "${ssh_opts[@]}" root@127.0.0.1 'GOMAXPROCS=1 SING_BOX_TEST_BINARY=/opt/sing-box /opt/config.test -test.run "^TestRouterRemoteRulesCacheAndSniffWithCore$" -test.timeout=3m -test.v' > "$build/router-rules.log" 2>&1
+timeout 240s ssh "${ssh_opts[@]}" root@127.0.0.1 'GOMAXPROCS=1 WEBUI_DEFAULT_PROFILE_FIXTURE=/opt/router-default-profile.json SING_BOX_TEST_BINARY=/opt/sing-box /opt/config.test -test.run "^(TestRouterRemoteRulesCacheAndSniffWithCore|TestQuickStartDefaultProfileRuleGlobalAndCacheWithCore)$" -test.timeout=3m -test.v' > "$build/router-rules.log" 2>&1
 # A skipped or accidentally renamed test is not compatibility evidence.
 grep -F -- '--- PASS: TestRouterRemoteRulesCacheAndSniffWithCore ' "$build/router-rules.log"
+grep -F -- '--- PASS: TestQuickStartDefaultProfileRuleGlobalAndCacheWithCore ' "$build/router-rules.log"
+timeout 240s ssh "${ssh_opts[@]}" root@127.0.0.1 'GOMAXPROCS=1 SING_BOX_TEST_BINARY=/opt/sing-box /opt/config.test -test.run "^TestGeneralNativeDefaultModesAndLoggingWithCore$" -test.timeout=3m -test.v' > "$build/general-settings.log" 2>&1
+grep -F -- '--- PASS: TestGeneralNativeDefaultModesAndLoggingWithCore ' "$build/general-settings.log"
+timeout 540s ssh "${ssh_opts[@]}" root@127.0.0.1 'GOMAXPROCS=1 SING_BOX_TEST_BINARY=/opt/sing-box /opt/config.test -test.run "^TestRemoteRuleSet(UpdateFailuresRetainCache|FirstDownloadFailureDoesNotStart|StalledUpdateKeepsCachedRoutes|StalledFirstDownloadDoesNotStart)WithCore$" -test.timeout=8m -test.v' > "$build/remote-updates.log" 2>&1
+for test_name in TestRemoteRuleSetUpdateFailuresRetainCacheWithCore TestRemoteRuleSetFirstDownloadFailureDoesNotStartWithCore TestRemoteRuleSetStalledUpdateKeepsCachedRoutesWithCore TestRemoteRuleSetStalledFirstDownloadDoesNotStartWithCore; do
+  grep -F -- "--- PASS: $test_name " "$build/remote-updates.log"
+done
 # TCG emulates the entire CPU: allow the test harness time for all fixture
 # compilation and file I/O. Production per-hook/pipeline limits stay unchanged.
 # Limit only this test process to one Go execution thread to reduce TCG's
@@ -192,5 +200,5 @@ done
 [[ "$restarted" == true ]] || { echo 'Service did not restart with a new process start time' >&2; exit 1; }
 printf 'started_after=%s\n' "$started_after" >> "$build/restart.log"
 node tests/compat/auth-smoke.mjs http://127.0.0.1:49090 verify-persisted >> "$build/restart.log"
-cat "$build/environment.log" "$build/router-rules.log" "$build/plugins.log" "$build/http-auth.log" "$build/restart.log"
+cat "$build/environment.log" "$build/router-rules.log" "$build/general-settings.log" "$build/remote-updates.log" "$build/plugins.log" "$build/http-auth.log" "$build/restart.log"
 echo 'OpenWrt ARM64 VM checks passed; this is not a GL.iNet hardware test.'

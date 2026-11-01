@@ -2,7 +2,7 @@ name: Test and cross-compile
 
 on:
   push:
-    branches: [main, 'codex/**']
+    branches: [main, 'codex/**', review/gui-parity]
   pull_request:
   workflow_dispatch:
 
@@ -67,7 +67,7 @@ jobs:
 
   router-vm:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
