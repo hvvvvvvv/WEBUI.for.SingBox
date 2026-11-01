@@ -167,7 +167,7 @@ defineExpose({
       v-if="editable && !showEdit"
       role="button"
       :tabindex="disabled ? -1 : 0"
-      :aria-label="$attrs['aria-label'] as string | undefined"
+      :aria-label="typeof $attrs['aria-label'] === 'string' ? $attrs['aria-label'] : undefined"
       :aria-disabled="disabled || undefined"
       class="w-full overflow-hidden whitespace-nowrap text-ellipsis"
       :class="{ 'italic pr-4': !modelValue }"

@@ -59,6 +59,7 @@ const handleKeydown = (event: KeyboardEvent, index: number) => {
     <button
       v-for="(o, index) in options"
       :key="o.value.toString()"
+      v-tips.slow="o.label"
       type="button"
       role="radio"
       :aria-checked="o.value === model"
@@ -68,7 +69,6 @@ const handleKeydown = (event: KeyboardEvent, index: number) => {
           ? 0
           : -1
       "
-      v-tips.slow="o.label"
       :class="{ active: o.value === model }"
       class="gui-radio-button cursor-pointer px-12 py-6 duration-200 line-clamp-1 break-all"
       @click="handleSelect(o.value)"

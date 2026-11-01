@@ -28,9 +28,9 @@ frontend/node_modules/.bin/oxfmt tests/frontend tests/vitest.config.mts
 真实 sing-box 测试使用下列环境变量，路径应为绝对路径；未设置时明确跳过：
 
 - `SING_BOX_114_PATH`：1.14.0 历史兼容向量（配置生成、订阅解析）。
-- `SING_BOX_TEST_BINARY`：默认配置、六个规则集的本地下载/缓存、规则/全局路径及通用设置。
+- `SING_BOX_TEST_BINARY`：默认配置、六个规则集的本地下载/缓存、内置初始规则在下载失败/代理挂起时的启动、规则/全局路径及通用设置。
 - `SINGBOX_NATIVE_TEST_BINARY`：原生 API、实际启动/停止生命周期及 DNS 乐观缓存；校验实际版本，不硬编码旧版本。
-- `SING_BOX_COMPAT_BINARY`：按已安装版本适配 TUN 字段，以 `check` 验证三个 DNS 模式，不启动 TUN。
+- `SING_BOX_COMPAT_BINARY`：1.14.2 或更新核心，按已安装版本适配 TUN 字段，以 `check` 验证三个 DNS 模式，不启动 TUN。
 
 CI 的 `core-compatibility` 分别下载并校验 1.14.4 与 1.15.0-alpha.13，将后三个变量指向对应核心，执行配置、核心及 HTTP 包的完整测试。监听、代理、DNS 和规则集服务均使用临时目录/本地测试端点；真实 TUN 测试另在独立网络命名空间中执行。不要将测试指向生产数据目录。HTTP 长流测试需要约 61 秒，`-short` 会跳过。
 
