@@ -16,6 +16,7 @@ import socket
 import socketserver
 import struct
 import threading
+import time
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location("transparent_fixture", ROOT / "compat/router-transparent.py")
@@ -50,17 +51,19 @@ def question(packet):
     return ".".join(labels).lower(), kind, family, offset + 4
 
 
-def query(name):
+def query(name, kind=1):
     encoded = b"".join(bytes([len(label)]) + label.encode("ascii") for label in name.split(".")) + b"\0"
-    return secrets.token_bytes(2) + struct.pack("!HHHHH", 0x0100, 1, 0, 0, 0) + encoded + struct.pack("!HH", 1, 1)
+    return secrets.token_bytes(2) + struct.pack("!HHHHH", 0x0100, 1, 0, 0, 0) + encoded + struct.pack("!HH", kind, 1)
 
 
 def answer(packet, address):
     name, kind, family, end = question(packet)
-    if not name.endswith(".fixture.test") or kind != 1 or family != 1:
-        raise ValueError("only controlled fixture A queries are allowed")
-    return (packet[:2] + struct.pack("!HHHHH", 0x8180, 1, 1, 0, 0) + packet[12:end]
-            + b"\xc0\x0c" + struct.pack("!HHIH", 1, 1, 0, 4) + socket.inet_aton(address))
+    if not name.endswith(".fixture.test") or kind not in (1, 28) or family != 1:
+        raise ValueError("only controlled fixture IN A/AAAA queries are allowed")
+    # The topology has only IPv4 addresses. AAAA is valid DNS with NOERROR and
+    # no answers, including the core TCP connection-reuse capability probe.
+    payload = b"\xc0\x0c" + struct.pack("!HHIH", 1, 1, 0, 4) + socket.inet_aton(address) if kind == 1 else b""
+    return packet[:2] + struct.pack("!HHHHH", 0x8180, 1, int(kind == 1), 0, 0) + packet[12:end] + payload
 
 
 def address_from_response(packet, response):
@@ -106,12 +109,14 @@ def record(root, role, value):
         stream.write(json.dumps(value) + "\n")
 
 
-def handle(server, packet, peer, transport):
-    domain, _kind, _family, _end = question(packet)
+def handle(server, packet, peer, transport, connection_id=None):
+    domain, kind, family, _end = question(packet)
     if not domain.endswith(".fixture.test"):
         raise ValueError("refusing query outside fixture.test")
-    record(server.root, server.role, {"domain": domain, "transport": transport, "peer": peer,
-                                     "listener": list(server.server_address)})
+    record(server.root, server.role, {"domain": domain, "transport": transport, "peer": peer[0],
+                                     "peer_port": peer[1], "listener": list(server.server_address),
+                                     "qtype": kind, "qclass": family, "id": int.from_bytes(packet[:2], "big"),
+                                     "connection_id": connection_id, "received_ns": time.monotonic_ns()})
     if server.upstream:
         return exchange(packet, server.upstream, transport)
     return answer(packet, server.answer)
@@ -120,18 +125,19 @@ def handle(server, packet, peer, transport):
 class UDP(socketserver.BaseRequestHandler):
     def handle(self):
         packet, connection = self.request
-        connection.sendto(handle(self.server, packet, self.client_address[0], "udp"), self.client_address)
+        connection.sendto(handle(self.server, packet, self.client_address, "udp"), self.client_address)
 
 
 class TCP(socketserver.BaseRequestHandler):
     def handle(self):
         self.request.settimeout(3)
+        connection_id = secrets.token_hex(16)
         while True:
             try:
                 size = struct.unpack("!H", FIXTURE.read_exact(self.request, 2))[0]
                 if size > 4096:
                     raise ValueError("oversized DNS TCP query")
-                response = handle(self.server, FIXTURE.read_exact(self.request, size), self.client_address[0], "tcp")
+                response = handle(self.server, FIXTURE.read_exact(self.request, size), self.client_address, "tcp", connection_id)
                 self.request.sendall(struct.pack("!H", len(response)) + response)
             except (EOFError, TimeoutError, ConnectionError):
                 return
@@ -192,7 +198,8 @@ def probe(root, mode, redirect, path, transport):
     finally:
         connection.close()
     sample = {"domain": domain, "mode": mode, "auto_redirect": redirect, "path": path,
-              "transport": transport, "answer": address, "expected_hops": hops, "http": body}
+              "transport": transport, "answer": address, "expected_hops": hops, "http": body,
+              "request_id": int.from_bytes(packet[:2], "big")}
     record(root, "assertions", sample)
     print(json.dumps(sample), flush=True)
 
@@ -215,30 +222,94 @@ def prepare(source, root, mode, redirect):
     (root / "config.redacted.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
 
 
-def verify(root):
-    samples = [json.loads(line) for line in (root / "assertions.jsonl").read_text().splitlines()]
+class PendingReuseProbe(AssertionError):
+    """Only the asynchronous, bounded core capability probe is incomplete."""
+
+
+def core_queries(entries):
+    # sing-box v1.14.4 dns/transport/multiplexer.go:241-280 sends a dedicated
+    # TCP reuse probe: A/id=1 and AAAA/id=2 on ONE connection. The actual A
+    # exchange uses ANOTHER connection. Actual multiplexed IDs may also be 1/2,
+    # so neither low IDs nor duplicate names alone identify a probe.
+    connections = {}
+    for entry in entries:
+        assert entry["qclass"] == 1 and entry["qtype"] in (1, 28), entries
+        assert isinstance(entry["id"], int) and 0 <= entry["id"] <= 65535, entries
+        assert entry.get("connection_id"), "Missing TCP connection identity"
+        connections.setdefault(entry["connection_id"], []).append(entry)
+    probe_connections = [key for key, group in connections.items() if any(e["qtype"] == 28 for e in group)]
+    assert len(probe_connections) <= 1, "Repeated TCP reuse probes or DNS loop"
+    if probe_connections:
+        key = probe_connections[0]
+        group = connections[key]
+        assert [(e["qtype"], e["id"]) for e in group] == [(1, 1), (28, 2)], entries
+        actual = [e for e in entries if e["connection_id"] != key]
+        assert len(actual) == 1 and actual[0]["qtype"] == 1, "Duplicate/missing actual DNS query"
+        return 1
+    if len(entries) == 2 and len(connections) == 2 and any(e["id"] == 1 for e in entries):
+        raise PendingReuseProbe("Waiting for AAAA on the independent core reuse-probe connection")
+    assert len(entries) == 1 and entries[0]["qtype"] == 1, "Duplicate/missing actual DNS query"
+    return 0
+
+
+def verify_events(samples, events):
     assert len(samples) == 6 and len({(s["path"], s["transport"]) for s in samples}) == 6
-    events = {}
-    for role in ("dnsmasq", "adguard", "upstream53", "core1053"):
-        file = root / (role + ".jsonl")
-        events[role] = [json.loads(line) for line in file.read_text().splitlines()] if file.exists() else []
+    names = {s["domain"] for s in samples}
+    assert len(names) == len(samples)
+    assert all(e["domain"] in names for entries in events.values() for e in entries), "Unexpected DNS query"
+    core_events = events.get("core1053", [])
+    for connection in {e["connection_id"] for e in core_events if e["qtype"] == 28}:
+        group = [e for e in core_events if e["connection_id"] == connection]
+        assert len({e["domain"] for e in group}) == 1, "Probe connection also carried another domain"
+        assert [(e["qtype"], e["id"]) for e in group] == [(1, 1), (28, 2)], "Probe connection is not dedicated"
+    reuse_probes, core_expected = 0, False
     for sample in samples:
+        wanted, hops = expected(sample["mode"], sample["auto_redirect"], sample["path"])
+        assert sample["answer"] == wanted and sample["expected_hops"] == hops
         seen = {role: [e for e in entries if e["domain"] == sample["domain"]] for role, entries in events.items()}
-        assert set(role for role, entries in seen.items() if entries) == set(sample["expected_hops"]), seen
-        for role in sample["expected_hops"]:
-            assert len(seen[role]) == 1, seen
-            if role != "core1053":  # core's configured remote DNS is always TCP
-                assert seen[role][0]["transport"] == sample["transport"], seen
+        assert set(role for role, entries in seen.items() if entries) == set(hops), seen
+        for role in hops:
+            if role != "core1053":
+                assert len(seen[role]) == 1, "Duplicate query in plain forwarding chain"
+                entry = seen[role][0]
+                assert (entry["qtype"], entry["qclass"], entry["id"]) == (1, 1, sample["request_id"]), seen
+                assert entry["transport"] == sample["transport"], seen
             else:
-                assert seen[role][0]["transport"] == "tcp", seen
-                assert seen[role][0]["peer"] == UPSTREAM, "Core DNS bypassed its HTTP proxy detour"
-        if "adguard" in sample["expected_hops"]:
+                core_expected = True
+                for entry in seen[role]:
+                    assert entry["transport"] == "tcp", seen
+                    assert entry["peer"] == UPSTREAM, "Core DNS bypassed its HTTP proxy detour"
+                reuse_probes += core_queries(seen[role])
+        if "adguard" in hops:
             assert seen["adguard"][0]["peer"] == "127.0.0.1", seen
-        if "dnsmasq" in sample["expected_hops"]:
+        if "dnsmasq" in hops:
             assert seen["dnsmasq"][0]["peer"] == "10.203.0.2", seen
-        if "upstream53" in sample["expected_hops"]:
+        if "upstream53" in hops:
             peer = "10.203.0.2" if sample["path"] == "attached" else "10.204.0.1"
             assert seen["upstream53"][0]["peer"] == peer, seen
+    assert reuse_probes <= 1, "Multiple reuse probes in a fresh core with one remote DNS transport"
+    if core_expected and reuse_probes == 0:
+        raise PendingReuseProbe("Core's first TCP DNS reuse probe has not completed")
+    return reuse_probes
+
+
+def verify(root):
+    samples = [json.loads(line) for line in (root / "assertions.jsonl").read_text().splitlines()]
+    # The reuse probe runs asynchronously, with a 5-second core timeout. Only
+    # an incomplete valid probe may wait; malformed/duplicate requests fail now.
+    deadline = time.monotonic() + 6
+    while True:
+        events = {}
+        for role in ("dnsmasq", "adguard", "upstream53", "core1053"):
+            file = root / (role + ".jsonl")
+            events[role] = [json.loads(line) for line in file.read_text().splitlines()] if file.exists() else []
+        try:
+            reuse_probes = verify_events(samples, events)
+            break
+        except PendingReuseProbe:
+            if time.monotonic() >= deadline:
+                raise
+            time.sleep(0.05)
     before = json.loads((root / "tun.before.json").read_text())[0]
     after = json.loads((root / "tun.after.json").read_text())[0]
     assert after["linkinfo"]["info_kind"] == "tun"
@@ -246,6 +317,7 @@ def verify(root):
     assert rx(after) > rx(before), "No packets crossed the real TUN"
     summary = {"mode": samples[0]["mode"], "auto_redirect": samples[0]["auto_redirect"],
                "assertions": len(samples), "tun_rx_before": rx(before), "tun_rx_after": rx(after),
+               "tcp_dns_reuse_probes": reuse_probes,
                "scope": "IPv4 UDP/TCP; synthetic DNS forwarders, not real AdGuard Home filters"}
     (root / "evidence.log").write_text(json.dumps(summary) + "\n" + json.dumps(samples, indent=2) + "\n")
     print(json.dumps(summary))

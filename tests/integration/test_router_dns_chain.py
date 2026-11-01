@@ -2,6 +2,7 @@
 import importlib.util
 import json
 import pathlib
+import struct
 import tempfile
 import unittest
 
@@ -26,6 +27,33 @@ class DNSChainTests(unittest.TestCase):
                 CHAIN.question(packet)
         with self.assertRaises(ValueError):
             CHAIN.answer(CHAIN.query("outside.example.com"), CHAIN.FORWARDED)
+
+    def test_aaaa_is_empty_noerror_with_original_question_and_id(self):
+        request = CHAIN.query("probe.fixture.test", 28)
+        response = CHAIN.answer(request, CHAIN.FORWARDED)
+        self.assertEqual(response[:2], request[:2])
+        self.assertEqual(struct.unpack_from("!HHHHH", response, 2), (0x8180, 1, 0, 0, 0))
+        self.assertEqual(response[12:], request[12:])
+        with self.assertRaises(ValueError):
+            CHAIN.answer(CHAIN.query("probe.fixture.test", 16), CHAIN.FORWARDED)
+
+    def test_only_complete_independent_tcp_probe_is_accepted(self):
+        def event(kind, query_id, connection):
+            return {"qtype": kind, "qclass": 1, "id": query_id, "connection_id": connection}
+        actual = event(1, 1, "actual")  # low multiplexed IDs are not probe IDs by themselves
+        probe_a, probe_aaaa = event(1, 1, "probe"), event(28, 2, "probe")
+        self.assertEqual(CHAIN.core_queries([actual]), 0)
+        self.assertEqual(CHAIN.core_queries([probe_a, actual, probe_aaaa]), 1)
+        with self.assertRaises(CHAIN.PendingReuseProbe):
+            CHAIN.core_queries([probe_a, actual])
+        for entries in ([actual, actual], [actual, probe_aaaa], [probe_a, probe_aaaa],
+                        [actual, probe_a, probe_aaaa, dict(actual, connection_id="retry")],
+                        [actual, probe_a, dict(probe_aaaa, connection_id="wrong-connection")],
+                        [actual, probe_a, dict(probe_aaaa, id=3)],
+                        [actual, probe_aaaa, probe_a],
+                        [probe_a, probe_aaaa, dict(actual, connection_id="probe")]):
+            with self.subTest(entries=entries), self.assertRaises(AssertionError):
+                CHAIN.core_queries(entries)
 
     def test_mode_matrix_covers_distinct_linux_paths(self):
         for mode in ("native", "hijack"):
@@ -65,11 +93,18 @@ class DNSChainTests(unittest.TestCase):
                 for transport in ("udp", "tcp"):
                     address, hops = CHAIN.expected("hijack", True, path)
                     domain = f"{path}-{transport}.fixture.test"
+                    request_id = 100 + len(samples)
                     samples.append({"domain": domain, "path": path, "transport": transport,
-                                    "mode": "hijack", "auto_redirect": True, "answer": address, "expected_hops": hops})
+                                    "mode": "hijack", "auto_redirect": True, "answer": address,
+                                    "expected_hops": hops, "request_id": request_id})
                     for role in hops:
                         peer = {"adguard": "127.0.0.1", "upstream53": "10.204.0.1", "core1053": CHAIN.UPSTREAM}[role]
-                        events[role].append({"domain": domain, "transport": "tcp" if role == "core1053" else transport, "peer": peer})
+                        events[role].append({"domain": domain, "transport": "tcp" if role == "core1053" else transport,
+                                             "peer": peer, "qtype": 1, "qclass": 1, "id": request_id,
+                                             "connection_id": "actual-" + domain})
+            first = events["core1053"][0]
+            events["core1053"] += [dict(first, qtype=kind, id=query_id, connection_id="reuse-probe")
+                                   for kind, query_id in ((1, 1), (28, 2))]
             (root / "assertions.jsonl").write_text("\n".join(json.dumps(sample) for sample in samples))
             for suffix, packets in (("before", 1), ("after", 5)):
                 (root / f"tun.{suffix}.json").write_text(json.dumps([{"linkinfo": {"info_kind": "tun"}, "stats64": {"rx": {"packets": packets}}}]))
@@ -87,6 +122,19 @@ class DNSChainTests(unittest.TestCase):
             write_events()
             with self.assertRaises(AssertionError):
                 CHAIN.verify(root)
+            events["core1053"][0]["peer"] = CHAIN.UPSTREAM
+            events["adguard"][0]["id"] += 1
+            with self.assertRaises(AssertionError):
+                CHAIN.verify_events(samples, events)
+            events["adguard"][0]["id"] -= 1
+            old_connection = events["core1053"][1]["connection_id"]
+            events["core1053"][1]["connection_id"] = "reuse-probe"
+            with self.assertRaises(AssertionError):
+                CHAIN.verify_events(samples, events)
+            events["core1053"][1]["connection_id"] = old_connection
+            events["upstream53"].append(dict(events["upstream53"][0]))
+            with self.assertRaises(AssertionError):
+                CHAIN.verify_events(samples, events)
 
 
 if __name__ == "__main__":
