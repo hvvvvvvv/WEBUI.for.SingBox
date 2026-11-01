@@ -56,14 +56,14 @@ Web 服务已有的 sing-box 1.14 配置迁移、DNS 响应规则、HTTP 客户�
 
 ## 验证记录
 
-本轮功能修复基线为 `64c8274bd613e0c1c64041424bc9486a7f4ed884`，后续另有模板类型标注及文档整理。以下链接对应本轮功能提交，后续提交应检查对应的 Actions，不能将历史通过视为永久保证。
+本轮生产代码验证基线为 `e75e1819d5b6550fe43cfd3eea0a98bfa38577e7`，发布整理仅同步发行说明和验证记录。以下链接对应该提交，后续提交应检查对应的 Actions，不能将历史通过视为永久保证。
 
 | 验证 | 结果与范围 |
 | --- | --- |
 | 前端及静态检查 | 59 个文件 / 321 项测试，类型检查、生产构建、ESLint、Oxlint 通过；完整 Go overlay 测试通过 |
-| [跨平台与 OpenWrt](https://github.com/Ghostdehole/WEBUI.for.SingBox/actions/runs/41331765840) | Linux x64/ARM64、Windows、macOS 原生测试，Linux race、静态交叉构建、容器、两套真实核心及 OpenWrt 21.02.7/24.10.4 ARM64 QEMU 通过；新增内置规则在下载失败、损坏响应及挂起代理下的启动检查 |
-| [官方 GUI 对照](https://github.com/Ghostdehole/WEBUI.for.SingBox/actions/runs/41331765469) | 隔离运行官方 v1.28.1 与 WebUI，核对深浅色、390/320 像素布局、空插件反复切换和下拉定位；WebUI 无未捕获异常。参考 GUI 的开发浏览器桥接记录了一条 IPC 启动异常 |
-| [隔离 DNS/TUN](https://github.com/Ghostdehole/WEBUI.for.SingBox/actions/runs/41331765560) | 私有网络命名空间中验证原生/劫持 DNS、auto_redirect 开/关、规则/全局模式及六规则集；模拟 dnsmasq/AdGuard 风格链路，不运行真实 AdGuard Home |
+| [跨平台与 OpenWrt](https://github.com/Ghostdehole/WEBUI.for.SingBox/actions/runs/41332531930) | Linux x64/ARM64、Windows、macOS 原生测试，Linux race、静态交叉构建、容器、两套真实核心及 OpenWrt 21.02.7/24.10.4 ARM64 QEMU 通过；新增内置规则在下载失败、损坏响应及挂起代理下的启动检查 |
+| [官方 GUI 对照](https://github.com/Ghostdehole/WEBUI.for.SingBox/actions/runs/41332532013) | 隔离运行官方 v1.28.1 与 WebUI，核对深浅色、390/320 像素布局、空插件反复切换和下拉定位；WebUI 无未捕获异常。参考 GUI 的开发浏览器桥接记录了一条 IPC 启动异常 |
+| [隔离 DNS/TUN](https://github.com/Ghostdehole/WEBUI.for.SingBox/actions/runs/41332531886) | 私有网络命名空间中验证原生/劫持 DNS、auto_redirect 开/关、规则/全局模式及六规则集；模拟 dnsmasq/AdGuard 风格链路，不运行真实 AdGuard Home |
 | 依赖审计 | 截至 2026-11-01，pnpm audit（含开发依赖）与 govulncheck 未报告剩余已知漏洞；不代表未知或未来漏洞不存在 |
 
 OpenWrt 虚拟机采用四个模拟 CPU、512 MiB RAM 和独立 NAT，验证 procd、认证、TOTP、防重放、恢复码、会话轮换及重启后凭据状态；插件覆盖 14 项目录、29 组 Goja 向量和 10 项真实核心配置检查。插件测试进程使用 `GOMAXPROCS=1`，生产执行限额不变，QEMU 耗时不是实机性能基准。
