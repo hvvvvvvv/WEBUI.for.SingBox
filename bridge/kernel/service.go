@@ -79,6 +79,7 @@ type Service struct {
 
 	stateEventMu       sync.Mutex
 	restartOperationMu sync.Mutex
+	coreTransitionMu   sync.Mutex
 	restartQueueMu     sync.Mutex
 	mu                 sync.Mutex
 	status             kernelv1.CoreStatus
@@ -96,6 +97,10 @@ type Service struct {
 	downloads          map[string]context.CancelFunc
 	nativeAPI          *nativeAPIInstance
 	requestProxyURL    string
+	currentStart       *coreStartSnapshot
+	stopGeneration     uint64
+	stopRequested      bool
+	transitionCancel   context.CancelFunc
 }
 
 var waitKernelAPIReadyFunc = waitKernelAPIReady
@@ -158,11 +163,15 @@ func (s *Service) updateCoreState(update func()) {
 	}
 }
 
-func (s *Service) setStarting(profileID string) error {
+func (s *Service) setStarting(profileID string, generation ...uint64) error {
 	s.stateEventMu.Lock()
 	defer s.stateEventMu.Unlock()
 
 	s.mu.Lock()
+	if len(generation) > 0 && s.stopGeneration != generation[0] {
+		s.mu.Unlock()
+		return connect.NewError(connect.CodeCanceled, fmt.Errorf("core start superseded by stop"))
+	}
 	if s.closing || s.corePID > 0 || s.status == kernelv1.CoreStatus_CORE_STATUS_STARTING || s.status == kernelv1.CoreStatus_CORE_STATUS_RUNNING || s.status == kernelv1.CoreStatus_CORE_STATUS_STOPPING {
 		s.mu.Unlock()
 		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("core is already starting or running"))
@@ -171,6 +180,7 @@ func (s *Service) setStarting(profileID string) error {
 	s.activeProfileID = profileID
 	s.corePID = -1
 	s.currentProfile = nil
+	s.currentStart = nil
 	restartRequired := s.restartRequired
 	restarting := s.restarting
 	s.mu.Unlock()
@@ -180,6 +190,10 @@ func (s *Service) setStarting(profileID string) error {
 }
 
 func (s *Service) completeStart(pid int, profileID string, profile *profilev1.Profile, secret string, proxyConfig ...map[string]any) bool {
+	return s.completeStartWithSnapshot(pid, profileID, profile, secret, nil, proxyConfig...)
+}
+
+func (s *Service) completeStartWithSnapshot(pid int, profileID string, profile *profilev1.Profile, secret string, snapshot *coreStartSnapshot, proxyConfig ...map[string]any) bool {
 	s.stateEventMu.Lock()
 	defer s.stateEventMu.Unlock()
 
@@ -195,6 +209,7 @@ func (s *Service) completeStart(pid int, profileID string, profile *profilev1.Pr
 	s.status = kernelv1.CoreStatus_CORE_STATUS_RUNNING
 	s.activeProfileID = profileID
 	s.currentProfile = cloneProfile(profile)
+	s.currentStart = snapshot
 	s.restartRequired = false
 	restartRequired := s.restartRequired
 	restarting := s.restarting
@@ -210,6 +225,7 @@ func (s *Service) setStopped() {
 		s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPED
 		s.corePID = -1
 		s.currentProfile = nil
+		s.currentStart = nil
 		if !s.restarting {
 			s.restartRequired = false
 		}
@@ -277,6 +293,7 @@ func (s *Service) handleCoreProcessExit(pid int, waitErr error) {
 		s.corePID = -1
 	}
 	s.currentProfile = nil
+	s.currentStart = nil
 	status = s.status
 	restartRequired := s.restartRequired
 	restarting := s.restarting
@@ -356,13 +373,17 @@ func (s *Service) StartCore(
 	if profileID == "" {
 		return nil, rpcutil.AsConnectError(rpcutil.InvalidArgumentError{Message: "profile_id is required"})
 	}
+	generation, err := s.beginExplicitCoreOperation()
+	if err != nil {
+		return nil, err
+	}
 
 	profile, err := s.loadProfileByID(profileID)
 	if err != nil {
 		return nil, rpcutil.AsConnectError(err)
 	}
 
-	pid, err := s.startCoreWithProfile(ctx, profile)
+	pid, err := s.startCoreWithProfile(ctx, profile, generation)
 	if err != nil {
 		return nil, err
 	}
@@ -386,15 +407,19 @@ func (s *Service) StartCoreWithProfile(
 	if profile == nil || profile.GetId() == "" {
 		return nil, rpcutil.AsConnectError(rpcutil.InvalidArgumentError{Message: "profile is required"})
 	}
+	generation, err := s.beginExplicitCoreOperation()
+	if err != nil {
+		return nil, err
+	}
 
-	pid, err := s.startCoreWithProfile(ctx, profile)
+	pid, err := s.startCoreWithProfile(ctx, profile, generation)
 	if err != nil {
 		return nil, err
 	}
 	return connect.NewResponse(&kernelv1.StartCoreWithProfileResponse{Pid: int32(pid)}), nil
 }
 
-func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.Profile) (int, error) {
+func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.Profile, generation uint64) (int, error) {
 	s.mu.Lock()
 	if s.closing {
 		s.mu.Unlock()
@@ -403,12 +428,14 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 	s.operations.Add(1)
 	s.mu.Unlock()
 	defer s.operations.Done()
-	ctx, cancel := context.WithCancel(ctx)
-	stopCancellation := context.AfterFunc(s.lifecycleCtx, cancel)
-	defer func() { stopCancellation(); cancel() }()
+	ctx, _, finish, err := s.beginCoreTransition(ctx, generation)
+	if err != nil {
+		return -1, err
+	}
+	defer finish()
 	profileID := profile.GetId()
 
-	if err := s.setStarting(profileID); err != nil {
+	if err := s.setStarting(profileID, generation); err != nil {
 		return -1, err
 	}
 	runtimeCfg, err := s.loadRuntimeConfig()
@@ -427,6 +454,15 @@ func (s *Service) startCoreWithProfile(ctx context.Context, profile *profilev1.P
 func (s *Service) launchPreparedCore(ctx context.Context, profile *profilev1.Profile, prepared *preparedCoreStart) (int, error) {
 	profileID := profile.GetId()
 	runtimeCfg, generatedConfig := prepared.runtime, prepared.config
+	if err := ctx.Err(); err != nil {
+		s.setStopped()
+		return -1, rpcutil.AsConnectError(err)
+	}
+	snapshot, err := newCoreStartSnapshot(profile, prepared)
+	if err != nil {
+		s.setStopped()
+		return -1, rpcutil.AsConnectError(err)
+	}
 	if err := s.config.WriteGeneratedConfig(generatedConfig); err != nil {
 		s.setStopped()
 		return -1, rpcutil.AsConnectError(err)
@@ -454,7 +490,13 @@ func (s *Service) launchPreparedCore(ctx context.Context, profile *profilev1.Pro
 		},
 	)
 	if !execResult.Flag {
-		s.setStopped()
+		if strings.Contains(execResult.Data, platform.ErrCoreExitUnconfirmed.Error()) {
+			s.updateCoreState(func() { s.status = kernelv1.CoreStatus_CORE_STATUS_CRASHED })
+			return -1, connect.NewError(connect.CodeInternal, fmt.Errorf("start core failed: %w: %s", platform.ErrCoreExitUnconfirmed, execResult.Data))
+		}
+		if err := s.cleanFailedCoreStart(); err != nil {
+			return -1, connect.NewError(connect.CodeInternal, err)
+		}
 		if ctx.Err() != nil {
 			return -1, rpcutil.AsConnectError(ctx.Err())
 		}
@@ -466,7 +508,9 @@ func (s *Service) launchPreparedCore(ctx context.Context, profile *profilev1.Pro
 
 	pid, convErr := parsePID(execResult.Data)
 	if convErr != nil {
-		s.setStopped()
+		if err := s.cleanFailedCoreStart(); err != nil {
+			return -1, connect.NewError(connect.CodeInternal, errors.Join(convErr, err))
+		}
 		return -1, connect.NewError(connect.CodeInternal, convErr)
 	}
 
@@ -476,7 +520,11 @@ func (s *Service) launchPreparedCore(ctx context.Context, profile *profilev1.Pro
 		}
 	})
 
-	if err := waitKernelAPIReadyFunc(ctx, config.CoreAPIController, config.NativeAPISecret(generatedConfig), pid, 15*time.Second); err != nil {
+	readyErr := waitKernelAPIReadyFunc(ctx, config.CoreAPIController, config.NativeAPISecret(generatedConfig), pid, 15*time.Second)
+	if readyErr == nil {
+		readyErr = ctx.Err()
+	}
+	if err := readyErr; err != nil {
 		s.updateCoreState(func() { s.status = kernelv1.CoreStatus_CORE_STATUS_STOPPING })
 		if ctx.Err() == nil {
 			s.publishCoreCrash(pid, err.Error(), "startup")
@@ -495,7 +543,7 @@ func (s *Service) launchPreparedCore(ctx context.Context, profile *profilev1.Pro
 	if usesManagedProxyConfig(runtimeCfg.Args, s.processes.ResolvePath(coreConfigRelativePath)) {
 		proxyConfig = generatedConfig
 	}
-	if !s.completeStart(pid, profileID, profile, config.NativeAPISecret(generatedConfig), proxyConfig) {
+	if !s.completeStartWithSnapshot(pid, profileID, profile, config.NativeAPISecret(generatedConfig), snapshot, proxyConfig) {
 		return -1, connect.NewError(connect.CodeUnavailable, fmt.Errorf("core process exited during startup"))
 	}
 
@@ -506,6 +554,31 @@ func (s *Service) StopCore(
 	ctx context.Context,
 	_ *connect.Request[kernelv1.StopCoreRequest],
 ) (response *connect.Response[kernelv1.StopCoreResponse], responseErr error) {
+	// Declare stop before waiting for an in-flight start/restart. Its rollback
+	// must never resurrect a core after an explicit stop request.
+	s.mu.Lock()
+	s.stopGeneration++
+	s.stopRequested = true
+	cancel := s.transitionCancel
+	s.mu.Unlock()
+	if cancel != nil {
+		cancel()
+	}
+	s.restartQueueMu.Lock()
+	s.restartPending = false
+	s.restartQueueMu.Unlock()
+	s.coreTransitionMu.Lock()
+	defer s.coreTransitionMu.Unlock()
+	response, responseErr = s.stopCore(ctx)
+	if responseErr == nil {
+		s.updateCoreState(func() { s.restartRequired, s.restarting = false, false })
+	}
+	return response, responseErr
+}
+
+// Internal stop does not invalidate the transaction that deliberately replaces
+// the current process. Public StopCore additionally cancels that transaction.
+func (s *Service) stopCore(ctx context.Context) (response *connect.Response[kernelv1.StopCoreResponse], responseErr error) {
 	started := time.Now()
 	pid := -1
 	defer func() {
@@ -559,6 +632,10 @@ func (s *Service) RestartCore(
 	if profileID == "" {
 		return nil, rpcutil.AsConnectError(rpcutil.InvalidArgumentError{Message: "profile_id is required for restart when no active profile exists"})
 	}
+	generation, err := s.beginExplicitCoreOperation()
+	if err != nil {
+		return nil, err
+	}
 
 	s.updateCoreState(func() {
 		s.restarting = true
@@ -567,14 +644,13 @@ func (s *Service) RestartCore(
 
 	s.restartOperationMu.Lock()
 	defer s.restartOperationMu.Unlock()
-	var err error
 	if profile := req.Msg.GetProfile(); profile != nil {
 		if profile.GetId() == "" || (req.Msg.GetProfileId() != "" && profile.GetId() != req.Msg.GetProfileId()) {
 			return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("profile.id is required and must match profile_id when both are supplied"))
 		}
-		response, err = s.restartCoreWithProfileOnce(ctx, cloneProfile(profile))
+		response, err = s.restartCoreWithProfileOnce(ctx, cloneProfile(profile), generation)
 	} else {
-		response, err = s.restartCoreOnce(ctx, profileID)
+		response, err = s.restartCoreAtGeneration(ctx, profileID, generation)
 	}
 	if err != nil {
 		return nil, err
@@ -586,15 +662,25 @@ func (s *Service) restartCoreOnce(
 	ctx context.Context,
 	profileID string,
 ) (*connect.Response[kernelv1.RestartCoreResponse], error) {
+	s.mu.Lock()
+	generation, stopped := s.stopGeneration, s.stopRequested
+	s.mu.Unlock()
+	if stopped {
+		return nil, connect.NewError(connect.CodeCanceled, fmt.Errorf("automatic restart superseded by stop"))
+	}
+	return s.restartCoreAtGeneration(ctx, profileID, generation)
+}
+
+func (s *Service) restartCoreAtGeneration(ctx context.Context, profileID string, generation uint64) (*connect.Response[kernelv1.RestartCoreResponse], error) {
 	profile, err := s.loadProfileByID(profileID)
 	if err != nil {
 		return nil, rpcutil.AsConnectError(err)
 	}
 
-	return s.restartCoreWithProfileOnce(ctx, profile)
+	return s.restartCoreWithProfileOnce(ctx, profile, generation)
 }
 
-func (s *Service) restartCoreWithProfileOnce(ctx context.Context, profile *profilev1.Profile) (*connect.Response[kernelv1.RestartCoreResponse], error) {
+func (s *Service) restartCoreWithProfileOnce(ctx context.Context, profile *profilev1.Profile, generation uint64) (*connect.Response[kernelv1.RestartCoreResponse], error) {
 	s.mu.Lock()
 	if s.closing {
 		s.mu.Unlock()
@@ -614,19 +700,30 @@ func (s *Service) restartCoreWithProfileOnce(ctx context.Context, profile *profi
 	if err != nil {
 		return nil, err
 	}
-	return s.restartPreparedCore(ctx, profile, prepared)
+	return s.restartPreparedCore(ctx, profile, prepared, generation)
 }
 
-func (s *Service) restartPreparedCore(ctx context.Context, profile *profilev1.Profile, prepared *preparedCoreStart) (*connect.Response[kernelv1.RestartCoreResponse], error) {
-	if _, err := s.StopCore(ctx, connect.NewRequest(&kernelv1.StopCoreRequest{})); err != nil {
+func (s *Service) restartPreparedCore(ctx context.Context, profile *profilev1.Profile, prepared *preparedCoreStart, generation uint64) (*connect.Response[kernelv1.RestartCoreResponse], error) {
+	ctx, recoveryCtx, finish, err := s.beginCoreTransition(ctx, generation)
+	if err != nil {
 		return nil, err
 	}
-	if err := s.setStarting(profile.GetId()); err != nil {
+	defer finish()
+	s.mu.Lock()
+	previous := s.currentStart
+	if s.status != kernelv1.CoreStatus_CORE_STATUS_RUNNING {
+		previous = nil
+	}
+	s.mu.Unlock()
+	if _, err := s.stopCore(ctx); err != nil {
+		return nil, err
+	}
+	if err := s.setStarting(profile.GetId(), generation); err != nil {
 		return nil, err
 	}
 	pid, err := s.launchPreparedCore(ctx, profile, prepared)
 	if err != nil {
-		return nil, err
+		return nil, s.restorePreviousCore(recoveryCtx, generation, previous, err)
 	}
 	return connect.NewResponse(&kernelv1.RestartCoreResponse{Pid: int32(pid)}), nil
 }

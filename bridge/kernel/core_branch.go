@@ -389,6 +389,7 @@ func (s *Service) runWithCoreRestartIfCurrent(ctx context.Context, branch appv1.
 	}
 	s.operations.Add(1)
 	status := s.status
+	generation := s.stopGeneration
 	activeProfileID := s.activeProfileID
 	isCurrentBranch := s.appConfig.Current().Branch == branchConfigValue(branch)
 	s.mu.Unlock()
@@ -418,14 +419,22 @@ func (s *Service) runWithCoreRestartIfCurrent(ctx context.Context, branch appv1.
 	if err != nil {
 		return err
 	}
-	if _, err := s.StopCore(ctx, connect.NewRequest(&kernelv1.StopCoreRequest{})); err != nil {
+	ctx, _, finish, err := s.beginCoreTransition(ctx, generation)
+	if err != nil {
+		return err
+	}
+	defer finish()
+	if _, err := s.stopCore(ctx); err != nil {
+		return err
+	}
+	if err := ctx.Err(); err != nil {
 		return err
 	}
 	if err := action(); err != nil {
 		return err
 	}
 	prepared.path = coreFilePathForBranch(branch)
-	if err := s.setStarting(activeProfileID); err != nil {
+	if err := s.setStarting(activeProfileID, generation); err != nil {
 		return err
 	}
 	_, err = s.launchPreparedCore(ctx, profile, prepared)
