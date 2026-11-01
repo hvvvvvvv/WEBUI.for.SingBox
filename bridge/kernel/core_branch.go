@@ -100,25 +100,47 @@ func (s *Service) DownloadCore(
 	if progressEvent == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("progress_event is required"))
 	}
-
-	_, asset, assetName, err := s.fetchCoreReleaseAsset(ctx, branch)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-	if asset.Uploader.Type != "Bot" && !req.Msg.GetAllowUntrustedAsset() {
-		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("asset %s was not uploaded by Bot", assetName))
-	}
-
 	downloadCtx, cancel := context.WithCancel(ctx)
+	stopCancellation := context.AfterFunc(s.lifecycleCtx, cancel)
 	s.mu.Lock()
+	if s.closing || len(s.downloads) != 0 {
+		closing := s.closing
+		s.mu.Unlock()
+		stopCancellation()
+		cancel()
+		if closing {
+			return nil, connect.NewError(connect.CodeUnavailable, fmt.Errorf("application is shutting down"))
+		}
+		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("a core download is already in progress"))
+	}
+	if s.coreBranchInUseLocked(branch) {
+		s.mu.Unlock()
+		stopCancellation()
+		cancel()
+		return nil, coreUpdateRequiresStopError()
+	}
 	s.downloads[progressEvent] = cancel
+	s.operations.Add(1)
 	s.mu.Unlock()
 	defer func() {
 		s.mu.Lock()
 		delete(s.downloads, progressEvent)
 		s.mu.Unlock()
+		stopCancellation()
 		cancel()
+		s.operations.Done()
 	}()
+
+	_, asset, assetName, err := s.fetchCoreReleaseAsset(downloadCtx, branch)
+	if err != nil {
+		if downloadCtx.Err() != nil {
+			return nil, rpcutil.AsConnectError(downloadCtx.Err())
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+	if asset.Uploader.Type != "Bot" && !req.Msg.GetAllowUntrustedAsset() {
+		return nil, connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("asset %s was not uploaded by Bot", assetName))
+	}
 
 	coreDir := s.processes.ResolvePath(coreWorkingDirectory)
 	cacheDir := s.processes.ResolvePath(coreDownloadCacheFolder)
@@ -161,7 +183,6 @@ func (s *Service) CancelCoreDownload(
 
 	s.mu.Lock()
 	cancel := s.downloads[progressEvent]
-	delete(s.downloads, progressEvent)
 	s.mu.Unlock()
 	if cancel != nil {
 		cancel()
@@ -185,14 +206,12 @@ func (s *Service) RollbackCore(
 	}
 	action := func() error {
 		corePath := s.processes.ResolvePath(coreFilePathForBranch(branch))
-		bakPath := corePath + ".bak"
-		if _, err := os.Stat(bakPath); err != nil {
-			return err
+		if _, err := os.Stat(corePath); errors.Is(err, os.ErrNotExist) {
+			return os.Rename(corePath+".bak", corePath)
 		}
-		_ = os.Remove(corePath)
-		return os.Rename(bakPath, corePath)
+		return swapCoreFiles(corePath, corePath+".bak")
 	}
-	if err := s.runWithCoreRestartIfCurrent(ctx, branch, candidatePath, action); err != nil {
+	if err := s.runWithCoreRestartIfCurrent(ctx, branch, candidatePath, action, action); err != nil {
 		return nil, rpcutil.AsConnectError(err)
 	}
 
@@ -220,8 +239,8 @@ func (s *Service) ClearCoreCache(
 		}
 		return nil
 	}
-	if err := s.runWithCoreRestartIfCurrent(ctx, branch, coreFilePathForBranch(branch), action); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+	if err := s.clearSharedCoreCache(ctx, action); err != nil {
+		return nil, rpcutil.AsConnectError(err)
 	}
 	return connect.NewResponse(&kernelv1.ClearCoreCacheResponse{}), nil
 }
@@ -359,6 +378,23 @@ func (s *Service) installCoreArchive(ctx context.Context, archivePath string, ca
 	if err := s.checkCoreVersion(ctx, sourcePath, nil); err != nil {
 		return err
 	}
+	// Starting/stopping the core and replacing its executable must not overlap.
+	// Renaming a live Linux binary changes /proc/PID/exe, invalidating the guard's
+	// recorded identity. Installation never restarts a user's network implicitly.
+	s.coreTransitionMu.Lock()
+	defer s.coreTransitionMu.Unlock()
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	closing, inUse := s.closing, s.coreBranchInUseLocked(branch)
+	s.mu.Unlock()
+	if closing {
+		return connect.NewError(connect.CodeUnavailable, fmt.Errorf("application is shutting down"))
+	}
+	if inUse {
+		return coreUpdateRequiresStopError()
+	}
 	targetPath := s.processes.ResolvePath(coreFilePathForBranch(branch))
 	backupPath := targetPath + ".bak"
 	if err := os.Remove(backupPath); err != nil && !errors.Is(err, os.ErrNotExist) {
@@ -381,64 +417,99 @@ func (s *Service) installCoreArchive(ctx context.Context, archivePath string, ca
 	return nil
 }
 
-func (s *Service) runWithCoreRestartIfCurrent(ctx context.Context, branch appv1.KernelBranch, candidatePath string, action func() error) error {
+func coreUpdateRequiresStopError() error {
+	return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("stop the running core before updating this branch"))
+}
+
+// Must be called with s.mu held. Prefer the actual started instance over the
+// currently selected app settings, which can change before an automatic restart.
+func (s *Service) coreBranchInUseLocked(branch appv1.KernelBranch) bool {
+	if s.corePID <= 0 && s.status != kernelv1.CoreStatus_CORE_STATUS_STARTING && s.status != kernelv1.CoreStatus_CORE_STATUS_STOPPING {
+		return false
+	}
+	if s.currentStart != nil {
+		return (s.currentStart.runtime.Branch == "alpha") == branchIsAlpha(branch)
+	}
+	// A failed start can retain a live PID while its successful-start snapshot
+	// is absent. Mutable app settings cannot establish which executable it owns.
+	// Block both branches until that process has been confirmed stopped.
+	return true
+}
+
+func (s *Service) runWithCoreRestartIfCurrent(ctx context.Context, branch appv1.KernelBranch, candidatePath string, action func() error, undo ...func() error) error {
 	s.mu.Lock()
 	if s.closing {
 		s.mu.Unlock()
 		return connect.NewError(connect.CodeUnavailable, fmt.Errorf("application is shutting down"))
 	}
 	s.operations.Add(1)
-	status := s.status
 	generation := s.stopGeneration
-	activeProfileID := s.activeProfileID
-	isCurrentBranch := s.appConfig.Current().Branch == branchConfigValue(branch)
 	s.mu.Unlock()
 	defer s.operations.Done()
 	ctx, cancel := context.WithCancel(ctx)
 	stopCancellation := context.AfterFunc(s.lifecycleCtx, cancel)
 	defer func() { stopCancellation(); cancel() }()
 
-	if status != kernelv1.CoreStatus_CORE_STATUS_RUNNING || !isCurrentBranch {
-		return action()
-	}
-
 	s.restartOperationMu.Lock()
 	defer s.restartOperationMu.Unlock()
-	if activeProfileID == "" {
-		return fmt.Errorf("profile_id is required for restart when no active profile exists")
-	}
-	profile, err := s.loadProfileByID(activeProfileID)
-	if err != nil {
-		return err
-	}
-	runtimeCfg, err := s.loadRuntimeConfig()
-	if err != nil {
-		return err
-	}
-	prepared, err := s.prepareCoreStart(ctx, profile, runtimeCfg, candidatePath)
-	if err != nil {
-		return err
-	}
-	ctx, _, finish, err := s.beginCoreTransition(ctx, generation)
+	ctx, recoveryCtx, finish, err := s.beginCoreTransition(ctx, generation)
 	if err != nil {
 		return err
 	}
 	defer finish()
+	s.mu.Lock()
+	inUse, status, previous := s.coreBranchInUseLocked(branch), s.status, s.currentStart
+	pending := s.restartRequired
+	s.mu.Unlock()
+	if !inUse {
+		return action()
+	}
+	if status != kernelv1.CoreStatus_CORE_STATUS_RUNNING || previous == nil {
+		return connect.NewError(connect.CodeFailedPrecondition, fmt.Errorf("stop the core before changing its executable"))
+	}
+	prepared, err := previous.prepared()
+	if err != nil {
+		return err
+	}
+	version, err := s.readCompatibleCoreVersion(ctx, candidatePath, prepared.runtime.Env)
+	if err != nil {
+		return err
+	}
+	adaptConfigToCoreVersion(prepared.config, version)
+	if err := s.checkPreparedConfig(ctx, candidatePath, prepared.runtime.Env, prepared.config); err != nil {
+		return err
+	}
 	if _, err := s.stopCore(ctx); err != nil {
 		return err
 	}
 	if err := ctx.Err(); err != nil {
-		return err
+		return s.restorePreviousCore(recoveryCtx, generation, previous, rpcutil.AsConnectError(err))
 	}
 	if err := action(); err != nil {
-		return err
+		if errors.Is(err, errCoreFileRestoreUnconfirmed) {
+			return err
+		}
+		return s.restorePreviousCore(recoveryCtx, generation, previous, err)
 	}
 	prepared.path = coreFilePathForBranch(branch)
-	if err := s.setStarting(activeProfileID, generation); err != nil {
-		return err
+	if err = s.setStarting(previous.profile.GetId(), generation); err == nil {
+		_, err = s.launchPreparedCore(ctx, previous.profile, prepared)
 	}
-	_, err = s.launchPreparedCore(ctx, profile, prepared)
-	return err
+	if err == nil {
+		if pending {
+			s.updateCoreState(func() { s.restartRequired = true })
+		}
+		return nil
+	}
+	s.mu.Lock()
+	unsafe := s.corePID > 0
+	s.mu.Unlock()
+	if !unsafe && !errors.Is(err, platform.ErrCoreExitUnconfirmed) && len(undo) > 0 {
+		if undoErr := undo[0](); undoErr != nil {
+			return restartRecoveryError(err, "previous executable restore failed; core was not restored", undoErr)
+		}
+	}
+	return s.restorePreviousCore(recoveryCtx, generation, previous, err)
 }
 
 func extractZip(archivePath string, targetDir string) error {

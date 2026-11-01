@@ -10,7 +10,8 @@ const connectionListeners = new Set<ConnectionCallback>()
 let ws: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let bearerToken: string | null = null
-let isCheckingAuth = false
+let connectionVersion = 0
+let checkingAuthVersion: number | undefined
 
 const getWsUrl = () => {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -26,13 +27,19 @@ const connect = () => {
     return
   }
 
-  ws = new WebSocket(getWsUrl())
+  if (reconnectTimer) clearTimeout(reconnectTimer)
+  reconnectTimer = null
+  const socket = new WebSocket(getWsUrl())
+  const version = ++connectionVersion
+  ws = socket
 
-  ws.onopen = () => {
+  socket.onopen = () => {
+    if (ws !== socket) return
     connectionListeners.forEach((callback) => callback())
   }
 
-  ws.onmessage = (event) => {
+  socket.onmessage = (event) => {
+    if (ws !== socket) return
     try {
       const msg = JSON.parse(event.data)
       const callbacks = listeners.get(msg.event)
@@ -44,40 +51,43 @@ const connect = () => {
     }
   }
 
-  ws.onclose = () => {
+  socket.onclose = () => {
+    if (ws !== socket) return
     ws = null
-    handleClose()
+    void handleClose(version)
   }
 
-  ws.onerror = () => {
-    ws?.close()
+  socket.onerror = () => {
+    if (ws === socket) socket.close()
   }
 }
 
-const scheduleReconnect = () => {
+const scheduleReconnect = (version: number) => {
   if (reconnectTimer) clearTimeout(reconnectTimer)
   reconnectTimer = setTimeout(() => {
     reconnectTimer = null
-    connect()
+    if (version === connectionVersion) connect()
   }, 2000)
 }
 
-const handleClose = async () => {
-  if (isCheckingAuth) return
-
-  isCheckingAuth = true
-  const isTokenValid = await checkAuthToken().catch(() => true)
-  if (isTokenValid) {
-    isCheckingAuth = false
-    scheduleReconnect()
-    return
-  }
-
-  const recovered = await recoverAuthToken()
-  isCheckingAuth = false
-  if (recovered) {
-    bearerToken = useAppSettingsStore().sessionInfo.cacheToken
-    connect()
+const handleClose = async (version: number) => {
+  if (checkingAuthVersion === version) return
+  checkingAuthVersion = version
+  try {
+    const isTokenValid = await checkAuthToken().catch(() => true)
+    if (version !== connectionVersion) return
+    if (isTokenValid) {
+      scheduleReconnect(version)
+      return
+    }
+    const recovered = await recoverAuthToken()
+    if (version !== connectionVersion) return
+    if (recovered) {
+      bearerToken = useAppSettingsStore().sessionInfo.cacheToken
+      connect()
+    }
+  } finally {
+    if (checkingAuthVersion === version) checkingAuthVersion = undefined
   }
 }
 

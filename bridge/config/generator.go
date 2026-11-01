@@ -15,8 +15,6 @@ import (
 	"guiforcores/bridge/storage"
 	configv1 "guiforcores/gen/profile/v1"
 
-	"github.com/dop251/goja"
-
 	"gopkg.in/yaml.v3"
 )
 
@@ -1409,68 +1407,6 @@ func applyMixin(config map[string]any, mixin *configv1.Mixin) (map[string]any, e
 
 	deepAssign(config, parsed)
 	return config, nil
-}
-
-func applyScript(config map[string]any, script *configv1.Script) (map[string]any, error) {
-	if script == nil || strings.TrimSpace(script.GetCode()) == "" {
-		return config, nil
-	}
-
-	configJSON, err := json.Marshal(config)
-	if err != nil {
-		return nil, fmt.Errorf("marshal config for script runtime: %w", err)
-	}
-
-	runtime := goja.New()
-	if err := runtime.Set("__CONFIG_JSON__", string(configJSON)); err != nil {
-		return nil, fmt.Errorf("set runtime bootstrap config: %w", err)
-	}
-
-	if _, err := runtime.RunString("var config = JSON.parse(__CONFIG_JSON__);"); err != nil {
-		return nil, invalidArgumentError{message: fmt.Sprintf("bootstrap script runtime failed: %v", err)}
-	}
-
-	if _, err := runtime.RunString(script.GetCode()); err != nil {
-		return nil, invalidArgumentError{message: fmt.Sprintf("execute script failed: %v", err)}
-	}
-
-	onGenerate := runtime.Get("onGenerate")
-	fn, ok := goja.AssertFunction(onGenerate)
-	if !ok {
-		return nil, invalidArgumentError{message: "script must define function onGenerate(config)"}
-	}
-
-	currentConfig := runtime.Get("config")
-	resultValue, err := fn(goja.Undefined(), currentConfig)
-	if err != nil {
-		return nil, invalidArgumentError{message: fmt.Sprintf("onGenerate execution failed: %v", err)}
-	}
-
-	// Accept two styles:
-	// 1) return a config object from onGenerate(config)
-	// 2) mutate config in-place without returning an object
-	toObject := func(v goja.Value) (map[string]any, bool) {
-		if v == nil || goja.IsUndefined(v) || goja.IsNull(v) {
-			return nil, false
-		}
-		normalized := normalizeValue(v.Export())
-		obj, ok := normalized.(map[string]any)
-		return obj, ok
-	}
-
-	if resultMap, ok := toObject(resultValue); ok {
-		return resultMap, nil
-	}
-
-	if runtimeConfig, ok := toObject(runtime.Get("config")); ok {
-		return runtimeConfig, nil
-	}
-
-	if currentConfigMap, ok := toObject(currentConfig); ok {
-		return currentConfigMap, nil
-	}
-
-	return nil, invalidArgumentError{message: "onGenerate must return an object or mutate config object"}
 }
 
 func parseMixinDocument(content string) (map[string]any, error) {

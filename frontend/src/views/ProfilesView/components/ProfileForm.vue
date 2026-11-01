@@ -44,6 +44,7 @@ const inboundsRef = useTemplateRef('inboundsRef')
 const outboundsRef = useTemplateRef('outboundsRef')
 const routeRef = useTemplateRef('routeRef')
 const dnsRef = useTemplateRef('dnsRef')
+const mixinRef = useTemplateRef('mixinRef')
 const appStore = useAppStore()
 const profilesStore = useProfilesStore()
 const [PreviewModal, previewModalApi] = useModal({})
@@ -104,6 +105,7 @@ const handlePrevStep = () => currentStep.value--
 const handleNextStep = () => currentStep.value++
 
 const handleSave = async () => {
+  mixinRef.value?.flush()
   const validationError = validateTunInbounds(profile.value.inbounds, appStore.platformOS)
   if (validationError) {
     currentStep.value = Step.Inbounds
@@ -163,6 +165,7 @@ const handleAdd = () => {
 
 const handlePreview = async () => {
   try {
+    mixinRef.value?.flush()
     const config = await generateConfigViaRpcByProfile(profile.value)
     previewModalApi.setProps({
       title: profile.value.name,
@@ -333,7 +336,7 @@ defineExpose({ modalSlots })
       />
     </div>
     <div v-if="currentStep === Step.MixinScript">
-      <MixinAndScript v-model="mixinAndScriptConfig" />
+      <MixinAndScript ref="mixinRef" v-model="mixinAndScriptConfig" />
     </div>
     <PreviewModal />
   </div>

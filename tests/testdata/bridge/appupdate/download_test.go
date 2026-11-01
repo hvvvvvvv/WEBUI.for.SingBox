@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,6 +26,73 @@ type updateTransport func(*http.Request) (*http.Response, error)
 
 func (f updateTransport) RoundTrip(request *http.Request) (*http.Response, error) {
 	return f(request)
+}
+
+func TestDownloadReservesUpdateUntilCancellationFinishes(t *testing.T) {
+	previousClient := newRequestClient
+	t.Cleanup(func() { newRequestClient = previousClient })
+	paths := storage.NewPaths(t.TempDir())
+	service := NewService(platform.NewService(paths, nil, platform.Environment{}), nil, nil, "1", false, logging.LevelInfo, 0)
+	entered, canceled, release := make(chan struct{}), make(chan struct{}), make(chan struct{})
+	var releaseOnce sync.Once
+	defer releaseOnce.Do(func() { close(release) })
+	requests := 0
+	newRequestClient = func(_ network.Options, _ time.Duration, _ bool) (*http.Client, error) {
+		return &http.Client{Transport: updateTransport(func(request *http.Request) (*http.Response, error) {
+			requests++
+			if requests > 1 {
+				return nil, fmt.Errorf("concurrent update reached network")
+			}
+			close(entered)
+			<-request.Context().Done()
+			close(canceled)
+			<-release
+			return nil, request.Context().Err()
+		})}, nil
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() {
+		_, err := service.DownloadAppUpdate(ctx, connect.NewRequest(&appv1.DownloadAppUpdateRequest{ProgressEvent: "first"}))
+		done <- err
+	}()
+	<-entered
+	// The reservation must cover release lookup, not just the asset transfer.
+	for _, event := range []string{"first", "second"} {
+		_, err := service.DownloadAppUpdate(context.Background(), connect.NewRequest(&appv1.DownloadAppUpdateRequest{ProgressEvent: event}))
+		if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+			t.Errorf("parallel download %q was not rejected: %v", event, err)
+		}
+	}
+	_, err := service.CancelAppUpdate(context.Background(), connect.NewRequest(&appv1.CancelAppUpdateRequest{ProgressEvent: "first"}))
+	if err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case <-canceled:
+	case <-time.After(time.Second):
+		t.Error("release lookup did not receive cancellation")
+		cancel()
+		<-canceled
+	}
+	_, err = service.DownloadAppUpdate(context.Background(), connect.NewRequest(&appv1.DownloadAppUpdateRequest{ProgressEvent: "first"}))
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Errorf("canceled transfer released its reservation before returning: %v", err)
+	}
+	_, err = service.ApplyAppUpdate(context.Background(), connect.NewRequest(&appv1.ApplyAppUpdateRequest{}))
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition || !strings.Contains(err.Error(), "download") {
+		t.Errorf("apply did not reject active download: %v", err)
+	}
+	releaseOnce.Do(func() { close(release) })
+	if err = <-done; connect.CodeOf(err) != connect.CodeCanceled {
+		t.Errorf("download cancellation lost: %v", err)
+	}
+	// A completed cancellation releases the reservation for a new attempt.
+	_, err = service.DownloadAppUpdate(context.Background(), connect.NewRequest(&appv1.DownloadAppUpdateRequest{ProgressEvent: "first"}))
+	if connect.CodeOf(err) == connect.CodeFailedPrecondition {
+		t.Fatalf("download remained locked after cancellation: %v", err)
+	}
 }
 
 type updateEvents func(string, ...any)

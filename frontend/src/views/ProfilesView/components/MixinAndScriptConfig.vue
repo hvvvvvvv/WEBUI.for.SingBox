@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { parse, stringify } from 'yaml'
 
@@ -12,6 +12,15 @@ const model = defineModel<{ mixin: IProfile['mixin']; script: IProfile['script']
 const { t } = useI18n()
 
 const activeTab = ref('mixin')
+const mixinEditor = useTemplateRef<{ getContent(): string; flush(): void }>('mixinEditor')
+const scriptEditor = useTemplateRef<{ getContent(): string; flush(): void }>('scriptEditor')
+const flush = () => {
+  mixinEditor.value?.flush()
+  scriptEditor.value?.flush()
+  if (mixinEditor.value) model.value.mixin.config = mixinEditor.value.getContent()
+  if (scriptEditor.value) model.value.script.code = scriptEditor.value.getContent()
+}
+defineExpose({ flush })
 
 const tabItems = [
   { key: 'mixin', tab: 'profile.mixinSettings.name' },
@@ -30,6 +39,7 @@ const MixinFormatOptions = [
 
 const onFormatChange = (val: 'json' | 'yaml', old: 'json' | 'yaml') => {
   try {
+    flush()
     const config = parse(model.value.mixin.config)
     if (config) {
       if (val === 'json') {
@@ -60,10 +70,15 @@ const onFormatChange = (val: 'json' | 'yaml', old: 'json' | 'yaml') => {
           @change="onFormatChange"
         />
       </div>
-      <CodeViewer v-model="model.mixin.config" :lang="model.mixin.format" editable />
+      <CodeViewer
+        ref="mixinEditor"
+        v-model="model.mixin.config"
+        :lang="model.mixin.format"
+        editable
+      />
     </template>
     <template #script>
-      <CodeViewer v-model="model.script.code" lang="javascript" editable />
+      <CodeViewer ref="scriptEditor" v-model="model.script.code" lang="javascript" editable />
     </template>
   </Tabs>
 </template>

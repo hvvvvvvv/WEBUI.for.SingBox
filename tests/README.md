@@ -25,7 +25,14 @@ frontend/node_modules/.bin/oxlint tests/frontend tests/vitest.config.mts
 frontend/node_modules/.bin/oxfmt tests/frontend tests/vitest.config.mts
 ```
 
-真实 sing-box 测试通过 `SING_BOX_114_PATH`（1.14.0，配置生成、订阅解析）和 `SINGBOX_NATIVE_TEST_BINARY`（1.14.2，原生 API 与生命周期）指定核心可执行文件，未提供时会明确跳过。路径应为绝对路径。HTTP 长流测试需要约 61 秒，`-short` 会跳过。
+真实 sing-box 测试使用下列环境变量，路径应为绝对路径；未设置时明确跳过：
+
+- `SING_BOX_114_PATH`：1.14.0 历史兼容向量（配置生成、订阅解析）。
+- `SING_BOX_TEST_BINARY`：默认配置、六个规则集的本地下载/缓存、规则/全局路径及通用设置。
+- `SINGBOX_NATIVE_TEST_BINARY`：原生 API、实际启动/停止生命周期及 DNS 乐观缓存；校验实际版本，不硬编码旧版本。
+- `SING_BOX_COMPAT_BINARY`：按已安装版本适配 TUN 字段，以 `check` 验证三个 DNS 模式，不启动 TUN。
+
+CI 的 `core-compatibility` 分别下载并校验 1.14.4 与 1.15.0-alpha.13，将后三个变量指向对应核心，执行配置、核心及 HTTP 包的完整测试。监听、代理、DNS 和规则集服务均使用临时目录/本地测试端点；真实 TUN 测试另在独立网络命名空间中执行。不要将测试指向生产数据目录。HTTP 长流测试需要约 61 秒，`-short` 会跳过。
 
 实际插件源码只在独立的 `Ghostdehole/WEBUI.for.SingBox-Plugins` 仓库维护。设置 `WEBUI_PLUGIN_REPO` 为该仓库本地检出的绝对路径，可以运行 `TestExternal*` 的命名、去重和订阅节点 ID 集成测试；未设置时明确跳过，指定无效目录则失败。默认插件引擎测试使用最小合成脚本，目录下载测试使用本地 HTTP 服务，不访问公网。主程序 CI 将独立仓库检出到临时 `.plugin-tests/` 后设置此变量；该目录不提交、不嵌入程序，也不进入 Docker 构建上下文。
 

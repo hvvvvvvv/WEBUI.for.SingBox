@@ -81,10 +81,7 @@ func TestSameSubscriptionRepeatedTagsKeepDistinctNodesAndReferences(t *testing.T
 	}
 
 	t.Run("real core accepts all repeated names", func(t *testing.T) {
-		core := os.Getenv("SING_BOX_114_PATH")
-		if core == "" {
-			t.Skip("set SING_BOX_114_PATH for a real core check")
-		}
+		core, _ := selectedConfigTestCore(t)
 		payload, err := json.Marshal(map[string]any{"outbounds": items, "route": map[string]any{"final": "all"}})
 		if err != nil {
 			t.Fatal(err)

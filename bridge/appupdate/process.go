@@ -15,5 +15,11 @@ func runDirectUpdateProcess(helperPath string, args []string, workingDir string)
 	if workingDir != "" {
 		cmd.Dir = workingDir
 	}
-	return cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	// A failed helper can exit while the original application keeps running.
+	// Reap it without waiting here for the update to finish.
+	go func() { _ = cmd.Wait() }()
+	return nil
 }

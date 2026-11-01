@@ -27,6 +27,8 @@ export const useBackendEvents = () => {
   let scheduledTaskQueue = Promise.resolve()
   let configRefreshTimer: ReturnType<typeof setTimeout> | undefined
   let configSyncPromise: Promise<void> | undefined
+  let configRetryDelay = 500
+  let configRefreshErrorReported = false
   const pendingConfigDomains = new Set<ConfigDomain>()
   const pendingResourceEvents = new Map<ConfigDomain, ResourceChangedEvent>()
   const notifiedTaskRuns = new Map<string, number>()
@@ -88,13 +90,13 @@ export const useBackendEvents = () => {
     return scheduledTasksStore.resourceState
   }
 
-  const scheduleResourceRefresh = (event: ResourceChangedEvent) => {
+  const scheduleResourceRefresh = (event: ResourceChangedEvent, delay = 50, retry = false) => {
     if (eventRevisionApplied(resourceState(event.domain), event)) return
     const pending = pendingResourceEvents.get(event.domain)
     if (
       !pending ||
-      pending.instanceId !== event.instanceId ||
-      event.stateRevision > pending.stateRevision
+      (!retry && pending.instanceId !== event.instanceId) ||
+      (pending.instanceId === event.instanceId && event.stateRevision > pending.stateRevision)
     ) {
       pendingResourceEvents.set(event.domain, event)
     }
@@ -106,20 +108,48 @@ export const useBackendEvents = () => {
       const domains = events
         .filter((item) => !eventRevisionApplied(resourceState(item.domain), item))
         .map((item) => item.domain)
-      if (domains.length === 0) return
-      void syncConfigStores(domains)
-        .then(() => {
-          events.forEach((item) => {
-            if (!eventRevisionApplied(resourceState(item.domain), item)) {
-              scheduleResourceRefresh(item)
-            }
-          })
+      if (domains.length === 0) {
+        configRetryDelay = 500
+        configRefreshErrorReported = false
+        return
+      }
+      const retryUnapplied = (receivedSnapshot: boolean) => {
+        const remaining = events.filter((item) => {
+          const state = resourceState(item.domain)
+          // A successful read after a restart supersedes an event from the old process.
+          return (
+            !eventRevisionApplied(state, item) &&
+            !(receivedSnapshot && state.instanceId && state.instanceId !== item.instanceId)
+          )
         })
+        if (remaining.length === 0) {
+          configRetryDelay = 500
+          configRefreshErrorReported = false
+          return
+        }
+        remaining.forEach((item) => scheduleResourceRefresh(item, configRetryDelay, true))
+        configRetryDelay = Math.min(configRetryDelay * 2, 30_000)
+      }
+      void syncConfigStores(domains)
+        .then(() => retryUnapplied(true))
         .catch((error: any) => {
           console.error('refresh configuration after resourceChanged: ', error)
-          message.error(error.message || error)
+          if (!configRefreshErrorReported) message.error(error.message || error)
+          configRefreshErrorReported = true
+          if (
+            ![
+              Code.Unauthenticated,
+              Code.PermissionDenied,
+              Code.InvalidArgument,
+              Code.FailedPrecondition,
+              Code.NotFound,
+              Code.Canceled,
+            ].includes(ConnectError.from(error).code)
+          ) {
+            retryUnapplied(false)
+          }
         })
-    }, 50)
+    }, delay)
   }
 
   const refreshScheduledTask = async (taskID: string, notify: boolean) => {
@@ -162,6 +192,8 @@ export const useBackendEvents = () => {
       if (
         !value.instanceId ||
         typeof value.stateRevision !== 'number' ||
+        !Number.isInteger(value.stateRevision) ||
+        value.stateRevision < 0 ||
         !['upsert', 'delete', 'reorder', 'runtime'].includes(value.operation || '')
       ) {
         return
@@ -202,3 +234,4 @@ export const useBackendEvents = () => {
 
   return { setupBackendEvents, syncConfigStores }
 }
+import { Code, ConnectError } from '@connectrpc/connect'

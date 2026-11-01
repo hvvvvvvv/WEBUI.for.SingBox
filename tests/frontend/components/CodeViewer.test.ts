@@ -38,11 +38,20 @@ describe('CodeViewer asynchronous formatting', () => {
     vi.useRealTimers()
   })
 
-  const mountEditor = async (editable = true) => {
+  const mountEditor = async (editable = true, model = ref('let a=1'), changed = vi.fn()) => {
     const editor = ref()
     app = createApp({
       render: () =>
-        h(CodeViewer, { ref: editor, editable, lang: 'javascript', modelValue: 'let a=1' }),
+        h(CodeViewer, {
+          ref: editor,
+          editable,
+          lang: 'javascript',
+          modelValue: model.value,
+          'onUpdate:modelValue': (value: string) => {
+            model.value = value
+            changed(value)
+          },
+        }),
     })
     app.component(
       'Button',
@@ -105,5 +114,48 @@ describe('CodeViewer asynchronous formatting', () => {
     await component.format()
     expect(formatter).not.toHaveBeenCalled()
     expect(component.getContent()).toBe('let a=1')
+  })
+
+  it('publishes typing immediately after an external document replacement', async () => {
+    const model = ref('let a=1')
+    const changed = vi.fn()
+    await mountEditor(true, model, changed)
+    model.value = 'loaded'
+    await nextTick()
+    await Promise.resolve()
+    expect(component.getContent()).toBe('loaded')
+    view.dispatch({ changes: { from: 6, insert: '-edited' } })
+    await vi.advanceTimersByTimeAsync(300)
+    expect(model.value).toBe('loaded-edited')
+    expect(changed).toHaveBeenCalledExactlyOnceWith('loaded-edited')
+  })
+
+  it.each(['blur', 'unmount'])(
+    'commits pending edits on %s and leaves no delayed stale emit',
+    async (action) => {
+      const model = ref('let a=1')
+      const changed = vi.fn()
+      await mountEditor(true, model, changed)
+      view.dispatch({ changes: { from: 7, insert: '0' } })
+      expect(model.value).toBe('let a=1')
+      if (action === 'blur') view.contentDOM.dispatchEvent(new FocusEvent('blur'))
+      else app.unmount()
+      expect(model.value).toBe('let a=10')
+      expect(changed).toHaveBeenCalledExactlyOnceWith('let a=10')
+      await vi.advanceTimersByTimeAsync(300)
+      expect(changed).toHaveBeenCalledTimes(1)
+    },
+  )
+
+  it('cancels pending typing when a newer document replaces it', async () => {
+    const model = ref('let a=1')
+    const changed = vi.fn()
+    await mountEditor(true, model, changed)
+    view.dispatch({ changes: { from: 7, insert: '0' } })
+    model.value = 'loaded'
+    await nextTick()
+    await vi.advanceTimersByTimeAsync(300)
+    expect(component.getContent()).toBe('loaded')
+    expect(changed).not.toHaveBeenCalled()
   })
 })

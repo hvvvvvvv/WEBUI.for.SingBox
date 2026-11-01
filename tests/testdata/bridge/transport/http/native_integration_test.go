@@ -63,8 +63,18 @@ func nativeIsolateAPIEndpoint(t *testing.T) {
 func TestNativeAPIRealCore(t *testing.T) {
 	binary := os.Getenv("SINGBOX_NATIVE_TEST_BINARY")
 	if binary == "" {
-		t.Skip("set SINGBOX_NATIVE_TEST_BINARY to the official sing-box 1.14.2 executable")
+		t.Skip("set SINGBOX_NATIVE_TEST_BINARY to an official compatible sing-box executable")
 	}
+	versionCtx, versionCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	versionCommand := exec.CommandContext(versionCtx, binary, "version")
+	platform.SetCmdWindowHidden(versionCommand)
+	versionOutput, versionErr := versionCommand.CombinedOutput()
+	versionCancel()
+	versionFields := strings.Fields(strings.SplitN(string(versionOutput), "\n", 2)[0])
+	if versionErr != nil || len(versionFields) != 3 || versionFields[0] != "sing-box" || versionFields[1] != "version" {
+		t.Fatalf("read expected core version: %v\n%s", versionErr, versionOutput)
+	}
+	expectedVersion := versionFields[2]
 	nativeIsolateAPIEndpoint(t)
 	directory := t.TempDir()
 	var tests atomic.Int32
@@ -170,7 +180,7 @@ func TestNativeAPIRealCore(t *testing.T) {
 			req.Header().Set("Authorization", "Bearer "+core.secret)
 			version, err := direct.GetVersion(ctx, req)
 			cancel()
-			if err == nil && version.Msg.GetApiVersion() >= 4 && version.Msg.GetVersion() == "1.14.2" {
+			if err == nil && version.Msg.GetApiVersion() >= 4 && version.Msg.GetVersion() == expectedVersion {
 				return
 			}
 			time.Sleep(100 * time.Millisecond)

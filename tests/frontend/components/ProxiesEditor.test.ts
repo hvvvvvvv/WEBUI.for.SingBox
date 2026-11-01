@@ -50,7 +50,7 @@ describe('subscription source editor immediate save', () => {
     app = createApp({
       render: () =>
         h('div', [
-          h(ProxiesEditor, { ref: editor, sub }),
+          h(ProxiesEditor, { ref: editor, sub, revision }),
           h('footer', editor.value?.modalSlots.submit?.()),
         ]),
     })

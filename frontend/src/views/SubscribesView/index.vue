@@ -126,7 +126,12 @@ const handleEditProxies = (id: string, editor = false) => {
   const sub = subscribeStore.getSubscribeById(id)
   if (sub) {
     modalApi.setProps({ title: sub.name, height: '90', width: '90' })
-    modalApi.setContent(editor ? ProxiesEditor : ProxiesView, { sub }).open()
+    modalApi
+      .setContent(editor ? ProxiesEditor : ProxiesView, {
+        sub: deepClone(sub),
+        revision: subscribeStore.getSubscribeRevision(id),
+      })
+      .open()
   }
 }
 

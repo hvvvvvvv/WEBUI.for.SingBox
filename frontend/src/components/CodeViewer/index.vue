@@ -12,7 +12,7 @@ import {
   searchPanelOpen,
   setSearchQuery,
 } from '@codemirror/search'
-import { Compartment, EditorSelection, EditorState } from '@codemirror/state'
+import { Annotation, Compartment, EditorSelection, EditorState } from '@codemirror/state'
 import { oneDark } from '@codemirror/theme-one-dark'
 import { keymap, placeholder as Placeholder } from '@codemirror/view'
 import { EditorView, basicSetup } from 'codemirror'
@@ -20,7 +20,7 @@ import * as parserBabel from 'prettier/parser-babel'
 import * as parserYaml from 'prettier/parser-yaml'
 import estreePlugin from 'prettier/plugins/estree'
 import * as prettier from 'prettier/standalone'
-import { watch, onUnmounted, onMounted, useTemplateRef, inject } from 'vue'
+import { watch, onBeforeUnmount, onMounted, useTemplateRef, inject } from 'vue'
 
 import { Theme } from '@/enums/app'
 import i18n from '@/lang'
@@ -47,16 +47,17 @@ const props = withDefaults(defineProps<Props>(), {
 })
 
 const { promise: editorReady, resolve: markEditorReady } = Promise.withResolvers()
-let internalUpdate = true
+const externalUpdate = Annotation.define<boolean>()
 
 watch(
   () => props.modelValue,
   async (val) => {
     await editorReady
+    if (editorDestroyed || val !== props.modelValue) return
     const view = editorView || mergeView?.b
     if (view && val != view.state.doc.toString()) {
-      internalUpdate = false
       view.dispatch({
+        annotations: externalUpdate.of(true),
         changes: {
           from: 0,
           to: view.state.doc.length,
@@ -78,6 +79,7 @@ const getContent = () => (editorView || mergeView?.b)?.state.doc.toString() ?? p
 
 defineExpose({
   getContent,
+  flush: () => flushChange(),
   format: async () => {
     await editorReady
     const view = editorView || mergeView?.b
@@ -126,13 +128,17 @@ const getSearchPhrases = (): Record<string, string> => {
   }
 }
 
-const onChange = debounce((content: string) => {
-  if (internalUpdate) {
+let pendingContent: string | undefined
+const flushChange = () => {
+  onChange.cancel()
+  if (pendingContent !== undefined) {
+    const content = pendingContent
+    pendingContent = undefined
     emit('update:modelValue', content)
     emit('change', content)
   }
-  internalUpdate = true
-}, 300)
+}
+const onChange = debounce(flushChange, 300)
 
 const formatDoc = async (view: EditorView) => {
   if (view.state.readOnly) return
@@ -215,7 +221,9 @@ watch(
 let timer: number
 let editorDestroyed = false
 onMounted(() => (timer = setTimeout(() => initEditor(), inject(IS_IN_MODAL, false) ? 100 : 0)))
-onUnmounted(() => {
+onBeforeUnmount(() => {
+  // Slot tabs unmount their editors; commit the last keystrokes before leaving.
+  flushChange()
   editorDestroyed = true
   clearTimeout(timer)
   const view = editorView || mergeView
@@ -245,6 +253,7 @@ const initEditor = () => {
       : []),
     // code wrap
     EditorView.lineWrapping,
+    EditorView.domEventHandlers({ blur: () => flushChange() }),
     // placeholder
     Placeholder(props.placeholder),
     // theme
@@ -261,7 +270,13 @@ const initEditor = () => {
       : []),
     EditorView.updateListener.of((update) => {
       if (update.docChanged && !update.state.readOnly) {
-        onChange(update.state.doc.toString())
+        if (update.transactions.some((transaction) => transaction.annotation(externalUpdate))) {
+          onChange.cancel()
+          pendingContent = undefined
+          return
+        }
+        pendingContent = update.state.doc.toString()
+        onChange()
       }
     }),
   ]

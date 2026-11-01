@@ -1,6 +1,7 @@
 package rpcutil
 
 import (
+	"context"
 	"errors"
 
 	connect "connectrpc.com/connect"
@@ -25,6 +26,12 @@ func AsConnectError(err error) error {
 	var connectError *connect.Error
 	if errors.As(err, &connectError) {
 		return err
+	}
+	if errors.Is(err, context.Canceled) {
+		return connect.NewError(connect.CodeCanceled, err)
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return connect.NewError(connect.CodeDeadlineExceeded, err)
 	}
 	return connect.NewError(connect.CodeInternal, err)
 }

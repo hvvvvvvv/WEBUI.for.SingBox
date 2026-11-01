@@ -149,6 +149,12 @@ func (s *Service) readStateWithCache(allowCache bool) (state credentials, err er
 	if validHex(value, sha256.Size) {
 		return credentials{Version: 1, Generation: value, Legacy: value}, nil
 	}
+	// encoding/json accepts repeated fields and case aliases, where a final
+	// null could silently erase password/TOTP. Persisted credentials must have
+	// an unambiguous representation; damaged documents always fail closed.
+	if err := validateCredentialJSON(json.NewDecoder(bytes.NewReader(data)), 0); err != nil {
+		return credentials{}, errors.New("invalid authentication state")
+	}
 	decoder := json.NewDecoder(bytes.NewReader(data))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&state); err != nil {
@@ -201,6 +207,44 @@ func (s *Service) readStateWithCache(allowCache bool) (state credentials, err er
 	}
 	return state, nil
 }
+
+func validateCredentialJSON(decoder *json.Decoder, depth int) error {
+	if depth > 8 {
+		return errors.New("credential nesting limit exceeded")
+	}
+	token, err := decoder.Token()
+	if err != nil {
+		return err
+	}
+	switch token {
+	case json.Delim('{'):
+		seen := map[string]bool{}
+		for decoder.More() {
+			token, err := decoder.Token()
+			if err != nil {
+				return err
+			}
+			key, ok := token.(string)
+			if !ok || seen[strings.ToUpper(key)] {
+				return errors.New("duplicate credential field")
+			}
+			seen[strings.ToUpper(key)] = true
+			if err := validateCredentialJSON(decoder, depth+1); err != nil {
+				return err
+			}
+		}
+		_, err = decoder.Token()
+	case json.Delim('['):
+		for decoder.More() {
+			if err := validateCredentialJSON(decoder, depth+1); err != nil {
+				return err
+			}
+		}
+		_, err = decoder.Token()
+	}
+	return err
+}
+
 func (s *Service) saveState(state credentials) error {
 	s.cachedInfo = nil
 	s.cachedState = credentials{}

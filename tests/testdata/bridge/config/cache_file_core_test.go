@@ -12,14 +12,7 @@ import (
 )
 
 func TestCacheDNSPersistenceWithSingBox114(t *testing.T) {
-	corePath := os.Getenv("SING_BOX_114_PATH")
-	if corePath == "" {
-		t.Skip("set SING_BOX_114_PATH to a sing-box 1.14.0 binary to run core checks")
-	}
-	version, err := runHTTPClientCoreCommand(corePath, "version")
-	if err != nil || strings.SplitN(string(version), "\n", 2)[0] != "sing-box version 1.14.0" {
-		t.Fatalf("expected sing-box 1.14.0, got %s (error=%v)", version, err)
-	}
+	corePath, _ := selectedConfigTestCore(t)
 
 	for _, tc := range []struct {
 		name     string

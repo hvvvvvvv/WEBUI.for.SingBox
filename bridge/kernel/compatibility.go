@@ -114,9 +114,17 @@ func (s *Service) prepareCoreStart(ctx context.Context, profile *profilev1.Profi
 	if err != nil {
 		return nil, err
 	}
-	generated, err := s.config.Generate(profile, &kernelv1.GenerateConfigOptions{
+	options := &kernelv1.GenerateConfigOptions{
 		EnableMixinProcessing: true, EnableScriptProcessing: true,
-	})
+	}
+	var generated map[string]any
+	if generator, ok := s.config.(interface {
+		GenerateContext(context.Context, *profilev1.Profile, *kernelv1.GenerateConfigOptions) (map[string]any, error)
+	}); ok {
+		generated, err = generator.GenerateContext(ctx, profile, options)
+	} else {
+		generated, err = s.config.Generate(profile, options)
+	}
 	if err != nil {
 		return nil, rpcutil.AsConnectError(err)
 	}

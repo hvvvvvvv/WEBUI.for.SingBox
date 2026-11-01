@@ -19,6 +19,7 @@ type SessionValidator interface {
 
 const (
 	clientSendQueueSize = 64
+	clientReadLimit     = 4 << 10
 	writeTimeout        = 10 * time.Second
 	pingInterval        = 30 * time.Second
 	readTimeout         = 60 * time.Second
@@ -95,6 +96,9 @@ func (h *Hub) ServeWebSocket(w http.ResponseWriter, r *http.Request, token strin
 	defer logger.DebugContext(r.Context(), "websocket disconnected", "operation", "disconnect", "result", "success")
 	go client.writeLoop()
 
+	// The browser only receives events. Bound unsolicited data frames before
+	// ReadMessage allocates their payload; control ping/pong frames still work.
+	conn.SetReadLimit(clientReadLimit)
 	_ = conn.SetReadDeadline(time.Now().Add(readTimeout))
 	conn.SetPongHandler(func(string) error {
 		return conn.SetReadDeadline(time.Now().Add(readTimeout))

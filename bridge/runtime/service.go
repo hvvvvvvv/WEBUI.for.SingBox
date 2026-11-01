@@ -3,6 +3,7 @@ package runtime
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -30,7 +31,6 @@ import (
 	commonv1 "guiforcores/gen/common/v1"
 
 	connect "connectrpc.com/connect"
-	"github.com/dop251/goja"
 	"gopkg.in/yaml.v3"
 )
 
@@ -52,6 +52,10 @@ type KernelController interface {
 
 type RuleSetDecompiler interface {
 	DecompileRuleSet(sourcePath string) (string, error)
+}
+
+type ContextRuleSetDecompiler interface {
+	DecompileRuleSetContext(context.Context, string) (string, error)
 }
 
 type AppConfigReader interface {
@@ -989,7 +993,10 @@ func subscriptionHTTPCall(method string, rawURL string, headers map[string]strin
 	return httpRequestWithLimit(method, rawURL, headers, body, insecure, timeoutSeconds, maxSubscriptionBodyBytes)
 }
 
-func httpRequestWithLimit(method string, rawURL string, headers map[string]string, body string, insecure bool, timeoutSeconds int, maxBodyBytes int64) (*http.Response, string, error) {
+func httpRequestWithLimit(method string, rawURL string, headers map[string]string, body string, insecure bool, timeoutSeconds int, maxBodyBytes int64) (response *http.Response, content string, requestErr error) {
+	// net/http adds the complete URL to transport errors, even when the
+	// transport already sanitized its cause. Task results are persisted to logs.
+	defer func() { requestErr = redactRequestURL(requestErr) }()
 	started := time.Now()
 	if method == "" {
 		method = http.MethodGet
@@ -1028,7 +1035,9 @@ func httpRequestWithLimit(method string, rawURL string, headers map[string]strin
 		"component", "network",
 		"operation", "request",
 		"method", method,
-		"url", rawURL,
+		// Subscription credentials commonly live in the path/query as well as
+		// URL userinfo. Keep the destination host, never the full request URL.
+		"host", req.URL.Host,
 		"status_code", resp.StatusCode,
 		"bytes", len(data),
 		"duration", time.Since(started),
@@ -1126,47 +1135,6 @@ func proxyRefsFromOutboundsWithIDs(outbounds []map[string]any, previous []proxyR
 	return refs, nil
 }
 
-func runSubscribeScript(script string, proxies []map[string]any, sub subscription) ([]map[string]any, subscription, error) {
-	if strings.TrimSpace(script) == "" {
-		return proxies, sub, nil
-	}
-	vm := goja.New()
-	if err := vm.Set("proxies", proxies); err != nil {
-		return nil, sub, err
-	}
-	if err := vm.Set("subscription", sub); err != nil {
-		return nil, sub, err
-	}
-	value, err := vm.RunString(script + "\n; onSubscribe(proxies, subscription)")
-	if err != nil {
-		return nil, sub, err
-	}
-	if promise, ok := value.Export().(*goja.Promise); ok {
-		if promise.State() == goja.PromiseStateRejected {
-			return nil, sub, fmt.Errorf("%v", promise.Result().Export())
-		}
-		value = promise.Result()
-	}
-	var result struct {
-		Proxies      []map[string]any `json:"proxies"`
-		Subscription subscription     `json:"subscription"`
-	}
-	data, err := json.Marshal(value.Export())
-	if err != nil {
-		return nil, sub, err
-	}
-	if err := json.Unmarshal(data, &result); err != nil {
-		return nil, sub, err
-	}
-	if result.Proxies == nil {
-		result.Proxies = proxies
-	}
-	if result.Subscription.ID == "" {
-		result.Subscription = sub
-	}
-	return result.Proxies, result.Subscription, nil
-}
-
 func subscriptionRequestHeaders(headers map[string]string, defaultUserAgent string) map[string]string {
 	result := make(map[string]string, len(headers)+1)
 	userAgent := ""
@@ -1189,10 +1157,10 @@ func subscriptionRequestHeaders(headers map[string]string, defaultUserAgent stri
 }
 
 func updateSubscriptionAt(items []subscription, idx int, defaultUserAgent string) (*appv1.TaskResult, bool) {
-	return updateSubscriptionAtWithPlugins(context.Background(), items, idx, defaultUserAgent, nil)
+	return updateSubscriptionAtWithPlugins(context.Background(), items, idx, defaultUserAgent, nil, nil)
 }
 
-func updateSubscriptionAtWithPlugins(ctx context.Context, items []subscription, idx int, defaultUserAgent string, plugins SubscriptionPlugins) (*appv1.TaskResult, bool) {
+func updateSubscriptionAtWithPlugins(ctx context.Context, items []subscription, idx int, defaultUserAgent string, plugins SubscriptionPlugins, transaction *refreshTransaction) (*appv1.TaskResult, bool) {
 	next := cloneSubscription(items[idx])
 	sub := &next
 	if err := ctx.Err(); err != nil {
@@ -1243,6 +1211,14 @@ func updateSubscriptionAtWithPlugins(ctx context.Context, items []subscription, 
 	}
 	proxies := parseResult.proxies
 	filteredCount := 0
+	manualSource := items[idx].Type == "Manual"
+	var previousDigest [sha256.Size]byte
+	if manualSource {
+		previousDigest, err = subscriptionPluginDigest(proxies)
+		if err != nil {
+			return subscriptionFailureResult(sub, err), false
+		}
+	}
 
 	if sub.Type != "Manual" {
 		include, err := compileSmartRegexp(sub.Include)
@@ -1296,7 +1272,7 @@ func updateSubscriptionAtWithPlugins(ctx context.Context, items []subscription, 
 	sub.UpdateTime = time.Now().UnixMilli()
 	sub.Proxies = proxyRefsFromOutbounds(proxies, sub.Proxies)
 
-	processedProxies, processedSub, err := runSubscribeScript(sub.Script, proxies, *sub)
+	processedProxies, processedSub, err := runSubscribeScriptContext(ctx, sub.Script, proxies, *sub)
 	if err != nil {
 		return subscriptionFailureResult(sub, err), false
 	}
@@ -1304,17 +1280,7 @@ func updateSubscriptionAtWithPlugins(ctx context.Context, items []subscription, 
 	processedSub.Updating = false
 	*sub = processedSub
 	sub.Proxies = proxyRefsFromOutbounds(processedProxies, sub.Proxies)
-	pluginChanged := false
 	if plugins != nil {
-		// A hook may mutate its input in place. Compare serialized snapshots
-		// for Manual sources, whose cache otherwise remains untouched.
-		var previousDigest [32]byte
-		if sub.Type == "Manual" {
-			previousDigest, err = subscriptionPluginDigest(processedProxies)
-			if err != nil {
-				return subscriptionFailureResult(sub, err), false
-			}
-		}
 		metadata, err := subscriptionPluginMetadata(*sub)
 		if err != nil {
 			return subscriptionFailureResult(sub, err), false
@@ -1333,20 +1299,23 @@ func updateSubscriptionAtWithPlugins(ctx context.Context, items []subscription, 
 		if err != nil {
 			return subscriptionFailureResult(sub, err), false
 		}
-		if sub.Type == "Manual" {
-			currentDigest, err := subscriptionPluginDigest(processedProxies)
-			if err != nil {
-				return subscriptionFailureResult(sub, err), false
-			}
-			pluginChanged = currentDigest != previousDigest
-		}
 		sub.Proxies = finalRefs
+	}
+	contentChanged := false
+	if manualSource {
+		// Include the legacy per-subscription script as well as installed
+		// plugins. References and the persisted node array must agree.
+		currentDigest, err := subscriptionPluginDigest(processedProxies)
+		if err != nil {
+			return subscriptionFailureResult(sub, err), false
+		}
+		contentChanged = currentDigest != previousDigest
 	}
 	if err := ctx.Err(); err != nil {
 		return subscriptionFailureResult(sub, err), false
 	}
 
-	if sub.Type == "Http" || pluginChanged {
+	if items[idx].Type == "Http" || contentChanged {
 		data, err := json.MarshalIndent(processedProxies, "", "  ")
 		if err != nil {
 			return subscriptionFailureResult(sub, err), false
@@ -1355,7 +1324,7 @@ func updateSubscriptionAtWithPlugins(ctx context.Context, items []subscription, 
 		if err := os.MkdirAll(filepath.Dir(GetPath(contentPath)), os.ModePerm); err != nil {
 			return subscriptionFailureResult(sub, err), false
 		}
-		if err := storage.AtomicWriteFile(GetPath(contentPath), data, 0644); err != nil {
+		if err := transaction.write(GetPath(contentPath), data, 0644); err != nil {
 			return subscriptionFailureResult(sub, err), false
 		}
 	}
@@ -1411,7 +1380,7 @@ func downloadRuleSet(rawURL string) (string, error) {
 	return body, nil
 }
 
-func updateRulesetAt(items []ruleset, idx int) (*appv1.TaskResult, bool) {
+func updateRulesetAt(items []ruleset, idx int, transaction *refreshTransaction) (*appv1.TaskResult, bool) {
 	next := items[idx]
 	r := &next
 	if r.Disabled {
@@ -1444,7 +1413,7 @@ func updateRulesetAt(items []ruleset, idx int) (*appv1.TaskResult, bool) {
 		r.Count = countRules(rules["rules"])
 		if (r.Type == "Http" && r.URL != r.Path) || (r.Type == "Manual" && !exists) {
 			data, _ := json.MarshalIndent(rules, "", "  ")
-			if err := storage.AtomicWriteFile(GetPath(r.Path), data, 0644); err != nil {
+			if err := transaction.write(GetPath(r.Path), data, 0644); err != nil {
 				return taskResult(false, r.ID, r.Tag, err.Error()), false
 			}
 		}
@@ -1455,7 +1424,7 @@ func updateRulesetAt(items []ruleset, idx int) (*appv1.TaskResult, bool) {
 			if err != nil {
 				return taskResult(false, r.ID, r.Tag, err.Error()), false
 			}
-			if err := storage.AtomicWriteFile(GetPath(r.Path), []byte(body), 0644); err != nil {
+			if err := transaction.write(GetPath(r.Path), []byte(body), 0644); err != nil {
 				return taskResult(false, r.ID, r.Tag, err.Error()), false
 			}
 		}
@@ -1487,13 +1456,16 @@ func (s *appRuntimeService) updateSubscription(ctx context.Context, id string) (
 	for i := range items {
 		if items[i].ID == id {
 			before := cloneSubscription(items[i])
-			result, changed := updateSubscriptionAtWithPlugins(ctx, items, i, defaultUserAgent, s.plugins)
+			transaction := &refreshTransaction{}
+			result, changed := updateSubscriptionAtWithPlugins(ctx, items, i, defaultUserAgent, s.plugins, transaction)
 			if changed {
 				if err := saveSubscriptions(items); err != nil {
+					err = errors.Join(err, transaction.finish(false))
 					s.subscriptionsMu.Unlock()
 					return nil, nil, err
 				}
 			}
+			_ = transaction.finish(true)
 			configChanged := changed && !subscriptionConfigEqual(before, items[i])
 			state := s.state.Mutation(syncstate.DomainSubscriptions, subscriptionIDs(items), id)
 			operation := syncstate.OperationRuntime
@@ -1528,12 +1500,13 @@ func (s *appRuntimeService) updateAllSubscriptions(ctx context.Context) ([]*appv
 	results := make([]*appv1.TaskResult, 0, len(items))
 	changedIDs := make([]string, 0, len(items))
 	configChangedIDs := make([]string, 0, len(items))
+	transaction := &refreshTransaction{}
 	for i := range items {
 		if items[i].Disabled {
 			continue
 		}
 		before := cloneSubscription(items[i])
-		result, didChange := updateSubscriptionAtWithPlugins(ctx, items, i, defaultUserAgent, s.plugins)
+		result, didChange := updateSubscriptionAtWithPlugins(ctx, items, i, defaultUserAgent, s.plugins, transaction)
 		results = append(results, result)
 		if didChange {
 			changedIDs = append(changedIDs, items[i].ID)
@@ -1544,10 +1517,12 @@ func (s *appRuntimeService) updateAllSubscriptions(ctx context.Context) ([]*appv
 	}
 	if len(changedIDs) > 0 {
 		if err := saveSubscriptions(items); err != nil {
+			err = errors.Join(err, transaction.finish(false))
 			s.subscriptionsMu.Unlock()
 			return nil, nil, err
 		}
 	}
+	_ = transaction.finish(true)
 	state := s.state.Mutation(syncstate.DomainSubscriptions, subscriptionIDs(items), "")
 	operation := syncstate.OperationRuntime
 	if len(changedIDs) > 0 {
@@ -1573,12 +1548,14 @@ func updateRulesetLocked(id string) ([]*appv1.TaskResult, bool, error) {
 	}
 	for i := range items {
 		if items[i].ID == id {
-			result, changed := updateRulesetAt(items, i)
+			transaction := &refreshTransaction{}
+			result, changed := updateRulesetAt(items, i, transaction)
 			if changed {
 				if err := saveRulesets(items); err != nil {
-					return nil, false, err
+					return nil, false, errors.Join(err, transaction.finish(false))
 				}
 			}
+			_ = transaction.finish(true)
 			return []*appv1.TaskResult{result}, changed, nil
 		}
 	}
@@ -1615,19 +1592,21 @@ func updateAllRulesetsLocked() ([]*appv1.TaskResult, bool, error) {
 	}
 	results := make([]*appv1.TaskResult, 0, len(items))
 	changed := false
+	transaction := &refreshTransaction{}
 	for i := range items {
 		if items[i].Disabled {
 			continue
 		}
-		result, didChange := updateRulesetAt(items, i)
+		result, didChange := updateRulesetAt(items, i, transaction)
 		results = append(results, result)
 		changed = changed || didChange
 	}
 	if changed {
 		if err := saveRulesets(items); err != nil {
-			return nil, false, err
+			return nil, false, errors.Join(err, transaction.finish(false))
 		}
 	}
+	_ = transaction.finish(true)
 	return results, changed, nil
 }
 
@@ -2424,11 +2403,14 @@ func (s *appRuntimeService) GetRuleSetContent(ctx context.Context, req *connect.
 		return nil, asConnectError(invalidArgumentError{message: fmt.Sprintf("unsupported ruleset format %q", item.Format)})
 	}
 
-	decompiler, ok := s.kernel.(RuleSetDecompiler)
-	if !ok {
+	var content string
+	if decompiler, ok := s.kernel.(ContextRuleSetDecompiler); ok {
+		content, err = decompiler.DecompileRuleSetContext(ctx, GetPath(item.Path))
+	} else if decompiler, ok := s.kernel.(RuleSetDecompiler); ok {
+		content, err = decompiler.DecompileRuleSet(GetPath(item.Path))
+	} else {
 		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("sing-box core is unavailable for rule-set decompilation"))
 	}
-	content, err := decompiler.DecompileRuleSet(GetPath(item.Path))
 	if err != nil {
 		return nil, asConnectError(err)
 	}

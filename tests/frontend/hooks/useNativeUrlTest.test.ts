@@ -89,6 +89,21 @@ afterEach(() => {
 })
 
 describe('native latency test feedback', () => {
+  it('subscribes only while results are pending and releases the stream after the last test', async () => {
+    const test = setup()
+    expect(mocks.onOutbounds).not.toHaveBeenCalled()
+    await test.start('node')
+    expect(mocks.onOutbounds).toHaveBeenCalledOnce()
+    expect(callbacks.size).toBe(1)
+    test.emit(item('node', 11n, 80))
+    expect(callbacks.size).toBe(0)
+    expect(unregister).toHaveBeenCalledOnce()
+    await test.start('node')
+    expect(mocks.onOutbounds).toHaveBeenCalledTimes(2)
+    test.clear()
+    expect(callbacks.size).toBe(0)
+    expect(unregister).toHaveBeenCalledTimes(2)
+  })
   it('publishes progress before RPC acceptance and counts confirmed history deletion separately from timeout', async () => {
     const request = deferred<object>()
     mocks.urlTest.mockReturnValue(request.promise)

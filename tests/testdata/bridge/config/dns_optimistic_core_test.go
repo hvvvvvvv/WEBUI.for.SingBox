@@ -17,17 +17,23 @@ func TestOptimisticDNSConfigurationWithRealCores(t *testing.T) {
 		version string
 	}{
 		{env: "SING_BOX_114_PATH", version: "1.14.0"},
-		{env: "SINGBOX_NATIVE_TEST_BINARY", version: "1.14.2"},
+		{env: "SINGBOX_NATIVE_TEST_BINARY"},
 	} {
-		t.Run(core.version, func(t *testing.T) {
+		name := core.version
+		if name == "" {
+			name = "selected-native-core"
+		}
+		t.Run(name, func(t *testing.T) {
 			corePath := os.Getenv(core.env)
 			if corePath == "" {
-				t.Skipf("set %s to a sing-box %s binary to run core checks", core.env, core.version)
+				t.Skipf("set %s to a compatible sing-box binary to run core checks", core.env)
 			}
 			version, err := runHTTPClientCoreCommand(corePath, "version")
-			if err != nil || strings.TrimSpace(strings.SplitN(string(version), "\n", 2)[0]) != "sing-box version "+core.version {
+			versionLine := strings.TrimSpace(strings.SplitN(string(version), "\n", 2)[0])
+			if err != nil || !strings.HasPrefix(versionLine, "sing-box version ") || (core.version != "" && versionLine != "sing-box version "+core.version) {
 				t.Fatalf("expected sing-box %s, got %s (error=%v)", core.version, version, err)
 			}
+			t.Log(versionLine)
 			for _, tc := range []struct {
 				name       string
 				optimistic *profilev1.DnsOptimisticCache

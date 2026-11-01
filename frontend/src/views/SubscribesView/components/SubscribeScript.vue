@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, inject, h } from 'vue'
+import { ref, inject, h, nextTick, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { isResourceConflict, isResourceNotFound, useSubscribesStore } from '@/stores'
@@ -21,6 +21,7 @@ const reloading = ref(false)
 const conflict = ref<'changed' | 'deleted' | null>(null)
 const subscribe = ref<Subscription>()
 const code = ref('')
+const editor = useTemplateRef<{ getContent(): string }>('editor')
 
 const { t } = useI18n()
 const subscribeStore = useSubscribesStore()
@@ -30,9 +31,11 @@ const handleCancel = inject('cancel') as any
 const handleSubmit = inject('submit') as any
 
 const handleSave = async () => {
-  if (!subscribe.value) return
+  if (!subscribe.value || loading.value) return
   loading.value = true
   try {
+    await nextTick()
+    code.value = editor.value?.getContent() ?? code.value
     subscribe.value.script = code.value
     await subscribeStore.editSubscribe(props.id, subscribe.value, baseRevision)
     await handleSubmit()
@@ -106,6 +109,6 @@ defineExpose({ modalSlots })
       :loading="reloading"
       @reload="loadLatest"
     />
-    <CodeViewer v-model="code" lang="javascript" editable />
+    <CodeViewer ref="editor" v-model="code" lang="javascript" editable />
   </div>
 </template>

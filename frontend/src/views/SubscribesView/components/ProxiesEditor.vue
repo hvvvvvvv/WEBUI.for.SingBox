@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, inject, h, useTemplateRef } from 'vue'
+import { Code, ConnectError } from '@connectrpc/connect'
+import { ref, inject, h, useTemplateRef, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { isResourceConflict, isResourceNotFound, useSubscribesStore } from '@/stores'
@@ -13,6 +14,7 @@ import type { ExpectedRevision } from '../../../../gen/common/v1/sync_pb'
 
 interface Props {
   sub: Subscription
+  revision: Pick<ExpectedRevision, 'instanceId' | 'revision'>
 }
 
 const props = defineProps<Props>()
@@ -21,10 +23,11 @@ const loading = ref(false)
 const reloading = ref(false)
 const conflict = ref<'changed' | 'deleted' | null>(null)
 const proxiesText = ref('')
+const contentReady = ref(false)
 const proxiesEditor = useTemplateRef<{ getContent(): string }>('proxiesEditor')
 const sub = ref(deepClone(props.sub))
 sub.value.proxies ??= []
-let baseRevision: Pick<ExpectedRevision, 'instanceId' | 'revision'> | undefined
+let baseRevision = props.revision
 
 const { t } = useI18n()
 const subscribeStore = useSubscribesStore()
@@ -33,8 +36,10 @@ const handleCancel = inject('cancel') as any
 const handleSubmit = inject('submit') as any
 
 const handleSave = async () => {
+  if (!contentReady.value || loading.value || reloading.value) return
   loading.value = true
   try {
+    await nextTick()
     // CodeMirror emits debounced updates; read its current document before saving.
     proxiesText.value = proxiesEditor.value?.getContent() ?? proxiesText.value
     const { id } = sub.value
@@ -61,19 +66,28 @@ const handleSave = async () => {
 }
 
 const initProxiesText = async () => {
+  contentReady.value = false
   const { content: latestContent, revision } =
     await subscribeStore.getSubscriptionContentWithRevision(sub.value.id)
   const content = latestContent || '[]'
-  baseRevision = revision
+  if (
+    !revision ||
+    revision.instanceId !== baseRevision.instanceId ||
+    revision.revision !== baseRevision.revision
+  ) {
+    conflict.value = 'changed'
+    throw new ConnectError(t('common.operationConflict'), Code.Aborted)
+  }
   const proxies: Subscription['proxies'] = JSON.parse(content)
-  const proxyRefs = sub.value.proxies ?? []
+  const proxyRefs = new Map(sub.value.proxies.map((proxy) => [proxy.tag, proxy.id]))
   const proxiesWithId = proxies.map((proxy) => {
     return {
-      __id_in_gui: proxyRefs.find((v) => v.tag === proxy.tag)?.id || sampleID(),
+      __id_in_gui: proxyRefs.get(proxy.tag) || sampleID(),
       ...proxy,
     }
   })
   proxiesText.value = JSON.stringify(proxiesWithId, null, 2)
+  contentReady.value = true
 }
 
 const loadLatest = async () => {
@@ -87,6 +101,7 @@ const loadLatest = async () => {
     }
     sub.value = deepClone(latest)
     sub.value.proxies ??= []
+    baseRevision = subscribeStore.getSubscribeRevision(props.sub.id)
     await initProxiesText()
     conflict.value = null
   } catch (error: any) {
@@ -96,7 +111,7 @@ const loadLatest = async () => {
   }
 }
 
-initProxiesText()
+void initProxiesText().catch((error: any) => message.error(error.message || error))
 
 const modalSlots = {
   cancel: () =>
@@ -114,6 +129,7 @@ const modalSlots = {
       {
         type: 'primary',
         loading: loading.value,
+        disabled: !contentReady.value || reloading.value,
         onClick: handleSave,
       },
       () => t('common.save'),
@@ -132,6 +148,7 @@ defineExpose({ modalSlots })
       @reload="loadLatest"
     />
     <CodeViewer
+      v-if="contentReady"
       ref="proxiesEditor"
       v-model="proxiesText"
       lang="json"

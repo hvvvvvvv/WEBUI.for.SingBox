@@ -1,17 +1,33 @@
 package kernel
 
 import (
+	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"guiforcores/bridge/platform"
 )
 
+const maxRuleSetPreviewBytes = 32 << 20
+
 func (s *Service) DecompileRuleSet(sourcePath string) (string, error) {
+	return s.DecompileRuleSetContext(context.Background(), sourcePath)
+}
+
+func (s *Service) DecompileRuleSetContext(parent context.Context, sourcePath string) (string, error) {
 	if strings.TrimSpace(sourcePath) == "" {
 		return "", fmt.Errorf("decompile rule-set: source path is empty")
+	}
+	ctx, cancel := context.WithTimeout(parent, 15*time.Second)
+	defer cancel()
+	stop := context.AfterFunc(s.lifecycleCtx, cancel)
+	defer stop()
+	if err := ctx.Err(); err != nil {
+		return "", err
 	}
 
 	runtimeCfg, err := s.loadRuntimeConfig()
@@ -31,10 +47,14 @@ func (s *Service) DecompileRuleSet(sourcePath string) (string, error) {
 		binary,
 		[]string{"rule-set", "decompile", "--output", outputPath, sourcePath},
 		platform.ExecOptions{
+			Context:          ctx,
 			WorkingDirectory: s.processes.ResolvePath(coreWorkingDirectory),
 			Env:              runtimeCfg.Env,
 		},
 	)
+	if err := ctx.Err(); err != nil {
+		return "", err
+	}
 	if !result.Flag {
 		message := strings.TrimSpace(result.Data)
 		if message == "" {
@@ -43,9 +63,27 @@ func (s *Service) DecompileRuleSet(sourcePath string) (string, error) {
 		return "", fmt.Errorf("decompile rule-set: %s", message)
 	}
 
-	content, err := os.ReadFile(outputPath)
+	file, err := os.Open(outputPath)
 	if err != nil {
 		return "", fmt.Errorf("decompile rule-set: read output: %w", err)
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil {
+		return "", fmt.Errorf("decompile rule-set: stat output: %w", err)
+	}
+	if info.Size() > maxRuleSetPreviewBytes {
+		return "", fmt.Errorf("decompile rule-set: preview exceeds %d bytes", maxRuleSetPreviewBytes)
+	}
+	content, err := io.ReadAll(io.LimitReader(file, maxRuleSetPreviewBytes+1))
+	if err != nil {
+		return "", fmt.Errorf("decompile rule-set: read output: %w", err)
+	}
+	if len(content) > maxRuleSetPreviewBytes {
+		return "", fmt.Errorf("decompile rule-set: preview exceeds %d bytes", maxRuleSetPreviewBytes)
+	}
+	if err := ctx.Err(); err != nil {
+		return "", err
 	}
 	return string(content), nil
 }

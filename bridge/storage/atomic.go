@@ -9,6 +9,14 @@ import (
 
 var atomicReplaceFile = replaceFile
 
+// AtomicReplaceFile moves an already flushed file onto its target atomically.
+// Both paths must be on the same filesystem. On success source no longer exists;
+// on failure it remains available for recovery. This allows a saved cache inode
+// to be restored without requiring enough free space to write another copy.
+func AtomicReplaceFile(source, target string) error {
+	return atomicReplaceFile(source, target)
+}
+
 // AtomicWriteFile writes data to a temporary file in the target directory and
 // atomically replaces the target after the data has been flushed.
 func AtomicWriteFile(path string, data []byte, perm fs.FileMode) (err error) {

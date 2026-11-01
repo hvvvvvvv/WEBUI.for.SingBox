@@ -175,6 +175,8 @@ describe('App and LoginView with real authentication bridge and Pinia session', 
         expect(sessions.has(useAppSettingsStore().sessionInfo.cacheToken)).toBe(true)
       })
     }
+    // Configuration synchronization already includes subscriptions.
+    mocks.sync.mockImplementation(() => mocks.subscriptions())
     mocks.sleep.mockResolvedValue(undefined)
     host = document.createElement('div')
     document.body.append(host)
@@ -194,6 +196,7 @@ describe('App and LoginView with real authentication bridge and Pinia session', 
     await login()
     expect(mocks.config).toHaveBeenCalledTimes(1)
     expect(mocks.platform).toHaveBeenCalledTimes(1)
+    expect(mocks.subscriptions).toHaveBeenCalledTimes(1)
     expect(mocks.ws).toHaveBeenCalledWith('token-1')
     expect(host.querySelector('#login-password')).toBeNull()
     expect(host.querySelector('[data-testid=splash]')).not.toBeNull()

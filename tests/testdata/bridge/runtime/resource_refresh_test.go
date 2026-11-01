@@ -68,7 +68,7 @@ func assertRuleSetDownloadFailurePreservesState(t *testing.T, url, format string
 		t.Fatal(err)
 	}
 	items := []ruleset{item}
-	result, changed := updateRulesetAt(items, 0)
+	result, changed := updateRulesetAt(items, 0, nil)
 	got, err := os.ReadFile(path)
 	if err != nil {
 		t.Fatal(err)

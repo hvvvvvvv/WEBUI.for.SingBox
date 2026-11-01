@@ -16,13 +16,9 @@ import (
 // This checks the generated configuration against the fixed core without
 // creating a TUN device or changing the machine's routes and DNS settings.
 func TestTunDNSModesWithSingBox114(t *testing.T) {
-	corePath := os.Getenv("SING_BOX_114_PATH")
-	if corePath == "" {
-		t.Skip("set SING_BOX_114_PATH to a sing-box 1.14.0 binary to run core checks")
-	}
-	version, err := runHTTPClientCoreCommand(corePath, "version")
-	if err != nil || strings.SplitN(string(version), "\n", 2)[0] != "sing-box version 1.14.0" {
-		t.Fatalf("expected sing-box 1.14.0, got %s (error=%v)", version, err)
+	corePath, version := selectedConfigTestCore(t)
+	if !strings.HasPrefix(version, "1.14.") {
+		t.Skip("raw 1.14 stack fields require installed-version adaptation; TestInstalledCoreVersionAdaptationWithRealCore covers the same DNS/auto-route matrix")
 	}
 
 	for _, mode := range []string{"", "disabled", "native", "hijack"} {

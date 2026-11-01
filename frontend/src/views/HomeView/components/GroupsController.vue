@@ -11,6 +11,7 @@ import { ControllerCloseMode } from '@/enums/app'
 import type { Group, GroupItem } from '@/types/kernel'
 import { useBool } from '@/hooks'
 import { useNativeUrlTest } from '@/hooks/useNativeUrlTest'
+import { useActiveSubscription } from '@/hooks/useActiveSubscription'
 import { useAppSettingsStore, useKernelApiStore, useProfilesStore } from '@/stores'
 import { handleUseProxy, message, buildSmartRegExp } from '@/utils'
 
@@ -24,8 +25,7 @@ const [showMoreSettings, toggleMoreSettings] = useBool(false)
 const appSettings = useAppSettingsStore()
 const kernelApiStore = useKernelApiStore()
 const profilesStore = useProfilesStore()
-const unregisterGroups = kernelApiStore.subscribeGroups()
-onUnmounted(unregisterGroups)
+useActiveSubscription(() => kernelApiStore.subscribeGroups())
 const {
   start: startDelay,
   isLoading,
@@ -304,7 +304,6 @@ const handleResetMoreSettings = () => {
         {{ t('common.reset') }}
       </Button>
     </template>
-
 
     <div class="form-item">
       {{ t('home.controller.closeMode.name') }}

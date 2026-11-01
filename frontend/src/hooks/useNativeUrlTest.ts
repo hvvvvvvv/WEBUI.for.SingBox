@@ -53,6 +53,11 @@ export const useNativeUrlTest = (options: Options) => {
   const summaryTimers = new Map<number, ReturnType<typeof setTimeout>>()
   let nextTaskId = 0
   let disposed = false
+  let unregister: (() => void) | undefined
+  const stopObserving = () => {
+    unregister?.()
+    unregister = undefined
+  }
 
   const publish = (task: Task, status: NativeUrlTestProgress['status'] = 'running') => {
     const success = [...task.results.values()].filter(Boolean).length
@@ -86,6 +91,7 @@ export const useNativeUrlTest = (options: Options) => {
     clearTimeout(task.timer)
     publish(task, status)
     tasks.value.delete(task.id)
+    if (tasks.value.size === 0) stopObserving()
     summaryTimers.set(
       task.id,
       setTimeout(() => dismiss(task.id), 3_000),
@@ -93,6 +99,7 @@ export const useNativeUrlTest = (options: Options) => {
     notify()
   }
   const clear = () => {
+    stopObserving()
     for (const task of tasks.value.values()) clearTimeout(task.timer)
     for (const timer of summaryTimers.values()) clearTimeout(timer)
     summaryTimers.clear()
@@ -106,7 +113,7 @@ export const useNativeUrlTest = (options: Options) => {
     task.pid === options.pid() &&
     options.running()
 
-  const unregister = onOutbounds((snapshot) => {
+  const receiveOutbounds: Parameters<typeof onOutbounds>[0] = (snapshot) => {
     for (const task of tasks.value.values()) {
       if (!isCurrent(task)) {
         finish(task, 'canceled')
@@ -134,14 +141,13 @@ export const useNativeUrlTest = (options: Options) => {
       if (task.accepted && task.pending.size === 0) finish(task)
     }
     notify()
-  }, false)
+  }
 
   const stopWatching = watch([options.pid, options.running], clear, { flush: 'sync' })
   onScopeDispose(() => {
     disposed = true
     clear()
     stopWatching()
-    unregister()
   })
 
   const start = async (tag: string): Promise<boolean> => {
@@ -205,6 +211,7 @@ export const useNativeUrlTest = (options: Options) => {
       accepted: false,
     }
     tasks.value.set(task.id, task)
+    unregister ??= onOutbounds(receiveOutbounds, false)
     notify()
     const batches = task.isGroup ? Math.max(1, Math.ceil(leaves.size / nativeTestConcurrency)) : 1
     task.timer = setTimeout(() => {

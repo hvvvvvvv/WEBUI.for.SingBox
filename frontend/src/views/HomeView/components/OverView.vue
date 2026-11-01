@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { createRpcClient } from '@/bridge'
 import { useAppSettingsStore, useKernelApiStore } from '@/stores'
 import { useCoreMemory } from '@/hooks/useCoreMemory'
+import { useActiveSubscription } from '@/hooks/useActiveSubscription'
 import { KernelRuntimeService } from '../../../../gen/kernel/v1/kernel_runtime_service_pb'
 import { formatBytes, handleChangeMode, message } from '@/utils'
 import { nativeModeOptions, sameKernelMode } from '@/utils/nativeKernelUi'
@@ -110,21 +111,23 @@ const onRuntimeInboundSwitchChange = async (inbound: IInbound, enable: boolean) 
   }
 }
 
-const unregisterStatusHandler = kernelApiStore.onStatus((data) => {
-  statistics.value.inuse = data.memory
-  statistics.value.goroutines = data.goroutines
-  statistics.value.connections = data.connectionsIn
-  statistics.value.uploadTotal = data.uplinkTotal
-  statistics.value.downloadTotal = data.downlinkTotal
-  statistics.value.upload = data.trafficAvailable ? Number(data.uplink) : 0
-  statistics.value.download = data.trafficAvailable ? Number(data.downlink) : 0
-  trafficHistory.value[0].push(statistics.value.upload)
-  trafficHistory.value[1].push(statistics.value.download)
-  if (trafficHistory.value[0].length > 60) {
-    trafficHistory.value[0].shift()
-    trafficHistory.value[1].shift()
-  }
-})
+useActiveSubscription(() =>
+  kernelApiStore.onStatus((data) => {
+    statistics.value.inuse = data.memory
+    statistics.value.goroutines = data.goroutines
+    statistics.value.connections = data.connectionsIn
+    statistics.value.uploadTotal = data.uplinkTotal
+    statistics.value.downloadTotal = data.downlinkTotal
+    statistics.value.upload = data.trafficAvailable ? Number(data.uplink) : 0
+    statistics.value.download = data.trafficAvailable ? Number(data.downlink) : 0
+    trafficHistory.value[0].push(statistics.value.upload)
+    trafficHistory.value[1].push(statistics.value.download)
+    if (trafficHistory.value[0].length > 60) {
+      trafficHistory.value[0].shift()
+      trafficHistory.value[1].shift()
+    }
+  }),
+)
 watch(
   () => kernelApiStore.pid,
   () => {
@@ -141,7 +144,6 @@ watch(
   },
   { flush: 'sync' },
 )
-onUnmounted(unregisterStatusHandler)
 </script>
 
 <template>

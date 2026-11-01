@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref, computed, inject, h } from 'vue'
+import { Code, ConnectError } from '@connectrpc/connect'
+import { ref, computed, inject, h, nextTick, useTemplateRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { ClipboardSetText } from '@/bridge'
@@ -16,6 +17,7 @@ import type { ExpectedRevision } from '../../../../gen/common/v1/sync_pb'
 
 interface Props {
   sub: Subscription
+  revision: Pick<ExpectedRevision, 'instanceId' | 'revision'>
 }
 
 const props = defineProps<Props>()
@@ -28,10 +30,12 @@ const conflict = ref<'changed' | 'deleted' | null>(null)
 const keywords = ref('')
 const proxyType = ref('')
 const details = ref()
+const editor = useTemplateRef<{ getContent(): string }>('editor')
 const allFieldsProxies = ref<any[]>([])
+let contentLoaded = false
 const sub = ref(deepClone(props.sub))
 sub.value.proxies ??= []
-let baseRevision: Pick<ExpectedRevision, 'instanceId' | 'revision'> | undefined
+let baseRevision = props.revision
 
 const [showDetails, toggleDetails] = useBool(false)
 
@@ -115,14 +119,13 @@ const handleCancel = inject('cancel') as any
 const handleSubmit = inject('submit') as any
 
 const handleSave = async () => {
+  if (loading.value) return
   loading.value = true
   try {
     const { proxies, id } = sub.value
     await initAllFieldsProxies()
-    const filteredProxies = allFieldsProxies.value.filter((v: any) =>
-      proxies.some((vv) => vv.tag === v.tag),
-    )
-    const sortedArray = proxies.map((v) => filteredProxies.find((vv) => vv.tag === v.tag))
+    const proxiesByTag = new Map(allFieldsProxies.value.map((proxy) => [proxy.tag, proxy]))
+    const sortedArray = proxies.map((proxy) => proxiesByTag.get(proxy.tag))
     await subscribeStore.saveSubscriptionContent(
       id,
       JSON.stringify(sortedArray, null, 2),
@@ -151,18 +154,28 @@ const handleAdd = async () => {
 const onEditEnd = async () => {
   let proxy: any
   try {
+    await nextTick()
+    details.value = editor.value?.getContent() ?? details.value
     proxy = JSON.parse(details.value)
 
-    if (typeof proxy !== 'object') throw 'wrong format'
+    if (
+      !proxy ||
+      Array.isArray(proxy) ||
+      typeof proxy !== 'object' ||
+      typeof proxy.tag !== 'string' ||
+      !proxy.tag.trim() ||
+      typeof proxy.type !== 'string' ||
+      !proxy.type.trim()
+    )
+      throw 'wrong format'
+    if (sub.value.proxies.some((item) => item.tag === proxy.tag && item.tag !== editId)) {
+      throw 'Duplicate proxy tag'
+    }
+    await initAllFieldsProxies()
   } catch (error: any) {
-    console.log(error)
     message.error(error.message || error)
-    // reopen
-    toggleDetails()
-    return
+    return false
   }
-
-  await initAllFieldsProxies()
 
   const allFieldsProxiesIdx = allFieldsProxies.value.findIndex((v: any) => v.tag === editId)
   const subProxiesIdx = sub.value.proxies.findIndex((v) => v.tag === editId)
@@ -172,6 +185,7 @@ const onEditEnd = async () => {
     sub.value.proxies.splice(subProxiesIdx, 1, {
       ...sub.value.proxies[subProxiesIdx]!,
       tag: proxy.tag,
+      type: proxy.type,
     })
   } else {
     allFieldsProxies.value.push(proxy)
@@ -184,12 +198,20 @@ const onEditEnd = async () => {
 }
 
 const initAllFieldsProxies = async () => {
-  if (allFieldsProxies.value.length) return
+  if (contentLoaded) return
   const { content: latestContent, revision } =
     await subscribeStore.getSubscriptionContentWithRevision(sub.value.id)
   const content = latestContent || '[]'
+  if (
+    !revision ||
+    revision.instanceId !== baseRevision.instanceId ||
+    revision.revision !== baseRevision.revision
+  ) {
+    conflict.value = 'changed'
+    throw new ConnectError(t('common.operationConflict'), Code.Aborted)
+  }
   allFieldsProxies.value = JSON.parse(content)
-  baseRevision = revision
+  contentLoaded = true
 }
 
 const loadLatest = async () => {
@@ -204,6 +226,8 @@ const loadLatest = async () => {
     sub.value = deepClone(latest)
     sub.value.proxies ??= []
     allFieldsProxies.value = []
+    contentLoaded = false
+    baseRevision = subscribeStore.getSubscribeRevision(props.sub.id)
     await initAllFieldsProxies()
     conflict.value = null
   } catch (error: any) {
@@ -301,6 +325,6 @@ defineExpose({ modalSlots })
     max-height="80"
     max-width="80"
   >
-    <CodeViewer v-model="details" lang="json" :editable="isEdit" />
+    <CodeViewer ref="editor" v-model="details" lang="json" :editable="isEdit" />
   </Modal>
 </template>

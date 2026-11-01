@@ -24,17 +24,10 @@ import (
 	profilev1 "guiforcores/gen/profile/v1"
 )
 
-// SING_BOX_114_PATH enables actual rule-set downloads against a 1.14.x
+// SING_BOX_TEST_BINARY enables actual rule-set downloads against a selected
 // core. Ordinary unit tests neither download nor require an external binary.
 func TestRuleSetHTTPClientsWithSingBox114(t *testing.T) {
-	corePath := os.Getenv("SING_BOX_114_PATH")
-	if corePath == "" {
-		t.Skip("set SING_BOX_114_PATH to a sing-box 1.14.x binary to run core checks")
-	}
-	version, err := runHTTPClientCoreCommand(corePath, "version")
-	if err != nil || !strings.HasPrefix(strings.SplitN(string(version), "\n", 2)[0], "sing-box version 1.14.") {
-		t.Fatalf("expected sing-box 1.14.x, got %s (error=%v)", version, err)
-	}
+	corePath, _ := selectedConfigTestCore(t)
 
 	tests := []struct {
 		name           string

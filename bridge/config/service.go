@@ -155,7 +155,7 @@ func (s *Service) GenerateContext(ctx context.Context, profile *profilev1.Profil
 	}
 
 	if normalized.enableScriptProcessing {
-		config, err = applyScript(config, profile.GetScript())
+		config, err = applyScript(ctx, config, profile.GetScript())
 		if err != nil {
 			return nil, err
 		}

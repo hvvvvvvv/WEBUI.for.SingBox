@@ -152,13 +152,14 @@ func (s *Service) DownloadAppUpdate(
 		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("progress_event is required"))
 	}
 
-	release, asset, err := s.fetchLatestAsset(ctx)
-	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
-	}
-
 	downloadCtx, cancel := context.WithCancel(ctx)
 	s.mu.Lock()
+	s.releaseFailedHandoffLocked()
+	if s.applying || len(s.downloads) != 0 {
+		s.mu.Unlock()
+		cancel()
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("an application update download or installation is already in progress"))
+	}
 	s.downloads[progressEvent] = cancel
 	s.mu.Unlock()
 	defer func() {
@@ -167,14 +168,24 @@ func (s *Service) DownloadAppUpdate(
 		s.mu.Unlock()
 		cancel()
 	}()
+	// Reserve the single cache before looking up the release, and keep the
+	// reservation until a canceled transfer has actually returned. Otherwise a
+	// second request can replace the archive while an apply is preparing it.
+	release, asset, err := s.fetchLatestAsset(downloadCtx)
+	if err != nil {
+		if downloadCtx.Err() != nil {
+			return nil, updateContextError(downloadCtx.Err())
+		}
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
 
 	cachePath := s.platform.ResolvePath(appUpdateCacheFilePath)
 	if err := os.MkdirAll(filepath.Dir(cachePath), 0o755); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
 	if err := s.downloadAsset(downloadCtx, asset, cachePath, progressEvent); err != nil {
-		if errors.Is(downloadCtx.Err(), context.Canceled) {
-			return nil, connect.NewError(connect.CodeCanceled, fmt.Errorf("download canceled"))
+		if downloadCtx.Err() != nil {
+			return nil, updateContextError(downloadCtx.Err())
 		}
 		return nil, connect.NewError(connect.CodeInternal, err)
 	}
@@ -201,7 +212,6 @@ func (s *Service) CancelAppUpdate(
 	if progressEvent != "" {
 		s.mu.Lock()
 		cancel := s.downloads[progressEvent]
-		delete(s.downloads, progressEvent)
 		s.mu.Unlock()
 		if cancel != nil {
 			cancel()
@@ -220,13 +230,10 @@ func (s *Service) ApplyAppUpdate(
 		logging.Complete(ctx, "app_update", "apply", "application update started", started, responseErr, "service_mode", s.serviceMode)
 	}()
 	s.mu.Lock()
-	// A helper that cannot stop the service cleans its handoff directory before
-	// exiting. Allow a retry only after that cleanup is positively confirmed.
-	if s.applying && s.preparedUpdate != "" {
-		if _, err := os.Lstat(s.preparedUpdate); errors.Is(err, os.ErrNotExist) {
-			s.applying = false
-			s.preparedUpdate = ""
-		}
+	s.releaseFailedHandoffLocked()
+	if len(s.downloads) != 0 {
+		s.mu.Unlock()
+		return nil, connect.NewError(connect.CodeFailedPrecondition, errors.New("application update download is still in progress"))
 	}
 	if s.applying {
 		s.mu.Unlock()
@@ -283,6 +290,18 @@ func (s *Service) ApplyAppUpdate(
 		s.requestShutdown()
 	}
 	return connect.NewResponse(&appv1.ApplyAppUpdateResponse{}), nil
+}
+
+// The helper removes its handoff directory when it fails to stop the service.
+// Both apply and download can retry once this cleanup is positively confirmed.
+// The caller must hold s.mu.
+func (s *Service) releaseFailedHandoffLocked() {
+	if s.applying && s.preparedUpdate != "" {
+		if _, err := os.Lstat(s.preparedUpdate); errors.Is(err, os.ErrNotExist) {
+			s.applying = false
+			s.preparedUpdate = ""
+		}
+	}
 }
 
 func updateContextError(err error) error {
@@ -409,7 +428,10 @@ func startUpdateHelper(ctx context.Context, archivePath, preparedUpdate string, 
 		return err
 	}
 	defer func() {
-		if returnErr != nil {
+		// Unix has already opened the executable when Start (or systemd's
+		// Type=exec handoff) succeeds. Unlink our private copy now so repeated
+		// router updates do not leave executable-sized files in RAM-backed /tmp.
+		if returnErr != nil || runtime.GOOS != "windows" {
 			_ = os.Remove(helperPath)
 		}
 	}()

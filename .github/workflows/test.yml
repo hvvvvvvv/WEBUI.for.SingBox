@@ -65,6 +65,43 @@ jobs:
               go build -trimpath -o "build/check/server-${target/\//-}" .
           done
 
+  core-compatibility:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - version: '1.14.4'
+            sha256: 699a1b510aa4396b2176d32d1181920399ebf1e267835da6f3b598d0f7c24968
+          - version: '1.15.0-alpha.13'
+            sha256: bfc39f643a5ecc1b702c5723ff662e61dde813f12b3af0d0cfce4f629ff74047
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Download and verify the released core
+        shell: bash
+        env:
+          CORE_VERSION: ${{ matrix.version }}
+          CORE_SHA256: ${{ matrix.sha256 }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/compat-core"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --connect-timeout 15 --max-time 180 --retry 2 \
+            "https://github.com/SagerNet/sing-box/releases/download/v${CORE_VERSION}/sing-box-${CORE_VERSION}-linux-amd64.tar.gz" \
+            -o "$RUNNER_TEMP/compat-core/core.tar.gz"
+          printf '%s  %s\n' "$CORE_SHA256" "$RUNNER_TEMP/compat-core/core.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/compat-core/core.tar.gz" -C "$RUNNER_TEMP/compat-core" --strip-components=1
+          "$RUNNER_TEMP/compat-core/sing-box" version
+          for variable in SING_BOX_TEST_BINARY SINGBOX_NATIVE_TEST_BINARY SING_BOX_COMPAT_BINARY; do
+            printf '%s=%s\n' "$variable" "$RUNNER_TEMP/compat-core/sing-box" >> "$GITHUB_ENV"
+          done
+      - name: Check generated profiles, rule cache and native API lifecycle on loopback
+        # Real TUN routing is tested separately in disposable network namespaces.
+        run: go run ./tests ./bridge/config ./bridge/kernel ./bridge/transport/http -count=1 -timeout=180s
+
   router-vm:
     runs-on: ubuntu-latest
     timeout-minutes: 45

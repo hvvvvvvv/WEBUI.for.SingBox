@@ -40,7 +40,6 @@ onUnmounted(() => {
 })
 const appConfig = Stores.useAppConfigStore()
 const kernelApiStore = Stores.useKernelApiStore()
-const subscribesStore = Stores.useSubscribesStore()
 const { setupBackendEvents, syncConfigStores } = useBackendEvents()
 
 const handleRestartCore = async () => {
@@ -82,7 +81,6 @@ const initApp = async () => {
       appStore.setupAppVersion(),
       appStore.setupPlatform(),
       appConfig.setupAppConfig(),
-      subscribesStore.setupSubscribes(),
       syncConfigStores(),
     ])
 

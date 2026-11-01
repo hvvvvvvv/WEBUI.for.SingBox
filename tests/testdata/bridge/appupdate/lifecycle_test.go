@@ -197,6 +197,10 @@ func TestApplyRejectsConcurrentAndAlreadyHandedOffUpdates(t *testing.T) {
 	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
 		t.Errorf("concurrent apply returned %v", err)
 	}
+	_, err = service.DownloadAppUpdate(context.Background(), connect.NewRequest(&appv1.DownloadAppUpdateRequest{ProgressEvent: "during-install"}))
+	if connect.CodeOf(err) != connect.CodeFailedPrecondition {
+		t.Errorf("download during apply returned %v", err)
+	}
 	cancel()
 	close(release)
 	if err := <-done; connect.CodeOf(err) != connect.CodeCanceled {

@@ -1,4 +1,5 @@
 import { create } from '@bufbuild/protobuf'
+import { Code, ConnectError } from '@connectrpc/connect'
 import { createPinia, setActivePinia } from 'pinia'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
@@ -35,7 +36,11 @@ beforeEach(() => {
   fixture.events.clear()
   setActivePinia(createPinia())
 })
-afterEach(() => vi.useRealTimers())
+afterEach(() => {
+  vi.clearAllTimers()
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
 
 it.each(['before', 'after'])(
   'receives another client update when its event arrives %s a newer local mutation response',
@@ -80,3 +85,134 @@ it.each(['before', 'after'])(
     expect(fixture.rpc.listProfiles).toHaveBeenCalledTimes(2)
   },
 )
+
+it('retries a failed event refresh without another event, merging newer revisions during backoff', async () => {
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  const { useProfilesStore } = await import('@/stores/profiles')
+  const { useBackendEvents } = await import('@/hooks/useBackendEvents')
+  const store = useProfilesStore()
+  fixture.store = store
+  const snapshot = (revision: bigint, name: string) => ({
+    profiles: [create(ProfileSchema, { id: 'a', name })],
+    state: {
+      instanceId: 'instance',
+      stateRevision: revision,
+      orderRevision: 1n,
+      itemRevisions: { a: revision },
+    },
+  })
+  fixture.rpc.listProfiles.mockResolvedValueOnce(snapshot(1n, 'old'))
+  await store.setupProfiles()
+  useBackendEvents().setupBackendEvents()
+  fixture.rpc.listProfiles.mockRejectedValueOnce(new Error('temporarily offline'))
+  fixture.rpc.listProfiles.mockResolvedValue(snapshot(3n, 'newest'))
+  const emit = (stateRevision: number) =>
+    fixture.events.get('resourceChanged')!({
+      domain: 'profiles',
+      operation: 'upsert',
+      instanceId: 'instance',
+      stateRevision,
+    })
+  emit(2)
+  await vi.advanceTimersByTimeAsync(50)
+  expect(store.getProfileById('a')?.name).toBe('old')
+  expect(fixture.rpc.listProfiles).toHaveBeenCalledTimes(2)
+  emit(3)
+  emit(2)
+  await vi.advanceTimersByTimeAsync(499)
+  expect(fixture.rpc.listProfiles).toHaveBeenCalledTimes(2)
+  await vi.advanceTimersByTimeAsync(1)
+  expect(store.getProfileById('a')?.name).toBe('newest')
+  expect(fixture.rpc.listProfiles).toHaveBeenCalledTimes(3)
+  await vi.advanceTimersByTimeAsync(30_000)
+  expect(fixture.rpc.listProfiles).toHaveBeenCalledTimes(3)
+})
+
+it('backs off if snapshots are temporarily older than the event rather than polling every 50ms', async () => {
+  const { useProfilesStore } = await import('@/stores/profiles')
+  const { useBackendEvents } = await import('@/hooks/useBackendEvents')
+  fixture.store = useProfilesStore()
+  fixture.rpc.listProfiles.mockResolvedValue({
+    profiles: [],
+    state: { instanceId: 'instance', stateRevision: 1n, orderRevision: 1n, itemRevisions: {} },
+  })
+  await fixture.store.setupProfiles()
+  useBackendEvents().setupBackendEvents()
+  fixture.events.get('resourceChanged')!({
+    domain: 'profiles',
+    operation: 'upsert',
+    instanceId: 'instance',
+    stateRevision: 2,
+  })
+  await vi.advanceTimersByTimeAsync(5000)
+  // Initial load, then refresh at 50, 550, 1550, 3550 ms.
+  expect(fixture.rpc.listProfiles).toHaveBeenCalledTimes(5)
+})
+
+it.each(['restarted', 'unauthenticated', 'forbidden'])(
+  'does not keep retrying an old event when the backend is %s',
+  async (outcome) => {
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { useProfilesStore } = await import('@/stores/profiles')
+    const { useBackendEvents } = await import('@/hooks/useBackendEvents')
+    fixture.store = useProfilesStore()
+    const snapshot = (instanceId: string) => ({
+      profiles: [],
+      state: { instanceId, stateRevision: 1n, orderRevision: 1n, itemRevisions: {} },
+    })
+    fixture.rpc.listProfiles.mockResolvedValueOnce(snapshot('old'))
+    await fixture.store.setupProfiles()
+    if (outcome === 'restarted') fixture.rpc.listProfiles.mockResolvedValue(snapshot('new'))
+    else
+      fixture.rpc.listProfiles.mockRejectedValue(
+        new ConnectError(
+          'access refused',
+          outcome === 'forbidden' ? Code.PermissionDenied : Code.Unauthenticated,
+        ),
+      )
+    useBackendEvents().setupBackendEvents()
+    fixture.events.get('resourceChanged')!({
+      domain: 'profiles',
+      operation: 'upsert',
+      instanceId: 'old',
+      stateRevision: 5,
+    })
+    await vi.advanceTimersByTimeAsync(60_000)
+    expect(fixture.rpc.listProfiles).toHaveBeenCalledTimes(2)
+    expect(vi.getTimerCount()).toBe(0)
+  },
+)
+
+it('does not let a failed old-instance refresh replace a queued new-instance event', async () => {
+  vi.spyOn(console, 'error').mockImplementation(() => {})
+  const { useProfilesStore } = await import('@/stores/profiles')
+  const { useBackendEvents } = await import('@/hooks/useBackendEvents')
+  fixture.store = useProfilesStore()
+  const snapshot = (instanceId: string, revision: bigint) => ({
+    profiles: [],
+    state: { instanceId, stateRevision: revision, orderRevision: 1n, itemRevisions: {} },
+  })
+  fixture.rpc.listProfiles.mockResolvedValueOnce(snapshot('old', 1n))
+  await fixture.store.setupProfiles()
+  const pending = Promise.withResolvers<unknown>()
+  fixture.rpc.listProfiles
+    .mockReturnValueOnce(pending.promise)
+    .mockResolvedValueOnce(snapshot('new', 1n))
+    .mockResolvedValue(snapshot('new', 2n))
+  useBackendEvents().setupBackendEvents()
+  const emit = (instanceId: string) =>
+    fixture.events.get('resourceChanged')!({
+      domain: 'profiles',
+      operation: 'upsert',
+      instanceId,
+      stateRevision: 2,
+    })
+  emit('old')
+  await vi.advanceTimersByTimeAsync(50)
+  emit('new')
+  pending.reject(new Error('old server stopped'))
+  await vi.advanceTimersByTimeAsync(2000)
+  expect(fixture.store.resourceState).toMatchObject({ instanceId: 'new', snapshotRevision: 2n })
+  expect(fixture.rpc.listProfiles).toHaveBeenCalledTimes(4)
+  expect(vi.getTimerCount()).toBe(0)
+})
