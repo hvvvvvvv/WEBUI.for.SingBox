@@ -23,9 +23,13 @@ func applyScript(ctx context.Context, config map[string]any, script *profilev1.S
 	// toJSON and exception toString must never run through Value.Export in Go.
 	output, err := scriptvm.Run(ctx, script.GetCode(), map[string]any{"config": config}, `(function () {
   if (typeof onGenerate !== "function") throw new Error("script must define function onGenerate(config)");
-  var result = onGenerate(config);
+  var currentConfig = config;
+  var result = onGenerate(currentConfig);
   var normalize = function(value) {
-    return value && typeof value === "object" && !Array.isArray(value) ? value : config;
+    var isObject = function(candidate) {
+      return candidate && typeof candidate === "object" && !Array.isArray(candidate);
+    };
+    return isObject(value) ? value : isObject(config) ? config : currentConfig;
   };
   return result && typeof result.then === "function" ? result.then(normalize) : normalize(result);
 })()`)
