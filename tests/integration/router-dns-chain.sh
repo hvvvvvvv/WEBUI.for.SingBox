@@ -135,10 +135,16 @@ for redirect in false true; do
         ip netns exec "$ns" python3 "$helper" probe "$case_output" "$mode" "$redirect" "$path" "$transport" | tee -a "$case_output/probes.log"
       done
     done
+    # auto_redirect TCP can reach the core without traversing the TUN device.
+    # This separate UDP query targets the TUN DNS address directly, so even the
+    # native/auto_redirect case proves real TUN traffic without changing the six
+    # DNS-forwarding semantics under test above.
+    ip -n "$router" -j -details -statistics link show dev webui-test-tun > "$case_output/tun.control.before.json"
+    ip netns exec "$client" python3 "$helper" probe "$case_output" "$mode" "$redirect" control udp | tee "$case_output/control.log"
     ip -n "$router" -j -details -statistics link show dev webui-test-tun > "$case_output/tun.after.json"
     python3 "$helper" verify "$case_output" | tee -a "$output/matrix.log"
     dispose
   done
 done
 [[ $(wc -l < "$output/matrix.log") == 4 ]] || { echo 'Incomplete mode matrix' >&2; exit 1; }
-echo 'PASS: 4 real-core configurations; 24 DNS + HTTP probes with exact per-hop assertions' | tee -a "$output/matrix.log"
+echo 'PASS: 4 real-core configurations; 24 DNS + HTTP probes; 4 separate UDP TUN controls; exact per-hop assertions' | tee -a "$output/matrix.log"

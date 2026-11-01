@@ -61,6 +61,7 @@ class DNSChainTests(unittest.TestCase):
                              (CHAIN.FORWARDED, ["dnsmasq", "adguard", "upstream53"]))
             self.assertEqual(CHAIN.expected(mode, False, "attached"), (CHAIN.INTERCEPTED, ["core1053"]))
             for redirect in (False, True):
+                self.assertEqual(CHAIN.expected(mode, redirect, "control"), (CHAIN.INTERCEPTED, ["core1053"]))
                 self.assertEqual(CHAIN.expected(mode, redirect, "loopback"),
                                  (CHAIN.FORWARDED, ["adguard", "upstream53"]))
         self.assertEqual(CHAIN.expected("native", True, "attached"), (CHAIN.FORWARDED, ["upstream53"]))
@@ -71,6 +72,7 @@ class DNSChainTests(unittest.TestCase):
             root = pathlib.Path(temporary)
             source = root / "source.json"
             config = {"inbounds": [{"type": "tun", "dns_mode": "hijack", "auto_redirect": False,
+                                    "address": ["172.30.0.1/30"],
                                     "route_exclude_address": ["10.204.0.0/24"], "include_interface": ["lan0"]}],
                       "experimental": {"cache_file": {"path": "original.db"}}, "dns": {},
                       "services": [{"type": "api", "secret": "fixture-only-secret"}]}
@@ -106,13 +108,21 @@ class DNSChainTests(unittest.TestCase):
             events["core1053"] += [dict(first, qtype=kind, id=query_id, connection_id="reuse-probe")
                                    for kind, query_id in ((1, 1), (28, 2))]
             (root / "assertions.jsonl").write_text("\n".join(json.dumps(sample) for sample in samples))
-            for suffix, packets in (("before", 1), ("after", 5)):
+            control = dict(samples[0], path="control", transport="udp", domain="control.fixture.test",
+                           destination=[CHAIN.TUN_DNS, 53])
+            events["core1053"].append(dict(first, domain=control["domain"], connection_id="control"))
+            (root / "control.jsonl").write_text(json.dumps(control))
+            for suffix, packets in (("before", 1), ("control.before", 4), ("after", 5)):
                 (root / f"tun.{suffix}.json").write_text(json.dumps([{"linkinfo": {"info_kind": "tun"}, "stats64": {"rx": {"packets": packets}}}]))
             def write_events():
                 for role, entries in events.items():
                     (root / (role + ".jsonl")).write_text("\n".join(json.dumps(event) for event in entries))
             write_events()
             CHAIN.verify(root)
+            (root / "tun.control.before.json").write_text((root / "tun.after.json").read_text())
+            with self.assertRaisesRegex(AssertionError, "UDP control did not cross"):
+                CHAIN.verify(root)
+            (root / "tun.control.before.json").write_text((root / "tun.before.json").read_text())
             events["dnsmasq"].append(dict(events["core1053"][0]))
             write_events()
             with self.assertRaises(AssertionError):
@@ -125,16 +135,16 @@ class DNSChainTests(unittest.TestCase):
             events["core1053"][0]["peer"] = CHAIN.UPSTREAM
             events["adguard"][0]["id"] += 1
             with self.assertRaises(AssertionError):
-                CHAIN.verify_events(samples, events)
+                CHAIN.verify_events(samples, events, control)
             events["adguard"][0]["id"] -= 1
             old_connection = events["core1053"][1]["connection_id"]
             events["core1053"][1]["connection_id"] = "reuse-probe"
             with self.assertRaises(AssertionError):
-                CHAIN.verify_events(samples, events)
+                CHAIN.verify_events(samples, events, control)
             events["core1053"][1]["connection_id"] = old_connection
             events["upstream53"].append(dict(events["upstream53"][0]))
             with self.assertRaises(AssertionError):
-                CHAIN.verify_events(samples, events)
+                CHAIN.verify_events(samples, events, control)
 
 
 if __name__ == "__main__":

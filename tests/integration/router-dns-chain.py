@@ -25,6 +25,7 @@ SPEC.loader.exec_module(FIXTURE)
 LAN = "10.203.0.1"
 UPSTREAM = "10.204.0.2"
 ATTACHED = "10.205.0.2"
+TUN_DNS = "172.30.0.2"
 FORWARDED = "203.0.113.10"
 INTERCEPTED = "198.51.100.20"
 LOCK = threading.Lock()
@@ -174,33 +175,37 @@ def expected(mode, redirect, path):
     # unconditional. With nftables, the LAN DNS DNAT precedes local exclusions.
     intercepted = path == "attached" and (not redirect or mode == "hijack")
     intercepted |= path == "lan" and redirect and mode == "hijack"
-    if intercepted:
+    if intercepted or path == "control":
         return INTERCEPTED, ["core1053"]
     return FORWARDED, {"lan": ["dnsmasq", "adguard", "upstream53"],
                        "loopback": ["adguard", "upstream53"], "attached": ["upstream53"]}[path]
 
 
 def probe(root, mode, redirect, path, transport):
-    destination = {"lan": (LAN, 53), "loopback": ("127.0.0.1", 5353), "attached": (ATTACHED, 53)}[path]
+    destination = {"lan": (LAN, 53), "loopback": ("127.0.0.1", 5353),
+                   "attached": (ATTACHED, 53), "control": (TUN_DNS, 53)}[path]
+    assert path != "control" or transport == "udp"
     domain = f"{mode}-{int(redirect)}-{path}-{transport}-{secrets.token_hex(4)}.fixture.test"
     packet = query(domain)
     address = address_from_response(packet, exchange(packet, destination, transport))
     wanted, hops = expected(mode, redirect, path)
     if address != wanted:
         raise AssertionError(f"{domain}: answer {address}, expected {wanted}; inspect per-hop logs")
-    connection = http.client.HTTPConnection(address, 8080, timeout=4)
-    try:
-        connection.request("GET", "/" + domain, headers={"Host": domain})
-        response = connection.getresponse()
-        body = json.loads(response.read(65536))
-        if response.status != 200 or body.get("host") != domain or body.get("path") != "/" + domain:
-            raise AssertionError("resolved address did not reach the controlled HTTP target")
-    finally:
-        connection.close()
+    body = None
+    if path != "control":
+        connection = http.client.HTTPConnection(address, 8080, timeout=4)
+        try:
+            connection.request("GET", "/" + domain, headers={"Host": domain})
+            response = connection.getresponse()
+            body = json.loads(response.read(65536))
+            if response.status != 200 or body.get("host") != domain or body.get("path") != "/" + domain:
+                raise AssertionError("resolved address did not reach the controlled HTTP target")
+        finally:
+            connection.close()
     sample = {"domain": domain, "mode": mode, "auto_redirect": redirect, "path": path,
               "transport": transport, "answer": address, "expected_hops": hops, "http": body,
-              "request_id": int.from_bytes(packet[:2], "big")}
-    record(root, "assertions", sample)
+              "request_id": int.from_bytes(packet[:2], "big"), "destination": list(destination)}
+    record(root, "control" if path == "control" else "assertions", sample)
     print(json.dumps(sample), flush=True)
 
 
@@ -212,6 +217,7 @@ def prepare(source, root, mode, redirect):
     # connected subnet deliberately is not excluded, exposing the port53 rules.
     assert tun["route_exclude_address"] == ["10.204.0.0/24"]
     assert tun["include_interface"] == ["lan0"]
+    assert tun["address"] == ["172.30.0.1/30"] and not tun.get("dns_address")
     config["experimental"]["cache_file"]["path"] = str(root / "cache.db")
     config["dns"]["disable_cache"] = True
     root.mkdir(parents=True, exist_ok=False)
@@ -252,8 +258,12 @@ def core_queries(entries):
     return 0
 
 
-def verify_events(samples, events):
+def verify_events(samples, events, control):
     assert len(samples) == 6 and len({(s["path"], s["transport"]) for s in samples}) == 6
+    assert control["path"] == "control" and control["transport"] == "udp"
+    assert control["destination"] == [TUN_DNS, 53]
+    assert (control["mode"], control["auto_redirect"]) == (samples[0]["mode"], samples[0]["auto_redirect"])
+    samples = [*samples, control]
     names = {s["domain"] for s in samples}
     assert len(names) == len(samples)
     assert all(e["domain"] in names for entries in events.values() for e in entries), "Unexpected DNS query"
@@ -295,6 +305,8 @@ def verify_events(samples, events):
 
 def verify(root):
     samples = [json.loads(line) for line in (root / "assertions.jsonl").read_text().splitlines()]
+    controls = [json.loads(line) for line in (root / "control.jsonl").read_text().splitlines()]
+    assert len(controls) == 1, "Expected one separate UDP TUN control query"
     # The reuse probe runs asynchronously, with a 5-second core timeout. Only
     # an incomplete valid probe may wait; malformed/duplicate requests fail now.
     deadline = time.monotonic() + 6
@@ -304,22 +316,25 @@ def verify(root):
             file = root / (role + ".jsonl")
             events[role] = [json.loads(line) for line in file.read_text().splitlines()] if file.exists() else []
         try:
-            reuse_probes = verify_events(samples, events)
+            reuse_probes = verify_events(samples, events, controls[0])
             break
         except PendingReuseProbe:
             if time.monotonic() >= deadline:
                 raise
             time.sleep(0.05)
     before = json.loads((root / "tun.before.json").read_text())[0]
+    control_before = json.loads((root / "tun.control.before.json").read_text())[0]
     after = json.loads((root / "tun.after.json").read_text())[0]
     assert after["linkinfo"]["info_kind"] == "tun"
     rx = lambda link: link.get("stats64", link.get("stats", {}))["rx"]["packets"]
-    assert rx(after) > rx(before), "No packets crossed the real TUN"
+    assert rx(after) > rx(control_before) >= rx(before), "UDP control did not cross the real TUN"
     summary = {"mode": samples[0]["mode"], "auto_redirect": samples[0]["auto_redirect"],
                "assertions": len(samples), "tun_rx_before": rx(before), "tun_rx_after": rx(after),
+               "tun_control_queries": 1, "tun_rx_before_control": rx(control_before),
                "tcp_dns_reuse_probes": reuse_probes,
                "scope": "IPv4 UDP/TCP; synthetic DNS forwarders, not real AdGuard Home filters"}
-    (root / "evidence.log").write_text(json.dumps(summary) + "\n" + json.dumps(samples, indent=2) + "\n")
+    (root / "evidence.log").write_text(json.dumps(summary) + "\n" + json.dumps(samples, indent=2)
+                                     + "\nSeparate UDP TUN control:\n" + json.dumps(controls[0], indent=2) + "\n")
     print(json.dumps(summary))
 
 
