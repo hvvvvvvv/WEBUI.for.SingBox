@@ -1,9 +1,9 @@
 # GUI 操作逻辑对照与网络设备适配
 
-本轮按用户提供的 GUI.for.SingBox 1.28.1 设置页截图，读取三方源码比较：
+按 GUI.for.SingBox 1.28.1 的界面与操作方式读取源码比较：
 
 - 原始 GUI：[GUI-for-Cores/GUI.for.SingBox](https://github.com/GUI-for-Cores/GUI.for.SingBox)，主线源码比对 `f0de129e3c7ee0278eff12f13bbfa435fcc8e57d`；云端视觉参考固定为官方 v1.28.1 的 `99a6f21971d7cbca4720317e37abf31f8ce99f07`。
-- 直接上游：[hvvvvvvv/WEBUI.for.SingBox](https://github.com/hvvvvvvv/WEBUI.for.SingBox)，本轮比对 `8d2dc2e`。
+- WebUI 适配基线：`8d2dc2ee83c395d709a68a40b9ffb53e570bf8cd`。
 - 当前分支：[Ghostdehole/WEBUI.for.SingBox](https://github.com/Ghostdehole/WEBUI.for.SingBox)。
 
 目标是保留配置、订阅、规则集、插件、计划任务和核心管理的操作方式，并把需要持续运行的工作放到服务器后端。
@@ -45,7 +45,7 @@
 
 ## 插件与原版的差异
 
-原版 `SettingsView/components/PluginSettings.vue` 和 `PluginsView/components/PluginConfigItem.vue` 使用插件元数据生成 Switch、Radio、Input 等控件。本分支保持这套表单逻辑，1.3.0 增加 TextArea，便于编辑 hosts 和规则 JSON，并提供后端类型校验、串行保存和 revision 冲突提示。参数保存失败会保留草稿；不以成功提示掩盖失败。
+原版 `SettingsView/components/PluginSettings.vue` 和 `PluginsView/components/PluginConfigItem.vue` 使用插件元数据生成 Switch、Radio、Input 等控件。本分支保持这套表单逻辑，并提供 TextArea 编辑 hosts 和规则 JSON，以及后端类型校验、串行保存和 revision 冲突提示。参数保存失败会保留草稿；不以成功提示掩盖失败。
 
 原版的插件中心将目录与源码分开获取。[`PluginHub.vue` 在空列表时调用目录更新，用户点击添加才调用 `addPlugin`](https://github.com/GUI-for-Cores/GUI.for.SingBox/blob/f0de129e3c7ee0278eff12f13bbfa435fcc8e57d/frontend/src/views/PluginsView/components/PluginHub.vue#L58-L92)；[`updatePluginHub` 只读取和保存 JSON 元数据](https://github.com/GUI-for-Cores/GUI.for.SingBox/blob/f0de129e3c7ee0278eff12f13bbfa435fcc8e57d/frontend/src/stores/plugins.ts#L662-L687)。[`addPlugin` 先加入元数据，再调用 `_doUpdatePlugin`，最后保存插件列表](https://github.com/GUI-for-Cores/GUI.for.SingBox/blob/f0de129e3c7ee0278eff12f13bbfa435fcc8e57d/frontend/src/stores/plugins.ts#L444-L454)；具体的 [HTTP 源码下载在 `_doUpdatePlugin`](https://github.com/GUI-for-Cores/GUI.for.SingBox/blob/f0de129e3c7ee0278eff12f13bbfa435fcc8e57d/frontend/src/stores/plugins.ts#L548-L607)。原版还会注册观察器、触发 `OnInstall`，并在添加时忽略下载异常，这些桌面生命周期和错误处理并未照搬。
 
@@ -55,7 +55,7 @@ GUI 原版的插件运行环境包含 Wails、前端 Store、窗口和文件等 
 
 GUI 的索引/重命名操作还需适应 WebUI 的订阅 ID 引用。独立仓库的命名插件保留节点身份并改写内部出站引用，避免重新更新订阅后配置中已选节点丢失；地区表为 142 个地区、907 个关键词。自定义脚本如果主动丢弃内部身份字段并创建全新节点，首次改名可能被视为新节点。
 
-当前三个命名模式和去重归并到「订阅节点整理」，并提供显式名称/协议筛选；出口与 GeoIP 归并为「网络诊断」。六个旧包已从独立仓库删除，中心不提供兼容区或旧包更新，并过滤已缓存的旧条目。用户已安装的脚本、参数和启停状态保持不变；迁移时自行导出参数、禁用旧项、手动安装并配置新项。新插件保留对旧 ID 的互斥检查，冲突时明确报错，不自动选择或迁移。历史上 1.3.1 已取消主程序随附脚本及旧全源码目录缓存；主程序升级和列表刷新都不改变已安装源码。具体参数对应见 [迁移说明](https://github.com/Ghostdehole/WEBUI.for.SingBox-Plugins/blob/main/docs/migration-1.4.md)。
+当前三个命名模式和去重归并到「订阅节点整理」，并提供显式名称/协议筛选；出口与 GeoIP 归并为「网络诊断」。六个旧包已从独立仓库删除，中心不提供兼容区或旧包更新，并过滤已缓存的旧条目。用户已安装的脚本、参数和启停状态保持不变；迁移时自行导出参数、禁用旧项、手动安装并配置新项。新插件保留对旧 ID 的互斥检查，冲突时明确报错，不自动选择或迁移。主程序不随附脚本，也不使用旧版全源码目录缓存；升级和列表刷新都不改变已安装源码。具体参数对应见 [迁移说明](https://github.com/Ghostdehole/WEBUI.for.SingBox-Plugins/blob/main/docs/migration-1.4.md)。
 
 路由器透明代理、独立代理端口、出站链、配置覆盖、规则集引用、Hosts DNS、AdGuardHome 对接、核心 URLTest、DNS/客户端策略均只生成配置。默认关闭或空规则，需先填写实际接口、端口、标签并预览。DNS 策略只选择已有解析器，客户端策略只引用已有入口/出站；不重复创建 hosts、TUN 或规则集。旧 TUN `ClientRules` 保留读取但不再推广，迁移须显式复制规则并清空旧字段；来源 CIDR 重叠时双向拒绝，避免执行顺序改变策略。透明代理脚本不写系统防火墙、不替 dnsmasq；启动核心后由 sing-box 按配置处理路由和重定向。AdGuardHome/FRP 等独立进程仍由 procd/systemd 管理。
 
@@ -65,7 +65,7 @@ GUI 的索引/重命名操作还需适应 WebUI 的订阅 ID 引用。独立仓�
 
 ## 核心与服务生命周期
 
-GUI 切换 Stable/Alpha 时通常立即重启。WebUI 延续直接上游的自动重启设置：关闭自动重启时，保存分支或参数后显示待重启入口；管理员决定何时中断当前连接。核心下载成功也需要重启才进入新版本，并保留本地备份用于回滚。
+GUI 切换 Stable/Alpha 时通常立即重启。WebUI 保留自动重启设置：关闭自动重启时，保存分支或参数后显示待重启入口；管理员决定何时中断当前连接。更新正在运行的同分支核心前必须先停止它，下载按钮不会隐式重启网络；下次启动使用已更新的核心，并保留本地备份用于回滚。
 
 首页「核心设置」修改的是当前运行配置副本，应用会重启核心；按保存的配置重新启动后，临时修改不再保留。出站网卡明确区分系统路由、自动探测与指定接口。重启先生成并校验候选配置；停掉旧实例后若新实例启动失败，在确认新进程已退出的前提下，使用上次成功实例的配置、参数与环境快照尝试恢复，不重新运行插件或读取变动后的订阅。恢复成功仍返回本次重启错误；显式停止或服务退出会取消恢复。
 
@@ -85,4 +85,4 @@ GUI 切换 Stable/Alpha 时通常立即重启。WebUI 延续直接上游的自�
 
 镜像模板使用 `https://example.com/{url}`，默认不配置第三方地址。镜像只替换公开 GitHub release/archive 下载，不替换 GitHub API、插件原始源码地址或用户订阅；这些请求仍遵从所选请求代理。API 令牌不会交给镜像。
 
-当前界面内置简体中文和英文；原版额外语言下载及目录操作尚未移植。本轮没有在真实路由器上测试；静态跨架构构建和自动化测试不能替代 GL-MT3600BE 等真实固件上的 TUN、转发、DNS 与防火墙验证，部署要求见 [路由器说明](routers.md)。
+当前界面内置简体中文和英文；原版额外语言下载及目录操作尚未移植。已通过 OpenWrt ARM64 虚拟机及隔离 DNS/TUN 验证，未测试 GL-MT3600BE 实机。静态跨架构构建和模拟测试不能替代厂商固件上的 TUN、转发、DNS 与防火墙验证；已完成的运行见 [集成与验证记录](upstream-integration.md)，部署要求见 [路由器说明](routers.md)。

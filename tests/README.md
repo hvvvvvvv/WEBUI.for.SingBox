@@ -34,6 +34,8 @@ frontend/node_modules/.bin/oxfmt tests/frontend tests/vitest.config.mts
 
 CI 的 `core-compatibility` 分别下载并校验 1.14.4 与 1.15.0-alpha.13，将后三个变量指向对应核心，执行配置、核心及 HTTP 包的完整测试。监听、代理、DNS 和规则集服务均使用临时目录/本地测试端点；真实 TUN 测试另在独立网络命名空间中执行。不要将测试指向生产数据目录。HTTP 长流测试需要约 61 秒，`-short` 会跳过。
 
+发布兼容性还包含 Linux x64/ARM64、Windows、macOS 原生测试、Linux race、各发布目标交叉构建、容器入口与 OpenWrt 21.02.7/24.10.4 ARM64 QEMU。`tests/compat/openwrt-vm.sh` 检查 procd、认证、插件和核心；`tests/compat/router-transparent.sh` 在云端私有网络命名空间验证 DNS/TUN；`gui-parity.yml` 对照官方 GUI v1.28.1 的操作与深浅色、手机布局。固定镜像、核心和插件仓库版本见各工作流，实际结果与未覆盖范围见 [验证记录](../docs/upstream-integration.md#验证记录)。这些测试不会连接真实路由器，不代表已验证厂商固件或真实 AdGuard Home。
+
 实际插件源码只在独立的 `Ghostdehole/WEBUI.for.SingBox-Plugins` 仓库维护。设置 `WEBUI_PLUGIN_REPO` 为该仓库本地检出的绝对路径，可以运行 `TestExternal*` 的命名、去重和订阅节点 ID 集成测试；未设置时明确跳过，指定无效目录则失败。默认插件引擎测试使用最小合成脚本，目录下载测试使用本地 HTTP 服务，不访问公网。主程序 CI 将独立仓库检出到临时 `.plugin-tests/` 后设置此变量；该目录不提交、不嵌入程序，也不进入 Docker 构建上下文。
 
 保留标准很严格：测试必须覆盖实际的数据损坏、并发时序、认证边界、进程或流生命周期、失败回滚，或用独立协议向量/真实核心检验兼容性。默认值、简单 getter、机械字段搬运、源码文本检查、仅验证 mock 自身行为的包装测试，以及已经被更强行为测试覆盖的重复用例均删除。不以测试数量或覆盖率作为保留理由。

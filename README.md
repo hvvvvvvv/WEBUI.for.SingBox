@@ -1,16 +1,16 @@
-# webui.for.singbox
+# WEBUI.for.SingBox
 
 面向透明代理场景的 sing-box 浏览器 Web UI，基于 GUI.for.SingBox 修改，适合部署在网关、旁路由、软路由、服务器或容器环境中进行远程管理。
 
-这个分支主要面向透明代理场景：将管理界面从桌面应用形态调整为可通过浏览器访问的 Web 服务，方便部署在网关、旁路由、软路由、服务器或容器环境中，用于远程维护 sing-box 的配置和运行状态。
-
-本项目 fork 自 [hvvvvvvv/WEBUI.for.SingBox](https://github.com/hvvvvvvv/WEBUI.for.SingBox)，最初源自 [GUI-for-Cores/GUI.for.SingBox](https://github.com/GUI-for-Cores/GUI.for.SingBox)。感谢两个上游提供的 Web 服务、原始界面、配置模型和规则集仓库等。
+本项目基于 [GUI-for-Cores/GUI.for.SingBox](https://github.com/GUI-for-Cores/GUI.for.SingBox) 的界面与配置模型移植，使用 Go HTTP 后端管理 [sing-box](https://github.com/SagerNet/sing-box)，持续吸收适用于网络设备的上游改进。
 
 路由器部署请先阅读 [OpenWrt / GL.iNet 部署说明](docs/routers.md)。本分支的修复、上游移植范围及验证记录见 [集成说明](docs/upstream-integration.md)。
 
 原版 GUI、直接上游和当前仓库的设置与操作对照见 [GUI 操作逻辑适配](docs/gui-parity.md)。
 
 主程序正式版版本号跟随 `GUI-for-Cores/GUI.for.SingBox` 最新稳定版（当前为 `1.28.1`），发布流程会核对官方稳定版，阻止版本号不一致的发布。功能仍以本仓库说明为准；sing-box 核心和独立插件库分别维护版本。
+
+下载安装包见 [最新正式版](https://github.com/Ghostdehole/WEBUI.for.SingBox/releases/latest)，本次变更与同版本更新方法见 [1.28.1 发布说明](docs/releases/1.28.1.md)。安装包只包含程序，不附带核心或插件；升级前备份原程序和整个 `data/` 目录。
 
 ## 相比上游的主要改动
 
@@ -31,19 +31,19 @@
 
 打开插件中心时，已有有效目录缓存就先显示缓存；没有缓存时只获取独立仓库的 `index.json` 元数据列表。「检查更新」也只刷新列表，不下载 JS、不安装插件。点击某个插件的「安装」或「更新」，才下载该插件源码，通过 SHA256 和语法校验后保存。列表获取失败时保留有效缓存；无缓存则显示空目录及明确警告。
 
-已安装插件保存在设备上，可离线执行；目录缓存只能离线浏览，安装或更新仍需联网下载所选源码。1.3.1 会忽略旧版含源码的目录缓存并重新获取元数据列表，不改变已安装插件。主程序升级或目录刷新均不会自动替换已安装源码。
+已安装插件保存在设备上，可离线执行；目录缓存只能离线浏览，安装或更新仍需联网下载所选源码。旧版含源码的目录缓存不会被用作当前元数据缓存，升级后会重新获取列表，不改变已安装插件。主程序升级或目录刷新均不会自动替换已安装源码。
 
 这是适配 WebUI 的 JavaScript 插件接口，支持订阅、配置生成、手动触发。官方桌面插件需要适配，不能直接使用依赖 Wails、窗口、Shell 或桌面存储的源码。普通钩子没有网络能力；诊断仅提供有限 GET/HEAD 和下载采样，管理员主动运行时可以访问指定内网地址，没有域名白名单隔离。Goja 不提供强内存隔离，请只安装可信脚本。用法、限额与开发接口见 [插件说明](docs/plugins.md)。
 
-透明代理插件只生成配置，不写系统防火墙、不替换 dnsmasq；核心启动后才按配置设置自动路由和重定向。AdGuardHome、FRP 等独立服务应由 procd/systemd 管理。本轮尚未在真实路由器验证，部署前请核对固件的 TUN、转发、DNS 和防火墙条件。
+透明代理插件只生成配置，不写系统防火墙、不替换 dnsmasq；核心启动后才按配置设置自动路由和重定向。AdGuardHome、FRP 等独立服务应由 procd/systemd 管理。已通过 OpenWrt ARM64 虚拟机及隔离 DNS/TUN 验证，尚未验证 GL-MT3600BE 实机固件；部署前请核对 TUN、转发、DNS 和防火墙条件。
 
 ## 构建
 
 需要准备：
 
-- Node.js
+- Node.js 24
 - pnpm
-- Go
+- Go 1.26（以 `go.mod` 为准）
 - Buf，仅在重新生成 protobuf 代码时需要
 - make。Linux/macOS 可使用系统包管理器安装；Windows 需要安装可用的 make，并确保 PowerShell 可用
 
@@ -87,7 +87,7 @@ chmod +x data/sing-box/sing-box-latest
 
 拉取并运行最新稳定版本：
 
-以下镜像地址对应当前 fork，需要先在该仓库成功运行发布流程；本地源码提交不会自动生成远端镜像。
+镜像由正式版发布流程构建，`latest` 对应最新稳定发布；也可使用明确的版本标签。
 
 ```bash
 docker pull ghcr.io/ghostdehole/webui.for.singbox:latest

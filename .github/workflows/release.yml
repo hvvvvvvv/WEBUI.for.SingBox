@@ -106,6 +106,7 @@ jobs:
 
             Write-Host "==> Building Windows $arch..."
             make backend "BINARY_NAME=$($env:APP_NAME).exe"
+            if ($LASTEXITCODE -ne 0) { throw "Windows $arch build failed" }
 
             cd build/bin
             $zipName = "$env:APP_NAME-windows-$arch.zip"
@@ -313,16 +314,20 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v6
       - uses: actions/download-artifact@v8
         with:
+          pattern: '*-builds'
           path: release-assets
       - name: Create Release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.Prepare.outputs.release_tag }}
           name: ${{ needs.Prepare.outputs.release_tag }}
+          target_commitish: ${{ github.sha }}
           files: release-assets/**/*.zip
+          fail_on_unmatched_files: true
           draft: false
-          prerelease: ${{ contains(needs.Prepare.outputs.release_tag, 'dev') }}
-          body: |
-            Auto-generated release from GitHub Actions.
+          prerelease: false
+          make_latest: true
+          body_path: docs/releases/${{ needs.Prepare.outputs.app_version }}.md

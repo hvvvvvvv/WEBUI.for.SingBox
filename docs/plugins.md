@@ -15,7 +15,7 @@
 
 ## 升级与独立仓库插件
 
-先将主程序升级到当前版本，再从独立仓库获取插件。插件中心采用搜索栏、按用途分组的卡片和逐项加号安装；打开中心或刷新只获取元数据，不下载脚本。六个旧包已停止发行，已缓存目录也会过滤这些条目，旧 ID 的安装和更新请求会拒绝。历史上 `TextArea`、`manual_target` 和 `conflicts` 在 1.3.0 引入，1.3.1 取消主程序随附脚本及全源码目录缓存。
+推荐先将主程序升级到 `1.28.1`，再从独立仓库获取插件。插件中心采用搜索栏、按用途分组的卡片和逐项加号安装；打开中心或刷新只获取元数据，不下载脚本。六个旧包已停止发行，已缓存目录也会过滤这些条目，旧 ID 的安装和更新请求会拒绝。当前接口支持 `TextArea`、`manual_target` 和 `conflicts`，主程序不随附脚本，也不使用旧版全源码目录缓存。
 
 原防代理重名、更好的代理名称、美化节点名称和去重归并为「订阅节点整理」，用一个可选命名模式加去重/独立筛选完成节点处理；原出口连通与 GeoIP 归并为「网络诊断」。已安装的旧脚本仍显示在插件页，源码、参数和启停状态保持不变，但仓库不再提供其安装或更新。迁移时先导出旧参数、在插件页禁用旧项，再手动安装和配置新项。新插件保留对历史旧 ID 的互斥声明；冲突会明确报错，保留旧数据，不会静默双运行。参数对应和回退见 [独立仓库迁移说明](https://github.com/Ghostdehole/WEBUI.for.SingBox-Plugins/blob/main/docs/migration-1.4.md)。
 
@@ -54,11 +54,11 @@
 
 旧 TUN 的 `ClientRules` 不再出现在新表单中，但已有高级参数仍会读取。迁移时复制到客户端策略 `Rules`，为每条增加原 TUN 的 `inbound` 标签，再显式清空旧 `ClientRules`。两边会在任意执行顺序下拒绝来源 CIDR 重叠的终结规则，含反转来源条件时保守拒绝，不自动删除用户配置。TUN 创建插件应放在客户端策略之前；有 `DefaultOutbound` 的 TUN 后执行会明确报错，避免遮挡设备规则。DNS 策略只选择已有解析器，默认追加；优先模式仍保留 hosts 规则前缀，不创建 DNS 服务、TUN 或规则集。字段、优先级和来源信息限制见 [策略说明](https://github.com/Ghostdehole/WEBUI.for.SingBox-Plugins/blob/main/docs/policies.md)。
 
-脚本只生成配置，不写系统防火墙、不运行 Shell，也不探测或改写现有系统路由。核心启动后，`auto_route`/`auto_redirect` 才按 sing-box 自身实现设置路由和重定向；设备仍需具备 TUN、NET_ADMIN、转发和相应 nftables/fw4 能力。DNS 劫持仅针对新增 TUN 的端口 53 流量，不绑定系统 53、不替换 dnsmasq；sing-box 1.14 不会因此自动劫持发往路由器自身接口地址的 DNS。
+脚本只生成配置，不写系统防火墙、不运行 Shell，也不探测或改写现有系统路由。核心启动后，`auto_route`/`auto_redirect` 才按 sing-box 自身实现设置路由和重定向；设备仍需具备 TUN、NET_ADMIN、转发和相应 nftables/fw4 能力。透明代理插件生成 `auto_redirect: true`，启用其 DNS 劫持还会设置 `dns_mode: "hijack"`。在 sing-box 1.14.4 的 Linux 重定向路径中，这可接管发往路由器 LAN IP:53 的请求，绕过原有 dnsmasq/AdGuardHome 转发链；保留原链路时需在配置编辑器核对原生 DNS 模式与转发关系。插件不会安装、替换或停止这些 DNS 服务。
 
 AdGuardHome 由 procd/systemd 等服务管理器管理，插件仅设置 sing-box 到该服务的 DNS 路径。确认监听地址和端口，并避免 AdGuardHome 上游再指回同一 sing-box DNS。独立代理端口默认监听回环地址；开放 LAN 监听时使用认证，系统实际端口是否可绑定仍由核心启动确认。URLTest 自动探测在核心中运行，并非浏览器定时器；默认不会中断已有连接或替换 selector 默认节点。
 
-按用户要求，本轮只使用测试数据和隔离进程/模拟环境，不连接真实 GL 路由器。静态构建、配置检查和模拟回归不能替代实体固件上的转发、防火墙、DNS 与多客户端验证，见 [路由器部署说明](routers.md)。
+插件已通过后端 Goja 与真实核心配置检查，以及 OpenWrt ARM64 虚拟机验证。尚未进行 GL-MT3600BE 实机测试，静态构建、配置检查和模拟回归不能替代实体固件上的转发、防火墙、DNS 与多客户端验证，见 [路由器部署说明](routers.md)。
 
 ## 开发接口
 
@@ -98,7 +98,7 @@ function onRun(proxies, subscription) {
 {"key":"EnableCityName","title":"保留城市名","description":"保留识别到的城市","component":"Switch","value":true}
 ```
 
-基础 `configuration_schema` 从 WebUI 1.2.1 开始支持；本轮新增字段和控件需要 1.3.0。原安装的参数会保留，不会因为新版本默认值改变而静默重置。可选 `conflicts` 是最多 32 个其他插件 ID 的数组，不允许重复或引用自身；任意一方声明冲突，后台都会阻止同时启用保存，并在流水线执行前检查所选插件。
+上述字段和控件均由当前主程序支持。原安装的参数会保留，不会因为新版本默认值改变而静默重置。可选 `conflicts` 是最多 32 个其他插件 ID 的数组，不允许重复或引用自身；任意一方声明冲突，后台都会阻止同时启用保存，并在流水线执行前检查所选插件。
 
 配置插件在原有 mixin 和配置脚本后执行；随后仍规范化 HTTP 配置并强制应用管理所需的原生 API 设置。生成失败不覆盖已有配置文件。脚本可调整配置数据，但不直接改变系统路由表、dnsmasq、防火墙或运行中的核心。
 
@@ -146,7 +146,7 @@ function onRun() {
 
 该交互遵循原版 GUI 的分阶段流程：[打开空中心只刷新目录](https://github.com/GUI-for-Cores/GUI.for.SingBox/blob/f0de129e3c7ee0278eff12f13bbfa435fcc8e57d/frontend/src/views/PluginsView/components/PluginHub.vue#L58-L92)，[目录更新只读取 JSON](https://github.com/GUI-for-Cores/GUI.for.SingBox/blob/f0de129e3c7ee0278eff12f13bbfa435fcc8e57d/frontend/src/stores/plugins.ts#L662-L687)，用户选择添加后才[下载所选源码](https://github.com/GUI-for-Cores/GUI.for.SingBox/blob/f0de129e3c7ee0278eff12f13bbfa435fcc8e57d/frontend/src/stores/plugins.ts#L548-L607)。WebUI 在保存前另行检查摘要和语法，不复制桌面安装事件或文件宿主。
 
-旧版本曾随附插件目录，1.3.0 还采用过随附条目与下载缓存合并；这两项均已在 1.3.1 取消。旧版包含全量源码的目录缓存不作为新版元数据缓存使用；升级后需要重新获取 `index.json`，不会将旧目录缓存中的脚本自动安装，也不会改动已有安装。
+旧版本曾随附插件目录并合并下载缓存，当前已移除此发行方式。旧版包含全量源码的目录缓存不作为当前元数据缓存使用；升级后需要重新获取 `index.json`，不会将旧目录缓存中的脚本自动安装，也不会改动已有安装。
 
 编辑 JS、递增清单中的版本后，在主程序源码目录运行：
 

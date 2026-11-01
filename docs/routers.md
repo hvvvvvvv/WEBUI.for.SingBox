@@ -40,12 +40,12 @@ cat /etc/openwrt_release
 
 ## 安装和服务
 
-将对应发布包在电脑上解压，将其中的 `webui.for.singbox` 上传到路由器的持久目录，例如 `/opt/webui/`。确认该目录位于可执行、可写的持久存储上；外置磁盘需要在服务启动前挂载。程序使用同目录的 `data/` 保存配置、订阅、规则集和核心。不要将它放到重启即清空的 `/tmp`。
+从 [最新正式版](https://github.com/Ghostdehole/WEBUI.for.SingBox/releases/latest) 下载对应架构的发布包，在电脑上核对发布摘要并解压，将其中的 `webui.for.singbox` 上传到路由器的持久目录，例如 `/opt/webui-for-singbox/`。确认该目录位于可执行、可写的持久存储上；外置磁盘需要在服务启动前挂载。程序使用同目录的 `data/` 保存配置、订阅、规则集和核心。不要将它放到重启即清空的 `/tmp`。
 
 在路由器 SSH 中执行以下命令，先将 `LAN_IP` 改为实际管理网段地址：
 
 ```sh
-cd /opt/webui
+cd /opt/webui-for-singbox
 chmod +x webui.for.singbox
 LAN_IP='你的路由器LAN地址'
 ./webui.for.singbox service install --addr "$LAN_IP:9090" --log-level info --log-days 0
@@ -59,7 +59,7 @@ OpenWrt 服务使用 procd 直接监控前台进程，自动重启异常退出�
 
 核心可通过界面下载；无法访问 GitHub 时，按 [README 的手动安装说明](../README.md#手动安装-sing-box-core)上传。在线更新必须通过发布资源提供的 SHA256 校验后才会替换文件，校验失败或缺少摘要时保留旧文件。自编译可用 `make build APP_REPOSITORY=owner/repository` 指定自己的更新仓库；GitHub 发布流程自动使用当前仓库。
 
-本分支启动核心要求 sing-box 1.14.2 或更新版本。应用更新会先完整解压并验证候选程序，再启动更新助手并退出旧程序；服务模式和直接运行模式均适用。准备阶段遇到损坏包、磁盘写满、请求取消或助手启动失败时，旧程序继续运行；同一时间只接受一个更新应用请求。路由器建议使用上述服务模式，以获得自启和进程监管。
+本分支启动核心要求 sing-box 1.14.2 或更新版本，当前稳定核心验证版本为 1.14.4。应用更新会先完整解压并验证候选程序，再启动更新助手并退出旧程序；服务模式和直接运行模式均适用。准备阶段遇到损坏包、磁盘写满、请求取消或助手启动失败时，旧程序继续运行。下载与安装串行执行，取消操作完全结束后才接受下一项任务。正在运行的同一分支核心须先停止再更新，下载按钮不会隐式重启网络。路由器建议使用上述服务模式，以获得自启和进程监管。
 
 配置的「通用」日志设置会真实生效，包括旧配置已保存的禁用、级别和输出路径；日志目录须可写，并注意闪存占用。缓存文件路径由 WebUI 托管为 `data/sing-box/cache.db`；启用缓存时，已保存的工作模式优先于通用设置中的默认模式。首页「核心设置」只改运行副本，应用会重启；要持久保留端口、TUN 或出站接口调整，应编辑保存的配置。
 
@@ -67,7 +67,7 @@ OpenWrt 服务使用 procd 直接监控前台进程，自动重启异常退出�
 
 新建配置默认启用 `tun-in`、关闭 `mixed-in`，并在路由规则开头启用嗅探以识别经过 TUN 的 HTTP/TLS 等流量域名。嗅探规则不绑定某个入站 ID，切回 Mixed 时不会留下指向已禁用 TUN 的引用。已有配置的入站和规则开关保持原样；启动 WebUI 服务本身仍不会自动开启核心，除非管理员设置了核心自启动。
 
-Mixed 是 HTTP/SOCKS 显式代理入口，TUN 是虚拟网卡透明代理入口，两者可以按需求共存；TUN 的 `stack: mixed` 是另一个概念。`auto_redirect` 仍由管理员根据 Linux/nftables 和固件能力显式开启，不因升级修改现有路由。只启用 TUN 不代表 LAN DNS 必然经过它：发送到路由器自身 LAN 地址的 DNS 仍可能由 dnsmasq 接收，域名匹配也会受到加密 ClientHello、客户端私有 DNS 和 IP 直连等因素影响。
+Mixed 是 HTTP/SOCKS 显式代理入口，TUN 是虚拟网卡透明代理入口，两者可以按需求共存；TUN 的 `stack: mixed` 是另一个概念。`auto_redirect` 由管理员根据 Linux/nftables 和固件能力显式开启，不因升级修改现有路由；选择启用透明代理插件时，该插件会生成此选项。只启用 TUN 不代表 LAN DNS 必然经过它：发送到路由器自身 LAN 地址的 DNS 仍可能由 dnsmasq 接收；但在 sing-box 1.14.4 的 Linux 重定向路径下，`auto_redirect: true` 配合 `dns_mode: "hijack"` 可接管 LAN IP:53，绕过 dnsmasq/AdGuardHome。改用原生 DNS 模式可能改变这条路径，不能仅凭结果认定服务冲突。域名匹配还会受加密 ClientHello、客户端私有 DNS、IP 直连和策略组选择影响。
 
 默认六个规则集是配置中的远程规则集，每 24 小时更新，由 sing-box 下载并持久化到默认启用的 `data/sing-box/cache.db`，不会作为六个独立文件出现在 WebUI 管理的 `data/rulesets` 中。新配置的单项下载出站留空，继承路由的默认 HTTP 客户端「节点选择」；旧配置与显式下载出站保持原值。这是核心自身的下载路径，与 WebUI 的网络请求代理设置分别控制。
 
@@ -92,13 +92,15 @@ WebUI 根据实际核心版本处理 TUN `stack`：1.14 保留现有配置，1.1
 
 更新前停止服务，备份原程序和整个 `data/` 目录。需要回滚时停止新服务，恢复匹配的程序和数据备份后重新启动。包含同名节点的不同订阅现在会生成唯一标签；首次升级时核心原有的节点选择缓存可能回退到组默认项，确认一次选择即可。
 
+本次 `1.28.1` 是同版本重建：已安装旧 `1.28.1` 时，版本比较不会将其识别为更高版本，需要手动下载新发布包、停止服务并替换程序。ZIP 只包含二进制，正常升级应保留 `data/`，替换后使用已有服务启动。不要为更新程序而清空配置目录。
+
 核心重启会先校验候选配置；旧实例停止后新实例启动失败时，确认新进程退出后尝试按上次成功实例的配置、参数和环境快照恢复，不重新生成配置。界面仍报告重启失败及恢复结果，恢复本身也可能失败。管理员显式停止核心或退出服务优先，会取消恢复，避免核心被自动拉起。
 
 ## 隔离兼容性验证
 
 CI 配置包含 Linux x64/ARM64、Windows、macOS 原生测试及其他发布目标交叉编译；容器验证 IPv6 监听、额外参数传递和管理接口启动。完整 ARM64 QEMU 虚拟机分别启动官方 OpenWrt 21.02.7 与 24.10.4 镜像，使用四个模拟 CPU、512 MiB RAM、独立磁盘及私有用户态 NAT。前者覆盖 GL-MT3600BE 厂商固件所用的 OpenWrt 21.02/Linux 5.4 系列环境，后者覆盖较新的 OpenWrt 环境；均不是厂商固件镜像。
 
-虚拟机检查实际 procd 安装/启动/停止/重启、密码/TOTP/恢复码/会话撤销，以及 ARM64 Goja 插件与 sing-box 1.14.4 配置校验。另覆盖本地规则源下的六规则集、更新失败与缓存恢复、默认模式和日志；使用回环 HTTP 代理与域名嗅探，不代替实际 TUN 或 dnsmasq 链路验证。镜像与核心下载均核对固定 SHA256，入口为 `tests/compat/openwrt-vm.sh`，日志保存在对应 Actions 的构建产物中。是否通过以该提交 Actions 结果为准。
+虚拟机检查实际 procd 安装/启动/停止/重启、密码/TOTP/恢复码/会话撤销，以及 ARM64 Goja 插件与 sing-box 1.14.4 配置校验。另覆盖本地规则源下的六规则集、更新失败与缓存恢复、默认模式和日志；使用回环 HTTP 代理与域名嗅探，不代替实际 TUN 或 dnsmasq 链路验证。镜像与核心下载均核对固定 SHA256，入口为 `tests/compat/openwrt-vm.sh`，日志保存在对应 Actions 的构建产物中。[本次修复的完整兼容性运行](https://github.com/Ghostdehole/WEBUI.for.SingBox/actions/runs/41315775812)已通过，后续提交应核对各自的运行结果。
 
 独立的 [Isolated transparent routing](https://github.com/Ghostdehole/WEBUI.for.SingBox/actions/workflows/router-transparent.yml) 在云端 Linux 的三个私有网络命名空间中运行真实 TUN、受控 DNS 与 HTTP 代理，验证 LAN 客户端的规则/全局分流、六规则集加载和 DNS 误归类对照。它使用保留网段模拟域名目的站，不访问公网 Google；通过 TUN 收包计数、规则命中、DNS 来源及 CONNECT 计数共同验收。范围为 IPv4、HTTP 和 UDP/TCP DNS，不覆盖 QUIC、TLS/DoH、厂商固件或实际节点质量。模拟错误 DNS 地址可重现两种模式路径不同，但不能据此认定用户实机故障原因。
 
