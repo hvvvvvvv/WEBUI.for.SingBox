@@ -110,9 +110,18 @@ jobs:
 
             cd build/bin
             $zipName = "$env:APP_NAME-windows-$arch.zip"
-            Compress-Archive -Path "$env:APP_NAME.exe" -DestinationPath $zipName -Force
+            Compress-Archive -Path "$env:APP_NAME.exe", "LICENSE", "licenses" -DestinationPath $zipName -Force
             cd ../..
           }
+
+          $seedNoticeDirectory = Join-Path (Get-Location).Path "build/bin/licenses/ruleset-seed"
+          New-Item -ItemType Directory -Force -Path $seedNoticeDirectory | Out-Null
+          Copy-Item -LiteralPath "LICENSE" -Destination "build/bin/LICENSE" -Force
+          Get-ChildItem -LiteralPath "bridge/config/ruleset_seed" | Where-Object { $_.Extension -ne ".srs" } | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination $seedNoticeDirectory -Recurse -Force
+          }
+          "Source: https://github.com/$env:GITHUB_REPOSITORY/tree/$env:GITHUB_SHA/bridge/config/ruleset_seed/source" |
+            Set-Content -LiteralPath (Join-Path $seedNoticeDirectory "SOURCE.txt") -Encoding utf8
 
           $arches = @("amd64","arm64","386")
           foreach ($arch in $arches) { Build-And-Pack $arch }
@@ -140,6 +149,12 @@ jobs:
 
       - name: Build & Pack macOS
         run: |
+          mkdir -p build/bin/licenses/ruleset-seed
+          cp LICENSE build/bin/LICENSE
+          cp bridge/config/ruleset_seed/README.md bridge/config/ruleset_seed/NOTICE.md bridge/config/ruleset_seed/UPSTREAM-README.md bridge/config/ruleset_seed/manifest.json bridge/config/ruleset_seed/SHA256SUMS build/bin/licenses/ruleset-seed/
+          cp -R bridge/config/ruleset_seed/licenses bridge/config/ruleset_seed/source build/bin/licenses/ruleset-seed/
+          printf 'Source: https://github.com/%s/tree/%s/bridge/config/ruleset_seed/source\n' "$GITHUB_REPOSITORY" "$GITHUB_SHA" > build/bin/licenses/ruleset-seed/SOURCE.txt
+
           build_and_pack() {
             arch=$1
             export GOOS=darwin GOARCH=$arch
@@ -148,7 +163,7 @@ jobs:
             make backend BINARY_NAME=$APP_NAME
 
             cd build/bin
-            zip -q $APP_NAME-darwin-$arch.zip $APP_NAME
+            zip -qr $APP_NAME-darwin-$arch.zip $APP_NAME LICENSE licenses
             cd ../..
           }
 
@@ -177,6 +192,12 @@ jobs:
 
       - name: Build & Pack Linux
         run: |
+          mkdir -p build/bin/licenses/ruleset-seed
+          cp LICENSE build/bin/LICENSE
+          cp bridge/config/ruleset_seed/README.md bridge/config/ruleset_seed/NOTICE.md bridge/config/ruleset_seed/UPSTREAM-README.md bridge/config/ruleset_seed/manifest.json bridge/config/ruleset_seed/SHA256SUMS build/bin/licenses/ruleset-seed/
+          cp -R bridge/config/ruleset_seed/licenses bridge/config/ruleset_seed/source build/bin/licenses/ruleset-seed/
+          printf 'Source: https://github.com/%s/tree/%s/bridge/config/ruleset_seed/source\n' "$GITHUB_REPOSITORY" "$GITHUB_SHA" > build/bin/licenses/ruleset-seed/SOURCE.txt
+
           build_and_pack() {
             goarch=$1
             archive_arch=$2
@@ -197,7 +218,7 @@ jobs:
             fi
 
             cd build/bin
-            zip $APP_NAME-linux-$archive_arch.zip $APP_NAME
+            zip -qr $APP_NAME-linux-$archive_arch.zip $APP_NAME LICENSE licenses
             cd ../..
           }
 
@@ -257,7 +278,9 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          build-args: APP_REPOSITORY=${{ github.repository }}
+          build-args: |
+            APP_REPOSITORY=${{ github.repository }}
+            APP_REVISION=${{ github.sha }}
           platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: true
           tags: ${{ steps.meta.outputs.tags }}

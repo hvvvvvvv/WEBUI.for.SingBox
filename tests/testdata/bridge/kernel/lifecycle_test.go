@@ -139,6 +139,28 @@ func TestShutdownDuringStartHandshakeDoesNotReportCrash(t *testing.T) {
 	}
 }
 
+func TestExplicitStopDuringStartHandshakeDoesNotReportCrash(t *testing.T) {
+	events := &recordingEvents{}
+	service := NewService(fakeProcesses{}, &fakeGenerator{}, fakeConfig{}, &fakeProfiles{}, events)
+	defer service.lifecycleCancel()
+	if err := service.setStarting("profile"); err != nil {
+		t.Fatal(err)
+	}
+	service.updateCoreState(func() { service.corePID = 42 })
+	// StopCore invokes transitionCancel before acquiring the transition lock.
+	// The guard may deliver its expected exit synchronously in that window.
+	service.transitionCancel = func() { service.handleCoreProcessExit(42, nil) }
+	if _, err := service.StopCore(context.Background(), connect.NewRequest(&kernelv1.StopCoreRequest{})); err != nil {
+		t.Fatal(err)
+	}
+	if len(events.named("kernelCrashed")) != 0 {
+		t.Fatal("intentional startup cancellation reported as a crash")
+	}
+	if status, _ := service.Status(); status != kernelv1.CoreStatus_CORE_STATUS_STOPPED {
+		t.Fatal(status)
+	}
+}
+
 func (s *Service) setRunning(pid int, profileID string, profile *profilev1.Profile) {
 	s.updateCoreState(func() {
 		s.revokeNativeAPILocked()

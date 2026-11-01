@@ -9,7 +9,7 @@ qemu_pid=''
 cleanup() {
   local exit_status=$?
   if (( exit_status != 0 )); then
-    for log in environment.log auth.log router-rules.log general-settings.log remote-updates.log plugins.log http-auth.log restart.log serial.log image-prepare.log; do
+    for log in environment.log auth.log router-rules.log rule-bootstrap.log general-settings.log remote-updates.log plugins.log http-auth.log restart.log serial.log image-prepare.log; do
       if [[ -f "$build/$log" ]]; then
         printf '\n::group::OpenWrt failure diagnostics: %s\n' "$log"
         tail -n 100 "$build/$log" || true
@@ -136,6 +136,9 @@ timeout 240s ssh "${ssh_opts[@]}" root@127.0.0.1 'GOMAXPROCS=1 WEBUI_DEFAULT_PRO
 # A skipped or accidentally renamed test is not compatibility evidence.
 grep -F -- '--- PASS: TestRouterRemoteRulesCacheAndSniffWithCore ' "$build/router-rules.log"
 grep -F -- '--- PASS: TestQuickStartDefaultProfileRuleGlobalAndCacheWithCore ' "$build/router-rules.log"
+timeout 300s ssh "${ssh_opts[@]}" root@127.0.0.1 'GOMAXPROCS=1 WEBUI_DEFAULT_PROFILE_FIXTURE=/opt/router-default-profile.json SING_BOX_TEST_BINARY=/opt/sing-box /opt/config.test -test.run "^(TestBundledRuleSetBootstrapFailuresAndCacheWithCore|TestBundledRuleSetStartsWhileDownloadProxyStallsWithCore|TestRuntimeRuleSetSeedsAreVerifiedReusedAndRepaired|TestRuleSetSeedSupportsExternalDataButRejectsManagedSymlinks)$" -test.timeout=4m -test.v' > "$build/rule-bootstrap.log" 2>&1
+grep -F -- '--- PASS: TestBundledRuleSetBootstrapFailuresAndCacheWithCore ' "$build/rule-bootstrap.log"
+grep -F -- '--- PASS: TestBundledRuleSetStartsWhileDownloadProxyStallsWithCore ' "$build/rule-bootstrap.log"
 timeout 240s ssh "${ssh_opts[@]}" root@127.0.0.1 'GOMAXPROCS=1 SING_BOX_TEST_BINARY=/opt/sing-box /opt/config.test -test.run "^TestGeneralNativeDefaultModesAndLoggingWithCore$" -test.timeout=3m -test.v' > "$build/general-settings.log" 2>&1
 grep -F -- '--- PASS: TestGeneralNativeDefaultModesAndLoggingWithCore ' "$build/general-settings.log"
 timeout 540s ssh "${ssh_opts[@]}" root@127.0.0.1 'GOMAXPROCS=1 SING_BOX_TEST_BINARY=/opt/sing-box /opt/config.test -test.run "^TestRemoteRuleSet(UpdateFailuresRetainCache|FirstDownloadFailureDoesNotStart|StalledUpdateKeepsCachedRoutes|StalledFirstDownloadDoesNotStart)WithCore$" -test.timeout=8m -test.v' > "$build/remote-updates.log" 2>&1
@@ -200,5 +203,5 @@ done
 [[ "$restarted" == true ]] || { echo 'Service did not restart with a new process start time' >&2; exit 1; }
 printf 'started_after=%s\n' "$started_after" >> "$build/restart.log"
 node tests/compat/auth-smoke.mjs http://127.0.0.1:49090 verify-persisted >> "$build/restart.log"
-cat "$build/environment.log" "$build/router-rules.log" "$build/general-settings.log" "$build/remote-updates.log" "$build/plugins.log" "$build/http-auth.log" "$build/restart.log"
+cat "$build/environment.log" "$build/router-rules.log" "$build/rule-bootstrap.log" "$build/general-settings.log" "$build/remote-updates.log" "$build/plugins.log" "$build/http-auth.log" "$build/restart.log"
 echo 'OpenWrt ARM64 VM checks passed; this is not a GL.iNet hardware test.'

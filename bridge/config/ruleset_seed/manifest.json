@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "repository": "https://github.com/MetaCubeX/meta-rules-dat",
+  "snapshot": "6fc21bcb856169abdf8589e47d6ee210d95ea09d",
+  "snapshot_date": "2026-11-01T01:21:59Z",
+  "verified_core": "1.14.4",
+  "srs_version": 2,
+  "files": [
+    {
+      "tag": "Category-Ads",
+      "file": "geosite-category-ads-all.srs",
+      "path": "geo/geosite/category-ads-all.srs",
+      "sha256": "13d3aa3048d36ede33e7cda055c807945593858d53a38f800c9b8503b503c4a3",
+      "bytes": 7412,
+      "source_file": "source/geosite-category-ads-all.json",
+      "source_sha256": "6b13840e9b710d1cd196bb1d0d5966413c68401615a39ddd25b27eb24d238093",
+      "source_bytes": 26063
+    },
+    {
+      "tag": "GeoIP-Private",
+      "file": "geoip-private.srs",
+      "path": "geo/geoip/private.srs",
+      "sha256": "1d58c04f581fcdd678549e6ed1ae21519637cc31818d11a0de1eb7a4eaf0444e",
+      "bytes": 225,
+      "source_file": "source/geoip-private.json",
+      "source_sha256": "9571db1394949e6a9f11dc89258ff1187b45c278ef160b3a510b3fb175b9ba8a",
+      "source_bytes": 738
+    },
+    {
+      "tag": "GeoSite-Private",
+      "file": "geosite-private.srs",
+      "path": "geo/geosite/private.srs",
+      "sha256": "112364970a8b0901c4cf2dcf839accc661b5b443d2d75c2d2a8e955d68ca3995",
+      "bytes": 717,
+      "source_file": "source/geosite-private.json",
+      "source_sha256": "be5f08d119721e15676ccb02d0250fe24a2e234a996285815a197cc3b1dda132",
+      "source_bytes": 4124
+    },
+    {
+      "tag": "GeoIP-CN",
+      "file": "geoip-cn.srs",
+      "path": "geo/geoip/cn.srs",
+      "sha256": "e16735139f93f7ba6716f712ae1ef73201f6f510fb2760646f5c4c8fb8f742da",
+      "bytes": 37214,
+      "source_file": "source/geoip-cn.json",
+      "source_sha256": "8b5792844710bfcb4bed7c1c5f4b599ede0424b6df43a72b0928801b74528f63",
+      "source_bytes": 269519
+    },
+    {
+      "tag": "GeoSite-CN",
+      "file": "geosite-cn.srs",
+      "path": "geo/geosite/cn.srs",
+      "sha256": "0e8a3bf62266fedd8b4dd7c11bb0bfb16ae34e86728b747179411e0dfbdcf1cb",
+      "bytes": 440027,
+      "source_file": "source/geosite-cn.json",
+      "source_sha256": "d89b0db6c1592a70bc2bde4cca69c6d773170a55f20597bd1bc6887bcfdae2fb",
+      "source_bytes": 2605266
+    },
+    {
+      "tag": "GeoLocation-!CN",
+      "file": "geosite-geolocation-not-cn.srs",
+      "path": "geo/geosite/geolocation-!cn.srs",
+      "sha256": "1b545029ae2f7ce50343f914a0770103d177287374b9c2934a7c3b8c8062eaac",
+      "bytes": 167023,
+      "source_file": "source/geosite-geolocation-not-cn.json",
+      "source_sha256": "9293fe79c68cdd0ba28644f095540fa6a3411de95f17acf4d70395270b620363",
+      "source_bytes": 711563
+    }
+  ],
+  "notice": "NOTICE.md",
+  "source": "source/"
+}

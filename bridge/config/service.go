@@ -95,6 +95,9 @@ func (s *Service) GenerateConfigFile(
 	}
 
 	FinalizeGeneratedConfig(config)
+	if err := s.PrepareRuleSetBootstrap(ctx, config); err != nil {
+		return nil, asGenerateError(err)
+	}
 	if err := s.WriteGeneratedConfig(config); err != nil {
 		return nil, asConnectError(err)
 	}

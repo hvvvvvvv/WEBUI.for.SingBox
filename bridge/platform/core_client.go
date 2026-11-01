@@ -139,10 +139,15 @@ func (s *Service) execCoreGuard(path string, args []string, outEvent string, opt
 	case result := <-ready:
 		return result
 	case <-ctx.Done():
-		_ = control.Close() // cancellation during check/start forces the unfinished core down
+		// Keep the event pipe alive long enough to receive the expected exit.
+		// A fast core can already be downloading while its "started" event is
+		// still being delivered; closing control here could drop that final
+		// event and misreport an intentional cancellation as a guard crash.
+		g.requestStop(0)
 		select {
 		case <-g.done:
 		case <-time.After(5 * time.Second):
+			_ = control.Close()
 		}
 		return Result{false, ctx.Err().Error()}
 	}

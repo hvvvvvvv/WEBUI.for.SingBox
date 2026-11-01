@@ -279,7 +279,7 @@ func (s *Service) handleCoreProcessExit(pid int, waitErr error) {
 
 	s.revokeNativeAPILocked()
 	unconfirmed := errors.Is(waitErr, platform.ErrCoreExitUnconfirmed)
-	crashed := (!s.closing && status != kernelv1.CoreStatus_CORE_STATUS_STOPPING) || unconfirmed
+	crashed := (!s.closing && !s.stopRequested && status != kernelv1.CoreStatus_CORE_STATUS_STOPPING) || unconfirmed
 	crashPhase := "runtime"
 	if status == kernelv1.CoreStatus_CORE_STATUS_STARTING {
 		crashPhase = "startup"

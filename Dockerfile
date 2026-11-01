@@ -29,10 +29,21 @@ RUN export CGO_ENABLED=0 GOOS="$TARGETOS" GOARCH="$TARGETARCH"; \
 
 # Runtime image for the selected target platform.
 FROM alpine:3.21
+ARG APP_REPOSITORY=Ghostdehole/WEBUI.for.SingBox
+ARG APP_REVISION=
 RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=backend-builder /out/webui.for.singbox.server ./
 COPY --chmod=755 docker/entrypoint.sh /app/entrypoint.sh
+COPY LICENSE /app/LICENSE
+COPY bridge/config/ruleset_seed/README.md bridge/config/ruleset_seed/NOTICE.md bridge/config/ruleset_seed/UPSTREAM-README.md bridge/config/ruleset_seed/manifest.json bridge/config/ruleset_seed/SHA256SUMS /app/licenses/ruleset-seed/
+COPY bridge/config/ruleset_seed/licenses/ /app/licenses/ruleset-seed/licenses/
+COPY bridge/config/ruleset_seed/source/ /app/licenses/ruleset-seed/source/
+RUN if [ -n "$APP_REVISION" ]; then \
+      printf 'Source: https://github.com/%s/tree/%s/bridge/config/ruleset_seed/source\n' "$APP_REPOSITORY" "$APP_REVISION"; \
+    else \
+      printf 'Rule-set source JSON is included in source/. Build revision was not supplied.\n'; \
+    fi > /app/licenses/ruleset-seed/SOURCE.txt
 
 VOLUME /app/data
 

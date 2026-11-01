@@ -93,8 +93,8 @@ const test = async () => {
 <template>
   <div class="px-8 py-12 text-18 font-bold">{{ t('settings.network') }}</div>
   <Card class="network-settings">
-    <div class="network-field px-8 py-12 flex items-center justify-between">
-      <div class="text-16 font-bold">{{ t('settings.requestProxy.name') }}</div>
+    <div class="network-field network-proxy-field px-8 py-12 flex items-center justify-between">
+      <div class="network-proxy-label text-16 font-bold">{{ t('settings.requestProxy.name') }}</div>
       <div class="network-proxy-controls flex items-center gap-4">
         <Button
           v-if="draft.requestProxyMode !== 'none'"
@@ -102,6 +102,7 @@ const test = async () => {
           :disabled="busy && !testing"
           type="primary"
           size="small"
+          class="network-proxy-test"
           @click="test"
           >{{ t('settings.requestProxy.test') }}</Button
         >
@@ -110,6 +111,7 @@ const test = async () => {
           :options="proxyOptions"
           :disabled="busy"
           :aria-label="t('settings.requestProxy.name')"
+          class="network-proxy-modes"
           @change="save"
         />
       </div>
@@ -197,7 +199,7 @@ const test = async () => {
         </template>
       </Input>
     </div>
-    <div class="network-field px-8 py-12 flex items-center justify-between">
+    <div class="network-field network-mirror-field px-8 py-12 flex items-center justify-between">
       <div class="text-16 font-bold">
         {{ t('settings.githubDownloadAcceleration.name') }}
         <span class="font-normal text-12"
@@ -277,16 +279,34 @@ const test = async () => {
   .network-field > .gui-input {
     margin-left: auto;
   }
+  .network-proxy-field,
+  .network-mirror-field {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .network-proxy-field > .text-16,
+  .network-mirror-field > .text-16 {
+    width: auto;
+  }
   .network-proxy-controls {
-    flex-wrap: wrap;
-    justify-content: flex-end;
+    display: contents;
+  }
+  .network-proxy-test,
+  .network-mirror-field > .gui-switch {
+    justify-self: end;
+  }
+  .network-proxy-modes {
+    grid-column: 1 / -1;
+    justify-self: end;
   }
   .network-proxy-controls :deep(.gui-radio) {
     max-width: 100%;
     flex-wrap: wrap;
   }
   .network-proxy-controls :deep(.gui-radio-button) {
-    flex: 1 0 40%;
+    flex: 1 0 auto;
+    padding-inline: 8px;
+    white-space: nowrap;
     min-height: 44px;
   }
   .network-proxy-controls :deep(.gui-button) {

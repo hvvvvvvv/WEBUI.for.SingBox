@@ -40,7 +40,9 @@ cat /etc/openwrt_release
 
 ## 安装和服务
 
-从 [最新正式版](https://github.com/Ghostdehole/WEBUI.for.SingBox/releases/latest) 下载对应架构的发布包，在电脑上核对发布摘要并解压，将其中的 `webui.for.singbox` 上传到路由器的持久目录，例如 `/opt/webui-for-singbox/`。确认该目录位于可执行、可写的持久存储上；外置磁盘需要在服务启动前挂载。程序使用同目录的 `data/` 保存配置、订阅、规则集和核心。不要将它放到重启即清空的 `/tmp`。
+从 [最新正式版](https://github.com/Ghostdehole/WEBUI.for.SingBox/releases/latest) 下载对应架构的发布包，在电脑上核对发布摘要并解压，将 `webui.for.singbox`、`LICENSE` 和 `licenses/` 上传到路由器的持久目录，例如 `/opt/webui-for-singbox/`。确认该目录位于可执行、可写的持久存储上；外置磁盘需要在服务启动前挂载。程序使用同目录的 `data/` 保存配置、订阅、规则集和核心。不要将它放到重启即清空的 `/tmp`。
+
+默认六个远程规则集的初始文件已内置在程序中，首次运行自动准备到 `data/rule-set-bootstrap/`，无需手动下载；核心仍按配置自动更新并优先使用较新缓存。保留已有自定义来源。规则来源和许可位于发行物的 `licenses/ruleset-seed/`。
 
 在路由器 SSH 中执行以下命令，先将 `LAN_IP` 改为实际管理网段地址：
 

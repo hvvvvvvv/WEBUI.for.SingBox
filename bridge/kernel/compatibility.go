@@ -133,6 +133,13 @@ func (s *Service) prepareCoreStart(ctx context.Context, profile *profilev1.Profi
 	}
 	adaptConfigToCoreVersion(generated, version)
 	config.FinalizeGeneratedConfig(generated)
+	if bootstrap, ok := s.config.(interface {
+		PrepareRuleSetBootstrap(context.Context, map[string]any) error
+	}); ok {
+		if err := bootstrap.PrepareRuleSetBootstrap(ctx, generated); err != nil {
+			return nil, rpcutil.AsConnectError(err)
+		}
+	}
 	if err := s.checkPreparedConfig(ctx, path, runtimeCfg.Env, generated); err != nil {
 		return nil, err
 	}

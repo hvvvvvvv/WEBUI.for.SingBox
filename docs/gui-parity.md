@@ -79,7 +79,7 @@ GUI 切换 Stable/Alpha 时通常立即重启。WebUI 保留自动重启设置�
 
 请求代理影响 WebUI 后端的订阅、规则集、版本检查、下载和插件目录请求。诊断可遵循这项设置，或显式选择直连/运行核心代理；诊断不会携带 GitHub Token 或使用下载镜像。它与 sing-box 对 LAN 客户端的透明代理规则不同，不会自动调整防火墙、dnsmasq、DHCP 或 TUN。
 
-配置中的远程规则集由 sing-box 自己下载，使用路由的默认 HTTP 客户端或单项下载出站，不受上述 WebUI 请求代理直接控制。新配置的六项远程规则集每 24 小时更新，单项留空继承「节点选择」默认 HTTP 客户端；旧配置及显式下载出站不自动改写。更新失败保留有效缓存，返回错误后等待下个更新周期重试；响应一直挂起时，当前核查的核心下载链路没有自身的响应总超时，不能把 HTTP 504 等同于客户端超时。首次下载无缓存时失败或挂起会阻碍核心启动。
+配置中的远程规则集由 sing-box 自己下载，使用路由的默认 HTTP 客户端或单项下载出站，不受上述 WebUI 请求代理直接控制。新配置的六项远程规则集每 24 小时更新，单项留空继承「节点选择」默认 HTTP 客户端；显式下载出站不自动改写。默认六项由应用内置初始文件提供启动保护。更新失败保留有效缓存，返回错误后等待下个更新周期重试；响应一直挂起时，当前核查的核心下载链路没有自身的响应总超时，不能把 HTTP 504 等同于客户端超时。自定义远程规则集若没有缓存或初始文件，首次下载失败仍会阻碍核心启动。
 
 核心就绪等待上限为 3 分钟，停止操作仍可立即取消。sing-box 的 10 秒初始化警告本身不会退出；旧 WebUI 的 15 秒等待上限会提前结束仍在下载的核心。延长等待不解决不可达的下载源，需要离线规则或有效的本地初始文件。
 
@@ -89,7 +89,11 @@ GUI 切换 Stable/Alpha 时通常立即重启。WebUI 保留自动重启设置�
 
 ### 首次启动不依赖规则下载
 
-以下两种方式都需先准备有效的 `.srs` 文件，再启动核心。六项默认规则在 [MetaCubeX 规则仓库](https://github.com/MetaCubeX/meta-rules-dat/tree/sing/geo) 中的路径如下；同名的 geosite/geoip 文件须分别保存，不能覆盖。
+默认六个规则集的完整 `.srs` 随主程序嵌入，不要求用户选方案或手动下载。启动前，应用在 `data/rule-set-bootstrap/<快照提交>/` 准备并校验文件，为运行配置注入 `initial_path`。正常文件复用而不重复写闪存；缺失或损坏时原子恢复。准备失败会报告具体错误，不用空规则启动，也不会先停掉已有核心。
+
+新建配置和升级后使用相同标准默认来源的旧配置都会生效；匹配依据是来源 URL 的主机、仓库、分支和路径，不是可编辑的规则标签。保持已有下载客户端和更新间隔，缺省间隔补为 24 小时。明确指定的 `initial_path`（包括空字符串）、本地/内联规则、源码格式、固定历史修订和自定义来源均不被替换。
+
+六项数据在 [MetaCubeX 规则仓库](https://github.com/MetaCubeX/meta-rules-dat/tree/sing/geo) 中的路径如下；同名 GeoSite/GeoIP 文件分别保存。
 
 | 规则标签 | 仓库中的路径 | 建议本地文件名 |
 | --- | --- | --- |
@@ -100,13 +104,13 @@ GUI 切换 Stable/Alpha 时通常立即重启。WebUI 保留自动重启设置�
 | GeoSite-CN | `geo/geosite/cn.srs` | `geosite-cn.srs` |
 | GeoLocation-!CN | `geo/geosite/geolocation-!cn.srs` | `geosite-geolocation-not-cn.srs` |
 
-**本地离线方式**：每一项改为 `{"type":"local","tag":"原标签","format":"binary","path":"/opt/webui-for-singbox/data/rule-set/bootstrap/对应文件名"}`。删除该项的 URL、HTTP 客户端、更新间隔等远程字段。更新由用户或独立维护任务完成；下载并校验成功后再替换，失败保留旧文件。
-
-**在线更新方式**：保留 `type: "remote"`、URL 和 `update_interval: "24h"`，增加指向上述本地文件的 `initial_path`，并启用 `experimental.cache_file.enabled`。sing-box 1.14.4 会先读取有效缓存或初始文件，再在后台更新。改 URL 可能使旧缓存失效，所以仅更换镜像并不能保证无网启动；`initial_path` 也不是损坏缓存的无条件恢复机制。
+规则类型仍为远程，核心先使用有效的较新缓存，其次使用内置初始文件，再后台更新。已验证 1.14.2、1.14.4 和 1.15.0-alpha.13 在无缓存、下载源返回 503、损坏响应或代理挂起时仍可用内置规则启动；成功更新覆盖缓存，清空缓存后仍能从内置文件启动。`initial_path` 不修复无关的配置错误或缓存数据库损坏。
 
 对于不经过代理节点的下载，1.14 核心配置使用 `http_client: {"engine":"go"}`，可按需增加 `domain_resolver` 和 `connect_timeout`。不要同时填写已弃用的 `download_detour`，也不要把空的 `direct` 出站作为现代 HTTP 客户端的 `detour`。建连超时不是整个下载的总超时。第三方镜像的可用性和内容应单独验证，不能保证其长期稳定。
 
-在 WebUI 的结构化配置中，进入「混入与脚本 → 混入」，使用 JSON 格式和「混入」优先级，设置完整的 `route.rule_set` 数组。数组会整体替换，已有自定义规则集也必须包含在内。不要仅修改生成后的 `data/sing-box/config.json`：下次生成会覆盖。结构化本地规则的 `path` 是规则集管理器的记录 ID，不能直接填入上述绝对文件路径；绝对路径通过混入设置。
+自动初始路径只写入运行配置，预览、复制与 QRS 分享不携带设备路径。用户无需改混入或生成文件。应用不会用默认数据冒充自定义规则；自定义远程来源可自行通过混入指定有效 `initial_path`，或从规则集管理器导入本地文件。不要仅修改生成后的 `data/sing-box/config.json`：下次生成会覆盖。
+
+内置资源共约 637 KiB，不是空规则或简化占位数据；快照摘要、原始 JSON、来源和许可证见 [资源目录](../bridge/config/ruleset_seed/README.md)。发行包和容器同时附上源码及许可。维护更新必须显式选择并核对快照；校验和核心解码失败时保留原资源。
 
 配置与字段语义见 [sing-box 规则集文档](https://sing-box.sagernet.org/configuration/rule-set/) 和 [HTTP 客户端文档](https://sing-box.sagernet.org/configuration/shared/http-client/)。
 

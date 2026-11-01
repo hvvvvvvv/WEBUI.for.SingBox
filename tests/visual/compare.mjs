@@ -122,6 +122,32 @@ const checkNetworkSettings = async (label, exercise = false) => {
   assert.equal(await network.getByRole('switch', { name: 'GitHub 下载加速', exact: true }).count(), 1)
   const bounds = await modes.boundingBox()
   assert.ok(bounds && bounds.x >= 0 && bounds.x + bounds.width <= page.viewportSize().width + 1, 'network controls must fit the viewport')
+  if (page.viewportSize().width <= 650) {
+    const geometry = await network.evaluate(element => {
+      const rect = target => {
+        const box = target.getBoundingClientRect()
+        return { x: box.x, y: box.y, width: box.width, height: box.height, right: box.right, bottom: box.bottom }
+      }
+      const mirror = element.querySelector('.network-mirror-field')
+      return {
+        title: rect(element.querySelector('.network-proxy-label')),
+        test: rect(element.querySelector('.network-proxy-test')),
+        modes: rect(element.querySelector('.network-proxy-modes')),
+        buttons: [...element.querySelectorAll('.network-proxy-modes [role="radio"]')].map(rect),
+        mirror: rect(mirror),
+        mirrorPadding: Number.parseFloat(getComputedStyle(mirror).paddingRight),
+        toggle: rect(mirror.querySelector('[role="switch"]')),
+        controls: [...element.querySelectorAll('.network-field > *, [role="radio"]')].map(rect),
+      }
+    })
+    assert.ok(Math.abs(geometry.title.y + geometry.title.height / 2 - geometry.test.y - geometry.test.height / 2) < 1, 'mobile request title and test button must share a row')
+    assert.ok(geometry.modes.y >= geometry.test.bottom, 'mobile request modes must occupy the next row')
+    if (page.viewportSize().width >= 390) {
+      assert.ok(geometry.buttons.every(box => Math.abs(box.y - geometry.buttons[0].y) < 1), 'four request modes must fit one row at 390px')
+    }
+    assert.ok(Math.abs(geometry.toggle.right - geometry.mirror.right + geometry.mirrorPadding) < 1, 'mobile mirror switch must stay right-aligned')
+    assert.ok(geometry.controls.every(box => box.width === 0 || (box.x >= 0 && box.right <= page.viewportSize().width + 1)), 'all mobile network controls must fit without horizontal overflow')
+  }
   await capture(label)
   if (!exercise) return
   const savedMode = await modes.locator('[aria-checked="true"]').innerText()
@@ -286,6 +312,8 @@ try {
     await checkNetworkSettings('02c-network-desktop-dark', true)
     await page.setViewportSize({ width: 390, height: 844 })
     await checkNetworkSettings('02d-network-mobile-dark')
+    await page.setViewportSize({ width: 320, height: 844 })
+    await checkNetworkSettings('02e-network-narrow-dark')
     await page.setViewportSize({ width: 1440, height: 1000 })
   }
   await tab('插件').click()

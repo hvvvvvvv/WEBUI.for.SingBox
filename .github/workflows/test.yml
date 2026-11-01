@@ -101,6 +101,11 @@ jobs:
       - name: Check generated profiles, rule cache and native API lifecycle on loopback
         # Real TUN routing is tested separately in disposable network namespaces.
         run: go run ./tests ./bridge/config ./bridge/kernel ./bridge/transport/http -count=1 -timeout=180s
+      - name: Verify bundled rule data and reproducible source
+        if: matrix.version == '1.14.4'
+        run: |
+          seed_commit=$(node -p 'require("./bridge/config/ruleset_seed/manifest.json").snapshot')
+          node scripts/update-ruleset-seed.mjs --commit "$seed_commit" --core "$SING_BOX_TEST_BINARY" --manifest bridge/config/ruleset_seed/manifest.json --verify-only
 
   router-vm:
     runs-on: ubuntu-latest

@@ -339,7 +339,7 @@ func TestGuardPipeDisconnectDuringCheckAndBlockedOutput(t *testing.T) {
 	}
 }
 
-func TestGuardStartCancellationClosesControlPipe(t *testing.T) {
+func TestGuardStartCancellationConfirmsChildExit(t *testing.T) {
 	useGuardTestCommand(t)
 	s := NewService(storage.NewPaths(t.TempDir()), nil, Environment{})
 	ctx, cancel := context.WithCancel(context.Background())
@@ -388,5 +388,70 @@ func TestGuardStartCancellationClosesControlPipe(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(s.BaseDir(), coreOwnerPath)); !os.IsNotExist(err) {
 		t.Fatalf("cancelled check ownership record remains: %v", err)
+	}
+}
+
+func TestGuardCancellationDuringStartedHandshakeIsExpected(t *testing.T) {
+	useGuardTestCommand(t)
+	s := NewService(storage.NewPaths(t.TempDir()), nil, Environment{})
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	started := make(chan int, 1)
+	release := make(chan struct{})
+	var releaseOnce sync.Once
+	unblock := func() { releaseOnce.Do(func() { close(release) }) }
+	defer unblock()
+	exited := make(chan error, 1)
+	result := make(chan Result, 1)
+	go func() {
+		result <- s.ExecBackground(os.Args[0], []string{"-test.run=^TestCoreGuardHelper$"}, "", ExecOptions{
+			Guard: true, Context: ctx, Env: map[string]string{"WEBUI_GUARD_TEST_ROLE": "core"},
+			OnStarted: func(pid int) { started <- pid; <-release },
+			OnExit:    func(_ int, err error) { exited <- err },
+		})
+	}()
+	var pid int
+	select {
+	case pid = <-started:
+	case <-time.After(5 * time.Second):
+		t.Fatal("guard never delivered the started event")
+	}
+	identity, err := IdentifyProcess(pid)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cancel()
+	// Hold delivery of the ready result until cancellation has stopped the
+	// actual child. This deterministically exercises the handshake race.
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		alive, err := identityAlive(identity)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !alive {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("cancel did not stop child during the started callback")
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	unblock()
+	select {
+	case got := <-result:
+		if got.Flag {
+			t.Fatal("canceled handshake reported successful start")
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("canceled handshake did not return")
+	}
+	select {
+	case err := <-exited:
+		if err != nil {
+			t.Fatalf("intentional cancellation reported guard failure: %v", err)
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("guard did not report child exit")
 	}
 }
