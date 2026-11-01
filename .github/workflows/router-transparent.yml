@@ -1,0 +1,49 @@
+name: Isolated transparent routing
+
+on:
+  push:
+    branches: [main, review/gui-parity]
+    paths:
+      - 'bridge/config/**'
+      - 'tests/fixtures/**'
+      - 'tests/compat/router-transparent.*'
+      - '.github/workflows/router-transparent.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  transparent-routing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+      - name: Prepare the real core and generated default profile
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/transparent-core"
+          curl --fail --silent --show-error --location --proto '=https' --proto-redir '=https' \
+            --connect-timeout 15 --max-time 180 --retry 2 \
+            https://github.com/SagerNet/sing-box/releases/download/v1.14.4/sing-box-1.14.4-linux-amd64.tar.gz \
+            -o "$RUNNER_TEMP/transparent-core/core.tar.gz"
+          printf '%s  %s\n' 699a1b510aa4396b2176d32d1181920399ebf1e267835da6f3b598d0f7c24968 \
+            "$RUNNER_TEMP/transparent-core/core.tar.gz" | sha256sum --check --strict
+          tar -xzf "$RUNNER_TEMP/transparent-core/core.tar.gz" -C "$RUNNER_TEMP/transparent-core" --strip-components=1
+          python3 -m py_compile tests/compat/router-transparent.py
+          bash -n tests/compat/router-transparent.sh
+          go run tests/compat/router-transparent.go "$RUNNER_TEMP/transparent"
+      - name: Verify LAN forwarding in disposable network namespaces
+        shell: bash
+        run: |
+          sudo bash tests/compat/router-transparent.sh \
+            "$RUNNER_TEMP/transparent-core/sing-box" "$RUNNER_TEMP/transparent"
+      - if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: transparent-routing-logs
+          path: ${{ runner.temp }}/transparent/*.log
+          retention-days: 7
