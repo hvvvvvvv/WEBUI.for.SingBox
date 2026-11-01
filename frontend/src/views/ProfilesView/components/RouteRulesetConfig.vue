@@ -20,6 +20,7 @@ const model = defineModel<IRuleSet[]>({ required: true })
 
 let rulesetId = 0
 const fields = ref<IRuleSet>(DefaultRouteRuleset())
+const editor = ref<{ getContent: () => string }>()
 
 const { t } = useI18n()
 const [showEditModal] = useBool(false)
@@ -34,6 +35,15 @@ const handleAdd = () => {
 defineExpose({ handleAdd })
 
 const handleAddEnd = () => {
+  if (fields.value.type === RulesetType.Inline) {
+    fields.value.rules = editor.value?.getContent() ?? fields.value.rules
+    try {
+      if (!Array.isArray(JSON.parse(fields.value.rules))) throw new Error('Expected rules array')
+    } catch {
+      message.error('ruleset.invalidInlineRules')
+      return false
+    }
+  }
   if (rulesetId !== -1) {
     model.value[rulesetId] = fields.value
   } else {
@@ -76,8 +86,8 @@ const handleUse = (ruleset: any) => {
 
   <div v-draggable="[model, DraggableOptions]">
     <Card v-for="(ruleset, index) in model" :key="ruleset.id" class="mb-2">
-      <div class="flex items-center py-2">
-        <div class="font-bold">
+      <div class="ruleset-row flex items-center py-2">
+        <div class="ruleset-summary font-bold">
           <span
             v-if="hasLost(ruleset)"
             class="cursor-pointer"
@@ -100,7 +110,7 @@ const handleUse = (ruleset: any) => {
             {{ ruleset.rules }}
           </template>
         </div>
-        <div class="ml-auto">
+        <div class="ruleset-actions ml-auto">
           <Button icon="edit" type="text" size="small" @click="handleEdit(index)" />
           <Button icon="delete" type="text" size="small" @click="handleDelete(index)" />
         </div>
@@ -170,7 +180,31 @@ const handleUse = (ruleset: any) => {
       </div>
     </template>
     <template v-else-if="fields.type === RulesetType.Inline">
-      <CodeViewer v-model="fields.rules" lang="json" editable />
+      <CodeViewer ref="editor" v-model="fields.rules" lang="json" editable />
     </template>
   </Modal>
 </template>
+
+<style scoped>
+@media (max-width: 700px) {
+  .ruleset-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+  }
+  .ruleset-summary {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .ruleset-summary :deep(.gui-tag) {
+    max-width: 100%;
+    white-space: normal;
+  }
+  .ruleset-actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px;
+  }
+}
+</style>

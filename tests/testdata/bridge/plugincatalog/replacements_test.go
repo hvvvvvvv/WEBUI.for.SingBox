@@ -2,7 +2,7 @@ package plugincatalog
 
 import "testing"
 
-func TestLegacyCatalogRetainsUpdatesButRequiresCurrentReplacement(t *testing.T) {
+func TestHistoricalCatalogMetadataRequiresValidReplacement(t *testing.T) {
 	for _, invalid := range []string{"", "self", "missing", "deprecated", "not-deprecated"} {
 		t.Run(invalid, func(t *testing.T) {
 			index, files := catalogFixture(t, "function onSubscribe(p){return p}", "function onSubscribe(p){return p}")
@@ -31,7 +31,7 @@ func TestLegacyCatalogRetainsUpdatesButRequiresCurrentReplacement(t *testing.T) 
 			}
 			installed, err := Read(readFixture(files))
 			if err != nil || len(installed) != 2 || installed[0].ID != index.Plugins[0].ID {
-				t.Fatalf("legacy update cannot be validated: %+v %v", installed, err)
+				t.Fatalf("historical source metadata cannot be validated: %+v %v", installed, err)
 			}
 		})
 	}

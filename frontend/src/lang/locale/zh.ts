@@ -512,6 +512,19 @@ export default {
       needTun: '请先添加一个TUN入站',
     },
     controller: {
+      testCounts: '{completed} / {total} · 成功：{success} · 失败：{failure}',
+      testUnconfirmed: '未收到新结果：{count}',
+      stopWaiting: '停止等待',
+      nativeTestCancelHint: '停止等待不会取消已提交给核心的测试。',
+      nativeTestSettings:
+        '原生测速使用核心的测试地址和并发。可在配置中设置 URLTest 组；原生接口不支持按次覆盖地址、超时或并发。',
+      testStatus: {
+        running: '测试中…',
+        completed: '已完成',
+        timeout: '等待超时',
+        canceled: '已停止等待',
+        error: '请求失败',
+      },
       testTimeout: '{tag}：等待测速结果超时',
       groupTestTimeout: '{tag}：{count} 个节点未收到新的测速结果，等待超时',
       name: '控制器',
@@ -668,6 +681,7 @@ export default {
     },
   },
   ruleset: {
+    invalidInlineRules: '内联规则必须是有效的 JSON 数组。',
     manual: '手动管理',
     format: {
       name: '文件格式',
@@ -721,10 +735,12 @@ export default {
     catalogNoResults: '没有匹配搜索条件的插件。',
     catalogCached: '当前显示已缓存的插件列表。',
     catalogRemote: '插件列表已从独立仓库获取。',
-    showLegacy: '显示旧版兼容插件（{count}）',
-    hideLegacy: '收起旧版兼容插件',
-    legacyHint:
-      '此插件已归并至「{name}」。已有安装可继续使用；迁移前请停用旧插件并核对参数，不会自动替换。',
+    groups: {
+      subscriptions: '订阅处理',
+      configuration: '配置生成',
+      diagnostics: '网络诊断',
+      others: '其他',
+    },
     runtimeHint: '插件在路由器后端执行，浏览器关闭后仍生效；订阅和配置按列表顺序处理。',
     importSource: '导入 JS',
     exportSource: '导出 JS',
@@ -933,7 +949,7 @@ export default {
     restartApp: '重启程序',
   },
   auth: {
-    title: '欢迎回来',
+    title: '登录',
     subtitle: '登录后管理你的网络。',
     placeholder: '请输入访问密码',
     login: '登录',
@@ -953,7 +969,7 @@ export default {
     updateSuccess: '密码已更新，其他会话已退出。',
     clearSuccess: '访问密码已移除，其他会话已退出。',
     logout: '退出登录',
-    security: '访问与安全',
+    security: '安全',
     securityHint: '管理此 WebUI 的访问权限。密码和验证码不会保存到浏览器偏好设置中。',
     passwordAccess: '访问密码',
     passwordHint: '建议使用独立的长口令。修改后，其他会话失效，当前会话会自动换用新令牌。',

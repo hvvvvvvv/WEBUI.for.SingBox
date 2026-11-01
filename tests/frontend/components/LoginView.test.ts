@@ -18,7 +18,12 @@ vi.mock('@/api/auth', () => ({
 }))
 vi.mock('@/bridge/http', () => ({ loginAuthToken: mocks.login }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
+vi.mock('@/lang', () => ({ default: { global: { t: (key: string) => key } } }))
+vi.mock('@/utils', async () => ({ debounce: (await import('@/utils/others')).debounce }))
+vi.mock('@/bridge', () => ({ ClipboardGetText: vi.fn() }))
+vi.mock('@/directives/tips', () => ({ default: {} }))
 import { AuthError } from '@/api/auth'
+import Button from '@/components/Button/index.vue'
 import LoginView from '@/views/LoginView.vue'
 
 describe('password and optional TOTP login', () => {
@@ -32,7 +37,7 @@ describe('password and optional TOTP login', () => {
     const element = host.querySelector<HTMLInputElement>(`#${id}`)!
     element.value = value
     element.dispatchEvent(new Event('input', { bubbles: true }))
-    await nextTick()
+    await settle()
   }
   const submit = async () => {
     host
@@ -42,6 +47,9 @@ describe('password and optional TOTP login', () => {
   }
   const mount = async () => {
     app = createApp(LoginView, { onAuthenticated: mocks.authenticated })
+    app.component('Button', Button)
+    app.component('Icon', { render: () => null })
+    app.component('CodeViewer', { render: () => null })
     app.mount(host)
     await settle()
   }
@@ -103,9 +111,44 @@ describe('password and optional TOTP login', () => {
     await mount()
     expect(host.querySelector('[role=alert]')?.textContent).toContain('auth.statusFailed')
     expect(mocks.login).not.toHaveBeenCalled()
-    host.querySelector<HTMLButtonElement>('button')!.click()
+    host.querySelector<HTMLElement>('[role="button"]')!.click()
     await settle()
     expect(mocks.status).toHaveBeenCalledTimes(2)
     expect(host.querySelector('#login-password')).not.toBeNull()
+  })
+
+  it('keeps password semantics and reveal controls when using the shared Input', async () => {
+    await mount()
+    const field = host.querySelector<HTMLInputElement>('#login-password')!
+    const label = host.querySelector<HTMLLabelElement>('label[for="login-password"]')!
+    expect(label.control).toBe(field)
+    expect(field.type).toBe('password')
+    expect(field.name).toBe('password')
+    expect(field.closest('.gui-input')).not.toBeNull()
+    expect(field.closest('.gui-card')).not.toBeNull()
+    await input('login-password', ' private password ')
+    host.querySelector<HTMLElement>('[aria-label="auth.showPassword"]')!.click()
+    await nextTick()
+    expect(field.type).toBe('text')
+    expect(field.value).toBe(' private password ')
+    expect(mocks.login).not.toHaveBeenCalled()
+  })
+
+  it('submits shared inputs with Enter after composition has finished', async () => {
+    mocks.status.mockResolvedValue({ enabled: true, totp_enabled: true })
+    await mount()
+    await input('login-password', 'password')
+    await input('login-code', 'RAW-RECOVERY')
+    const field = host.querySelector<HTMLInputElement>('#login-code')!
+    field.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, isComposing: true }),
+    )
+    await settle()
+    expect(mocks.login).not.toHaveBeenCalled()
+    field.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    )
+    await settle()
+    expect(mocks.login).toHaveBeenCalledExactlyOnceWith('password', 'RAW-RECOVERY')
   })
 })

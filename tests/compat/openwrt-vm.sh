@@ -9,7 +9,7 @@ qemu_pid=''
 cleanup() {
   local exit_status=$?
   if (( exit_status != 0 )); then
-    for log in environment.log auth.log plugins.log http-auth.log restart.log serial.log image-prepare.log; do
+    for log in environment.log auth.log router-rules.log plugins.log http-auth.log restart.log serial.log image-prepare.log; do
       if [[ -f "$build/$log" ]]; then
         printf '\n::group::OpenWrt failure diagnostics: %s\n' "$log"
         tail -n 100 "$build/$log" || true
@@ -95,6 +95,8 @@ write $build/webui.for.singbox /opt/webui/webui.for.singbox
 set_inode_field /opt/webui/webui.for.singbox mode 0100755
 write $build/auth.test /opt/auth.test
 set_inode_field /opt/auth.test mode 0100755
+write $build/config.test /opt/config.test
+set_inode_field /opt/config.test mode 0100755
 write $build/plugin-goja /opt/plugin-goja
 set_inode_field /opt/plugin-goja mode 0100755
 write $scratch/sing-box /opt/sing-box
@@ -102,7 +104,7 @@ set_inode_field /opt/sing-box mode 0100755
 write $scratch/plugins.tar.gz /opt/plugins.tar.gz
 INJECT
 debugfs -w -f "$scratch/inject" "$scratch/rootfs.img" > "$build/image-prepare.log" 2>&1
-for guest_file in /opt/webui/webui.for.singbox /opt/auth.test /opt/plugin-goja /opt/sing-box; do
+for guest_file in /opt/webui/webui.for.singbox /opt/auth.test /opt/config.test /opt/plugin-goja /opt/sing-box; do
   debugfs -R "stat $guest_file" "$scratch/rootfs.img" | grep 'Type: regular'
 done
 qemu-system-aarch64 -machine virt -cpu cortex-a53 -smp 4 -m 512 -nographic -no-reboot \
@@ -125,6 +127,13 @@ if [[ "$ready" != true ]]; then
 fi
 ssh "${ssh_opts[@]}" root@127.0.0.1 'set -e; uname -a; cat /etc/openwrt_release; free; date -u; ls -l /lib/ld-musl-* /opt/sing-box; /opt/sing-box version; status=$(/opt/webui/webui.for.singbox service status); echo "$status"; test "$status" = running; cat /etc/init.d/webui.for.singbox' > "$build/environment.log" 2>&1
 ssh "${ssh_opts[@]}" root@127.0.0.1 '/opt/auth.test -test.timeout=8m -test.v' > "$build/auth.log" 2>&1
+# Exercise the downloaded ARM64 musl core inside the VM, using only guest
+# loopback listeners. The test checks domain sniffing and an offline cache
+# restart without TUN permissions or host routing changes. Bound the guest test
+# and its SSH transport separately; single-thread execution limits TCG noise.
+timeout 240s ssh "${ssh_opts[@]}" root@127.0.0.1 'GOMAXPROCS=1 SING_BOX_TEST_BINARY=/opt/sing-box /opt/config.test -test.run "^TestRouterRemoteRulesCacheAndSniffWithCore$" -test.timeout=3m -test.v' > "$build/router-rules.log" 2>&1
+# A skipped or accidentally renamed test is not compatibility evidence.
+grep -F -- '--- PASS: TestRouterRemoteRulesCacheAndSniffWithCore ' "$build/router-rules.log"
 # TCG emulates the entire CPU: allow the test harness time for all fixture
 # compilation and file I/O. Production per-hook/pipeline limits stay unchanged.
 # Limit only this test process to one Go execution thread to reduce TCG's
@@ -183,5 +192,5 @@ done
 [[ "$restarted" == true ]] || { echo 'Service did not restart with a new process start time' >&2; exit 1; }
 printf 'started_after=%s\n' "$started_after" >> "$build/restart.log"
 node tests/compat/auth-smoke.mjs http://127.0.0.1:49090 verify-persisted >> "$build/restart.log"
-cat "$build/environment.log" "$build/plugins.log" "$build/http-auth.log" "$build/restart.log"
+cat "$build/environment.log" "$build/router-rules.log" "$build/plugins.log" "$build/http-auth.log" "$build/restart.log"
 echo 'OpenWrt ARM64 VM checks passed; this is not a GL.iNet hardware test.'

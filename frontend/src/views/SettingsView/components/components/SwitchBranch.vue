@@ -21,7 +21,7 @@ const handleUseBranch = async (branch: Branch) => {
 
 <template>
   <div class="font-bold text-16 mx-4 my-12">{{ t('settings.kernel.version') }}</div>
-  <div class="flex gap-8">
+  <div class="core-branches flex gap-8">
     <Card
       :selected="appConfig.config.branch === Branch.Main"
       title="Stable"
@@ -44,3 +44,12 @@ const handleUseBranch = async (branch: Branch) => {
     </Card>
   </div>
 </template>
+
+<style scoped>
+@media (max-width: 700px) {
+  .core-branches :deep(.gui-card) {
+    flex: 1;
+    min-width: 0;
+  }
+}
+</style>

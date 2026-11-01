@@ -43,6 +43,7 @@ const props = defineProps<Props>()
 const model = defineModel<IRule[]>({ required: true })
 const fields = ref<IRule>(DefaultRouteRule())
 const activeGroups = ref<Set<GroupKey>>(new Set())
+const inlineEditor = ref<InstanceType<typeof InlineMatchGroup>>()
 let ruleIndex = -1
 
 const { t } = useI18n()
@@ -214,6 +215,9 @@ const validateRule = () => {
 }
 
 const handleAddEnd = () => {
+  if (activeGroups.value.has('inline') && inlineEditor.value) {
+    fields.value.raw = inlineEditor.value.getContent()
+  }
   const validationError = validateRule()
   if (validationError) {
     message.error(validationError)
@@ -246,6 +250,12 @@ const handleCopy = (index: number) => {
 }
 
 const handleDelete = (index: number) => model.value.splice(index, 1)
+
+const missingRuleSets = (rule: IRule) =>
+  rule.rule_set.some((id) => props.ruleSet.every((item) => item.id !== id))
+const clearMissingRuleSets = (rule: IRule) => {
+  rule.rule_set = rule.rule_set.filter((id) => props.ruleSet.some((item) => item.id === id))
+}
 
 const addGroup = (key: GroupKey) => {
   if (key === 'inline' && !fields.value.raw.trim()) fields.value.raw = DefaultInlineRaw
@@ -368,7 +378,7 @@ const renderRule = (rule: IRule) =>
           </Button>
         </Divider>
       </div>
-      <div v-else class="flex items-start py-2 gap-8">
+      <div v-else class="rule-row flex items-start py-2 gap-8">
         <Switch v-model="rule.enable" border="square" size="small" class="shrink-0" />
         <div v-tips.fast.overflow="renderRule(rule)" class="font-bold flex-1 rule-content">
           <span
@@ -381,13 +391,16 @@ const renderRule = (rule: IRule) =>
           </span>
           {{ renderRule(rule) }}
         </div>
-        <div class="ml-auto shrink-0">
+        <div class="rule-actions ml-auto shrink-0">
           <Button
-            icon="copy"
+            v-if="missingRuleSets(rule)"
             type="text"
             size="small"
-            @click="handleCopy(index)"
-          />
+            @click="clearMissingRuleSets(rule)"
+          >
+            {{ t('common.clear') }}
+          </Button>
+          <Button icon="copy" type="text" size="small" @click="handleCopy(index)" />
           <Button icon="edit" type="text" size="small" @click="handleEdit(index)" />
           <Button icon="delete" type="text" size="small" @click="handleDelete(index)" />
         </div>
@@ -399,10 +412,8 @@ const renderRule = (rule: IRule) =>
     v-model:open="showEditModal"
     :on-ok="handleAddEnd"
     title="kernel.route.tab.rules"
-    max-width="90"
-    max-height="90"
-    height="90"
-    :body-scrollable="false"
+    max-width="80"
+    max-height="80"
   >
     <RuleBuilder
       match-title="kernel.route.rules.matchConditions"
@@ -595,7 +606,7 @@ const renderRule = (rule: IRule) =>
               @click="removeGroup('inline')"
             />
           </template>
-          <InlineMatchGroup v-model="fields" />
+          <InlineMatchGroup ref="inlineEditor" v-model="fields" />
         </Card>
       </template>
     </RuleBuilder>
@@ -605,8 +616,23 @@ const renderRule = (rule: IRule) =>
 <style lang="less" scoped>
 .rule-content {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+@media (max-width: 700px) {
+  .rule-row {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+  .rule-actions {
+    grid-column: 1 / -1;
+    justify-self: end;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-left: 0;
+  }
 }
 </style>

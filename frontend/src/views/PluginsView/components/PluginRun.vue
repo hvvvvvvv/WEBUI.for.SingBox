@@ -115,4 +115,14 @@ const run = async () => {
   background: var(--card-bg);
   border-radius: 8px;
 }
+@media (max-width: 600px) {
+  .plugin-run-select {
+    flex-basis: 100%;
+    min-height: 44px;
+  }
+  .plugin-run-controls :deep(.gui-button) {
+    min-height: 44px;
+    width: 100%;
+  }
+}
 </style>

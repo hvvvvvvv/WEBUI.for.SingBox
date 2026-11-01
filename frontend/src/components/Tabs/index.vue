@@ -60,10 +60,47 @@ const currentComponent = computed(() => {
       <slot name="extra"></slot>
     </div>
 
-    <div class="flex flex-col overflow-y-auto" :style="{ width: isTop ? 'auto' : contentWidth }">
+    <div
+      class="gui-tabs-content flex flex-col overflow-y-auto"
+      :style="{ width: isTop ? 'auto' : contentWidth }"
+    >
       <KeepAlive>
         <component :is="currentComponent" />
       </KeepAlive>
     </div>
   </div>
 </template>
+
+<style scoped>
+@media (max-width: 700px) {
+  .gui-tabs {
+    min-width: 0;
+    min-height: 0;
+    flex-direction: column;
+  }
+  .gui-tabs-tab {
+    width: 100% !important;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    justify-content: flex-start;
+    gap: 4px;
+    margin-bottom: 8px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--scrollbar-thumb-bg) var(--scrollbar-track-bg);
+  }
+  .gui-tabs-tab :deep(.gui-button) {
+    flex: 0 0 auto;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+  .gui-tabs-content {
+    width: 100% !important;
+    min-width: 0;
+    min-height: 0;
+    flex: 1;
+  }
+}
+</style>

@@ -326,6 +326,12 @@ defineExpose({ modalSlots })
   margin-bottom: 8px;
 }
 @media (max-width: 600px) {
+  .plugin-source-toolbar strong {
+    flex-basis: 100%;
+  }
+  .plugin-editor :deep(.gui-button) {
+    min-height: 44px;
+  }
   .plugin-field {
     flex-wrap: wrap;
   }

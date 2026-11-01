@@ -18,7 +18,7 @@ const handleLogout = async () => {
 </script>
 
 <template>
-  <div class="flex items-center py-8 gap-8 px-12">
+  <div class="app-titlebar flex items-center py-8 gap-8 px-12">
     <img class="w-24 h-24" draggable="false" :src="logo" />
 
     <div
@@ -47,3 +47,25 @@ const handleLogout = async () => {
     </div>
   </div>
 </template>
+
+<style scoped>
+@media (max-width: 700px) {
+  .app-titlebar {
+    min-height: 44px;
+    flex-shrink: 0;
+    padding: env(safe-area-inset-top) 12px 0;
+  }
+  .app-titlebar > img {
+    flex-shrink: 0;
+  }
+  .app-titlebar > .font-bold {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .app-titlebar :deep(.gui-button) {
+    min-width: 44px;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+}
+</style>

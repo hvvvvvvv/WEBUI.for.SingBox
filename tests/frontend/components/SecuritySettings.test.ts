@@ -35,7 +35,12 @@ vi.mock('@/api/auth', () => ({
 vi.mock('@/bridge/ws', () => ({ initWebSocket: mocks.ws }))
 vi.mock('qrcode', () => ({ default: { toCanvas: mocks.qr } }))
 vi.mock('vue-i18n', () => ({ useI18n: () => ({ t: (key: string) => key }) }))
+vi.mock('@/lang', () => ({ default: { global: { t: (key: string) => key } } }))
+vi.mock('@/utils', async () => ({ debounce: (await import('@/utils/others')).debounce }))
+vi.mock('@/bridge', () => ({ ClipboardGetText: vi.fn() }))
+vi.mock('@/directives/tips', () => ({ default: {} }))
 import { AuthError } from '@/api/auth'
+import Button from '@/components/Button/index.vue'
 import SecuritySettings from '@/views/SettingsView/components/SecuritySettings.vue'
 
 describe('access settings and authenticator enrollment', () => {
@@ -57,6 +62,9 @@ describe('access settings and authenticator enrollment', () => {
       render: () =>
         h(KeepAlive, null, { default: () => (active.value ? h(SecuritySettings) : null) }),
     })
+    app.component('Button', Button)
+    app.component('Icon', { render: () => null })
+    app.component('CodeViewer', { render: () => null })
     app.mount(host)
     await settle()
   }
@@ -64,12 +72,13 @@ describe('access settings and authenticator enrollment', () => {
     const element = host.querySelector<HTMLInputElement>(`#${id}`)!
     element.value = value
     element.dispatchEvent(new Event('input', { bubbles: true }))
-    await nextTick()
+    await settle()
   }
   const button = (key: string) =>
-    [...host.querySelectorAll<HTMLButtonElement>('button')].find(
+    [...host.querySelectorAll<HTMLElement>('[role="button"]')].find(
       (item) => item.textContent?.trim() === key,
     )!
+  const disabled = (key: string) => button(key).getAttribute('aria-disabled') === 'true'
   const click = async (key: string) => {
     button(key).click()
     await settle()
@@ -133,7 +142,7 @@ describe('access settings and authenticator enrollment', () => {
     expect(button('auth.clearAuth')).toBeUndefined()
     await input('new-password', longPassword)
     await input('confirm-password', longPassword)
-    expect(button('auth.changePassword').disabled).toBe(true)
+    expect(disabled('auth.changePassword')).toBe(true)
     await input('current-password', ' old ')
     await input('password-code', 'RAW-RECOVERY')
     await click('auth.changePassword')
@@ -152,8 +161,8 @@ describe('access settings and authenticator enrollment', () => {
       expect.objectContaining({ width: 224 }),
     )
     expect(host.querySelector<HTMLInputElement>('#totp-secret')!.value).toBe('PRIVATESETUPKEY')
-    expect(button('auth.changePassword').disabled).toBe(true)
-    expect(button('auth.enableTotp').disabled).toBe(true)
+    expect(disabled('auth.changePassword')).toBe(true)
+    expect(disabled('auth.enableTotp')).toBe(true)
     await input('totp-confirm-code', '123456')
     await click('auth.enableTotp')
     expect(mocks.enable).toHaveBeenCalledExactlyOnceWith('123456')
@@ -162,15 +171,15 @@ describe('access settings and authenticator enrollment', () => {
     expect(host.querySelector<HTMLTextAreaElement>('#recovery-codes')!.value).toBe(
       'AAAA-BBBB\nCCCC-DDDD',
     )
-    expect(button('auth.finish').disabled).toBe(true)
-    expect(button('auth.regenerateCodes').disabled).toBe(true)
+    expect(disabled('auth.finish')).toBe(true)
+    expect(disabled('auth.regenerateCodes')).toBe(true)
     const checkbox = host.querySelector<HTMLInputElement>('.recovery-card input[type=checkbox]')!
     checkbox.checked = true
     checkbox.dispatchEvent(new Event('change', { bubbles: true }))
     await nextTick()
     await click('auth.finish')
     expect(host.querySelector('#recovery-codes')).toBeNull()
-    expect(button('auth.regenerateCodes').disabled).toBe(false)
+    expect(disabled('auth.regenerateCodes')).toBe(false)
     expect(localStorage.length).toBe(0)
     expect(sessionStorage.length).toBe(0)
   })
@@ -250,7 +259,7 @@ describe('access settings and authenticator enrollment', () => {
       expect(host.querySelector('#totp-secret')).toBeNull()
       expect(mocks.begin).not.toHaveBeenCalled()
       await click(operation === 'disable' ? 'auth.disableTotp' : 'auth.regenerateCodes')
-      expect(button('auth.confirmAction').disabled).toBe(true)
+      expect(disabled('auth.confirmAction')).toBe(true)
       await input('totp-action-password', ' current ')
       await input('totp-action-code', 'OLD-RECOVERY')
       await click('auth.confirmAction')
@@ -268,16 +277,40 @@ describe('access settings and authenticator enrollment', () => {
   it('requires explicit confirmation plus the current password to remove password protection', async () => {
     await mount()
     await click('auth.clearAuth')
-    expect(button('auth.confirmClear').disabled).toBe(true)
+    expect(disabled('auth.confirmClear')).toBe(true)
     const checkbox = host.querySelector<HTMLInputElement>('.security-danger input[type=checkbox]')!
     checkbox.checked = true
     checkbox.dispatchEvent(new Event('change', { bubbles: true }))
     await nextTick()
-    expect(button('auth.confirmClear').disabled).toBe(true)
+    expect(disabled('auth.confirmClear')).toBe(true)
     await input('current-password', 'current')
     await click('auth.confirmClear')
     expect(mocks.password).toHaveBeenCalledExactlyOnceWith('', 'current', '')
     expect(mocks.replace).toHaveBeenCalledWith('new-password-token', false)
     expect(host.textContent).toContain('auth.passwordFirst')
+  })
+
+  it('preserves native password attributes and Enter submission without submitting IME composition', async () => {
+    await mount()
+    await input('current-password', 'old password')
+    await input('new-password', longPassword)
+    await input('confirm-password', longPassword)
+    const field = host.querySelector<HTMLInputElement>('#confirm-password')!
+    expect(field.type).toBe('password')
+    expect(field.autocomplete).toBe('new-password')
+    expect(host.querySelector<HTMLLabelElement>('label[for="confirm-password"]')!.control).toBe(
+      field,
+    )
+    expect(field.closest('.gui-input')).not.toBeNull()
+    field.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, isComposing: true }),
+    )
+    await settle()
+    expect(mocks.password).not.toHaveBeenCalled()
+    field.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+    )
+    await settle()
+    expect(mocks.password).toHaveBeenCalledExactlyOnceWith(longPassword, 'old password', '')
   })
 })

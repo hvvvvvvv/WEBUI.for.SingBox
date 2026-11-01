@@ -131,14 +131,14 @@ export const DefaultInbounds = (): IInbound[] => [
     id: DefaultInboundIds.MixedIn,
     type: Inbound.Mixed,
     tag: 'mixed-in',
-    enable: true,
+    enable: false,
     mixed: DefaultInboundMixed(),
   },
   {
     id: DefaultInboundIds.Tun,
     type: Inbound.Tun,
     tag: 'tun-in',
-    enable: false,
+    enable: true,
     tun: DefaultInboundTun(),
   },
 ]
@@ -358,8 +358,9 @@ export const DefaultRouteRuleset = (): IRuleSet => ({
 export const DefaultRoute = (): IRoute => ({
   rules: [
     createDefaultRouteRule({
-      inbound: [DefaultInboundIds.Tun],
-      enable: false,
+      // LAN clients usually send IP destinations through TUN. Sniff the domain
+      // before evaluating domain rule sets. Keep this independent of inbound
+      // IDs so disabling TUN in favour of an explicit proxy remains valid.
       action: RuleAction.Sniff,
     }),
     createDefaultRouteRule({ protocol: ['dns'], action: RuleAction.HijackDNS }),

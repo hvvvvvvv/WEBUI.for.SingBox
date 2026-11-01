@@ -78,13 +78,13 @@ describe('independent plugin repository catalog', () => {
         props: { modelValue: String },
         emits: ['update:modelValue'],
         setup:
-          (props, { emit }) =>
+          (props, { emit, slots }) =>
           () =>
-            h('input', {
+            h('div', [slots.prefix?.(), h('input', {
               value: props.modelValue,
               onInput: (event: Event) =>
                 emit('update:modelValue', (event.target as HTMLInputElement).value),
-            }),
+            }), slots.suffix?.()]),
       }),
     )
     app.component(
@@ -106,30 +106,38 @@ describe('independent plugin repository catalog', () => {
             h('span', slots.default?.()),
       }),
     )
+    app.component('Icon', defineComponent({ setup: () => () => h('span') }))
+    app.component('Empty', defineComponent({ setup: (_, {slots}) => () => h('div', slots.description?.()) }))
+    app.directive('tips', {})
     app.mount(host)
     await settle()
   }
   const button = (text: string, within: ParentNode = host) =>
-    [...within.querySelectorAll('button')].find((item) => item.textContent?.trim() === text)!
+    [...within.querySelectorAll('button')].find((item) => item.textContent?.trim() === text || item.getAttribute('aria-label') === text)!
 
-  it('hides legacy entries until requested without replacing existing installations', async () => {
-    const legacy = { ...plugin, id: 'legacy-rename', name: 'Legacy rename', deprecated: true, replaced_by: plugin.id }
-    mocks.request.mockResolvedValueOnce({ ...remote(), plugins: [plugin, legacy] })
-    store.plugins = [{ ...plugin, source: 'function onSubscribe(p){return p}', configuration: {}, disabled: true, id: legacy.id, version: '0.9' }]
+  it('does not offer retired cached packages and preserves installed user scripts', async () => {
+    const retired = { ...plugin, id: 'plugin-modify-proxy-name', name: 'Previously installed rename' }
+    mocks.request.mockResolvedValueOnce({ ...remote(), plugins: [plugin, retired] })
+    store.plugins = [{ ...retired, source: 'function onSubscribe(p){return p}', configuration: {}, disabled: true, version: '0.9' }]
     await mount()
     expect(host.querySelectorAll('section')).toHaveLength(1)
-    expect(host.textContent).not.toContain(legacy.name)
-    expect(store.availableUpdate(store.plugins[0]!)).toMatchObject({ id: legacy.id })
-    button('plugins.showLegacy').click()
-    await settle()
-    expect(host.querySelectorAll('section')).toHaveLength(2)
-    expect(host.textContent).toContain('plugins.legacyHint')
-    expect(host.textContent).toContain('plugins.installed')
+    expect(host.textContent).not.toContain(retired.name)
+    expect(host.textContent).not.toContain('plugins.showLegacy')
+    expect(store.availableUpdate(store.plugins[0]!)).toBeUndefined()
+    expect(store.plugins[0]?.source).toBe('function onSubscribe(p){return p}')
     expect(store.plugins[0]?.version).toBe('0.9')
     expect(mocks.request.mock.calls).toEqual([['/catalog']])
-    button('plugins.hideLegacy').click()
-    await settle()
-    expect(host.querySelectorAll('section')).toHaveLength(1)
+  })
+
+  it('keeps a historical enabled plugin visible as an install conflict without disabling it', async () => {
+    const retiredID = 'plugin-modify-proxy-name'
+    mocks.request.mockResolvedValueOnce({ ...remote(), plugins: [{ ...plugin, conflicts: [retiredID] }] })
+    store.plugins = [{ ...plugin, id: retiredID, name: 'My installed script', source: 'function onSubscribe(p){return p}', configuration: {}, disabled: false }]
+    await mount()
+    expect(button('plugins.install').disabled).toBe(true)
+    expect(host.textContent).toContain('My installed script')
+    expect(store.plugins[0]?.disabled).toBe(false)
+    expect(mocks.request.mock.calls).toEqual([['/catalog']])
   })
 
   it('fetches the first catalog without refresh and shows loading until the repository responds', async () => {

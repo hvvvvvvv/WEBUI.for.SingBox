@@ -1,54 +1,54 @@
 <script setup lang="ts">
-import { useI18n } from "vue-i18n";
+import { useI18n } from 'vue-i18n'
 
-import Button from "@/components/Button/index.vue";
-import Card from "@/components/Card/index.vue";
-import Input from "@/components/Input/index.vue";
-import Radio from "@/components/Radio/index.vue";
-import Switch from "@/components/Switch/index.vue";
-import type { Plugin, PluginSetting } from "@/types/plugin";
+import Button from '@/components/Button/index.vue'
+import Card from '@/components/Card/index.vue'
+import Input from '@/components/Input/index.vue'
+import Radio from '@/components/Radio/index.vue'
+import Switch from '@/components/Switch/index.vue'
+import type { Plugin, PluginSetting } from '@/types/plugin'
 
 const props = withDefaults(
   defineProps<{
-    plugin: Plugin;
-    modelValue?: Record<string, unknown>;
-    disabled?: boolean;
-    heading?: string;
+    plugin: Plugin
+    modelValue?: Record<string, unknown>
+    disabled?: boolean
+    heading?: string
   }>(),
-  { modelValue: () => ({}), disabled: false, heading: "" },
-);
+  { modelValue: () => ({}), disabled: false, heading: '' },
+)
 const emit = defineEmits<{
-  "update:modelValue": [value: Record<string, unknown>];
-  change: [value: Record<string, unknown>];
-}>();
-const { t } = useI18n();
+  'update:modelValue': [value: Record<string, unknown>]
+  change: [value: Record<string, unknown>]
+}>()
+const { t } = useI18n()
 const getOptions = (options: string[] = []) =>
   options.map((option) => {
-    const comma = option.indexOf(",");
+    const comma = option.indexOf(',')
     return comma === -1
       ? { label: option, value: option }
-      : { label: option.slice(0, comma), value: option.slice(comma + 1) };
-  });
+      : { label: option.slice(0, comma), value: option.slice(comma + 1) }
+  })
 const update = (value: Record<string, unknown>) => {
-  if (props.disabled) return;
-  emit("update:modelValue", value);
-  emit("change", value);
-};
+  if (props.disabled) return
+  emit('update:modelValue', value)
+  emit('change', value)
+}
 const onChange = (setting: PluginSetting, value: unknown) => {
-  const next = { ...props.modelValue, [setting.key]: value };
-  if (value === setting.value) delete next[setting.key];
-  update(next);
-};
+  const next = { ...props.modelValue, [setting.key]: value }
+  if (value === setting.value) delete next[setting.key]
+  update(next)
+}
 const reset = (key: string) => {
-  const next = { ...props.modelValue };
-  delete next[key];
-  update(next);
-};
-const resetAll = () => update({});
-const overridden = (key: string) => Object.hasOwn(props.modelValue, key);
+  const next = { ...props.modelValue }
+  delete next[key]
+  update(next)
+}
+const resetAll = () => update({})
+const overridden = (key: string) => Object.hasOwn(props.modelValue, key)
 const valueOf = (setting: PluginSetting) =>
-  overridden(setting.key) ? props.modelValue[setting.key] : setting.value;
-defineExpose({ reset: resetAll });
+  overridden(setting.key) ? props.modelValue[setting.key] : setting.value
+defineExpose({ reset: resetAll })
 </script>
 
 <template>
@@ -56,7 +56,7 @@ defineExpose({ reset: resetAll });
     <div class="flex items-center justify-end gap-8 px-8 py-8">
       <div v-if="heading" class="text-18 font-bold mr-auto">{{ heading }}</div>
       <Button type="text" size="small" :disabled="disabled" @click="resetAll">{{
-        t("plugins.resetSettings")
+        t('plugins.resetSettings')
       }}</Button>
     </div>
     <Card

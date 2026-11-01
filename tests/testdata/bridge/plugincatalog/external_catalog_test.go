@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"guiforcores/bridge/plugins"
@@ -32,6 +31,17 @@ func externalPlugin(t *testing.T, id string) plugins.Plugin {
 	}
 	t.Fatalf("external plugin %q not found", id)
 	return plugins.Plugin{}
+}
+
+func externalOrganizer(t *testing.T, mode string) plugins.Plugin {
+	t.Helper()
+	plugin := externalPlugin(t, "plugin-subscription-organizer")
+	plugin.Configuration = map[string]any{"Enabled": true, "RenameMode": mode}
+	if mode == "dedupe" {
+		plugin.Configuration["RenameMode"] = "none"
+		plugin.Configuration["RemoveDuplicates"] = true
+	}
+	return plugin
 }
 
 func installedPlugin(t *testing.T, plugin plugins.Plugin) *plugins.Service {
@@ -73,9 +83,9 @@ func assertReferencesExist(t *testing.T, proxies []map[string]any) {
 }
 
 func TestExternalRenamersPreserveDuplicateReferencesAndExistingSuffixes(t *testing.T) {
-	for _, id := range []string{"plugin-index-the-proxy-name", "plugin-modify-proxy-name", "plugin-beautiful-node-name"} {
+	for _, id := range []string{"index", "flags", "beautify"} {
 		t.Run(id, func(t *testing.T) {
-			plugin := externalPlugin(t, id)
+			plugin := externalOrganizer(t, id)
 			plugin.Configuration["EnableSubscriptionName"] = false
 			plugin.Configuration["EnableNationalEmoji"] = false
 			plugin.Configuration["EnableAddEmoji"] = false
@@ -120,7 +130,7 @@ func TestExternalRenamersPreserveDuplicateReferencesAndExistingSuffixes(t *testi
 }
 
 func TestExternalModifyNameRegionKeywordAndIndexOptions(t *testing.T) {
-	plugin := externalPlugin(t, "plugin-modify-proxy-name")
+	plugin := externalOrganizer(t, "flags")
 	plugin.Configuration["EnableRemoveKeywords"] = true
 	plugin.Configuration["RemoveKeywords"] = `^ISP\s+`
 	plugin.Configuration["EnableIndexProxyName"] = "1"
@@ -144,7 +154,7 @@ func TestExternalModifyNameRegionKeywordAndIndexOptions(t *testing.T) {
 }
 
 func TestExternalBeautifyIsIdempotentIncludingManualCachedRun(t *testing.T) {
-	plugin := externalPlugin(t, "plugin-beautiful-node-name")
+	plugin := externalOrganizer(t, "beautify")
 	plugin.Configuration["EnableUnifyRegionName"] = "统一为中文"
 	service := installedPlugin(t, plugin)
 	input := []map[string]any{
@@ -164,15 +174,15 @@ func TestExternalBeautifyIsIdempotentIncludingManualCachedRun(t *testing.T) {
 	if err != nil || string(jsonBytes(t, second)) != string(jsonBytes(t, first)) {
 		t.Fatalf("automatic beautify is not idempotent: %#v %v", second, err)
 	}
-	manual, logs, err := service.RunSubscription(context.Background(), plugin.ID, second, metadata)
-	if err != nil || string(jsonBytes(t, manual)) != string(jsonBytes(t, first)) || len(logs) != 1 || !strings.Contains(logs[0], "3 nodes") {
-		t.Fatalf("manual cached beautify changed names again or failed to log: %#v %#v %v", manual, logs, err)
+	manual, _, err := service.RunSubscription(context.Background(), plugin.ID, second, metadata)
+	if err != nil || string(jsonBytes(t, manual)) != string(jsonBytes(t, first)) {
+		t.Fatalf("manual cached beautify changed names again: %#v %v", manual, err)
 	}
 	assertReferencesExist(t, manual)
 }
 
 func TestExternalDedupePreservesCredentialsTLSAndRemapsReferences(t *testing.T) {
-	service := installedPlugin(t, externalPlugin(t, "plugin-duplicate-proxies-removal"))
+	service := installedPlugin(t, externalOrganizer(t, "dedupe"))
 	input := []map[string]any{
 		{"type": "trojan", "tag": "first", "server": "same.test", "server_port": 443, "password": "secret", "tls": map[string]any{"enabled": true, "server_name": "same.test"}},
 		{"password": "secret", "type": "trojan", "tag": "duplicate", "tls": map[string]any{"server_name": "same.test", "enabled": true}, "server": "same.test", "server_port": 443},
@@ -206,8 +216,8 @@ func TestExternalDedupePreservesCredentialsTLSAndRemapsReferences(t *testing.T) 
 }
 
 func TestExternalVisualSettingsChangeNamesAndPreserveNotices(t *testing.T) {
-	p := externalPlugin(t, "plugin-beautiful-node-name")
-	p.Configuration = map[string]any{"EnableSubscriptionName": false, "EnableNationalEmoji": false, "EnableCityName": true}
+	p := externalOrganizer(t, "beautify")
+	p.Configuration = map[string]any{"Enabled": true, "RenameMode": "beautify", "EnableSubscriptionName": false, "EnableNationalEmoji": false, "EnableCityName": true}
 	s := installedPlugin(t, p)
 	input := []map[string]any{{"type": "direct", "tag": "JP 东京 IEPL 2x"}, {"type": "direct", "tag": "剩余流量: 200 GB"}}
 	result, err := s.ApplySubscription(context.Background(), input, map[string]any{"name": "Airport"})
@@ -228,8 +238,8 @@ func TestExternalVisualSettingsChangeNamesAndPreserveNotices(t *testing.T) {
 		t.Fatalf("disabling options failed: %#v %v", result, err)
 	}
 
-	name := externalPlugin(t, "plugin-modify-proxy-name")
-	name.Configuration = map[string]any{"EnableAddEmoji": false, "EnableIndexProxyName": "0"}
+	name := externalOrganizer(t, "flags")
+	name.Configuration = map[string]any{"Enabled": true, "RenameMode": "flags", "EnableAddEmoji": false, "EnableIndexProxyName": "0"}
 	s = installedPlugin(t, name)
 	result, err = s.ApplySubscription(context.Background(), []map[string]any{{"type": "direct", "tag": "same"}, {"type": "direct", "tag": "same"}}, nil)
 	if err != nil || result[0]["tag"] != "same" || result[1]["tag"] != "same" {

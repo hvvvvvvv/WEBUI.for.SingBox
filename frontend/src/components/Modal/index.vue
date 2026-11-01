@@ -231,12 +231,12 @@ provide(IS_IN_MODAL, true)
           :aria-labelledby="title && !slots.title ? titleId : undefined"
           :aria-label="title && slots.title ? t(title) : undefined"
           :style="contentStyle"
-          :class="props.class"
+          :class="[props.class, { 'is-maximized': isMaximize && !isSide }]"
           class="gui-modal-modal transition duration-200 flex flex-col rounded-8 shadow"
         >
           <div
             v-if="title || slots.title || slots.toolbar"
-            class="flex items-center p-16"
+            class="gui-modal-header flex items-center p-16"
             @dblclick.self="!isSide && toggleMaximize()"
           >
             <slot name="title">
@@ -262,12 +262,15 @@ provide(IS_IN_MODAL, true)
             </div>
           </div>
           <div
-            class="flex-1 min-h-0 mx-16"
+            class="gui-modal-body flex-1 min-h-0 mx-16"
             :class="bodyScrollable ? 'overflow-auto' : 'overflow-hidden'"
           >
             <slot></slot>
           </div>
-          <div v-if="footer" class="flex items-center justify-end py-8 px-16 gap-8">
+          <div
+            v-if="footer"
+            class="gui-modal-footer flex items-center justify-end py-8 px-16 gap-8"
+          >
             <slot name="action"></slot>
             <slot name="cancel">
               <Button
@@ -339,5 +342,75 @@ provide(IS_IN_MODAL, true)
 }
 .maximize {
   transform: rotate(0deg);
+}
+
+@media (max-width: 700px) {
+  .gui-modal-mask {
+    box-sizing: border-box;
+    max-height: 100dvh;
+    padding: max(8px, env(safe-area-inset-top)) 8px max(8px, env(safe-area-inset-bottom));
+  }
+  .gui-modal-modal {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    max-height: 100% !important;
+  }
+  .gui-modal-header {
+    flex-wrap: wrap;
+    gap: 4px 8px;
+    padding: 8px 12px;
+    flex-shrink: 0;
+    overflow-wrap: anywhere;
+  }
+  .gui-modal-modal.is-maximized {
+    height: 100% !important;
+  }
+  .gui-modal-header > :first-child {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .gui-modal-body {
+    min-width: 0;
+    margin: 0 12px;
+    overscroll-behavior-y: contain;
+  }
+  .gui-modal-footer {
+    flex-wrap: wrap;
+    flex-shrink: 0;
+    padding: 8px 12px;
+  }
+  .gui-modal-modal :deep(.gui-button) {
+    min-width: 44px;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+  .gui-modal-body :deep(.form-item) {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 0;
+    overflow-wrap: anywhere;
+  }
+  .gui-modal-body :deep(.form-item > .gui-input),
+  .gui-modal-body :deep(.form-item > .gui-input-list),
+  .gui-modal-body :deep(.form-item > .gui-dropdown) {
+    min-width: 0;
+    max-width: 100%;
+    width: 100%;
+  }
+  .gui-modal-body :deep(.gui-input),
+  .gui-modal-body :deep(.gui-select) {
+    min-width: 0;
+    max-width: 100%;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+  .gui-modal-body :deep(.gui-switch) {
+    min-height: 36px;
+  }
+  .gui-modal-body :deep(.form-item .gui-select) {
+    width: 100%;
+  }
 }
 </style>

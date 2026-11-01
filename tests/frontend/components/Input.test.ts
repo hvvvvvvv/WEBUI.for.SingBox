@@ -11,6 +11,82 @@ vi.mock('@/bridge', () => ({ ClipboardGetText: vi.fn() }))
 
 import Input from '@/components/Input/index.vue'
 
+describe('Input model update timing', () => {
+  let app: App
+  let host: HTMLDivElement
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    host = document.createElement('div')
+    document.body.append(host)
+  })
+
+  afterEach(() => {
+    app.unmount()
+    host.remove()
+    vi.useRealTimers()
+  })
+
+  const mount = (delay?: number) => {
+    const value = ref('')
+    const changed = vi.fn()
+    const submitted = vi.fn()
+    app = createApp({
+      render: () =>
+        h(
+          'form',
+          {
+            onSubmit: (event: Event) => {
+              event.preventDefault()
+              submitted(value.value)
+            },
+          },
+          h(Input, {
+            delay,
+            type: 'password',
+            modelValue: value.value,
+            'onUpdate:modelValue': (next: string) => {
+              value.value = next
+              changed(next)
+            },
+          }),
+        ),
+    })
+    const empty = defineComponent(() => () => null)
+    for (const name of ['Icon', 'Button', 'CodeViewer']) app.component(name, empty)
+    app.mount(host)
+    return { input: host.querySelector('input')!, value, changed, submitted }
+  }
+
+  it.each([undefined, 0, -1])('publishes delay=%s before a same-tick form submission', (delay) => {
+    const { input, value, changed, submitted } = mount(delay)
+    input.value = ' exact password '
+    input.dispatchEvent(
+      new InputEvent('input', { bubbles: true, inputType: 'insertReplacementText' }),
+    )
+    host.querySelector('form')!.dispatchEvent(new Event('submit', { cancelable: true }))
+    expect(value.value).toBe(' exact password ')
+    expect(changed).toHaveBeenCalledExactlyOnceWith(' exact password ')
+    expect(submitted).toHaveBeenCalledExactlyOnceWith(' exact password ')
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('still debounces explicit positive delays and publishes the final value once', async () => {
+    const { input, value, changed } = mount(50)
+    input.value = 'first'
+    input.dispatchEvent(new InputEvent('input', { bubbles: true }))
+    await vi.advanceTimersByTimeAsync(30)
+    input.value = 'latest'
+    input.dispatchEvent(new InputEvent('input', { bubbles: true }))
+    await vi.advanceTimersByTimeAsync(49)
+    expect(value.value).toBe('')
+    expect(changed).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(1)
+    expect(value.value).toBe('latest')
+    expect(changed).toHaveBeenCalledExactlyOnceWith('latest')
+  })
+})
+
 describe('Input IME composition', () => {
   let app: App
   let host: HTMLDivElement

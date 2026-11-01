@@ -63,6 +63,7 @@ describe('App and LoginView with real authentication bridge and Pinia session', 
   let host: HTMLDivElement
   let sessions: Set<string>
   let tokenNumber: number
+  let totpEnabled: boolean
   const fetchMock = vi.fn()
   const settle = async () => {
     await new Promise((resolve) => setTimeout(resolve, 0))
@@ -95,25 +96,38 @@ describe('App and LoginView with real authentication bridge and Pinia session', 
             h('button', { ...attrs, 'data-icon': props.icon }, slots.default?.()),
       }),
     )
-    for (const name of ['Icon', 'Progress', 'Modal', 'Menu', 'Tips', 'RouterView'])
+    for (const name of ['Icon', 'Progress', 'Modal', 'Menu', 'Tips', 'RouterView', 'CodeViewer'])
       app.component(name, { render: () => null })
     app.directive('tips', {})
     app.mount(host)
     await settle()
   }
-  const login = async (code = '') => {
+  const login = async (code = '', method: 'submit' | 'enter' = 'submit') => {
     const password = host.querySelector<HTMLInputElement>('#login-password')!
     password.value = 'valid password'
-    password.dispatchEvent(new Event('input', { bubbles: true }))
+    password.dispatchEvent(
+      new InputEvent('input', { bubbles: true, inputType: 'insertReplacementText' }),
+    )
+    let lastInput = password
     if (code) {
       const field = host.querySelector<HTMLInputElement>('#login-code')!
       field.value = code
-      field.dispatchEvent(new Event('input', { bubbles: true }))
+      field.dispatchEvent(
+        new InputEvent('input', { bubbles: true, inputType: 'insertReplacementText' }),
+      )
+      lastInput = field
     }
-    await nextTick()
-    host
-      .querySelector('form')!
-      .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    // Password managers can fill and submit together; no render or timer may be
+    // needed for the authentication request to observe these new field values.
+    if (method === 'enter') {
+      lastInput.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }),
+      )
+    } else {
+      host
+        .querySelector('form')!
+        .dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }))
+    }
     await settle()
   }
   beforeEach(() => {
@@ -122,6 +136,7 @@ describe('App and LoginView with real authentication bridge and Pinia session', 
     sessionStorage.clear()
     sessions = new Set()
     tokenNumber = 0
+    totpEnabled = false
     window.matchMedia = vi
       .fn()
       .mockReturnValue({ matches: false, addEventListener: vi.fn(), removeEventListener: vi.fn() })
@@ -129,7 +144,7 @@ describe('App and LoginView with real authentication bridge and Pinia session', 
     vi.stubGlobal('fetch', fetchMock)
     fetchMock.mockImplementation(async (url: string, options: RequestInit) => {
       if (url === '/api/auth/status')
-        return response(JSON.stringify({ enabled: true, totp_enabled: false }))
+        return response(JSON.stringify({ enabled: true, totp_enabled: totpEnabled }))
       if (url === '/api/auth/login') {
         expect(JSON.parse(String(options.body)).args[0]).toBe('valid password')
         const token = `token-${++tokenNumber}`
@@ -206,5 +221,20 @@ describe('App and LoginView with real authentication bridge and Pinia session', 
     expect(mocks.core).toHaveBeenCalledTimes(2)
     expect(mocks.ws).toHaveBeenLastCalledWith('token-2')
     expect(useAppSettingsStore().sessionInfo.requireLogin).toBe(false)
+  })
+
+  it('authenticates autofilled password and recovery code immediately on Enter', async () => {
+    totpEnabled = true
+    await mount()
+    await login('RAW-RECOVERY-CODE', 'enter')
+    const loginCalls = fetchMock.mock.calls.filter(([url]) => url === '/api/auth/login')
+    expect(loginCalls).toHaveLength(1)
+    expect(JSON.parse(String(loginCalls[0][1].body)).args).toEqual([
+      'valid password',
+      'RAW-RECOVERY-CODE',
+    ])
+    expect(mocks.config).toHaveBeenCalledTimes(1)
+    expect(mocks.ws).toHaveBeenCalledWith('token-1')
+    expect(host.querySelector('[data-testid=navigation]')).not.toBeNull()
   })
 })

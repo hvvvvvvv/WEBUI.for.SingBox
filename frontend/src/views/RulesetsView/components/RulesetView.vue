@@ -21,6 +21,7 @@ const reloading = ref(false)
 const conflict = ref<'changed' | 'deleted' | null>(null)
 const ruleset = ref<RuleSet>()
 const rulesetContent = ref<string>('')
+const editor = ref<{ getContent: () => string }>()
 let baseRevision: Pick<ExpectedRevision, 'instanceId' | 'revision'> | undefined
 
 const handleCancel = inject('cancel') as any
@@ -30,7 +31,8 @@ const { t } = useI18n()
 const rulesetsStore = useRulesetsStore()
 
 const handleSave = async () => {
-  if (!ruleset.value) return
+  if (!ruleset.value || loading.value) return
+  rulesetContent.value = editor.value?.getContent() ?? rulesetContent.value
   loading.value = true
   try {
     if (!isValidJson(rulesetContent.value)) {
@@ -113,6 +115,6 @@ defineExpose({ modalSlots })
       :loading="reloading"
       @reload="loadLatest"
     />
-    <CodeViewer v-model="rulesetContent" lang="json" editable class="flex-1 min-h-0" />
+    <CodeViewer ref="editor" v-model="rulesetContent" lang="json" editable class="flex-1 min-h-0" />
   </div>
 </template>

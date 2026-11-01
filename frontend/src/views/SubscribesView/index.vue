@@ -214,7 +214,7 @@ const onSortUpdate = () => {
     </Empty>
   </div>
 
-  <div v-else class="grid-list-header">
+  <div v-else class="grid-list-header resource-list-header">
     <Radio v-model="appSettingsStore.app.subscribesView" :options="ViewOptions" class="mr-auto" />
     <Button
       :disabled="noUpdateNeeded"
@@ -234,6 +234,7 @@ const onSortUpdate = () => {
       { ...DraggableOptions, onStart: onSortStart, onUpdate: onSortUpdate },
     ]"
     :class="'grid-list-' + appSettingsStore.app.subscribesView"
+    class="resource-list-cards"
   >
     <Card
       v-for="s in subscribeStore.subscribes"

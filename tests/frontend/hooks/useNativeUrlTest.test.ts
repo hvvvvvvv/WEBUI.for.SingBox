@@ -89,6 +89,89 @@ afterEach(() => {
 })
 
 describe('native latency test feedback', () => {
+  it('publishes progress before RPC acceptance and counts confirmed history deletion separately from timeout', async () => {
+    const request = deferred<object>()
+    mocks.urlTest.mockReturnValue(request.promise)
+    const first = item('first', 10n, 100)
+    const second = item('second', 10n, 200)
+    const unknown = item('unknown')
+    const test = setup({
+      groups: [group('group', [first, second, unknown])],
+      outbounds: [first, second, unknown],
+    })
+    const started = test.start('group')
+    expect(test.progress.value[0]).toMatchObject({
+      tag: 'group',
+      total: 3,
+      completed: 0,
+      success: 0,
+      failure: 0,
+      status: 'running',
+    })
+    request.resolve({})
+    await started
+    expect(test.progress.value[0]?.completed).toBe(0)
+    test.emit(item('first', 11n, 0), second, unknown)
+    expect(test.progress.value[0]).toMatchObject({
+      completed: 1,
+      success: 1,
+      failure: 0,
+      remaining: 2,
+    })
+    test.emit(item('first', 11n, 0), item('second'), unknown)
+    expect(test.progress.value[0]).toMatchObject({
+      completed: 2,
+      success: 1,
+      failure: 1,
+      remaining: 1,
+    })
+    await vi.advanceTimersByTimeAsync(10_000)
+    expect(test.progress.value[0]).toMatchObject({
+      completed: 2,
+      success: 1,
+      failure: 1,
+      remaining: 1,
+      status: 'timeout',
+    })
+    expect(test.isLoading('group')).toBe(false)
+    await vi.advanceTimersByTimeAsync(3_000)
+    expect(test.progress.value).toEqual([])
+  })
+
+  it('stops waiting immediately, ignores late results and errors, and clears summaries on process changes', async () => {
+    const request = deferred<object>()
+    mocks.urlTest.mockReturnValue(request.promise)
+    const test = setup()
+    const started = test.start('node')
+    test.cancel(test.progress.value[0]!.id)
+    expect(test.isLoading('node')).toBe(false)
+    expect(test.progress.value[0]).toMatchObject({ status: 'canceled', completed: 0, success: 0 })
+    test.emit(item('node', 11n, 20))
+    request.reject(new Error('late canceled request'))
+    await expect(started).resolves.toBe(false)
+    expect(test.progress.value[0]?.completed).toBe(0)
+    test.pid.value = 2
+    expect(test.progress.value).toEqual([])
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(test.onTimeout).not.toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('reports submission errors without inventing failed node measurements', async () => {
+    mocks.urlTest.mockRejectedValue(new Error('request refused'))
+    const test = setup()
+    await expect(test.start('node')).rejects.toThrow('request refused')
+    expect(test.progress.value[0]).toMatchObject({
+      status: 'error',
+      success: 0,
+      failure: 0,
+      remaining: 1,
+    })
+    expect(test.isLoading('node')).toBe(false)
+    test.clear()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it('keeps loading after the RPC accepts, and ignores unchanged cached history', async () => {
     const test = setup()
     await expect(test.start('node')).resolves.toBe(true)

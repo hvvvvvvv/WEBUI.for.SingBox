@@ -267,7 +267,7 @@ const onSortUpdate = (event: SortableEvent) => {
     </Empty>
   </div>
 
-  <div v-else class="grid-list-header">
+  <div v-else class="grid-list-header resource-list-header">
     <Radio v-model="appSettingsStore.app.profilesView" :options="ViewOptions" class="mr-auto" />
     <Button type="primary" icon="add" @click="handleShowProfileForm()">
       {{ t('common.add') }}
@@ -280,6 +280,7 @@ const onSortUpdate = (event: SortableEvent) => {
       { ...DraggableOptions, onStart: onSortStart, customUpdate: onSortUpdate },
     ]"
     :class="'grid-list-' + appSettingsStore.app.profilesView"
+    class="resource-list-cards"
   >
     <Card
       v-for="p in profilesStore.profiles"

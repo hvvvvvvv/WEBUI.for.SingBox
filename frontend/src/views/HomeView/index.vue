@@ -82,10 +82,10 @@ const onMouseWheel = (e: WheelEvent) => {
 </script>
 
 <template>
-  <div class="relative overflow-hidden h-full" @wheel.passive="onMouseWheel">
+  <div class="home-view relative overflow-hidden h-full" @wheel.passive="onMouseWheel">
     <div
       v-if="(!kernelApiStore.running && !kernelApiStore.stopping) || kernelApiStore.starting"
-      class="w-full h-[90%] flex flex-col items-center justify-center"
+      class="home-idle w-full h-[90%] flex flex-col items-center justify-center"
     >
       <img :src="logo" draggable="false" class="w-128 mb-16" />
 
@@ -95,7 +95,7 @@ const onMouseWheel = (e: WheelEvent) => {
       </template>
 
       <template v-else>
-        <div class="flex gap-8 mb-32">
+        <div class="home-start-actions flex gap-8 mb-32">
           <Card
             v-for="p in profilesStore.profiles.slice(0, profilesStore.profiles.length > 4 ? 3 : 4)"
             :key="p.id"
@@ -149,7 +149,7 @@ const onMouseWheel = (e: WheelEvent) => {
     </div>
 
     <template v-else-if="!kernelApiStore.coreStateLoading">
-      <div :class="{ 'blur-3xl': showController }">
+      <div class="home-overview-content" :class="{ 'blur-3xl': showController }">
         <OverView />
         <Divider>
           <Button type="link" size="small" @click="showController = true">
@@ -168,7 +168,7 @@ const onMouseWheel = (e: WheelEvent) => {
 
       <Button
         v-show="showController"
-        class="fixed left-1/2 -translate-x-1/2 bottom-12 z-2"
+        class="controller-close fixed left-1/2 -translate-x-1/2 bottom-12 z-2"
         style="background-color: var(--card-bg)"
         type="text"
         size="small"
@@ -180,3 +180,34 @@ const onMouseWheel = (e: WheelEvent) => {
 
   <Modal />
 </template>
+
+<style scoped>
+@media (max-width: 700px) {
+  .home-view {
+    min-height: 0;
+  }
+  .home-overview-content {
+    height: 100%;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+  }
+  .home-idle {
+    height: 100%;
+    overflow-y: auto;
+  }
+  .home-start-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .home-start-actions :deep(.w-128) {
+    width: 100%;
+  }
+  .controller-close {
+    min-width: 44px;
+    min-height: 44px;
+    bottom: max(12px, env(safe-area-inset-bottom));
+    box-sizing: border-box;
+  }
+}
+</style>

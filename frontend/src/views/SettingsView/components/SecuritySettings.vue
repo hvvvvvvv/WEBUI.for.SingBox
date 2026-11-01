@@ -24,7 +24,9 @@ import {
   type TotpEnrollment,
 } from '@/api/auth'
 import { initWebSocket } from '@/bridge/ws'
-import '@/assets/styles/access.css'
+import Button from '@/components/Button/index.vue'
+import Card from '@/components/Card/index.vue'
+import Input from '@/components/Input/index.vue'
 
 const { t } = useI18n()
 const status = ref<AuthStatus | null>(null)
@@ -52,6 +54,12 @@ let active = true
 let expiryTimer: ReturnType<typeof setTimeout> | undefined
 const locked = computed(() => busy.value || statusLoading.value || recoveryCodes.value.length > 0)
 const passwordLocked = computed(() => locked.value || !!pending.value)
+const submitFromInput = (event: KeyboardEvent, submit: () => unknown) => {
+  if (event.isComposing || event.keyCode === 229 || !(event.target instanceof HTMLInputElement))
+    return
+  event.preventDefault()
+  void submit()
+}
 const validNewPassword = computed(
   () =>
     Array.from(newPassword.value).length >= 15 &&
@@ -315,403 +323,427 @@ onBeforeUnmount(cleanup)
 </script>
 
 <template>
-  <div class="access-colors security-settings" :aria-busy="busy || statusLoading">
-    <header>
-      <h1>{{ t('auth.security') }}</h1>
-      <p class="access-muted">{{ t('auth.securityHint') }}</p>
-    </header>
-    <p v-if="statusLoading" role="status" class="access-muted">{{ t('auth.checkingStatus') }}</p>
-    <p v-if="error" role="alert" class="access-error security-feedback">{{ error }}</p>
-    <p v-if="notice" role="status" class="access-success security-feedback">{{ notice }}</p>
-    <button v-if="!status && !statusLoading" class="access-button" @click="loadStatus">
-      {{ t('auth.retry') }}
-    </button>
-    <section
-      v-if="recoveryCodes.length"
-      class="security-card recovery-card"
-      aria-labelledby="recovery-heading"
-    >
-      <h2 id="recovery-heading">{{ t('auth.saveRecoveryCodes') }}</h2>
-      <p class="access-muted">{{ t('auth.recoveryHint') }}</p>
-      <label class="access-field" for="recovery-codes"
-        ><span>{{ t('auth.recoveryCodes') }}</span
-        ><textarea
-          id="recovery-codes"
-          :value="recoveryCodes.join('\n')"
-          rows="10"
-          readonly
-          spellcheck="false"
-        />
-      </label>
-      <div class="access-actions">
-        <button class="access-button" @click="downloadRecovery">
-          {{ t('auth.downloadCodes') }}
-        </button>
+  <div class="security-settings flex flex-col gap-8 pr-20 mb-8" :aria-busy="busy || statusLoading">
+    <p v-if="statusLoading" role="status" class="px-8 py-12 text-12 opacity-60">
+      {{ t('auth.checkingStatus') }}
+    </p>
+    <p v-if="error" role="alert" class="px-8 py-12 text-12 font-bold">{{ error }}</p>
+    <p v-if="notice" role="status" class="px-8 py-12 text-12">{{ notice }}</p>
+    <div v-if="!status && !statusLoading" class="px-8 py-12">
+      <Button @click="loadStatus">{{ t('auth.retry') }}</Button>
+    </div>
+
+    <section v-if="recoveryCodes.length" aria-labelledby="recovery-heading">
+      <div id="recovery-heading" class="px-8 py-12 text-18 font-bold">
+        {{ t('auth.saveRecoveryCodes') }}
       </div>
-      <label class="security-check"
-        ><input v-model="codesSaved" type="checkbox" />{{ t('auth.codesSaved') }}</label
-      >
-      <button class="access-button primary" :disabled="!codesSaved" @click="finishRecovery">
-        {{ t('auth.finish') }}
-      </button>
-    </section>
-    <template v-if="status">
-      <section class="security-card" aria-labelledby="password-heading">
-        <div class="security-card-header">
-          <h2 id="password-heading">{{ t('auth.passwordAccess') }}</h2>
-          <span class="security-badge">{{
-            t(status.enabled ? 'auth.authEnabled' : 'auth.authDisabled')
-          }}</span>
+      <Card class="recovery-card">
+        <p class="security-description px-8 py-12 text-12 opacity-60">
+          {{ t('auth.recoveryHint') }}
+        </p>
+        <div class="px-8 py-12 flex flex-col gap-8">
+          <label for="recovery-codes" class="text-16 font-bold">{{
+            t('auth.recoveryCodes')
+          }}</label>
+          <textarea
+            id="recovery-codes"
+            :value="recoveryCodes.join('\n')"
+            rows="10"
+            readonly
+            spellcheck="false"
+            class="recovery-codes rounded-4 px-8 py-6"
+          />
         </div>
-        <p class="access-muted">{{ t('auth.passwordHint') }}</p>
-        <form class="access-form" @submit.prevent="savePassword()">
-          <label v-if="status.enabled" class="access-field" for="current-password"
-            ><span>{{ t('auth.currentPassword') }}</span
-            ><input
-              id="current-password"
-              v-model="currentPassword"
-              type="password"
-              autocomplete="current-password"
-              :disabled="passwordLocked"
-              required
-          /></label>
-          <div class="security-field-grid">
-            <label class="access-field" for="new-password"
-              ><span>{{ t('auth.newPassword') }}</span
-              ><input
-                id="new-password"
+        <div class="security-actions px-8 py-12 flex flex-wrap items-center justify-end gap-8">
+          <Button @click="downloadRecovery">{{ t('auth.downloadCodes') }}</Button>
+        </div>
+        <label class="security-check px-8 py-12 flex items-center gap-8 text-12">
+          <input v-model="codesSaved" type="checkbox" />{{ t('auth.codesSaved') }}
+        </label>
+        <div class="security-actions px-8 py-12 flex flex-wrap justify-end gap-8">
+          <Button type="primary" :disabled="!codesSaved" @click="finishRecovery">{{
+            t('auth.finish')
+          }}</Button>
+        </div>
+      </Card>
+    </section>
+
+    <template v-if="status">
+      <section aria-labelledby="password-heading">
+        <div id="password-heading" class="px-8 py-12 text-18 font-bold">
+          {{ t('auth.passwordAccess') }}
+        </div>
+        <Card>
+          <div class="px-8 py-12 text-16 font-bold">
+            {{ t(status.enabled ? 'auth.authEnabled' : 'auth.authDisabled') }}
+          </div>
+          <p class="security-description px-8 pb-12 text-12 opacity-60">
+            {{ t('auth.passwordHint') }}
+          </p>
+          <form
+            @submit.prevent="savePassword()"
+            @keydown.enter="submitFromInput($event, savePassword)"
+          >
+            <div
+              v-if="status.enabled"
+              class="security-setting px-8 py-12 flex items-center justify-between gap-8"
+            >
+              <label for="current-password" class="text-16 font-bold">{{
+                t('auth.currentPassword')
+              }}</label>
+              <Input
+                v-model="currentPassword"
+                type="password"
+                class="security-input"
+                :disabled="passwordLocked"
+                :input-attrs="{
+                  id: 'current-password',
+                  autocomplete: 'current-password',
+                  required: true,
+                }"
+              />
+            </div>
+            <div class="security-setting px-8 py-12 flex items-center justify-between gap-8">
+              <label for="new-password" class="text-16 font-bold">{{
+                t('auth.newPassword')
+              }}</label>
+              <Input
                 v-model="newPassword"
                 type="password"
-                autocomplete="new-password"
+                class="security-input"
                 :disabled="passwordLocked"
-                required
-                aria-describedby="password-rules"
-            /></label>
-            <label class="access-field" for="confirm-password"
-              ><span>{{ t('auth.confirmSecret') }}</span
-              ><input
-                id="confirm-password"
+                :input-attrs="{
+                  id: 'new-password',
+                  autocomplete: 'new-password',
+                  required: true,
+                  'aria-describedby': 'password-rules',
+                }"
+              />
+            </div>
+            <div class="security-setting px-8 py-12 flex items-center justify-between gap-8">
+              <label for="confirm-password" class="text-16 font-bold">{{
+                t('auth.confirmSecret')
+              }}</label>
+              <Input
                 v-model="confirmPassword"
                 type="password"
-                autocomplete="new-password"
+                class="security-input"
                 :disabled="passwordLocked"
-                required
-            /></label>
-          </div>
-          <small id="password-rules" class="access-muted">{{ t('auth.passwordRules') }}</small>
-          <label v-if="status.totp_enabled" class="access-field" for="password-code"
-            ><span>{{ t('auth.verificationCode') }}</span
-            ><input
-              id="password-code"
-              v-model="passwordCode"
-              type="text"
-              autocomplete="one-time-code"
-              autocapitalize="off"
-              spellcheck="false"
-              :disabled="passwordLocked"
-              required
-            /><small class="access-muted">{{ t('auth.codeHint') }}</small></label
-          >
-          <div class="access-actions">
-            <button
-              type="submit"
-              class="access-button primary"
-              :disabled="
-                passwordLocked ||
-                !newPassword ||
-                !confirmPassword ||
-                (status.enabled && !currentPassword) ||
-                (status.totp_enabled && !passwordCode)
-              "
-            >
-              {{ t(status.enabled ? 'auth.changePassword' : 'auth.setPassword') }}</button
-            ><button
-              v-if="status.enabled && !status.totp_enabled"
-              type="button"
-              class="access-button danger"
-              :disabled="passwordLocked"
-              @click="showClear = !showClear"
-            >
-              {{ t('auth.clearAuth') }}
-            </button>
-          </div>
-        </form>
-        <div v-if="showClear" class="security-danger">
-          <p>{{ t('auth.clearAuthConfirm') }}</p>
-          <label class="security-check"
-            ><input v-model="clearConfirmed" type="checkbox" :disabled="passwordLocked" />{{
-              t('auth.clearConfirmLabel')
-            }}</label
-          >
-          <button
-            class="access-button danger"
-            :disabled="passwordLocked || !clearConfirmed || !currentPassword"
-            @click="savePassword(true)"
-          >
-            {{ t('auth.confirmClear') }}
-          </button>
-        </div>
-      </section>
-      <section class="security-card" aria-labelledby="totp-heading">
-        <div class="security-card-header">
-          <h2 id="totp-heading">{{ t('auth.totpTitle') }}</h2>
-          <span class="security-badge">{{
-            t(status.totp_enabled ? 'auth.totpEnabled' : 'auth.totpOptional')
-          }}</span>
-        </div>
-        <p class="access-muted">{{ t('auth.totpHint') }}</p>
-        <p class="security-tip">{{ t('auth.timeHint') }}</p>
-        <p v-if="!status.enabled" class="access-muted">{{ t('auth.passwordFirst') }}</p>
-        <template v-else-if="!status.totp_enabled">
-          <form v-if="!pending" class="access-form" @submit.prevent="startEnrollment">
-            <label class="access-field" for="totp-password"
-              ><span>{{ t('auth.currentPassword') }}</span
-              ><input
-                id="totp-password"
-                v-model="totpPassword"
-                type="password"
-                autocomplete="current-password"
-                :disabled="locked"
-                required
-            /></label>
-            <div class="access-actions">
-              <button
-                class="access-button primary"
-                type="submit"
-                :disabled="locked || !totpPassword"
+                :input-attrs="{
+                  id: 'confirm-password',
+                  autocomplete: 'new-password',
+                  required: true,
+                }"
+              />
+            </div>
+            <p id="password-rules" class="security-description px-8 pb-12 text-12 opacity-60">
+              {{ t('auth.passwordRules') }}
+            </p>
+            <template v-if="status.totp_enabled">
+              <div class="security-setting px-8 py-12 flex items-center justify-between gap-8">
+                <label for="password-code" class="text-16 font-bold">{{
+                  t('auth.verificationCode')
+                }}</label>
+                <Input
+                  v-model="passwordCode"
+                  class="security-input"
+                  :disabled="passwordLocked"
+                  :input-attrs="{
+                    id: 'password-code',
+                    autocomplete: 'one-time-code',
+                    autocapitalize: 'off',
+                    spellcheck: false,
+                    required: true,
+                    'aria-describedby': 'password-code-hint',
+                  }"
+                />
+              </div>
+              <p id="password-code-hint" class="security-description px-8 pb-12 text-12 opacity-60">
+                {{ t('auth.codeHint') }}
+              </p>
+            </template>
+            <div class="security-actions px-8 py-12 flex flex-wrap justify-end gap-8">
+              <Button
+                v-if="status.enabled && !status.totp_enabled"
+                :disabled="passwordLocked"
+                @click="showClear = !showClear"
+                >{{ t('auth.clearAuth') }}</Button
               >
-                {{ t('auth.startTotp') }}
-              </button>
+              <Button
+                type="primary"
+                :disabled="
+                  passwordLocked ||
+                  !newPassword ||
+                  !confirmPassword ||
+                  (status.enabled && !currentPassword) ||
+                  (status.totp_enabled && !passwordCode)
+                "
+                @click="savePassword()"
+                >{{ t(status.enabled ? 'auth.changePassword' : 'auth.setPassword') }}</Button
+              >
             </div>
           </form>
-          <div v-else class="totp-enrollment">
-            <h3>{{ t('auth.scanQr') }}</h3>
-            <p class="access-muted">{{ t('auth.qrPrivacy') }}</p>
-            <canvas ref="qrCanvas" class="totp-qr" role="img" :aria-label="t('auth.qrLabel')" />
-            <p v-if="qrError" role="status" class="access-muted">{{ t('auth.qrFailed') }}</p>
-            <label class="access-field" for="totp-secret"
-              ><span>{{ t('auth.manualKey') }}</span
-              ><input
-                id="totp-secret"
-                :value="pending.secret"
-                type="text"
-                readonly
-                spellcheck="false"
-                autocomplete="off"
-            /></label>
-            <p class="access-muted">
-              {{
-                t('auth.enrollmentExpires', {
-                  time: new Date(pending.expires_at).toLocaleTimeString(),
-                })
-              }}
-            </p>
-            <form class="access-form" @submit.prevent="confirmEnrollment">
-              <label class="access-field" for="totp-confirm-code"
-                ><span>{{ t('auth.confirmTotpCode') }}</span
-                ><input
-                  id="totp-confirm-code"
-                  v-model="totpCode"
-                  type="text"
-                  inputmode="numeric"
-                  autocomplete="one-time-code"
-                  pattern="[0-9]{6}"
-                  maxlength="6"
-                  required
+          <div v-if="showClear" class="security-danger">
+            <p class="security-description px-8 py-12 text-12">{{ t('auth.clearAuthConfirm') }}</p>
+            <label class="security-check px-8 py-12 flex items-center gap-8 text-12"
+              ><input v-model="clearConfirmed" type="checkbox" :disabled="passwordLocked" />{{
+                t('auth.clearConfirmLabel')
+              }}</label
+            >
+            <div class="security-actions px-8 py-12 flex flex-wrap justify-end gap-8">
+              <Button
+                type="primary"
+                :disabled="passwordLocked || !clearConfirmed || !currentPassword"
+                @click="savePassword(true)"
+                >{{ t('auth.confirmClear') }}</Button
+              >
+            </div>
+          </div>
+        </Card>
+      </section>
+
+      <section aria-labelledby="totp-heading">
+        <div id="totp-heading" class="px-8 py-12 text-18 font-bold">{{ t('auth.totpTitle') }}</div>
+        <Card>
+          <div class="px-8 py-12 text-16 font-bold">
+            {{ t(status.totp_enabled ? 'auth.totpEnabled' : 'auth.totpOptional') }}
+          </div>
+          <p class="security-description px-8 pb-12 text-12 opacity-60">{{ t('auth.totpHint') }}</p>
+          <p class="security-description px-8 pb-12 text-12 opacity-60">{{ t('auth.timeHint') }}</p>
+          <p v-if="!status.enabled" class="px-8 py-12 text-12">{{ t('auth.passwordFirst') }}</p>
+          <template v-else-if="!status.totp_enabled">
+            <form
+              v-if="!pending"
+              @submit.prevent="startEnrollment"
+              @keydown.enter="submitFromInput($event, startEnrollment)"
+            >
+              <div class="security-setting px-8 py-12 flex items-center justify-between gap-8">
+                <label for="totp-password" class="text-16 font-bold">{{
+                  t('auth.currentPassword')
+                }}</label>
+                <Input
+                  v-model="totpPassword"
+                  type="password"
+                  class="security-input"
                   :disabled="locked"
-              /></label>
-              <div class="access-actions">
-                <button
-                  class="access-button primary"
-                  type="submit"
-                  :disabled="locked || !/^\d{6}$/.test(totpCode)"
+                  :input-attrs="{
+                    id: 'totp-password',
+                    autocomplete: 'current-password',
+                    required: true,
+                  }"
+                />
+              </div>
+              <div class="security-actions px-8 py-12 flex flex-wrap justify-end gap-8">
+                <Button
+                  type="primary"
+                  :disabled="locked || !totpPassword"
+                  @click="startEnrollment"
+                  >{{ t('auth.startTotp') }}</Button
                 >
-                  {{ t('auth.enableTotp') }}</button
-                ><button
-                  class="access-button"
-                  type="button"
-                  :disabled="busy"
-                  @click="cancelEnrollment"
-                >
-                  {{ t('auth.cancel') }}
-                </button>
               </div>
             </form>
-          </div>
-        </template>
-        <template v-else>
-          <p class="access-muted">{{ t('auth.enabledHint') }}</p>
-          <div v-if="action === 'none'" class="access-actions">
-            <button class="access-button" :disabled="locked" @click="action = 'regenerate'">
-              {{ t('auth.regenerateCodes') }}</button
-            ><button class="access-button danger" :disabled="locked" @click="action = 'disable'">
-              {{ t('auth.disableTotp') }}
-            </button>
-          </div>
-          <form v-else class="access-form" @submit.prevent="confirmTotpAction">
-            <h3>{{ t(action === 'disable' ? 'auth.disableTotp' : 'auth.regenerateCodes') }}</h3>
-            <p class="access-muted">
-              {{ t(action === 'disable' ? 'auth.disableHint' : 'auth.regenerateHint') }}
-            </p>
-            <label class="access-field" for="totp-action-password"
-              ><span>{{ t('auth.currentPassword') }}</span
-              ><input
-                id="totp-action-password"
-                v-model="totpPassword"
-                type="password"
-                autocomplete="current-password"
-                :disabled="locked"
-                required
-            /></label>
-            <label class="access-field" for="totp-action-code"
-              ><span>{{ t('auth.verificationCode') }}</span
-              ><input
-                id="totp-action-code"
-                v-model="totpCode"
-                type="text"
-                autocomplete="one-time-code"
-                autocapitalize="off"
-                spellcheck="false"
-                :disabled="locked"
-                required
-              /><small class="access-muted">{{ t('auth.codeHint') }}</small></label
-            >
-            <div class="access-actions">
-              <button
-                class="access-button"
-                :class="action === 'disable' ? 'danger' : 'primary'"
-                type="submit"
-                :disabled="locked || !totpPassword || !totpCode"
+            <div v-else>
+              <div class="px-8 py-12 text-16 font-bold">{{ t('auth.scanQr') }}</div>
+              <p class="security-description px-8 pb-12 text-12 opacity-60">
+                {{ t('auth.qrPrivacy') }}
+              </p>
+              <div class="px-8 py-12">
+                <canvas ref="qrCanvas" class="totp-qr" role="img" :aria-label="t('auth.qrLabel')" />
+              </div>
+              <p v-if="qrError" role="status" class="px-8 py-12 text-12">
+                {{ t('auth.qrFailed') }}
+              </p>
+              <div class="security-setting px-8 py-12 flex items-center justify-between gap-8">
+                <label for="totp-secret" class="text-16 font-bold">{{ t('auth.manualKey') }}</label>
+                <Input
+                  :model-value="pending.secret"
+                  class="security-input"
+                  :input-attrs="{
+                    id: 'totp-secret',
+                    readonly: true,
+                    spellcheck: false,
+                    autocomplete: 'off',
+                  }"
+                />
+              </div>
+              <p class="security-description px-8 pb-12 text-12 opacity-60">
+                {{
+                  t('auth.enrollmentExpires', {
+                    time: new Date(pending.expires_at).toLocaleTimeString(),
+                  })
+                }}
+              </p>
+              <form
+                @submit.prevent="confirmEnrollment"
+                @keydown.enter="submitFromInput($event, confirmEnrollment)"
               >
-                {{ t('auth.confirmAction') }}</button
-              ><button
-                class="access-button"
-                type="button"
-                :disabled="busy"
-                @click="resetCredentials"
-              >
-                {{ t('auth.cancel') }}
-              </button>
+                <div class="security-setting px-8 py-12 flex items-center justify-between gap-8">
+                  <label for="totp-confirm-code" class="text-16 font-bold">{{
+                    t('auth.confirmTotpCode')
+                  }}</label>
+                  <Input
+                    v-model="totpCode"
+                    class="security-input"
+                    :disabled="locked"
+                    :input-attrs="{
+                      id: 'totp-confirm-code',
+                      inputmode: 'numeric',
+                      autocomplete: 'one-time-code',
+                      pattern: '[0-9]{6}',
+                      maxlength: 6,
+                      required: true,
+                    }"
+                  />
+                </div>
+                <div class="security-actions px-8 py-12 flex flex-wrap justify-end gap-8">
+                  <Button :disabled="busy" @click="cancelEnrollment">{{ t('auth.cancel') }}</Button>
+                  <Button
+                    type="primary"
+                    :disabled="locked || !/^\d{6}$/.test(totpCode)"
+                    @click="confirmEnrollment"
+                    >{{ t('auth.enableTotp') }}</Button
+                  >
+                </div>
+              </form>
             </div>
-          </form>
-        </template>
+          </template>
+          <template v-else>
+            <p class="security-description px-8 pb-12 text-12 opacity-60">
+              {{ t('auth.enabledHint') }}
+            </p>
+            <div
+              v-if="action === 'none'"
+              class="security-actions px-8 py-12 flex flex-wrap justify-end gap-8"
+            >
+              <Button :disabled="locked" @click="action = 'disable'">{{
+                t('auth.disableTotp')
+              }}</Button>
+              <Button type="primary" :disabled="locked" @click="action = 'regenerate'">{{
+                t('auth.regenerateCodes')
+              }}</Button>
+            </div>
+            <form
+              v-else
+              @submit.prevent="confirmTotpAction"
+              @keydown.enter="submitFromInput($event, confirmTotpAction)"
+            >
+              <div class="px-8 py-12 text-16 font-bold">
+                {{ t(action === 'disable' ? 'auth.disableTotp' : 'auth.regenerateCodes') }}
+              </div>
+              <p class="security-description px-8 pb-12 text-12 opacity-60">
+                {{ t(action === 'disable' ? 'auth.disableHint' : 'auth.regenerateHint') }}
+              </p>
+              <div class="security-setting px-8 py-12 flex items-center justify-between gap-8">
+                <label for="totp-action-password" class="text-16 font-bold">{{
+                  t('auth.currentPassword')
+                }}</label>
+                <Input
+                  v-model="totpPassword"
+                  type="password"
+                  class="security-input"
+                  :disabled="locked"
+                  :input-attrs="{
+                    id: 'totp-action-password',
+                    autocomplete: 'current-password',
+                    required: true,
+                  }"
+                />
+              </div>
+              <div class="security-setting px-8 py-12 flex items-center justify-between gap-8">
+                <label for="totp-action-code" class="text-16 font-bold">{{
+                  t('auth.verificationCode')
+                }}</label>
+                <Input
+                  v-model="totpCode"
+                  class="security-input"
+                  :disabled="locked"
+                  :input-attrs="{
+                    id: 'totp-action-code',
+                    autocomplete: 'one-time-code',
+                    autocapitalize: 'off',
+                    spellcheck: false,
+                    required: true,
+                    'aria-describedby': 'totp-code-hint',
+                  }"
+                />
+              </div>
+              <p id="totp-code-hint" class="security-description px-8 pb-12 text-12 opacity-60">
+                {{ t('auth.codeHint') }}
+              </p>
+              <div class="security-actions px-8 py-12 flex flex-wrap justify-end gap-8">
+                <Button :disabled="busy" @click="resetCredentials">{{ t('auth.cancel') }}</Button>
+                <Button
+                  type="primary"
+                  :disabled="locked || !totpPassword || !totpCode"
+                  @click="confirmTotpAction"
+                  >{{ t('auth.confirmAction') }}</Button
+                >
+              </div>
+            </form>
+          </template>
+        </Card>
       </section>
     </template>
   </div>
 </template>
 
 <style scoped>
-.security-settings {
-  padding: 8px 16px 24px 8px;
-  max-width: 880px;
-  box-sizing: border-box;
+.security-settings,
+.security-settings section,
+.security-setting > * {
+  min-width: 0;
 }
-h1 {
-  font-size: 22px;
-  margin: 8px 0;
+.security-input {
+  width: 280px;
+  max-width: 100%;
+  flex-shrink: 0;
 }
-h2 {
-  font-size: 17px;
-  margin: 0;
-}
-h3 {
-  font-size: 15px;
-  margin: 0;
-}
-p {
-  line-height: 1.7;
-  font-size: 13px;
-}
-.security-card {
-  padding: 22px;
-  border: 1px solid var(--access-border);
-  background: var(--access-card);
-  border-radius: 14px;
-  margin-top: 18px;
-}
-.security-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
-}
-.security-badge {
-  font-size: 11px;
-  padding: 4px 8px;
-  border-radius: 20px;
-  background: var(--access-glow);
-  color: var(--access-accent);
-}
-.security-field-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-.security-feedback {
-  padding: 12px 0;
-}
-.security-tip {
-  padding: 12px;
-  border-left: 3px solid var(--access-accent);
-  background: var(--access-glow);
-  border-radius: 0 7px 7px 0;
+.security-description {
+  line-height: 1.6;
 }
 .security-check {
-  display: flex;
-  align-items: start;
-  gap: 10px;
-  margin: 16px 0;
-  font-size: 13px;
   line-height: 1.6;
 }
 .security-check input {
   flex-shrink: 0;
-  width: 17px;
-  height: 17px;
-  margin: 2px 0;
-  accent-color: var(--access-accent);
+  accent-color: var(--primary-color);
 }
-.security-danger {
-  margin-top: 16px;
-  padding-top: 12px;
-  border-top: 1px solid var(--access-border);
-  color: var(--access-danger);
-}
-.totp-enrollment {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-.totp-enrollment p {
-  margin: 0;
+.recovery-codes {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  color: var(--input-color);
+  background: var(--input-bg);
+  border: 1px solid var(--primary-color);
+  font-family: monospace;
+  line-height: 1.6;
 }
 .totp-qr {
+  display: block;
+  width: 224px !important;
   max-width: 100%;
   height: auto !important;
-  width: 224px !important;
-  align-self: start;
-  border-radius: 10px;
 }
-.recovery-card {
-  border-color: var(--access-accent);
+.security-actions :deep(.gui-button) {
+  white-space: normal;
 }
-.recovery-card textarea,
-#totp-secret {
-  font-family: ui-monospace, monospace;
-}
-.recovery-card .access-actions {
-  margin-top: 16px;
-}
-@media (max-width: 650px) {
+@media (max-width: 700px) {
   .security-settings {
-    padding: 8px 8px 24px 0;
+    padding-right: 8px;
   }
-  .security-card {
-    padding: 16px;
+  .security-setting {
+    align-items: stretch;
+    flex-direction: column;
   }
-  .security-field-grid {
-    grid-template-columns: 1fr;
+  .security-input {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+  .security-actions :deep(.gui-button) {
+    flex: 1 1 140px;
+    min-height: 44px;
   }
 }
 </style>

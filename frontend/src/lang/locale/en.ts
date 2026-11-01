@@ -519,6 +519,20 @@ export default {
       needTun: 'Please add a TUN inbound first',
     },
     controller: {
+      testCounts: '{completed} / {total} · Success: {success} · Failure: {failure}',
+      testUnconfirmed: 'No new result: {count}',
+      stopWaiting: 'Stop waiting',
+      nativeTestCancelHint:
+        'Stopping the wait does not cancel tests already submitted to the core.',
+      nativeTestSettings:
+        'Native tests use the core’s test URL and concurrency. Configure URLTest groups in the profile; per-request URL, timeout and concurrency overrides are unavailable.',
+      testStatus: {
+        running: 'Testing…',
+        completed: 'Completed',
+        timeout: 'Waiting timed out',
+        canceled: 'Wait stopped',
+        error: 'Request failed',
+      },
       testTimeout: '{tag}: Timed out waiting for a latency test result',
       groupTestTimeout: '{tag}: Timed out waiting for new latency results from {count} nodes',
       name: 'Controller',
@@ -675,6 +689,7 @@ export default {
     },
   },
   ruleset: {
+    invalidInlineRules: 'Inline rules must be a valid JSON array.',
     manual: 'MANUAL',
     format: {
       name: 'Format',
@@ -732,10 +747,12 @@ export default {
     catalogNoResults: 'No plugins match your search.',
     catalogCached: 'Showing the cached plugin list.',
     catalogRemote: 'Plugin list loaded from the independent repository.',
-    showLegacy: 'Show legacy plugins ({count})',
-    hideLegacy: 'Hide legacy plugins',
-    legacyHint:
-      'Merged into “{name}”. Existing installations remain available. Disable the old plugin and review settings before migrating; nothing is replaced automatically.',
+    groups: {
+      subscriptions: 'Subscriptions',
+      configuration: 'Configuration',
+      diagnostics: 'Diagnostics',
+      others: 'Others',
+    },
     runtimeHint:
       'Plugins run on the router backend even when the browser is closed. Subscription and configuration hooks run in list order.',
     importSource: 'Import JS',
@@ -953,7 +970,7 @@ export default {
     restartApp: 'Restart App',
   },
   auth: {
-    title: 'Welcome back',
+    title: 'Sign in',
     subtitle: 'Sign in to manage your network.',
     placeholder: 'Enter your password',
     login: 'Sign in',
@@ -974,7 +991,7 @@ export default {
     updateSuccess: 'Password updated. Other sessions have been signed out.',
     clearSuccess: 'Password removed. Other sessions have been signed out.',
     logout: 'Sign out',
-    security: 'Access & security',
+    security: 'Security',
     securityHint:
       'Manage access to this WebUI. Passwords and verification codes are never saved in browser preferences.',
     passwordAccess: 'Access password',

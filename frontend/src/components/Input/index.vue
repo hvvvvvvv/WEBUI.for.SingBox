@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, useTemplateRef } from 'vue'
+import { computed, nextTick, onMounted, ref, useTemplateRef, type InputHTMLAttributes } from 'vue'
 
 import useI18n from '@/lang'
 import { debounce } from '@/utils'
@@ -9,7 +9,8 @@ export interface Props {
   modelValue?: string | number | undefined
   autoSize?: boolean
   placeholder?: string
-  type?: 'number' | 'text' | 'code'
+  type?: 'number' | 'text' | 'password' | 'code'
+  inputAttrs?: InputHTMLAttributes
   lang?: 'yaml' | 'json' | 'javascript'
   size?: 'default' | 'small'
   editable?: boolean
@@ -29,6 +30,7 @@ const props = withDefaults(defineProps<Props>(), {
   autoSize: false,
   placeholder: undefined,
   type: 'text',
+  inputAttrs: () => ({}),
   lang: 'javascript',
   size: 'default',
   editable: false,
@@ -73,26 +75,29 @@ const validate = (val: string | number): string | number | undefined => {
   return val
 }
 
-const emitInput = debounce((e: any) => {
+const emitInput = (e: any) => {
   const val = validate(e.target.value)
   e.target.value = val ?? ''
   emits('update:modelValue', val)
   emits('change', val)
-}, props.delay)
+}
+const debouncedInput = debounce(emitInput, props.delay)
 
 const onInput = (e: any) => {
   if (isComposing.value || e.isComposing) return
-  emitInput(e)
+  // A zero delay must update v-model before an immediate Enter or form submit.
+  if (props.delay > 0) debouncedInput(e)
+  else emitInput(e)
 }
 
 const onCompositionStart = () => {
   isComposing.value = true
-  emitInput.cancel()
+  debouncedInput.cancel()
 }
 
 const onCompositionEnd = (e: CompositionEvent) => {
   isComposing.value = false
-  emitInput(e)
+  onInput(e)
 }
 
 const onKeydownEnter = (e: KeyboardEvent) => {
@@ -181,11 +186,12 @@ defineExpose({
       <input
         v-else
         ref="inputRef"
+        autocomplete="off"
+        v-bind="inputAttrs"
         :value="modelValue"
         :placeholder="placeholder"
         :type="type"
         :disabled="disabled"
-        autocomplete="off"
         class="flex-1 inline-block py-6 outline-none border-0 bg-transparent w-0"
         @input="onInput"
         @compositionstart="onCompositionStart"

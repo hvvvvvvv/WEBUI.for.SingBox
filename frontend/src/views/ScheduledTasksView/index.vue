@@ -195,7 +195,7 @@ const onSortUpdate = () => {
     </Empty>
   </div>
 
-  <div v-else class="grid-list-header">
+  <div v-else class="grid-list-header resource-list-header">
     <Radio
       v-model="appSettingsStore.app.scheduledtasksView"
       :options="ViewOptions"
@@ -218,6 +218,7 @@ const onSortUpdate = () => {
       { ...DraggableOptions, onStart: onSortStart, onUpdate: onSortUpdate },
     ]"
     :class="'grid-list-' + appSettingsStore.app.scheduledtasksView"
+    class="resource-list-cards"
   >
     <Card
       v-for="s in scheduledTasksStore.scheduledtasks"

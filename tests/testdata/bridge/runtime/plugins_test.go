@@ -421,30 +421,26 @@ func externalSubscriptionPlugins(t *testing.T) []pluginservice.Plugin {
 
 func TestExternalSubscriptionPluginsKeepNodeIDsAcrossRefreshes(t *testing.T) {
 	available := externalSubscriptionPlugins(t)
-	const body = `[{"type":"shadowsocks","tag":"HK","server":"127.0.0.1","server_port":1,"method":"aes-128-gcm","password":"p"},{"type":"shadowsocks","tag":"HK","server":"127.0.0.1","server_port":2,"method":"aes-128-gcm","password":"p"},{"type":"shadowsocks","tag":"HK duplicate","server":"127.0.0.1","server_port":1,"method":"aes-128-gcm","password":"p"}]`
+	const body = `[{"type":"shadowsocks","tag":"HK","server":"127.0.0.1","server_port":1,"method":"aes-128-gcm","password":"p"},{"type":"shadowsocks","tag":"JP","server":"127.0.0.1","server_port":2,"method":"aes-128-gcm","password":"p"},{"type":"shadowsocks","tag":"HK duplicate","server":"127.0.0.1","server_port":1,"method":"aes-128-gcm","password":"p"}]`
 	groups := make(map[string][]pluginservice.Plugin)
-	var dedupe pluginservice.Plugin
 	for _, plugin := range available {
-		if plugin.ID == "plugin-duplicate-proxies-removal" {
-			dedupe = plugin
+		if plugin.ID != "plugin-subscription-organizer" {
+			continue
 		}
-	}
-	if dedupe.ID == "" {
-		t.Fatal("external catalog is missing the deduplication plugin")
-	}
-	for _, plugin := range available {
-		for _, trigger := range plugin.Triggers {
-			if trigger == pluginservice.OnSubscribe {
-				groups[plugin.ID] = []pluginservice.Plugin{plugin}
-				// The unified organizer replaces deduplication; running both is an
-				// intentional conflict, covered separately below in both orders.
-				if plugin.ID != dedupe.ID && plugin.ID != "plugin-subscription-organizer" {
-					groups[plugin.ID+"+dedupe"] = []pluginservice.Plugin{plugin, dedupe}
-					groups["dedupe+"+plugin.ID] = []pluginservice.Plugin{dedupe, plugin}
+		for _, mode := range []string{"none", "index", "flags", "beautify"} {
+			for _, dedupe := range []bool{false, true} {
+				configured := plugin
+				configured.Configuration = map[string]any{"Enabled": true, "RenameMode": mode, "RemoveDuplicates": dedupe}
+				name := mode
+				if dedupe {
+					name += "+dedupe"
 				}
-				break
+				groups[name] = []pluginservice.Plugin{configured}
 			}
 		}
+	}
+	if len(groups) != 8 {
+		t.Fatal("external catalog is missing the subscription organizer")
 	}
 	for name, group := range groups {
 		t.Run(name, func(t *testing.T) {
@@ -475,7 +471,7 @@ func TestExternalSubscriptionPluginsKeepNodeIDsAcrossRefreshes(t *testing.T) {
 			if !reflect.DeepEqual(first, second) {
 				t.Fatalf("external transformation replaced selected node identities: first=%v second=%v", first, second)
 			}
-			if (strings.Contains(name, "dedupe") || name == "plugin-duplicate-proxies-removal") && len(second) != 2 {
+			if strings.Contains(name, "dedupe") && len(second) != 2 {
 				t.Fatalf("GUI identity prevented duplicate removal: %v", second)
 			}
 			if strings.Contains(string(readPluginFixture(t, subscriptionContentPath("selected"))), "__id_in_gui") {
@@ -538,11 +534,17 @@ func TestExternalOrganizerConfiguredRefreshPreservesIDsAndAppliesOverrides(t *te
 	}
 }
 
-func TestExternalOrganizerRejectsLegacyDedupeInBothOrders(t *testing.T) {
+func TestExternalOrganizerRejectsInstalledRetiredDedupeInBothOrders(t *testing.T) {
 	available := externalSubscriptionPlugins(t)
 	byID := make(map[string]pluginservice.Plugin)
 	for _, plugin := range available {
 		byID[plugin.ID] = plugin
+	}
+	// A historical installation is synthetic here: the independent repository
+	// deliberately no longer distributes the retired package or its source.
+	byID["plugin-duplicate-proxies-removal"] = pluginservice.Plugin{
+		ID: "plugin-duplicate-proxies-removal", Name: "Previously installed dedupe", Version: "1",
+		Triggers: []string{pluginservice.OnSubscribe}, Source: "function onSubscribe(p){return p}",
 	}
 	for _, ids := range [][]string{
 		{"plugin-subscription-organizer", "plugin-duplicate-proxies-removal"},
@@ -582,7 +584,8 @@ func TestExternalFirstManualRenamePreservesSelectedNodeID(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, plugin := range available {
-		if plugin.ID == "plugin-beautiful-node-name" {
+		if plugin.ID == "plugin-subscription-organizer" {
+			plugin.Configuration = map[string]any{"Enabled": true, "RenameMode": "beautify"}
 			if _, err := engine.Save(plugin, 0); err != nil {
 				t.Fatal(err)
 			}
@@ -593,7 +596,7 @@ func TestExternalFirstManualRenamePreservesSelectedNodeID(t *testing.T) {
 	}
 	service := newTestRuntimeService(nil)
 	service.SetPlugins(engine)
-	if _, err := service.RunPluginOnSubscription(context.Background(), "plugin-beautiful-node-name", "selected"); err != nil {
+	if _, err := service.RunPluginOnSubscription(context.Background(), "plugin-subscription-organizer", "selected"); err != nil {
 		t.Fatal(err)
 	}
 	items, _ := loadSubscriptions()

@@ -2,10 +2,32 @@ import { create } from '@bufbuild/protobuf'
 import { describe, expect, it } from 'vitest'
 
 import { ConnectionSchema, LogSchema, LogLevel } from '@gen/native/daemon/started_service_pb'
-import { freezeConnectionSnapshot, NativeLogBuffer, stringifyNative } from '@/utils/nativeKernelUi'
+import {
+  freezeConnectionSnapshot,
+  NativeLogBuffer,
+  stringifyNative,
+  nativeModeOptions,
+  sameKernelMode,
+} from '@/utils/nativeKernelUi'
 import type { NativeConnectionSnapshot } from '@/types/kernel'
 
 describe('native kernel UI', () => {
+  it('orders standard modes without changing native values, selection, or custom modes', () => {
+    const modes = ['Rule', 'Direct', 'Custom', 'Global', 'rule', 'Another']
+    const options = nativeModeOptions(modes)
+    expect(options.map((option) => option.value)).toEqual([
+      'Global',
+      'Rule',
+      'Direct',
+      'Custom',
+      'Another',
+    ])
+    expect(options.find((option) => sameKernelMode(option.value, 'rule'))?.value).toBe('Rule')
+    expect(modes).toEqual(['Rule', 'Direct', 'Custom', 'Global', 'rule', 'Another'])
+    expect(nativeModeOptions(['Rule'])).toEqual([
+      { value: 'Rule', label: 'kernel.rule', desc: 'kernel.ruleDesc' },
+    ])
+  })
   it('freezes displayed connections while live traffic and metadata keep changing', () => {
     const live: NativeConnectionSnapshot = {
       active: [

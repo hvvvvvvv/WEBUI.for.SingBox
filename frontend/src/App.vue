@@ -122,7 +122,7 @@ if (!appSettings.sessionInfo.requireLogin) {
         <div class="app-workspace" :class="{ 'is-split': modalLayout.splitActive }">
           <div class="app-main flex-1 overflow-y-auto flex flex-col p-8">
             <NavigationBar />
-            <div class="flex flex-col overflow-y-auto mt-8 px-8 h-full">
+            <div class="app-page flex flex-col overflow-y-auto mt-8 px-8 h-full">
               <RouterView #="{ Component }">
                 <KeepAlive>
                   <component :is="Component" />
@@ -179,9 +179,7 @@ if (!appSettings.sessionInfo.requireLogin) {
 .app-shell {
   height: 100vh;
   overflow: hidden;
-  background:
-    linear-gradient(90deg, rgba(0, 89, 214, 0.16), transparent 24% 76%, rgba(5, 62, 142, 0.16)),
-    var(--bg-color);
+  background: var(--app-background);
 }
 
 .app-workspace {
@@ -205,5 +203,25 @@ if (!appSettings.sessionInfo.requireLogin) {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+}
+
+@media (max-width: 700px) {
+  .app-shell {
+    height: 100dvh;
+  }
+  .app-zoomed {
+    zoom: 1;
+    width: 100%;
+    height: 100dvh;
+  }
+  .app-main {
+    padding: 4px 8px 8px;
+    overflow: hidden;
+  }
+  .app-page {
+    min-height: 0;
+    padding: 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
 }
 </style>

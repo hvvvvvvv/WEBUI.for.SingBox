@@ -28,6 +28,27 @@ const maxIndexBytes = 256 << 10
 var scriptPath = regexp.MustCompile(`^plugins/[a-z0-9][a-z0-9._-]{0,100}[.]js$`)
 var digestPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
+// Retired packages must not reappear from an older offline catalog. This only
+// affects discovery/downloads; installed user scripts stay in plugins.Service.
+func retiredID(id string) bool {
+	switch id {
+	case "plugin-index-the-proxy-name", "plugin-modify-proxy-name", "plugin-beautiful-node-name",
+		"plugin-duplicate-proxies-removal", "plugin-network-info", "plugin-geoip-search":
+		return true
+	}
+	return false
+}
+
+func currentEntries(entries []Entry) []Entry {
+	current := make([]Entry, 0, len(entries))
+	for _, entry := range entries {
+		if !retiredID(entry.ID) && !entry.Deprecated {
+			current = append(current, entry)
+		}
+	}
+	return current
+}
+
 type Entry struct {
 	ID                  string            `json:"id"`
 	Name                string            `json:"name"`
@@ -230,7 +251,7 @@ func (s *Service) Get(ctx context.Context, refresh bool) (Result, error) {
 		}
 	}
 	if s.index != nil {
-		result.Plugins = cloneEntries(s.index.Plugins)
+		result.Plugins = cloneEntries(currentEntries(s.index.Plugins))
 		if result.Source != "remote" {
 			result.Source = "cache"
 		}
@@ -252,6 +273,9 @@ func cloneEntries(items []Entry) []Entry {
 // metadata before fetching one script, so a concurrent catalog refresh cannot
 // change the expected digest or settings halfway through an installation.
 func (s *Service) Download(ctx context.Context, id string) (plugins.Plugin, error) {
+	if retiredID(id) {
+		return plugins.Plugin{}, plugins.ErrNotFound
+	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	catalog, err := s.Get(ctx, false)

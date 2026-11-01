@@ -202,8 +202,8 @@ subscribesStore.subscribes.forEach(async ({ id, name, proxies }) => {
 
   <div v-draggable="[model, DraggableOptions]">
     <Card v-for="(outbound, index) in model" :key="outbound.id" class="mb-2">
-      <div class="flex items-center py-2">
-        <div class="font-bold flex items-center" style="min-width: 90px">
+      <div class="outbound-row flex items-center py-2">
+        <div class="outbound-summary font-bold flex items-center" style="min-width: 90px">
           <img v-if="outbound.icon" :src="outbound.icon" class="w-18 h-18 mr-4" />
           <span
             v-if="hasLost(outbound)"
@@ -223,14 +223,14 @@ subscribesStore.subscribes.forEach(async ({ id, name, proxies }) => {
           </span>
           {{ outbound.tag }}
         </div>
-        <Button type="link" size="small" @click="handleSortGroup(index)">
+        <Button class="outbound-count" type="link" size="small" @click="handleSortGroup(index)">
           (
           {{ t('kernel.outbounds.refsOutbound') }}:{{ clacOutboundsCount(outbound) }}
           /
           {{ t('kernel.outbounds.refsSubscription') }}:{{ clacSubscriptionsCount(outbound) }}
           )
         </Button>
-        <div class="ml-auto">
+        <div class="outbound-actions ml-auto">
           <Button v-if="hasLost(outbound)" type="text" @click="handleClearGroup(outbound)">
             {{ t('common.clear') }}
           </Button>
@@ -251,7 +251,7 @@ subscribesStore.subscribes.forEach(async ({ id, name, proxies }) => {
   >
     <Divider>{{ t('kernel.outbounds.refs') }}</Divider>
     <Empty v-if="fields.outbounds.length === 0" />
-    <div v-draggable="[fields.outbounds, DraggableOptions]">
+    <div v-draggable="[fields.outbounds, DraggableOptions]" class="outbound-sort-items">
       <Button v-for="proxy in fields.outbounds" :key="proxy.id" type="link">
         {{ getOutboundName(proxy) }}
       </Button>
@@ -350,7 +350,7 @@ subscribesStore.subscribes.forEach(async ({ id, name, proxies }) => {
             "
           />
           <template v-else>
-            <div class="w-full grid grid-cols-4 gap-8 p-8">
+            <div class="outbound-proxy-grid w-full grid grid-cols-4 gap-8 p-8">
               <Button
                 v-for="proxy in group.proxies"
                 :key="proxy.id"
@@ -375,5 +375,47 @@ subscribesStore.subscribes.forEach(async ({ id, name, proxies }) => {
 }
 .rotate-z {
   transform: rotateZ(90deg);
+}
+
+@media (max-width: 700px) {
+  .outbound-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 4px;
+  }
+  .outbound-summary {
+    min-width: 0 !important;
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+  }
+  .outbound-count {
+    justify-content: flex-start;
+    text-align: left;
+    white-space: normal;
+  }
+  .outbound-actions {
+    justify-self: end;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-left: 0;
+  }
+  .outbound-proxy-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    box-sizing: border-box;
+  }
+  .outbound-proxy-grid :deep(.gui-button),
+  .outbound-sort-items :deep(.gui-button) {
+    min-width: 0;
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 420px) {
+  .outbound-proxy-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 </style>

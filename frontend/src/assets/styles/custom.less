@@ -34,6 +34,13 @@ body[feature-no-rounded='true'] {
 }
 
 body {
+  --app-background: linear-gradient(
+      90deg,
+      rgba(0, 89, 214, 0.16),
+      transparent 24% 76%,
+      rgba(5, 62, 142, 0.16)
+    ),
+    var(--bg-color);
   margin: 0;
   color: var(--color);
   background-color: var(--bg-color);
@@ -79,6 +86,60 @@ body {
 
 .grid-list-empty {
   height: 90%;
+}
+
+@media (max-width: 700px) {
+  .resource-list-header {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    flex-shrink: 0;
+    gap: 8px;
+    padding: 0;
+    > .gui-radio {
+      flex: 1 1 100%;
+      margin-right: 0;
+    }
+    > .ml-16 {
+      margin-left: 0;
+    }
+    .gui-radio-button {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 44px;
+      box-sizing: border-box;
+    }
+  }
+  .resource-list-header .gui-button,
+  .resource-list-cards .gui-button {
+    min-width: 44px;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+  .resource-list-cards.grid-list-grid .grid-list-item {
+    width: calc(50% - 16px);
+    overflow-wrap: anywhere;
+  }
+  .resource-list-cards.grid-list-list {
+    min-height: 0;
+    .card-header {
+      flex-wrap: wrap;
+      gap: 4px;
+    }
+    .card-header_extra {
+      width: 100%;
+      margin-left: 0;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .resource-list-cards.grid-list-grid .grid-list-item {
+    width: calc(100% - 16px);
+  }
 }
 
 .form-item {

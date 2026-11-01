@@ -4,7 +4,7 @@ export const sameKernelMode = (a: string, b: string) => a.toLowerCase() === b.to
 
 export const nativeModeOptions = (modes: string[]) => {
   const seen = new Set<string>()
-  return modes.flatMap((value) => {
+  const options = modes.flatMap((value) => {
     // Native lists can include both the default "Rule" and a configured "rule".
     const normalized = value.toLowerCase()
     if (seen.has(normalized)) return []
@@ -18,6 +18,12 @@ export const nativeModeOptions = (modes: string[]) => {
       },
     ]
   })
+  const order = ['global', 'rule', 'direct']
+  const rank = (value: string) => {
+    const index = order.indexOf(value.toLowerCase())
+    return index === -1 ? order.length : index
+  }
+  return options.sort((a, b) => rank(a.value) - rank(b.value))
 }
 
 // Native endpoints already include ports and bracket IPv6 hosts.

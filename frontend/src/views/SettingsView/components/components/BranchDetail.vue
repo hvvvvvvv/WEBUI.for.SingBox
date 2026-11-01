@@ -86,7 +86,7 @@ const handleClearCoreCache = async () => {
     <div v-if="versionDetail" class="text-12 pt-8 break-all line-clamp-2">
       {{ versionDetail }}
     </div>
-    <div class="flex items-center min-h-38">
+    <div class="core-version-actions flex items-center min-h-38">
       <Tag
         :color="updatable ? 'orange' : 'default'"
         class="cursor-pointer"
@@ -137,3 +137,16 @@ const handleClearCoreCache = async () => {
     </div>
   </Card>
 </template>
+
+<style scoped>
+@media (max-width: 700px) {
+  .core-version-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 8px 0;
+  }
+  .core-version-actions :deep(.gui-button) {
+    min-height: 44px;
+  }
+}
+</style>

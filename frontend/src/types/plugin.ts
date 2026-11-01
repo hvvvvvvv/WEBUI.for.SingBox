@@ -31,8 +31,6 @@ export type PluginCatalogItem = Omit<Plugin, 'source' | 'disabled' | 'configurat
   configuration: Record<string, unknown> | null
   path: string
   sha256: string
-  deprecated?: boolean
-  replaced_by?: string
 }
 export interface PluginCatalog {
   plugins: PluginCatalogItem[]

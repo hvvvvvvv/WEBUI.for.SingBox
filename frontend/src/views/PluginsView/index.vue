@@ -43,8 +43,9 @@ onActivated(() => {
 const openHub = () => {
   modal.setProps({
     title: 'plugins.hub',
-    width: '85',
-    height: '85',
+    width: '90',
+    height: '90',
+    bodyScrollable: false,
     minWidth: '0',
     submit: false,
     cancelText: 'common.close',
@@ -352,6 +353,29 @@ const sortEnd = () => {
   }
   .plugins-header {
     padding: 0;
+    column-gap: 4px;
+    row-gap: 8px;
+  }
+  .plugins-header :deep(.gui-radio) {
+    flex-basis: 100%;
+    margin-right: 0;
+  }
+  .plugins-header :deep(.gui-radio-button) {
+    flex: 1;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .plugins-page :deep(.gui-button) {
+    min-width: 44px;
+    min-height: 44px;
+  }
+  .plugin-menu {
+    min-width: 136px;
+  }
+  .plugin-menu :deep(.gui-button) {
+    min-height: 44px;
   }
 }
 </style>

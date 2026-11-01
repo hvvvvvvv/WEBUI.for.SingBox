@@ -12,6 +12,15 @@ import type {
 
 export { PluginApiError }
 
+const retiredCatalogIDs = new Set([
+  'plugin-index-the-proxy-name',
+  'plugin-modify-proxy-name',
+  'plugin-beautiful-node-name',
+  'plugin-duplicate-proxies-removal',
+  'plugin-network-info',
+  'plugin-geoip-search',
+])
+
 export const usePluginsStore = defineStore('plugins', () => {
   const plugins = ref<Plugin[]>([])
   const revision = ref(0)
@@ -91,7 +100,10 @@ export const usePluginsStore = defineStore('plugins', () => {
       const result = await requestPlugins<PluginCatalog>(`/catalog${refresh ? '?refresh=1' : ''}`)
       if (requestID < appliedCatalogSequence) return
       appliedCatalogSequence = requestID
-      catalog.value = result
+      catalog.value = {
+        ...result,
+        plugins: result.plugins.filter((item) => !retiredCatalogIDs.has(item.id)),
+      }
       catalogError.value = ''
     } catch (error) {
       if (requestID >= appliedCatalogSequence) {

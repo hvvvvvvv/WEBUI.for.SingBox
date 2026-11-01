@@ -127,8 +127,11 @@ onUnmounted(unregisterStatusHandler)
 </script>
 
 <template>
-  <div>
-    <div class="flex items-center rounded-8 px-8 py-4" style="background-color: var(--card-bg)">
+  <div class="home-overview">
+    <div
+      class="overview-toolbar flex items-center rounded-8 px-8 py-4"
+      style="background-color: var(--card-bg)"
+    >
       <div
         v-if="kernelApiStore.runtimeInbounds.length"
         class="h-20 px-6 rounded-4 text-12 font-bold text-nowrap inline-flex items-center gap-4 shrink-0"
@@ -180,7 +183,7 @@ onUnmounted(unregisterStatusHandler)
         @click="handleStopKernel"
       />
     </div>
-    <div class="flex mt-20 gap-12">
+    <div class="overview-stats flex mt-20 gap-12">
       <Card :title="t('home.overview.realtimeTraffic')" class="flex-1">
         <div class="py-8 text-12">
           ↑ {{ formatBytes(statistics.upload) }}/s ↓ {{ formatBytes(statistics.download) }}/s
@@ -229,8 +232,8 @@ onUnmounted(unregisterStatusHandler)
         </div>
       </Card>
     </div>
-    <div class="flex">
-      <div class="w-[60%]">
+    <div class="overview-details flex">
+      <div class="overview-chart w-[60%]">
         <div class="py-16 font-bold" style="color: var(--card-color)">
           {{ t('home.overview.traffic') }}
         </div>
@@ -239,7 +242,7 @@ onUnmounted(unregisterStatusHandler)
           :legend="[t('home.overview.transmit'), t('home.overview.receive')]"
         />
       </div>
-      <div class="ml-12 flex-1">
+      <div class="overview-modes ml-12 flex-1">
         <div class="py-16 font-bold" style="color: var(--card-color)">
           {{ t('kernel.mode') }}
         </div>
@@ -261,3 +264,49 @@ onUnmounted(unregisterStatusHandler)
 
   <Modal />
 </template>
+
+<style scoped>
+@media (max-width: 700px) {
+  .home-overview {
+    min-width: 0;
+  }
+  .overview-toolbar {
+    flex-wrap: wrap;
+    gap: 8px 4px;
+  }
+  .overview-toolbar :deep(.gui-button) {
+    min-width: 44px;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+  .overview-toolbar :deep(.gui-switch) {
+    min-height: 36px;
+    max-width: 100%;
+    margin-left: 0;
+  }
+  .overview-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-top: 12px;
+  }
+  .overview-stats :deep(.gui-card) {
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+  .overview-stats :deep(.card-header_title) {
+    -webkit-line-clamp: 2;
+  }
+  .overview-details {
+    flex-direction: column;
+  }
+  .overview-chart {
+    width: 100%;
+    min-width: 0;
+  }
+  .overview-modes {
+    margin-left: 0;
+    padding-bottom: 8px;
+  }
+}
+</style>

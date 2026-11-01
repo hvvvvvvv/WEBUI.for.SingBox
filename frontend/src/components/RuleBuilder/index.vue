@@ -7,24 +7,18 @@ defineProps<{
 
 <template>
   <div class="shared-rule-builder">
-    <section class="shared-rule-pane shared-rule-action rounded-8">
-      <div class="shared-rule-heading flex items-center gap-8">
-        <span class="shared-rule-keyword rounded-full">THEN</span>
-        <span class="font-bold text-16">{{ $t(actionTitle) }}</span>
-      </div>
-      <slot name="action"></slot>
-    </section>
-
-    <div class="shared-rule-arrow flex items-center justify-center" aria-hidden="true">
-      <Icon icon="arrowRight" :size="20" color="var(--primary-color)" />
-    </div>
-
     <section class="shared-rule-pane shared-rule-match rounded-8">
       <div class="shared-rule-heading flex items-center gap-8">
-        <span class="shared-rule-keyword rounded-full">IF</span>
         <span class="font-bold text-16">{{ $t(matchTitle) }}</span>
       </div>
       <slot name="match"></slot>
+    </section>
+
+    <section class="shared-rule-pane shared-rule-action rounded-8">
+      <div class="shared-rule-heading flex items-center gap-8">
+        <span class="font-bold text-16">{{ $t(actionTitle) }}</span>
+      </div>
+      <slot name="action"></slot>
     </section>
   </div>
 </template>
@@ -32,20 +26,16 @@ defineProps<{
 <style lang="less" scoped>
 .shared-rule-builder {
   display: grid;
-  grid-template-columns: minmax(0, 3fr) 32px minmax(360px, 2fr);
-  grid-template-areas: 'match arrow action';
+  grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
   gap: 8px;
-  height: 100%;
   min-height: 0;
-  overflow: hidden;
 }
 
 .shared-rule-pane {
   min-width: 0;
   min-height: 0;
   padding: 12px;
-  overflow-y: auto;
   border: 1px solid color-mix(in srgb, var(--card-color) 12%, transparent);
   box-sizing: border-box;
 }
@@ -65,38 +55,17 @@ defineProps<{
   margin-bottom: 10px;
 }
 
-.shared-rule-keyword {
-  padding: 2px 8px;
-  color: var(--primary-color);
-  background: color-mix(in srgb, var(--primary-color) 11%, transparent);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-}
-
 .shared-rule-match {
-  grid-area: match;
   background: color-mix(in srgb, var(--card-bg) 76%, transparent);
 }
 
 .shared-rule-action {
   --action-pane-bg: color-mix(in srgb, var(--primary-color) 5%, var(--card-bg));
 
-  grid-area: action;
   background: var(--action-pane-bg);
   border-color: color-mix(in srgb, var(--primary-color) 28%, transparent);
   border-top: 3px solid var(--primary-color);
   container-type: inline-size;
-}
-
-.shared-rule-arrow {
-  grid-area: arrow;
-  align-self: start;
-  width: 28px;
-  height: 28px;
-  margin-top: 14px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--primary-color) 10%, transparent);
 }
 
 :deep(.action-editor-grid) {
@@ -157,33 +126,6 @@ defineProps<{
 @container (max-width: 360px) {
   :deep(.action-editor-grid .action-toggle-group) {
     grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 900px) {
-  .shared-rule-builder {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    overflow-y: auto;
-  }
-
-  .shared-rule-action {
-    order: 1;
-  }
-
-  .shared-rule-match {
-    order: 2;
-  }
-
-  .shared-rule-pane {
-    min-height: auto;
-    overflow: visible;
-    flex: 0 0 auto;
-  }
-
-  .shared-rule-arrow {
-    display: none;
   }
 }
 

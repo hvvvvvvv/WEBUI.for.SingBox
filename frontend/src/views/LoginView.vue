@@ -4,7 +4,9 @@ import { useI18n } from 'vue-i18n'
 import { loginAuthToken } from '@/bridge/http'
 import { AuthError, getAuthStatus, type AuthStatus } from '@/api/auth'
 import logo from '@/assets/logo'
-import '@/assets/styles/access.css'
+import Button from '@/components/Button/index.vue'
+import Card from '@/components/Card/index.vue'
+import Input from '@/components/Input/index.vue'
 
 const { t } = useI18n()
 const password = ref('')
@@ -16,6 +18,12 @@ const loading = ref(false)
 const error = ref('')
 let disposed = false
 const emit = defineEmits<{ authenticated: [] }>()
+const submitFromInput = (event: KeyboardEvent) => {
+  if (event.isComposing || event.keyCode === 229 || !(event.target instanceof HTMLInputElement))
+    return
+  event.preventDefault()
+  void handleLogin()
+}
 const loadStatus = async () => {
   if (loading.value) return
   statusLoading.value = true
@@ -67,180 +75,146 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="access-colors login-screen">
-    <section
-      class="login-panel"
-      aria-labelledby="login-heading"
-      :aria-busy="loading || statusLoading"
-    >
-      <div class="login-brand">
-        <img class="login-mark" :src="logo" alt="" draggable="false" />
-        <span>WEBUI <span class="login-brand-small">for SingBox</span></span>
+  <main class="login-screen flex items-center justify-center">
+    <div class="login-content">
+      <div class="flex flex-col items-center py-16">
+        <img :src="logo" class="w-64" alt="" draggable="false" />
+        <div class="text-24 font-bold mt-16">WEBUI for SingBox</div>
       </div>
-      <div class="login-heading-icon" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
-          <path d="M12 3 4.5 6v5.5c0 4.2 3.2 7.4 7.5 9.5 4.3-2.1 7.5-5.3 7.5-9.5V6L12 3Z" />
-          <path d="m8.5 12 2.3 2.3 4.7-4.7" />
-        </svg>
-      </div>
-      <h1 id="login-heading">{{ t('auth.title') }}</h1>
-      <p class="access-muted login-description">{{ t('auth.subtitle') }}</p>
-      <p v-if="statusLoading" role="status" class="access-muted">{{ t('auth.checkingStatus') }}</p>
-      <form class="access-form" @submit.prevent="handleLogin">
-        <template v-if="status?.enabled">
-          <label class="access-field" for="login-password">
-            <span>{{ t('auth.secret') }}</span>
-            <span class="access-password-wrap">
-              <input
-                id="login-password"
+      <div id="login-heading" class="px-8 py-12 text-18 font-bold">{{ t('auth.title') }}</div>
+      <Card aria-labelledby="login-heading" :aria-busy="loading || statusLoading">
+        <p v-if="statusLoading" role="status" class="px-8 py-12 text-12 opacity-60">
+          {{ t('auth.checkingStatus') }}
+        </p>
+        <form @submit.prevent="handleLogin" @keydown.enter="submitFromInput">
+          <template v-if="status?.enabled">
+            <div class="login-setting px-8 py-12 flex items-center justify-between gap-8">
+              <label for="login-password" class="text-16 font-bold">{{ t('auth.secret') }}</label>
+              <Input
                 v-model="password"
                 :type="showPassword ? 'text' : 'password'"
-                name="password"
-                autocomplete="current-password"
+                class="login-input"
                 :disabled="loading"
-                required
-                :aria-invalid="!!error"
-                :aria-describedby="error ? 'login-error' : undefined"
                 autofocus
-              />
-              <button
-                type="button"
-                class="access-reveal"
-                :aria-label="t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')"
-                :aria-pressed="showPassword"
-                @click="showPassword = !showPassword"
+                :input-attrs="{
+                  id: 'login-password',
+                  name: 'password',
+                  autocomplete: 'current-password',
+                  required: true,
+                  'aria-invalid': !!error,
+                  'aria-describedby': error ? 'login-error' : undefined,
+                }"
               >
-                {{ t(showPassword ? 'auth.hide' : 'auth.show') }}
-              </button>
-            </span>
-          </label>
-          <label v-if="status.totp_enabled" class="access-field" for="login-code">
-            <span>{{ t('auth.verificationCode') }}</span>
-            <input
-              id="login-code"
-              v-model="code"
-              name="verification-code"
-              type="text"
-              autocomplete="one-time-code"
-              autocapitalize="off"
-              spellcheck="false"
-              :disabled="loading"
-              required
-              aria-describedby="login-code-hint"
-            />
-            <small id="login-code-hint" class="access-muted">{{ t('auth.codeHint') }}</small>
-          </label>
-        </template>
-        <p v-if="error" id="login-error" class="access-error" role="alert">{{ error }}</p>
-        <button
-          v-if="!status && !statusLoading"
-          type="button"
-          class="access-button primary"
-          @click="loadStatus"
-        >
-          {{ t('auth.retry') }}
-        </button>
-        <button
-          v-else
-          class="access-button primary"
-          type="submit"
-          :disabled="
-            loading ||
-            statusLoading ||
-            !status ||
-            (status.enabled && !password) ||
-            (status.totp_enabled && !code)
-          "
-        >
-          {{ loading ? t('auth.verifying') : t('auth.login') }}
-          <span v-if="!loading" aria-hidden="true">→</span>
-        </button>
-      </form>
-      <p class="login-footer access-muted">{{ t('auth.loginHint') }}</p>
-    </section>
+                <template #suffix>
+                  <Button
+                    type="text"
+                    size="small"
+                    :aria-label="t(showPassword ? 'auth.hidePassword' : 'auth.showPassword')"
+                    :aria-pressed="showPassword"
+                    @click="showPassword = !showPassword"
+                    >{{ t(showPassword ? 'auth.hide' : 'auth.show') }}</Button
+                  >
+                </template>
+              </Input>
+            </div>
+            <template v-if="status.totp_enabled">
+              <div class="login-setting px-8 py-12 flex items-center justify-between gap-8">
+                <label for="login-code" class="text-16 font-bold">{{
+                  t('auth.verificationCode')
+                }}</label>
+                <Input
+                  v-model="code"
+                  class="login-input"
+                  :disabled="loading"
+                  :input-attrs="{
+                    id: 'login-code',
+                    name: 'verification-code',
+                    autocomplete: 'one-time-code',
+                    autocapitalize: 'off',
+                    spellcheck: false,
+                    required: true,
+                    'aria-describedby': 'login-code-hint',
+                  }"
+                />
+              </div>
+              <p id="login-code-hint" class="login-hint px-8 pb-12 text-12 opacity-60">
+                {{ t('auth.codeHint') }}
+              </p>
+            </template>
+          </template>
+          <p
+            v-if="error"
+            id="login-error"
+            class="login-hint px-8 py-12 text-12 font-bold"
+            role="alert"
+          >
+            {{ error }}
+          </p>
+          <div class="px-8 py-12 flex justify-end">
+            <Button v-if="!status && !statusLoading" type="primary" @click="loadStatus">{{
+              t('auth.retry')
+            }}</Button>
+            <Button
+              v-else
+              type="primary"
+              :loading="loading"
+              :disabled="
+                loading ||
+                statusLoading ||
+                !status ||
+                (status.enabled && !password) ||
+                (status.totp_enabled && !code)
+              "
+              @click="handleLogin"
+              >{{ loading ? t('auth.verifying') : t('auth.login') }}</Button
+            >
+          </div>
+        </form>
+      </Card>
+    </div>
   </main>
 </template>
 
 <style scoped>
 .login-screen {
   min-height: 100dvh;
-  box-sizing: border-box;
   width: 100%;
-  display: grid;
-  place-items: center;
-  padding: 32px 20px;
-  color: var(--access-text);
-  background:
-    radial-gradient(ellipse at 20% 12%, var(--access-glow), transparent 55%),
-    radial-gradient(ellipse at 85% 85%, var(--access-glow), transparent 50%), var(--access-bg);
+  box-sizing: border-box;
+  padding: 24px 16px;
+  color: var(--color);
+  background: var(--app-background);
   overflow-y: auto;
 }
-.login-panel {
-  box-sizing: border-box;
-  width: min(100%, 440px);
-  padding: 32px;
-  background: var(--access-card);
-  border: 1px solid var(--access-border);
-  border-radius: 24px;
-  box-shadow: 0 24px 80px var(--access-shadow);
-  backdrop-filter: blur(24px);
+.login-content {
+  width: 480px;
+  max-width: 100%;
+  min-width: 0;
 }
-.login-brand {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  font-size: 17px;
-  font-weight: 650;
-  letter-spacing: 0.02em;
-  margin-bottom: 32px;
+.login-setting > * {
+  min-width: 0;
 }
-.login-brand-small {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--access-muted);
+.login-input {
+  width: 280px;
+  max-width: 100%;
+  flex-shrink: 0;
 }
-.login-mark {
-  width: 34px;
-  height: 34px;
-  object-fit: contain;
-}
-.login-heading-icon {
-  width: 40px;
-  height: 40px;
-  color: var(--access-accent);
-  margin-bottom: 14px;
-}
-.login-heading-icon svg {
-  width: 100%;
-  height: 100%;
-}
-h1 {
-  margin: 0;
-  font-size: 28px;
-  line-height: 1.3;
-  letter-spacing: -0.025em;
-}
-.login-description {
-  margin: 10px 0 26px;
+.login-hint {
   line-height: 1.6;
 }
-.login-footer {
-  margin: 24px 0 0;
-  padding-top: 20px;
-  border-top: 1px solid var(--access-border);
-  font-size: 12px;
-  line-height: 1.7;
-}
-@media (max-width: 480px) {
-  .login-screen {
-    padding: 18px 14px;
+@media (max-width: 520px) {
+  .login-setting {
+    flex-direction: column;
+    align-items: stretch;
   }
-  .login-panel {
-    padding: 26px 22px;
-    border-radius: 20px;
+  .login-input {
+    width: 100%;
+    min-width: 0;
+    min-height: 44px;
+    box-sizing: border-box;
   }
-  h1 {
-    font-size: 25px;
+  .login-screen :deep(.gui-button) {
+    min-height: 44px;
+    width: 100%;
   }
 }
 </style>

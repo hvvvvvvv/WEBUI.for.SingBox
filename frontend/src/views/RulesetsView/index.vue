@@ -214,7 +214,7 @@ const onSortUpdate = () => {
     </Empty>
   </div>
 
-  <div v-else class="grid-list-header">
+  <div v-else class="grid-list-header resource-list-header">
     <Radio v-model="appSettingsStore.app.rulesetsView" :options="ViewOptions" class="mr-auto" />
     <Button type="link" @click="handleImportRuleset">
       {{ t('rulesets.hub') }}
@@ -237,6 +237,7 @@ const onSortUpdate = () => {
       { ...DraggableOptions, onStart: onSortStart, onUpdate: onSortUpdate },
     ]"
     :class="'grid-list-' + appSettingsStore.app.rulesetsView"
+    class="resource-list-cards"
   >
     <Card
       v-for="r in rulesetsStore.rulesets"

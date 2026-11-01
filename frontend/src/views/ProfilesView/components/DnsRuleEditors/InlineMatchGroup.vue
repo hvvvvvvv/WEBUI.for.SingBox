@@ -1,11 +1,15 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+
 const model = defineModel<IDNSRule>({ required: true })
+const editor = ref<{ getContent: () => string }>()
+defineExpose({ getContent: () => editor.value?.getContent() ?? model.value.raw })
 </script>
 
 <template>
   <div class="form-item inline-json-field">
     <div>{{ $t('kernel.route.rules.fields.raw') }}</div>
-    <CodeViewer v-model="model.raw" editable lang="json" class="inline-json-editor" />
+    <CodeViewer ref="editor" v-model="model.raw" editable lang="json" class="inline-json-editor" />
   </div>
 </template>
 

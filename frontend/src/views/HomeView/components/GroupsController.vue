@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onUnmounted } from 'vue'
+import { ref, computed, onMounted, onDeactivated, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import {
@@ -14,6 +14,8 @@ import { useNativeUrlTest } from '@/hooks/useNativeUrlTest'
 import { useAppSettingsStore, useKernelApiStore, useProfilesStore } from '@/stores'
 import { handleUseProxy, message, buildSmartRegExp } from '@/utils'
 
+import NativeTestProgress from './NativeTestProgress.vue'
+
 const expandedSet = ref<Set<string>>(new Set())
 const filterKeywordsMap = ref<Record<string, string>>({})
 const loading = ref(false)
@@ -24,7 +26,14 @@ const kernelApiStore = useKernelApiStore()
 const profilesStore = useProfilesStore()
 const unregisterGroups = kernelApiStore.subscribeGroups()
 onUnmounted(unregisterGroups)
-const { start: startDelay, isLoading } = useNativeUrlTest({
+const {
+  start: startDelay,
+  isLoading,
+  progress,
+  cancel,
+  dismiss,
+  clear,
+} = useNativeUrlTest({
   groups: () => kernelApiStore.groups,
   outbounds: () => kernelApiStore.outbounds,
   pid: () => kernelApiStore.pid,
@@ -38,6 +47,18 @@ const { start: startDelay, isLoading } = useNativeUrlTest({
     )
   },
 })
+onDeactivated(clear)
+const toolbar = ref<HTMLElement>()
+const toolbarHeight = ref(44)
+let toolbarObserver: ResizeObserver | undefined
+onMounted(() => {
+  if (!toolbar.value || typeof ResizeObserver === 'undefined') return
+  toolbarObserver = new ResizeObserver(([entry]) => {
+    if (entry) toolbarHeight.value = entry.contentRect.height
+  })
+  toolbarObserver.observe(toolbar.value)
+})
+onUnmounted(() => toolbarObserver?.disconnect())
 
 const groups = computed(() => {
   const profileOutbounds = profilesStore.currentProfile?.outbounds || []
@@ -130,16 +151,30 @@ const handleResetMoreSettings = () => {
 </script>
 
 <template>
-  <div class="m-8 mt-0 sticky top-0 z-3">
+  <div ref="toolbar" class="m-8 mt-0 sticky top-0 z-3">
+    <NativeTestProgress
+      v-for="test in progress"
+      :key="test.id"
+      :progress="test"
+      @cancel="cancel(test.id)"
+      @dismiss="dismiss(test.id)"
+    />
     <div
-      class="sticky flex gap-8 items-center p-8 rounded-8 backdrop-blur-sm"
+      class="controller-toolbar sticky flex gap-8 items-center p-8 rounded-8 backdrop-blur-sm"
       style="background-color: var(--card-bg)"
     >
       <Switch v-model="appSettings.app.kernel.autoClose" label="home.controller.autoClose" />
       <Switch v-model="appSettings.app.kernel.unAvailable" label="home.controller.unAvailable" />
       <Switch v-model="appSettings.app.kernel.cardMode" label="home.controller.cardMode" />
       <Switch v-model="appSettings.app.kernel.sortByDelay" label="home.controller.sortBy" />
-      <Button type="primary" size="small" @click="toggleMoreSettings"> ... </Button>
+      <Button
+        :aria-label="t('common.more')"
+        type="primary"
+        size="small"
+        @click="toggleMoreSettings"
+      >
+        ...
+      </Button>
       <div class="ml-auto flex items-center">
         <Button v-tips="'home.overview.expandAll'" type="text" icon="expand" @click="expandAll" />
         <Button
@@ -160,11 +195,11 @@ const handleResetMoreSettings = () => {
   </div>
   <div v-for="group in groups" :key="group.tag" class="m-8">
     <div
-      class="sticky z-2 flex gap-8 items-center p-8 rounded-8 backdrop-blur-sm"
-      style="top: 52px; background-color: var(--card-bg)"
+      class="group-heading sticky z-2 flex gap-8 items-center p-8 rounded-8 backdrop-blur-sm"
+      :style="{ top: `${toolbarHeight + 8}px`, backgroundColor: 'var(--card-bg)' }"
       @click="toggleExpanded(group.tag)"
     >
-      <div class="text-14 flex items-center gap-2 text-nowrap overflow-hidden">
+      <div class="group-name text-14 flex items-center gap-2 text-nowrap overflow-hidden">
         <img v-if="group.icon" :src="group.icon" class="w-24 h-24 mr-4" draggable="false" />
         <span class="font-bold text-18">{{ group.tag }}</span>
         <span class="mx-8">
@@ -178,7 +213,7 @@ const handleResetMoreSettings = () => {
           </Button>
         </template>
       </div>
-      <div class="ml-auto flex items-center" @click.stop>
+      <div class="group-actions ml-auto flex items-center" @click.stop>
         <Input
           v-model="filterKeywordsMap[group.tag]"
           :placeholder="t('common.keywords')"
@@ -215,7 +250,7 @@ const handleResetMoreSettings = () => {
         <div
           v-else-if="appSettings.app.kernel.cardMode"
           :class="`grid-cols-${appSettings.app.kernel.cardColumns}`"
-          class="grid gap-8"
+          class="group-proxy-grid grid gap-8"
         >
           <Card
             v-for="proxy in group.items"
@@ -240,7 +275,7 @@ const handleResetMoreSettings = () => {
             <div class="text-12 my-2">{{ proxy.type }}</div>
           </Card>
         </div>
-        <div v-else class="grid grid-cols-32 gap-8">
+        <div v-else class="group-proxy-compact grid grid-cols-32 gap-8">
           <div
             v-for="proxy in group.items"
             :key="proxy.tag"
@@ -269,6 +304,8 @@ const handleResetMoreSettings = () => {
         {{ t('common.reset') }}
       </Button>
     </template>
+
+    <p class="px-12 pb-8 text-12 opacity-70">{{ t('home.controller.nativeTestSettings') }}</p>
 
     <div class="form-item">
       {{ t('home.controller.closeMode.name') }}
@@ -321,6 +358,61 @@ const handleResetMoreSettings = () => {
   transform: rotate(-90deg);
   &-expanded {
     transform: rotate(0deg);
+  }
+}
+
+@media (max-width: 700px) {
+  .controller-toolbar {
+    flex-wrap: wrap;
+  }
+  .controller-toolbar :deep(.gui-switch) {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 0;
+    min-height: 36px;
+  }
+  .controller-toolbar :deep(.gui-button),
+  .group-heading :deep(.gui-button),
+  .group-proxy-grid :deep(.gui-button) {
+    min-width: 44px;
+    min-height: 44px;
+    box-sizing: border-box;
+  }
+  .group-heading {
+    flex-wrap: wrap;
+  }
+  .group-name {
+    width: 100%;
+    min-width: 0;
+    flex-wrap: wrap;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .group-actions {
+    max-width: 100%;
+  }
+  .group-actions :deep(.gui-input) {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .group-proxy-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .group-proxy-grid :deep(.card-header_title) {
+    -webkit-line-clamp: 2;
+    overflow-wrap: anywhere;
+  }
+  .group-proxy-compact {
+    grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
+  }
+  .group-proxy-compact > div {
+    width: 100%;
+    height: 36px;
+  }
+}
+
+@media (max-width: 420px) {
+  .group-proxy-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 </style>

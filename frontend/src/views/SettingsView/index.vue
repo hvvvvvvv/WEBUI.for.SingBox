@@ -44,7 +44,7 @@ const appStore = useAppStore()
     :items="settings"
     tab-width="15%"
     content-width="85%"
-    class="settings-tabs h-full"
+    class="settings-layout h-full"
   >
     <template #extra>
       <Button type="text" @click="appStore.showAbout = true">
@@ -55,38 +55,44 @@ const appStore = useAppStore()
 </template>
 
 <style scoped>
-.settings-tabs {
-  min-width: 0;
-  min-height: 0;
-}
-.settings-tabs > :deep(.gui-tabs-tab + div) {
-  min-width: 0;
-  min-height: 0;
-}
 @media (max-width: 700px) {
-  .settings-tabs {
+  .settings-layout {
     flex-direction: column;
+    min-height: 0;
   }
-  .settings-tabs > :deep(.gui-tabs-tab) {
+  .settings-layout :deep(.gui-tabs-tab) {
     width: 100% !important;
-    min-width: 0;
-    flex: none;
     flex-direction: row;
-    flex-wrap: nowrap;
-    justify-content: flex-start;
-    gap: 4px;
+    flex-shrink: 0;
     overflow-x: auto;
-    overscroll-behavior-x: contain;
-    padding: 4px 0 8px;
     margin-bottom: 8px;
   }
-  .settings-tabs > :deep(.gui-tabs-tab > .gui-button) {
+  .settings-layout :deep(.gui-tabs-tab > .gui-button) {
     flex: 0 0 auto;
-    white-space: nowrap;
+    min-height: 44px;
   }
-  .settings-tabs > :deep(.gui-tabs-tab + div) {
+  .settings-layout :deep(.gui-tabs-content) {
     width: 100% !important;
     flex: 1;
+    min-width: 0;
+    min-height: 0;
+  }
+  .settings-layout :deep(.gui-tabs-content > .pr-20) {
+    padding-right: 4px;
+  }
+  .settings-layout :deep(.gui-switch) {
+    flex-shrink: 0;
+  }
+  .settings-layout :deep(.personalization-settings .gui-radio) {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .settings-layout :deep(.personalization-settings .gui-input) {
+    max-width: 100%;
+  }
+  .settings-layout :deep(.network-actions > .gui-button) {
+    min-height: 44px;
+    flex: 1 1 120px;
   }
 }
 </style>

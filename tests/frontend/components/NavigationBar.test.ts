@@ -32,7 +32,52 @@ describe('page visibility navigation', () => {
   afterEach(() => {
     app.unmount()
     host.remove()
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   })
+  it.each([390, 1280])(
+    'reveals the current navigation entry only on mobile (%ipx)',
+    async (width) => {
+      vi.stubGlobal('innerWidth', width)
+      const scrollPage = vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function () {
+        if (this.matches('.app-navigation')) return new DOMRect(20, 90, 200, 44)
+        if (this.tagName === 'BUTTON') {
+          const offsets: Record<string, number> = { Overview: 0, Plugins: 250, Settings: 520 }
+          const offset = offsets[this.textContent || ''] ?? 0
+          const scroll = this.closest('nav')?.scrollLeft ?? 0
+          return new DOMRect(20 + offset - scroll, 90, 100, 44)
+        }
+        return new DOMRect()
+      })
+      preferences.app = reactive({ pages: ['Overview', 'Plugins'] })
+      const router = createRouter({ history: createMemoryHistory(), routes })
+      await router.push('/settings')
+      host = document.createElement('div')
+      document.body.append(host)
+      app = createApp(NavigationBar)
+      app.component('Button', {
+        setup:
+          (_, { slots }) =>
+          () =>
+            h('button', slots.default?.()),
+      })
+      app.use(router)
+      app.mount(host)
+      await nextTick()
+      const navigation = host.querySelector('nav')!
+      expect(navigation.scrollLeft).toBe(width <= 700 ? 420 : 0)
+      navigation.scrollTop = 17
+      await router.push('/')
+      await nextTick()
+      expect(navigation.scrollLeft).toBe(0)
+      await router.push('/plugins')
+      await nextTick()
+      expect(navigation.scrollLeft).toBe(width <= 700 ? 150 : 0)
+      expect(navigation.scrollTop).toBe(17)
+      expect(scrollPage).not.toHaveBeenCalled()
+    },
+  )
   it('keeps Settings reachable and leaves a hidden current route even with no selected pages', async () => {
     preferences.app = reactive({ pages: ['Overview', 'Plugins'] })
     const router = createRouter({ history: createMemoryHistory(), routes })
