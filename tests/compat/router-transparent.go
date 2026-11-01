@@ -5,23 +5,96 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"net"
+	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
+	"connectrpc.com/connect"
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/types/known/emptypb"
 	"guiforcores/bridge/config"
 	"guiforcores/bridge/storage"
+	"guiforcores/gen/native/daemon"
+	"guiforcores/gen/native/daemon/daemonconnect"
 	profilev1 "guiforcores/gen/profile/v1"
 )
 
 func main() {
-	if err := generate(); err != nil {
+	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
+}
+
+func run() error {
+	if len(os.Args) > 1 && os.Args[1] == "mode" {
+		if len(os.Args) != 4 {
+			return fmt.Errorf("usage: probe mode CONFIG_PATH rule|global|direct")
+		}
+		return setMode(os.Args[2], os.Args[3])
+	}
+	return generate()
+}
+
+// The native core API speaks gRPC-Web, not Connect's JSON protocol. Use the
+// same generated client and bearer credential as the real lifecycle tests.
+func setMode(configPath, mode string) error {
+	if mode != "rule" && mode != "global" && mode != "direct" {
+		return fmt.Errorf("invalid core mode")
+	}
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return err
+	}
+	var generated struct {
+		Services []struct {
+			Type   string `json:"type"`
+			Tag    string `json:"tag"`
+			Listen string `json:"listen"`
+			Port   uint16 `json:"listen_port"`
+			Secret string `json:"secret"`
+		} `json:"services"`
+	}
+	if err := json.Unmarshal(data, &generated); err != nil {
+		return err
+	}
+	for _, service := range generated.Services {
+		if service.Type != "api" || service.Tag != config.CoreAPIServiceTag {
+			continue
+		}
+		if !net.ParseIP(service.Listen).IsLoopback() || service.Port == 0 || service.Secret == "" {
+			return fmt.Errorf("fixture native API must have a loopback listener and credential")
+		}
+		ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+		defer cancel()
+		transport := &http.Transport{Proxy: nil}
+		defer transport.CloseIdleConnections()
+		client := daemonconnect.NewStartedServiceClient(&http.Client{Transport: transport, Timeout: 3 * time.Second},
+			"http://"+net.JoinHostPort(service.Listen, strconv.Itoa(int(service.Port))), connect.WithGRPCWeb())
+		request := connect.NewRequest(&daemon.ClashMode{Mode: mode})
+		request.Header().Set("Authorization", "Bearer "+service.Secret)
+		if _, err := client.SetClashMode(ctx, request); err != nil {
+			return fmt.Errorf("set native core mode: %w", err)
+		}
+		statusRequest := connect.NewRequest(&emptypb.Empty{})
+		statusRequest.Header().Set("Authorization", "Bearer "+service.Secret)
+		status, err := client.GetClashModeStatus(ctx, statusRequest)
+		if err != nil {
+			return fmt.Errorf("read native core mode: %w", err)
+		}
+		if !strings.EqualFold(status.Msg.GetCurrentMode(), mode) {
+			return fmt.Errorf("native mode did not change to %s", mode)
+		}
+		return json.NewEncoder(os.Stdout).Encode(map[string]string{"mode": mode})
+	}
+	return fmt.Errorf("generated fixture has no managed native API service")
 }
 
 func generate() error {

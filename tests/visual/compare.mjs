@@ -62,7 +62,13 @@ try {
   await radio('简体中文').click()
   await radio('深色').click()
   await capture('00-settings-defaults-dark')
-  // Plugins and scheduled tasks are hidden on a fresh official installation.
+  const features = page.locator('.gui-card').filter({ hasText: '组件轮廓' }).filter({ hasText: '禁用动画' }).last()
+  await features.scrollIntoViewIfNeeded()
+  assert.equal(await features.locator('.gui-switch').count(), 5)
+  assert.equal(await features.locator('.gui-switch.on').count(), 0, 'the five optional features must be off on a fresh installation')
+  await capture('00b-feature-defaults-dark')
+  await page.getByText('个性化', { exact: true }).scrollIntoViewIfNeeded()
+  // Keep Plugins visible without changing the other fresh-install choices.
   const pluginsToggle = page.locator('.gui-checkbox-button').filter({ hasText: /^\s*插件\s*$/ })
   if (!await pluginsToggle.evaluate(el => el.classList.contains('active'))) await pluginsToggle.click()
   await navigate('插件', '/plugins')

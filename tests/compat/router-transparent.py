@@ -238,33 +238,22 @@ def request(domain, expected_address, expected_route, expected_dns, label):
     new_dns = [item for item in after["dns"][len(before["dns"]):] if item["domain"] == domain]
     if not new_dns or any(item["transport"] != expected_dns for item in new_dns):
         raise AssertionError(f"wrong DNS route: {new_dns}, expected {expected_dns}")
+    expected_dns_peer = ORIGIN if expected_dns == "tcp" else ROUTER_WAN
+    if any(item["peer"] != expected_dns_peer for item in new_dns):
+        raise AssertionError(f"DNS bypassed its configured outbound: {new_dns}, expected peer {expected_dns_peer}")
     if after["denied"]:
         raise AssertionError(f"unexpected proxy destinations: {after['denied']}")
     print(json.dumps({"case": label, "domain": domain, "dns_answer": address, "dns_transport": expected_dns,
                       "route": expected_route, "proxy_connects": proxied, "target_peer": result["peer"]}), flush=True)
 
 
-def mode(config_path, value):
-    config = json.loads(pathlib.Path(config_path).read_text())
-    service = next(item for item in config["services"] if item["type"] == "api")
-    endpoint = f"http://127.0.0.1:{service['listen_port']}/daemon.StartedService/"
-    headers = {"Authorization": "Bearer " + service["secret"], "Connect-Protocol-Version": "1"}
-    json_http(endpoint + "SetClashMode", {"mode": value}, headers)
-    status = json_http(endpoint + "GetClashModeStatus", {}, headers)
-    if status.get("currentMode", "").lower() != value:
-        raise AssertionError(f"native mode did not change to {value}")
-    print(json.dumps({"mode": value}), flush=True)
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=["serve", "mode", "request", "pollution", "verify"])
+    parser.add_argument("command", choices=["serve", "request", "pollution", "verify"])
     parser.add_argument("args", nargs="*")
     args = parser.parse_args()
     if args.command == "serve":
         serve(*args.args)
-    elif args.command == "mode":
-        mode(*args.args)
     elif args.command == "request":
         request(*args.args)
     elif args.command == "pollution":
@@ -273,4 +262,6 @@ if __name__ == "__main__":
         metrics = json_http("http://127.0.0.1:8081/metrics")
         if set(metrics["downloads"]) != set(RULES) or any(value != 1 for value in metrics["downloads"].values()) or metrics["denied"]:
             raise AssertionError(f"incomplete rule downloads or unexpected traffic: {metrics}")
+        if metrics["connect"].get(f"{ORIGIN}:1053", 0) < 1:
+            raise AssertionError("remote DNS never traversed the fixture HTTP proxy")
         print(json.dumps(metrics, indent=2))

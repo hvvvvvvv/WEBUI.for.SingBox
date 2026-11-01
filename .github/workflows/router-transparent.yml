@@ -36,6 +36,7 @@ jobs:
           python3 -m py_compile tests/compat/router-transparent.py
           bash -n tests/compat/router-transparent.sh
           go run tests/compat/router-transparent.go "$RUNNER_TEMP/transparent"
+          go build -o "$RUNNER_TEMP/transparent/probe" tests/compat/router-transparent.go
       - name: Verify LAN forwarding in disposable network namespaces
         shell: bash
         run: |

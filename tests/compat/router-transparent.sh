@@ -2,6 +2,7 @@
 # Linux cloud-runner acceptance test; requires root, iproute2, python3, /dev/net/tun.
 # From repository root, prepare as the normal build user:
 #   go run tests/compat/router-transparent.go "$RUNNER_TEMP/transparent"
+#   go build -o "$RUNNER_TEMP/transparent/probe" tests/compat/router-transparent.go
 # Then use a separately verified official Linux sing-box 1.14.4 binary:
 #   sudo bash tests/compat/router-transparent.sh "$CORE_BINARY" "$RUNNER_TEMP/transparent"
 # Three entirely private network namespaces; no host route/DNS/firewall changes.
@@ -17,6 +18,7 @@ core=$(realpath "${1:?verified sing-box 1.14.4 executable required}")
 output=$(realpath "${2:?generated fixture directory required}")
 helper=$(realpath "$(dirname "$0")/router-transparent.py")
 [[ -f "$output/config.json" ]] || { echo 'Run router-transparent.go first' >&2; exit 1; }
+[[ -x "$output/probe" ]] || { echo 'Build router-transparent.go as output/probe first' >&2; exit 1; }
 timeout 5s "$core" version > "$output/core-version.log"
 head -n 1 "$output/core-version.log" | grep -qx 'sing-box version 1.14.4' || { echo 'This acceptance fixture requires released sing-box 1.14.4' >&2; exit 1; }
 prefix="wut-${BASHPID}-${RANDOM}"
@@ -100,12 +102,12 @@ core_pid=$!
 ready=0
 for _ in {1..100}; do
   kill -0 "$core_pid"
-  if ip netns exec "$router" python3 "$helper" mode "$output/config.json" rule > "$output/api-ready.log" 2>&1; then ready=1; break; fi
+  if ip netns exec "$router" "$output/probe" mode "$output/config.json" rule > "$output/api-ready.log" 2>&1; then ready=1; break; fi
   sleep 0.1
 done
 (( ready == 1 )) || { echo 'Native core API did not become ready' >&2; exit 1; }
 ip -n "$router" -j -details -statistics link show dev webui-test-tun > "$output/tun.before.json"
-set_mode() { ip netns exec "$router" python3 "$helper" mode "$output/config.json" "$1"; }
+set_mode() { ip netns exec "$router" "$output/probe" mode "$output/config.json" "$1"; }
 probe() { ip netns exec "$client" python3 "$helper" request "$@" | tee -a "$output/assertions.jsonl"; }
 : > "$output/assertions.jsonl"
 probe google.com 203.0.113.10 proxy tcp rule-google
