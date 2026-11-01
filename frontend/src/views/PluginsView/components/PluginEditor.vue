@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, h, inject, ref, useTemplateRef, watch } from 'vue'
+import { computed, h, inject, nextTick, ref, useTemplateRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import { PluginApiError, usePluginsStore } from '@/stores/plugins'
@@ -84,8 +84,11 @@ const switchConfigurationMode = (mode: 'form' | 'json') => {
   }
 }
 const save = async (asCopy = false) => {
+  if (loading.value || reloading.value) return
   loading.value = true
   try {
+    // Flush imported/reloaded draft values into the editor before reading it.
+    await nextTick()
     // CodeMirror emits debounced updates; read its current document before saving.
     draft.value.source = sourceEditor.value?.getContent() ?? draft.value.source
     const plugin = { ...deepClone(draft.value), configuration: readConfiguration() }
@@ -140,7 +143,8 @@ const importSource = async (event: Event) => {
     message.error(error instanceof Error ? error.message : String(error))
   }
 }
-const exportSource = () => {
+const exportSource = async () => {
+  await nextTick()
   draft.value.source = sourceEditor.value?.getContent() ?? draft.value.source
   const url = URL.createObjectURL(new Blob([draft.value.source], { type: 'text/javascript' }))
   const link = document.createElement('a')
