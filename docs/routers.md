@@ -98,7 +98,9 @@ WebUI 根据实际核心版本处理 TUN `stack`：1.14 保留现有配置，1.1
 
 CI 配置包含 Linux x64/ARM64、Windows、macOS 原生测试及其他发布目标交叉编译；容器验证 IPv6 监听、额外参数传递和管理接口启动。完整 ARM64 QEMU 虚拟机分别启动官方 OpenWrt 21.02.7 与 24.10.4 镜像，使用四个模拟 CPU、512 MiB RAM、独立磁盘及私有用户态 NAT。前者覆盖 GL-MT3600BE 厂商固件所用的 OpenWrt 21.02/Linux 5.4 系列环境，后者覆盖较新的 OpenWrt 环境；均不是厂商固件镜像。
 
-虚拟机检查实际 procd 安装/启动/停止/重启、密码/TOTP/恢复码/会话撤销，以及 ARM64 Goja 插件与 sing-box 1.14.4 配置校验。本轮还加入本地规则源下的六规则集、更新失败与缓存恢复、默认模式和日志测试；使用回环 HTTP 代理与域名嗅探，不代替实际 TUN 或 dnsmasq 链路验证。镜像与核心下载均核对固定 SHA256，入口为 `tests/compat/openwrt-vm.sh`，日志保存在对应 Actions 的构建产物中。新增云端验收尚待运行，是否通过以该提交 Actions 结果为准。
+虚拟机检查实际 procd 安装/启动/停止/重启、密码/TOTP/恢复码/会话撤销，以及 ARM64 Goja 插件与 sing-box 1.14.4 配置校验。另覆盖本地规则源下的六规则集、更新失败与缓存恢复、默认模式和日志；使用回环 HTTP 代理与域名嗅探，不代替实际 TUN 或 dnsmasq 链路验证。镜像与核心下载均核对固定 SHA256，入口为 `tests/compat/openwrt-vm.sh`，日志保存在对应 Actions 的构建产物中。是否通过以该提交 Actions 结果为准。
+
+独立的 [Isolated transparent routing](https://github.com/Ghostdehole/WEBUI.for.SingBox/actions/workflows/router-transparent.yml) 在云端 Linux 的三个私有网络命名空间中运行真实 TUN、受控 DNS 与 HTTP 代理，验证 LAN 客户端的规则/全局分流、六规则集加载和 DNS 误归类对照。它使用保留网段模拟域名目的站，不访问公网 Google；通过 TUN 收包计数、规则命中、DNS 来源及 CONNECT 计数共同验收。范围为 IPv4、HTTP 和 UDP/TCP DNS，不覆盖 QUIC、TLS/DoH、厂商固件或实际节点质量。模拟错误 DNS 地址可重现两种模式路径不同，但不能据此认定用户实机故障原因。
 
 插件测试进程单独使用 `GOMAXPROCS=1` 并记录 GC 耗时，减少 QEMU TCG 在多个模拟 CPU 间的调度波动；WebUI 服务和认证测试仍使用四个模拟 CPU。插件单次执行 2 秒、流水线 5 秒的保护限额保持不变，模拟环境耗时不能作为实机性能基准。
 

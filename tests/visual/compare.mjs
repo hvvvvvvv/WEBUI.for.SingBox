@@ -14,7 +14,48 @@ const page = await context.newPage()
 const errors = []
 page.on('pageerror', error => errors.push(error.stack || error.message))
 page.setDefaultTimeout(20000)
+const waitForTheme = async mode => {
+  await page.waitForFunction(expected => document.body.getAttribute('theme-mode') === expected, mode)
+  await page.evaluate(async () => {
+    // The theme attribute changes inside the view-transition callback, before
+    // its old-page overlay disappears. Observe completion without skipping or
+    // replacing the application's real transition. Ignore infinite spinners.
+    let timer
+    const finished = async () => {
+      const canObserveTransition = CSS.supports('selector(:active-view-transition)')
+      let stableFrames = 0
+      while (stableFrames < 2) {
+        await new Promise(resolve => requestAnimationFrame(resolve))
+        const animations = document.getAnimations().filter(animation =>
+          (animation.playState === 'running' || animation.pending) &&
+          Number.isFinite(animation.effect?.getComputedTiming().endTime),
+        )
+        if (animations.length) {
+          stableFrames = 0
+          await Promise.allSettled(animations.map(animation => animation.finished))
+        } else if (canObserveTransition && document.documentElement.matches(':active-view-transition')) {
+          stableFrames = 0
+        } else {
+          stableFrames++
+        }
+      }
+    }
+    try {
+      await Promise.race([
+        finished(),
+        new Promise((_, reject) => {
+          timer = setTimeout(() => reject(new Error('theme animations did not finish within 5 seconds')), 5000)
+        }),
+      ])
+    } finally {
+      clearTimeout(timer)
+    }
+  })
+  assert.equal(await page.locator('body').getAttribute('theme-mode'), mode, 'theme changed while waiting for its animation')
+}
 const capture = async name => {
+  const mode = name.endsWith('-dark') ? 'dark' : name.endsWith('-light') ? 'light' : null
+  if (mode) await waitForTheme(mode)
   await page.screenshot({ path: path.join(output, `${name}.png`), fullPage: true, animations: 'disabled' })
   await fs.writeFile(path.join(output, `${name}.txt`), await page.locator('body').innerText())
 }
@@ -26,6 +67,21 @@ const navigate = async (name, route) => {
   await page.waitForURL(url => url.hash === `#${route}`)
 }
 const radio = name => page.locator('.gui-radio').getByText(name, { exact: true }).filter({ visible: true })
+const chooseTheme = async (name, mode) => {
+  await radio(name).click()
+  await waitForTheme(mode)
+  if (process.env.VISUAL_TARGET === 'webui') {
+    // The production preference writer is debounced by 500 ms. Do not reload
+    // until it has persisted the choice made through the actual UI.
+    await page.waitForFunction(expected => {
+      try {
+        return JSON.parse(localStorage.getItem('appSettings') || 'null')?.theme === expected
+      } catch {
+        return false
+      }
+    }, mode)
+  }
+}
 const tab = name => page.locator('.gui-tabs-tab').filter({ visible: true }).last().getByText(name, { exact: true })
 const dialog = () => page.locator('.gui-modal-modal').filter({ visible: true }).last()
 const dialogButton = name => dialog().getByRole('button', { name, exact: true })
@@ -60,12 +116,17 @@ try {
   // the real setting, rather than assuming the browser locale overrides it.
   await page.goto(`${baseURL}/#/settings`)
   await radio('简体中文').click()
-  await radio('深色').click()
+  await chooseTheme('深色', 'dark')
   await capture('00-settings-defaults-dark')
   const features = page.locator('.gui-card').filter({ hasText: '组件轮廓' }).filter({ hasText: '禁用动画' }).last()
   await features.scrollIntoViewIfNeeded()
-  assert.equal(await features.locator('.gui-switch').count(), 5)
-  assert.equal(await features.locator('.gui-switch.on').count(), 0, 'the five optional features must be off on a fresh installation')
+  for (const label of ['组件轮廓', '禁用动画', '禁用圆角', '使用指针光标', '使用左右标签布局']) {
+    const row = features.locator('.px-8.py-12').filter({ hasText: label })
+    assert.equal(await row.locator('.gui-switch').count(), 1, `expected one switch for ${label}`)
+    assert.equal(await row.locator('.gui-switch.on').count(), 0, `${label} must be off on a fresh installation`)
+  }
+  // Official v1.28.1 has an additional Linux-only window-border switch.
+  if (process.env.VISUAL_TARGET === 'webui') assert.equal(await features.locator('.gui-switch').count(), 5)
   await capture('00b-feature-defaults-dark')
   await page.getByText('个性化', { exact: true }).scrollIntoViewIfNeeded()
   // Keep Plugins visible without changing the other fresh-install choices.
@@ -117,7 +178,7 @@ try {
   await closeDialog()
   await page.setViewportSize({ width: 1440, height: 1000 })
   await navigate('设置', '/settings')
-  await radio('浅色').click()
+  await chooseTheme('浅色', 'light')
   await capture('11-settings-light')
   await navigate('插件', '/plugins')
   await page.getByText('插件列表为空', { exact: false }).waitFor()
@@ -139,7 +200,7 @@ try {
     await page.locator('.personalization-settings input[type=file][accept="image/png,image/jpeg,image/webp"]').setInputFiles({ name: 'cloud-test-background.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') })
     await page.locator('.app-background-image').waitFor()
     await capture('14-background-light')
-    await radio('深色').click()
+    await chooseTheme('深色', 'dark')
     await capture('15-background-dark')
     await page.reload()
     await page.locator('.app-background-image').waitFor()

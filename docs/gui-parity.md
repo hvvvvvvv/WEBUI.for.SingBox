@@ -8,7 +8,7 @@
 
 目标是保留配置、订阅、规则集、插件、计划任务和核心管理的操作方式，并把需要持续运行的工作放到服务器后端。
 
-云端对照使用隔离数据运行官方 Wails 后端与 WebUI 后端；本轮新增验收尚待运行，是否通过以对应提交的 Actions 结果和截图产物为准。
+云端对照使用隔离数据运行官方 Wails 后端与 WebUI 后端；每次验收结果及深浅色、手机布局截图见 [Cloud GUI comparison](https://github.com/Ghostdehole/WEBUI.for.SingBox/actions/workflows/gui-parity.yml)，不启动用户电脑上的 GUI。
 
 ## 1.28.1 操作与手机布局修正
 
