@@ -19,6 +19,13 @@ output=$(realpath "${2:?generated fixture directory required}")
 helper=$(realpath "$(dirname "$0")/router-transparent.py")
 [[ -f "$output/config.json" ]] || { echo 'Run router-transparent.go first' >&2; exit 1; }
 [[ -x "$output/probe" ]] || { echo 'Build router-transparent.go as output/probe first' >&2; exit 1; }
+# netns does not isolate the host's resolved/DBus sockets. Match OpenWrt's
+# absence of resolvectl without changing the host's resolver configuration.
+core_path=$(mktemp -d "$output/core-bin.XXXXXX")
+for tool in ip nft iptables ip6tables; do
+  binary=$(command -v "$tool" || true)
+  [[ -z "$binary" ]] || ln -s "$binary" "$core_path/$tool"
+done
 timeout 5s "$core" version > "$output/core-version.log"
 head -n 1 "$output/core-version.log" | grep -qx 'sing-box version 1.14.4' || { echo 'This acceptance fixture requires released sing-box 1.14.4' >&2; exit 1; }
 prefix="wut-${BASHPID}-${RANDOM}"
@@ -96,8 +103,8 @@ for _ in {1..50}; do
   sleep 0.1
 done
 [[ -f "$output/fixture.ready" ]] || { echo 'Fixture services did not start' >&2; exit 1; }
-ip netns exec "$router" "$core" check -c "$output/config.json" -D "$output" > "$output/core-check.log" 2>&1
-ip netns exec "$router" "$core" run --disable-color -c "$output/config.json" -D "$output" > "$output/core.log" 2>&1 &
+ip netns exec "$router" env PATH="$core_path" "$core" check -c "$output/config.json" -D "$output" > "$output/core-check.log" 2>&1
+ip netns exec "$router" env PATH="$core_path" "$core" run --disable-color -c "$output/config.json" -D "$output" > "$output/core.log" 2>&1 &
 core_pid=$!
 ready=0
 for _ in {1..100}; do

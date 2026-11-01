@@ -151,7 +151,9 @@ try {
     emptyStates.push({
       name,
       icon: await empty.locator(':scope > :first-child').boundingBox(),
-      description: await empty.locator(':scope > :last-child').boundingBox(),
+      // Upstream subscriptions append an empty CustomAction container after
+      // the description; measure the text row, not that optional extension.
+      description: await empty.locator(':scope > .mt-12').boundingBox(),
     })
     await capture(`01-empty-${route.slice(1)}-dark`)
   }

@@ -7,6 +7,8 @@ on:
       - 'bridge/config/**'
       - 'tests/fixtures/**'
       - 'tests/compat/router-transparent.*'
+      - 'tests/integration/router-dns-chain.*'
+      - 'tests/integration/test_router_dns_chain.py'
       - '.github/workflows/router-transparent.yml'
   workflow_dispatch:
 
@@ -16,12 +18,19 @@ permissions:
 jobs:
   transparent-routing:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-go@v6
         with:
           go-version-file: go.mod
+      - name: Ensure nftables tooling for the auto redirect matrix
+        shell: bash
+        run: |
+          if ! command -v nft >/dev/null; then
+            sudo timeout 180s apt-get update -qq
+            sudo timeout 180s apt-get install --yes --no-install-recommends nftables
+          fi
       - name: Prepare the real core and generated default profile
         shell: bash
         run: |
@@ -35,6 +44,9 @@ jobs:
           tar -xzf "$RUNNER_TEMP/transparent-core/core.tar.gz" -C "$RUNNER_TEMP/transparent-core" --strip-components=1
           python3 -m py_compile tests/compat/router-transparent.py
           bash -n tests/compat/router-transparent.sh
+          python3 -m py_compile tests/integration/router-dns-chain.py
+          python3 -m unittest discover -s tests/integration -p 'test_router_dns_chain.py'
+          bash -n tests/integration/router-dns-chain.sh
           go run tests/compat/router-transparent.go "$RUNNER_TEMP/transparent"
           go build -o "$RUNNER_TEMP/transparent/probe" tests/compat/router-transparent.go
       - name: Verify LAN forwarding in disposable network namespaces
@@ -42,9 +54,26 @@ jobs:
         run: |
           sudo bash tests/compat/router-transparent.sh \
             "$RUNNER_TEMP/transparent-core/sing-box" "$RUNNER_TEMP/transparent"
+      - name: Verify native/hijack DNS forwarding with and without auto redirect
+        shell: bash
+        run: |
+          sudo bash tests/integration/router-dns-chain.sh \
+            "$RUNNER_TEMP/transparent-core/sing-box" "$RUNNER_TEMP/transparent" "$RUNNER_TEMP/dns-chain"
       - if: always()
         uses: actions/upload-artifact@v6
         with:
           name: transparent-routing-logs
           path: ${{ runner.temp }}/transparent/*.log
+          retention-days: 7
+      - if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: dns-forwarding-matrix-logs
+          path: |
+            ${{ runner.temp }}/dns-chain/**/*.log
+            ${{ runner.temp }}/dns-chain/**/*.jsonl
+            ${{ runner.temp }}/dns-chain/**/config.redacted.json
+            ${{ runner.temp }}/dns-chain/**/tun.*.json
+            ${{ runner.temp }}/dns-chain/host-*.json
+            ${{ runner.temp }}/dns-chain/host-*.sha256
           retention-days: 7
